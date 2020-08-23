@@ -14,7 +14,8 @@ categories = ["development-tools"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-quick-js = "0.3.3"
+#quick-js = "0.3.3"
+quick-js = {path = "../quickjs-rs"}
 lazy_static = "1.4.0"
 log = "0.4.11"
 simple-logging = "2.0.2"

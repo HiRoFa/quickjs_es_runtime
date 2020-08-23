@@ -11,3 +11,9 @@ impl EsRuntimeBuilder {
         Self {}
     }
 }
+
+impl Default for EsRuntimeBuilder {
+    fn default() -> Self {
+        EsRuntimeBuilder::new()
+    }
+}

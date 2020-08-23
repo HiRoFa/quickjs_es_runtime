@@ -1,0 +1,5 @@
+import {mltpl} from "test_module.mes";
+
+console.info("hello world from test.mes, 5 * 6 = %s", mltpl(5, 6));
+
+

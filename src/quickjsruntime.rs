@@ -4,6 +4,7 @@ use crate::esscript::EsScript;
 use crate::quickjsconsole::QuickJsConsole;
 use quick_js::{Context, ExecutionError, JsValue};
 use std::cell::RefCell;
+use log::trace;
 
 thread_local! {
    /// the thread-local SpiderMonkeyRuntime
@@ -29,6 +30,10 @@ impl QuickJsRuntime {
         self.context.eval(script.get_code())
     }
 
+    pub fn eval_module(&self, script: EsScript) -> Result<JsValue, ExecutionError> {
+        self.context.eval_module(script.get_path(), script.get_code())
+    }
+
     pub(crate) fn do_with<C, R>(task: C) -> R
     where
         C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,
@@ -39,4 +44,19 @@ impl QuickJsRuntime {
             task(qjs_rt)
         })
     }
+
+    pub fn has_pending_jobs(&self) -> bool {
+
+        let res = self.context.has_pending_jobs();
+        trace!("QuickJSRuntime::has_pending_jobs = {}", res);
+        res
+
+    }
+
+    pub fn run_pending_job(&self)  -> Result<(), ExecutionError>{
+        let res = self.context.run_pending_job();
+        trace!("QuickJSRuntime::run_pending_job ok = {}", res.is_ok());
+        res
+    }
+
 }

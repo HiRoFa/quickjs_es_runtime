@@ -61,7 +61,7 @@ mod tests {
 
         assert_eq!(s, "res");
 
-        for _x in 0..1000 {
+        for _x in 0..5 {
             let s = tm.run_task_blocking(|| "res");
 
             assert_eq!(s, "res");
