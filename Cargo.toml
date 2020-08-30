@@ -15,7 +15,8 @@ categories = ["development-tools"]
 
 [dependencies]
 #quick-js = "0.3.3"
-quick-js = {path = "../quickjs-rs"}
+libquickjs-sys = {path = "../quickjs-rs/libquickjs-sys"}
+# quick-js = {path = "../quickjs-rs"}
 lazy_static = "1.4.0"
 log = "0.4.11"
 simple-logging = "2.0.2"
@@ -29,4 +30,5 @@ either = "1.6.0"
 [dev-dependencies.cargo-husky]
 version = "1.5.0"
 default-features = false # Disable features which are enabled by default
-features = ["precommit-hook", "run-cargo-test", "run-cargo-clippy"]
+features = []
+#features = ["precommit-hook", "run-cargo-test", "run-cargo-clippy"]

@@ -1,0 +1,20 @@
+[00:00:00.000] (7f843af7a700) TRACE  EsEventQueue::exe_task
+[00:00:00.000] (7f843af7a700) TRACE  EsEventQueue::exe_task / create channel
+[00:00:00.000] (7f843af7a700) TRACE  EsEventQueue::add_task
+[00:00:00.000] (7f843af7a700) TRACE  lock mutex:EsEventQueue::jobs for: add_task from thread: 140205901719296
+[00:00:00.000] (7f843af7a700) TRACE  EsEventQueue::add_task / notify
+[00:00:00.000] (7f843af7a700) TRACE  EsEventQueue::exe_task / receive
+[00:00:00.001] (7f843ad79700) TRACE  lock mutex:EsEventQueue::jobs for: worker_loop from thread: 140205899618048
+[00:00:00.001] (7f843ad79700) TRACE  EsEventQueue::exe_task / job
+[00:00:00.001] (7f843ad79700) TRACE  setting up module loader
+[00:00:00.001] (7f843ad79700) INFO   console: log, before res
+[00:00:00.002] (7f843ad79700) INFO   console: log, after res
+[00:00:00.002] (7f843ad79700) TRACE  EsEventQueue::exe_task / send
+[00:00:00.002] (7f843ad79700) TRACE  lock mutex:EsEventQueue::jobs for: worker_loop from thread: 140205899618048
+[00:00:00.002] (7f843af7a700) TRACE  EsEventQueue::exe_task / received
+[00:00:00.002] (7f843af7a700) TRACE  EsEventQueue::add_task
+[00:00:00.002] (7f843af7a700) TRACE  lock mutex:EsEventQueue::jobs for: add_task from thread: 140205901719296
+[00:00:00.002] (7f843af7a700) TRACE  EsEventQueue::add_task / notify
+[00:00:00.002] (7f843ad79700) TRACE  QuickJSRuntime::has_pending_jobs = true
+[00:00:00.002] (7f843ad79700) TRACE  QuickJSRuntime::run_pending_job ok = true
+[00:00:00.00
