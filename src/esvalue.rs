@@ -156,44 +156,17 @@ impl EsValueConvertible for Vec<EsValueFacade> {
     fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSVal, EsError> {
         // create the array
 
-        let arr = unsafe { q::JS_NewArray(q_js_rt.context) };
-        if arr.tag == TAG_EXCEPTION {
-            return Err(EsError::new_str("Could not create array in runtime"));
-        }
+        let arr = crate::quickjs_utils::arrays::create_array(q_js_rt)
+            .ok()
+            .unwrap();
 
         // add items
         for index in 0..self.len() {
             let item = self.get(index).unwrap();
 
-            let qvalue = match item.to_js_value(q_js_rt) {
-                Ok(qval) => qval,
-                Err(e) => {
-                    // Make sure to free the array if a individual element
-                    // fails.
-                    unsafe {
-                        free_value(q_js_rt.context, arr);
-                    }
-                    return Err(e);
-                }
-            };
+            let item_val_ref = item.to_js_value(q_js_rt)?;
 
-            let ret = unsafe {
-                q::JS_DefinePropertyValueUint32(
-                    q_js_rt.context,
-                    arr,
-                    index as u32,
-                    qvalue,
-                    q::JS_PROP_C_W_E as i32,
-                )
-            };
-            if ret < 0 {
-                // Make sure to free the array if a individual
-                // element fails.
-                unsafe {
-                    free_value(q_js_rt.context, arr);
-                }
-                return Err(EsError::new_str("Could not append element to array"));
-            }
+            crate::quickjs_utils::arrays::set_element(q_js_rt, &arr, index as u32, &item_val_ref)?;
         }
         Ok(arr)
     }
@@ -208,12 +181,11 @@ impl EsValueConvertible for Vec<EsValueFacade> {
 }
 
 impl EsValueConvertible for HashMap<String, EsValueFacade> {
-    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSVal, EsError> {
+    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
         // create new obj
-        let obj = unsafe { q::JS_NewObject(q_js_rt.context) };
-        if obj.tag == TAG_EXCEPTION {
-            return Err(EsError::new_str("Could not create object"));
-        }
+        let obj_ref = crate::quickjs_utils::objects::create_object(q_js_rt)
+            .ok()
+            .unwrap();
 
         for prop in self {
             let prop_name = prop.0;
@@ -221,39 +193,17 @@ impl EsValueConvertible for HashMap<String, EsValueFacade> {
 
             // set prop in obj
 
-            let ckey = make_cstring(prop_name.clone());
+            let property_value_ref = prop_esvf.to_js_value(q_js_rt)?;
 
-            let qvalue_res = prop_esvf.to_js_value(q_js_rt);
-
-            if qvalue_res.is_err() {
-                unsafe {
-                    // Free the object if a property failed.
-                    free_value(q_js_rt.context, obj);
-                }
-                return Err(qvalue_res.err().unwrap());
-            }
-
-            let qvalue = qvalue_res.ok().unwrap();
-
-            let ret = unsafe {
-                q::JS_DefinePropertyValueStr(
-                    q_js_rt.context,
-                    obj,
-                    ckey.ok().unwrap().as_ptr(),
-                    qvalue,
-                    q::JS_PROP_C_W_E as i32,
-                )
-            };
-            if ret < 0 {
-                // Free the object if a property failed.
-                unsafe {
-                    free_value(q_js_rt.context, obj);
-                }
-                return Err(EsError::new_str("Could not add property to object"));
-            }
+            crate::quickjs_utils::objects::set_property(
+                q_js_rt,
+                &obj_ref,
+                prop_name.as_str(),
+                &property_value_ref,
+            )?;
         }
 
-        Ok(obj)
+        Ok(obj_ref)
     }
 
     fn is_object(&self) -> bool {
@@ -270,7 +220,7 @@ pub struct EsValueFacade {
 }
 
 impl EsValueFacade {
-    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSVal, EsError> {
+    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
         self.convertible.to_js_value(q_js_rt)
     }
 
@@ -316,7 +266,7 @@ impl EsValueFacade {
             }
             // Object.
             TAG_OBJECT => {
-                let is_array = unsafe { q::JS_IsArray(q_js_rt.context, *r) } > 0;
+                let is_array = crate::quickjs_utils::arrays::is_array(q_js_rt, value_ref);
                 if is_array {
                     Self::from_jsval_array(q_js_rt, r)
                 } else {
@@ -406,29 +356,17 @@ impl EsValueFacade {
 
     fn from_jsval_array(
         q_js_rt: &QuickJsRuntime,
-        raw_value: &q::JSValue,
+        value_ref: &OwnedValueRef,
     ) -> Result<EsValueFacade, EsError> {
-        assert_eq!(raw_value.tag, TAG_OBJECT);
+        assert_eq!(value_ref.tag, TAG_OBJECT);
 
         let context: *mut q::JSContext = q_js_rt.context;
 
-        let length_name = make_cstring("length")
-            .ok()
-            .expect("could not create cstring");
-
-        let len_raw = unsafe { q::JS_GetPropertyStr(context, *raw_value, length_name.as_ptr()) };
-
-        let len_res = EsValueFacade::from_jsval(q_js_rt, &OwnedValueRef::new(len_raw));
-
-        if len_res.is_err() {
-            return Err(EsError::new_str("Could not determine array length"));
-        }
-
-        let len: i32 = len_res.ok().unwrap().get_i32();
+        let len = crate::quickjs_utils::arrays::get_length(q_js_rt, value_ref)?;
 
         let mut values = Vec::new();
         for index in 0..(len as usize) {
-            let value_raw = unsafe { q::JS_GetPropertyUint32(context, *raw_value, index as u32) };
+            let value_raw = unsafe { q::JS_GetPropertyUint32(context, *value_ref, index as u32) };
             if value_raw.tag == TAG_EXCEPTION {
                 return Err(EsError::new_str("Could not build array"));
             }
