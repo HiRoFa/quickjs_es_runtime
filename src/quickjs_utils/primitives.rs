@@ -1,6 +1,6 @@
 use crate::eserror::EsError;
 use crate::quickjsruntime::{
-    OwnedValueRef, QuickJsRuntime, TAG_BOOL, TAG_EXCEPTION, TAG_FLOAT64, TAG_INT, TAG_STRING,
+    OwnedValueRef, QuickJsRuntime, TAG_BOOL, TAG_FLOAT64, TAG_INT, TAG_STRING,
 };
 use libquickjs_sys as q;
 use libquickjs_sys::JSValue as JSVal;
@@ -24,7 +24,7 @@ pub fn to_bool(value_ref: &OwnedValueRef) -> Result<bool, EsError> {
 pub fn from_bool(b: bool) -> OwnedValueRef {
     OwnedValueRef::new(q::JSValue {
         u: q::JSValueUnion {
-            int32: if *b { 1 } else { 0 },
+            int32: if b { 1 } else { 0 },
         },
         tag: TAG_BOOL,
     })
@@ -46,7 +46,7 @@ pub fn to_f64(value_ref: &OwnedValueRef) -> Result<f64, EsError> {
 
 pub fn from_f64(f: f64) -> OwnedValueRef {
     OwnedValueRef::new(q::JSValue {
-        u: q::JSValueUnion { float64: *f },
+        u: q::JSValueUnion { float64: f },
         tag: TAG_FLOAT64,
     })
 }
@@ -98,13 +98,13 @@ pub fn to_string(q_js_rt: &QuickJsRuntime, value_ref: &OwnedValueRef) -> Result<
     Ok(s)
 }
 
-pub fn from_string(s: &str) -> Result<OwnedValueRef, EsError> {
+pub fn from_string(q_js_rt: &QuickJsRuntime, s: &str) -> Result<OwnedValueRef, EsError> {
     let qval =
         unsafe { q::JS_NewStringLen(q_js_rt.context, s.as_ptr() as *const c_char, s.len() as _) };
-
-    if qval.tag == TAG_EXCEPTION {
+    let ret = OwnedValueRef::new(qval);
+    if ret.is_exception() {
         return Err(EsError::new_str("Could not create string in runtime"));
     }
 
-    Ok(qval)
+    Ok(ret)
 }

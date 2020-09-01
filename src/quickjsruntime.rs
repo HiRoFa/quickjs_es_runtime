@@ -247,6 +247,11 @@ impl OwnedValueRef {
         self.value.tag == TAG_NULL
     }
 
+    /// return true if the wrapped value represents a JS null value
+    pub fn is_undefined(&self) -> bool {
+        self.value.tag == TAG_UNDEFINED
+    }
+
     /// return true if the wrapped value represents a JS boolean value
     pub fn is_bool(&self) -> bool {
         self.value.tag == TAG_BOOL

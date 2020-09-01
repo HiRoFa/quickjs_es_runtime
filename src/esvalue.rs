@@ -1,11 +1,9 @@
-use crate::droppable_value::DroppableValue;
 use crate::eserror::EsError;
 use crate::quickjsruntime::{
-    free_value, make_cstring, OwnedValueRef, QuickJsRuntime, TAG_BOOL, TAG_EXCEPTION, TAG_FLOAT64,
-    TAG_INT, TAG_NULL, TAG_OBJECT, TAG_UNDEFINED,
+    OwnedValueRef, QuickJsRuntime, TAG_BOOL, TAG_FLOAT64, TAG_INT, TAG_NULL, TAG_OBJECT,
+    TAG_UNDEFINED,
 };
 use std::collections::HashMap;
-use std::os::raw::c_char;
 use std::sync::mpsc::RecvTimeoutError;
 use std::time::Duration;
 
@@ -86,7 +84,7 @@ struct EsUndefinedValue {}
 struct EsNullValue {}
 
 impl EsValueConvertible for EsNullValue {
-    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<JSVal, EsError> {
+    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
         Ok(crate::quickjs_utils::new_null())
     }
 }
@@ -99,7 +97,7 @@ impl EsValueConvertible for EsUndefinedValue {
 
 impl EsValueConvertible for String {
     fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
-        crate::quickjs_utils::primitives::from_string(self.as_str())
+        crate::quickjs_utils::primitives::from_string(q_js_rt, self.as_str())
     }
 
     fn is_str(&self) -> bool {
@@ -153,7 +151,7 @@ impl EsValueConvertible for f64 {
 }
 
 impl EsValueConvertible for Vec<EsValueFacade> {
-    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSVal, EsError> {
+    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
         // create the array
 
         let arr = crate::quickjs_utils::arrays::create_array(q_js_rt)
@@ -268,7 +266,7 @@ impl EsValueFacade {
             TAG_OBJECT => {
                 let is_array = crate::quickjs_utils::arrays::is_array(q_js_rt, value_ref);
                 if is_array {
-                    Self::from_jsval_array(q_js_rt, r)
+                    Self::from_jsval_array(q_js_rt, value_ref)
                 } else {
                     #[cfg(feature = "chrono")]
                     {
@@ -313,7 +311,7 @@ impl EsValueFacade {
                         }
                     }
 
-                    Self::from_jsval_object(q_js_rt, r)
+                    Self::from_jsval_object(q_js_rt, value_ref)
                 }
             }
             // BigInt
@@ -358,22 +356,17 @@ impl EsValueFacade {
         q_js_rt: &QuickJsRuntime,
         value_ref: &OwnedValueRef,
     ) -> Result<EsValueFacade, EsError> {
-        assert_eq!(value_ref.tag, TAG_OBJECT);
-
-        let context: *mut q::JSContext = q_js_rt.context;
+        assert!(value_ref.is_object());
 
         let len = crate::quickjs_utils::arrays::get_length(q_js_rt, value_ref)?;
 
         let mut values = Vec::new();
-        for index in 0..(len as usize) {
-            let value_raw = unsafe { q::JS_GetPropertyUint32(context, *value_ref, index as u32) };
-            if value_raw.tag == TAG_EXCEPTION {
-                return Err(EsError::new_str("Could not build array"));
-            }
-            let value_res = EsValueFacade::from_jsval(q_js_rt, &OwnedValueRef::new(value_raw));
+        for index in 0..len {
+            let element_ref = crate::quickjs_utils::arrays::get_element(q_js_rt, value_ref, index)?;
 
-            let value = value_res?;
-            values.push(value);
+            let element_value = EsValueFacade::from_jsval(q_js_rt, &element_ref)?;
+
+            values.push(element_value);
         }
 
         Ok(values.to_es_value_facade())
@@ -381,63 +374,15 @@ impl EsValueFacade {
 
     fn from_jsval_object(
         q_js_rt: &QuickJsRuntime,
-        obj: &q::JSValue,
+        obj_ref: &OwnedValueRef,
     ) -> Result<EsValueFacade, EsError> {
-        assert_eq!(obj.tag, TAG_OBJECT);
-
-        let context: *mut q::JSContext = q_js_rt.context;
-
-        let mut properties: *mut q::JSPropertyEnum = std::ptr::null_mut();
-        let mut count: u32 = 0;
-
-        let flags = (q::JS_GPN_STRING_MASK | q::JS_GPN_SYMBOL_MASK | q::JS_GPN_ENUM_ONLY) as i32;
-        let ret =
-            unsafe { q::JS_GetOwnPropertyNames(context, &mut properties, &mut count, *obj, flags) };
-        if ret != 0 {
-            return Err(EsError::new_str("Could not get object properties"));
-        }
-
-        // TODO: refactor into a more Rust-idiomatic iterator wrapper.
-        let properties = DroppableValue::new(properties, |&mut properties| {
-            for index in 0..count {
-                let prop = unsafe { properties.offset(index as isize) };
-                unsafe {
-                    q::JS_FreeAtom(context, (*prop).atom);
-                }
-            }
-            unsafe {
-                q::js_free(context, properties as *mut std::ffi::c_void);
-            }
-        });
+        assert!(obj_ref.is_object());
 
         let mut map: HashMap<String, EsValueFacade> = HashMap::new();
-        for index in 0..count {
-            let prop = unsafe { (*properties).offset(index as isize) };
-            let raw_value =
-                unsafe { q::JS_GetPropertyInternal(context, *obj, (*prop).atom, *obj, 0) };
-            if raw_value.tag == TAG_EXCEPTION {
-                return Err(EsError::new_str("Could not get object property"));
-            }
-
-            let value_res = EsValueFacade::from_jsval(q_js_rt, &OwnedValueRef::new(raw_value));
-
-            let value = value_res?;
-
-            let key_value = unsafe { q::JS_AtomToString(context, (*prop).atom) };
-            if key_value.tag == TAG_EXCEPTION {
-                return Err(EsError::new_str("Could not get object property name"));
-            }
-
-            let key_res = EsValueFacade::from_jsval(q_js_rt, &OwnedValueRef::new(key_value));
-
-            if key_res.is_err() {
-                return Err(EsError::new_str("Could not get property name"));
-            }
-
-            let key = key_res.ok().unwrap().get_str();
-            map.insert(key.to_string(), value);
-        }
-
+        crate::quickjs_utils::objects::traverse_properties(q_js_rt, obj_ref, |key, val| {
+            map.insert(key.to_string(), EsValueFacade::from_jsval(q_js_rt, &val)?);
+            Ok(())
+        });
         Ok(map.to_es_value_facade())
     }
     /// get the String value

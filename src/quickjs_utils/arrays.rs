@@ -1,5 +1,6 @@
 use crate::eserror::EsError;
-use crate::quickjsruntime::{make_cstring, OwnedValueRef, QuickJsRuntime};
+use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime};
+use libquickjs_sys as q;
 
 pub fn is_array(q_js_rt: &QuickJsRuntime, obj_ref: &OwnedValueRef) -> bool {
     let r = &obj_ref.value;
@@ -43,4 +44,17 @@ pub fn set_element(
         return Err(EsError::new_str("Could not append element to array"));
     }
     Ok(())
+}
+
+pub fn get_element(
+    q_js_rt: &QuickJsRuntime,
+    array_ref: &OwnedValueRef,
+    index: u32,
+) -> Result<OwnedValueRef, EsError> {
+    let value_raw = unsafe { q::JS_GetPropertyUint32(q_js_rt.context, *&array_ref.value, index) };
+    let ret = OwnedValueRef::new(value_raw);
+    if ret.is_exception() {
+        return Err(EsError::new_str("Could not build array"));
+    }
+    Ok(ret)
 }

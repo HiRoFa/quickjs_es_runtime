@@ -9,6 +9,7 @@ pub(crate) mod primitives;
 pub(crate) mod promises;
 pub(crate) mod reflection;
 pub(crate) mod typedarrays;
+use libquickjs_sys as q;
 
 /// todo
 /// runtime and context in thread_local here
