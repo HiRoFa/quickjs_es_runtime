@@ -1,5 +1,6 @@
 use crate::droppable_value::DroppableValue;
 use crate::eserror::EsError;
+use crate::quickjs_utils::get_global;
 use crate::quickjsruntime::{make_cstring, OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
 use std::collections::HashMap;
@@ -173,4 +174,37 @@ where
     }
 
     Ok(map)
+}
+
+pub fn is_instance_of(
+    q_js_rt: &QuickJsRuntime,
+    obj_ref: &OwnedValueRef,
+    constructor_ref: OwnedValueRef,
+) -> bool {
+    if !obj_ref.is_object() {
+        return false;
+    }
+    let ret =
+        unsafe { q::JS_IsInstanceOf(q_js_rt.context, obj_ref.value, constructor_ref.value) > 0 };
+
+    ret
+}
+
+pub fn is_instance_of_by_name(
+    q_js_rt: &QuickJsRuntime,
+    obj_ref: &OwnedValueRef,
+    constructor_name: &str,
+) -> Result<bool, EsError> {
+    if !obj_ref.is_object() {
+        return Ok(false);
+    }
+
+    let global_ref = get_global(q_js_rt);
+
+    let constructor_ref = get_property(q_js_rt, &global_ref, constructor_name)?;
+    if !constructor_ref.is_object() {
+        return Ok(false);
+    }
+
+    Ok(is_instance_of(q_js_rt, obj_ref, constructor_ref))
 }

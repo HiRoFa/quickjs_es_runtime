@@ -1,4 +1,4 @@
-use crate::quickjsruntime::{OwnedValueRef, TAG_NULL, TAG_UNDEFINED};
+use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime, TAG_NULL, TAG_UNDEFINED};
 
 pub(crate) mod arrays;
 pub(crate) mod bigints;
@@ -28,4 +28,9 @@ pub fn new_null() -> OwnedValueRef {
         u: q::JSValueUnion { int32: 0 },
         tag: TAG_NULL,
     })
+}
+
+pub fn get_global(q_js_rt: &QuickJsRuntime) -> OwnedValueRef {
+    let global = unsafe { q::JS_GetGlobalObject(q_js_rt.context) };
+    OwnedValueRef::new(global)
 }

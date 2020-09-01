@@ -1,5 +1,5 @@
 use crate::eserror::EsError;
-use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime};
+use crate::quickjsruntime::{make_cstring, OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
 
 pub fn call_to_string(
@@ -21,4 +21,81 @@ pub fn call_to_string(
         }
         crate::quickjs_utils::primitives::to_string(q_js_rt, &res_ref)
     }
+}
+
+pub fn new_native_function(
+    q_js_rt: &QuickJsRuntime,
+    name: &str,
+    func: q::JSCFunction,
+    arg_count: u32,
+    is_constructor: bool,
+) -> Result<OwnedValueRef, EsError> {
+    let cname = make_cstring(name).ok().expect("could not create cstring");
+    let magic = 1;
+
+    let cproto = if is_constructor {
+        q::JSCFunctionEnum_JS_CFUNC_constructor
+    } else {
+        q::JSCFunctionEnum_JS_CFUNC_generic
+    };
+
+    let func_val = unsafe {
+        q::JS_NewCFunction2(
+            q_js_rt.context,
+            func,
+            cname.as_ptr(),
+            arg_count as i32,
+            cproto,
+            magic,
+        )
+    };
+    let func_ref = OwnedValueRef::new(func_val);
+
+    if !func_ref.is_object() {
+        return Err(EsError::new_str("Could not create new_native_function"));
+    } else {
+        Ok(func_ref)
+    }
+}
+
+pub fn new_native_function_data(
+    q_js_rt: &QuickJsRuntime,
+    func: q::JSCFunctionData,
+    arg_count: u32,
+    data: OwnedValueRef,
+) -> Result<OwnedValueRef, EsError> {
+    let mut data = data;
+    let magic = 1;
+    let data_len = 1;
+
+    let func_val = unsafe {
+        q::JS_NewCFunctionData(
+            q_js_rt.context,
+            func,
+            magic,
+            arg_count as i32,
+            data_len,
+            &mut data.value,
+        )
+    };
+    let func_ref = OwnedValueRef::new(func_val);
+
+    if !func_ref.is_object() {
+        return Err(EsError::new_str("Could not create new_native_function"));
+    } else {
+        Ok(func_ref)
+    }
+}
+
+pub fn new_function<F>(
+    q_js_rt: &QuickJsRuntime,
+    name: &str,
+    func: F,
+    arg_count: u32,
+) -> Result<OwnedValueRef, EsError>
+where
+    F: Fn(OwnedValueRef, u32, OwnedValueRef) -> Result<OwnedValueRef, EsError>,
+{
+    // put func in map, retrieve on call.. todo.. delete on destroy?
+    Ok(crate::quickjs_utils::new_null())
 }
