@@ -36,7 +36,7 @@ impl EsRuntime {
         self.add_to_event_queue_sync(|qjs_rt| {
             let res = qjs_rt.eval(script);
             match res {
-                Ok(jsval) => EsValueFacade::from_jsval(qjs_rt, &OwnedValueRef::new(jsval)),
+                Ok(val_ref) => EsValueFacade::from_jsval(qjs_rt, &val_ref),
                 Err(e) => Err(e),
             }
         })
@@ -60,7 +60,7 @@ impl EsRuntime {
         self.add_to_event_queue_sync(|qjs_rt| {
             let res = qjs_rt.eval_module(script);
             match res {
-                Ok(jsval) => EsValueFacade::from_jsval(qjs_rt, &OwnedValueRef::new(jsval)),
+                Ok(val_ref) => EsValueFacade::from_jsval(qjs_rt, &val_ref),
                 Err(e) => Err(e),
             }
         })
@@ -131,20 +131,25 @@ pub mod tests {
 
     #[test]
     fn test_eval_sync() {
-        let rt = &TEST_ESRT;
-        rt.eval_sync(EsScript::new(
+        let rt: Arc<EsRuntime> = TEST_ESRT.clone();
+        let res = rt.eval_sync(EsScript::new(
             "test.es".to_string(),
             "console.log('foo bar');".to_string(),
-        ))
-        .ok()
-        .expect("eval script failed");
+        ));
+
+        match res {
+            Ok(_) => {}
+            Err(e) => {
+                panic!("eval failed: {}", e);
+            }
+        }
 
         let res = rt
             .eval_sync(EsScript::new("test.es".to_string(), "(2 * 7);".to_string()))
             .ok()
             .expect("script failed");
 
-        //assert_eq!(res, JsValue::Int(14));
+        assert_eq!(res.get_i32(), 14);
     }
 
     #[test]

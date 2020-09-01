@@ -1,18 +1,12 @@
 use crate::eserror::EsError;
-use crate::quickjsruntime::{
-    OwnedValueRef, QuickJsRuntime, TAG_BOOL, TAG_FLOAT64, TAG_INT, TAG_STRING,
-};
+use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime, TAG_BOOL, TAG_FLOAT64, TAG_INT};
 use libquickjs_sys as q;
 use libquickjs_sys::JSValue as JSVal;
 use std::os::raw::c_char;
 
-pub fn is_bool(value_ref: &OwnedValueRef) -> bool {
-    value_ref.value.tag == TAG_BOOL
-}
-
 pub fn to_bool(value_ref: &OwnedValueRef) -> Result<bool, EsError> {
     let r = &value_ref.value;
-    if r.tag == TAG_BOOL {
+    if value_ref.is_bool() {
         let raw = unsafe { r.u.int32 };
         let val: bool = raw > 0;
         Ok(val)
@@ -30,13 +24,9 @@ pub fn from_bool(b: bool) -> OwnedValueRef {
     })
 }
 
-pub fn is_f64(value_ref: &OwnedValueRef) -> bool {
-    value_ref.value.tag == TAG_FLOAT64
-}
-
 pub fn to_f64(value_ref: &OwnedValueRef) -> Result<f64, EsError> {
     let r = &value_ref.value;
-    if r.tag == TAG_FLOAT64 {
+    if value_ref.is_f64() {
         let val = unsafe { r.u.float64 };
         Ok(val)
     } else {
@@ -51,14 +41,10 @@ pub fn from_f64(f: f64) -> OwnedValueRef {
     })
 }
 
-pub fn is_i32(value_ref: &OwnedValueRef) -> bool {
-    value_ref.value.tag == TAG_INT
-}
-
 pub fn to_i32(value_ref: &OwnedValueRef) -> Result<i32, EsError> {
     let r = &value_ref.value;
 
-    if r.tag == TAG_INT {
+    if value_ref.is_i32() {
         let val: i32 = unsafe { r.u.int32 };
         Ok(val)
     } else {
@@ -73,14 +59,13 @@ pub fn from_i32(i: i32) -> OwnedValueRef {
     })
 }
 
-pub fn is_string(value_ref: &OwnedValueRef) -> bool {
-    value_ref.value.tag == TAG_STRING
-}
-
 pub fn to_string(q_js_rt: &QuickJsRuntime, value_ref: &OwnedValueRef) -> Result<String, EsError> {
-    let r = &value_ref.value;
+    log::trace!("primitives::to_string on {}", value_ref.value.tag);
 
-    let ptr = unsafe { q::JS_ToCStringLen2(q_js_rt.context, std::ptr::null_mut(), *r, 0) };
+    assert!(value_ref.is_string());
+
+    let ptr =
+        unsafe { q::JS_ToCStringLen2(q_js_rt.context, std::ptr::null_mut(), value_ref.value, 0) };
 
     if ptr.is_null() {
         return Err(EsError::new_str(

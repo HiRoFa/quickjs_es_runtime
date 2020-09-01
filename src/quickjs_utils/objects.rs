@@ -2,6 +2,7 @@ use crate::droppable_value::DroppableValue;
 use crate::eserror::EsError;
 use crate::quickjsruntime::{make_cstring, OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
+use std::collections::HashMap;
 
 pub fn create_object(q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
     let obj = unsafe { q::JS_NewObject(q_js_rt.context) };
@@ -68,7 +69,7 @@ pub fn get_property_names(
             q_js_rt.context,
             &mut properties,
             &mut count,
-            *&obj_ref.value,
+            obj_ref.value,
             flags,
         )
     };
@@ -104,13 +105,13 @@ pub fn get_property_names(
     Ok(res)
 }
 
-pub fn traverse_properties<V>(
+pub fn traverse_properties<V, R>(
     q_js_rt: &QuickJsRuntime,
     obj_ref: &OwnedValueRef,
     visitor: V,
-) -> Result<(), EsError>
+) -> Result<HashMap<String, R>, EsError>
 where
-    V: Fn(&str, OwnedValueRef) -> Result<(), EsError>,
+    V: Fn(&str, OwnedValueRef) -> Result<R, EsError>,
 {
     let mut properties: *mut q::JSPropertyEnum = std::ptr::null_mut();
     let mut count: u32 = 0;
@@ -121,7 +122,7 @@ where
             q_js_rt.context,
             &mut properties,
             &mut count,
-            *&obj_ref.value,
+            obj_ref.value,
             flags,
         )
     };
@@ -141,14 +142,16 @@ where
         }
     });
 
+    let mut map = HashMap::new();
+
     for index in 0..count {
         let prop = unsafe { (*properties).offset(index as isize) };
         let raw_value = unsafe {
             q::JS_GetPropertyInternal(
                 q_js_rt.context,
-                *&obj_ref.value,
+                obj_ref.value,
                 (*prop).atom,
-                *&obj_ref.value,
+                obj_ref.value,
                 0,
             )
         };
@@ -164,8 +167,10 @@ where
         }
 
         let key_str = crate::quickjs_utils::primitives::to_string(q_js_rt, &key_ref)?;
-        visitor(key_str.as_str(), key_ref)?;
+        let r = visitor(key_str.as_str(), key_ref)?;
+
+        map.insert(key_str, r);
     }
 
-    Ok(())
+    Ok(map)
 }

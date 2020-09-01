@@ -51,7 +51,7 @@ pub fn get_element(
     array_ref: &OwnedValueRef,
     index: u32,
 ) -> Result<OwnedValueRef, EsError> {
-    let value_raw = unsafe { q::JS_GetPropertyUint32(q_js_rt.context, *&array_ref.value, index) };
+    let value_raw = unsafe { q::JS_GetPropertyUint32(q_js_rt.context, array_ref.value, index) };
     let ret = OwnedValueRef::new(value_raw);
     if ret.is_exception() {
         return Err(EsError::new_str("Could not build array"));

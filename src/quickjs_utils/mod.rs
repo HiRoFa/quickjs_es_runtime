@@ -29,15 +29,3 @@ pub fn new_null() -> OwnedValueRef {
         tag: TAG_NULL,
     })
 }
-
-pub fn is_null(value_ref: &OwnedValueRef) -> bool {
-    value_ref.value.tag == TAG_NULL
-}
-
-pub fn is_undefined(value_ref: &OwnedValueRef) -> bool {
-    value_ref.value.tag == TAG_UNDEFINED
-}
-
-pub fn is_null_or_undefined(value_ref: &OwnedValueRef) -> bool {
-    is_null(value_ref) || is_undefined(value_ref)
-}

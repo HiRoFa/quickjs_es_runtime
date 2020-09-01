@@ -1,7 +1,7 @@
 use crate::eserror::EsError;
 use crate::quickjsruntime::{
     OwnedValueRef, QuickJsRuntime, TAG_BOOL, TAG_FLOAT64, TAG_INT, TAG_NULL, TAG_OBJECT,
-    TAG_UNDEFINED,
+    TAG_STRING, TAG_UNDEFINED,
 };
 use std::collections::HashMap;
 use std::sync::mpsc::RecvTimeoutError;
@@ -229,6 +229,12 @@ impl EsValueFacade {
         let r = &value_ref.value;
 
         let res = match r.tag {
+            TAG_STRING => {
+                // String.
+                let s = crate::quickjs_utils::primitives::to_string(q_js_rt, value_ref)?;
+
+                Ok(s.to_es_value_facade())
+            }
             // Int.
             TAG_INT => {
                 let val: i32 = crate::quickjs_utils::primitives::to_i32(value_ref)
@@ -247,6 +253,7 @@ impl EsValueFacade {
             TAG_NULL => Ok(EsNullValue {}.to_es_value_facade()),
             // Undefined.
             TAG_UNDEFINED => Ok(EsUndefinedValue {}.to_es_value_facade()),
+
             // Float.
             TAG_FLOAT64 => {
                 let val: f64 = crate::quickjs_utils::primitives::to_f64(value_ref)
@@ -254,14 +261,7 @@ impl EsValueFacade {
                     .expect("could not convert to f64");
                 Ok(val.to_es_value_facade())
             }
-            // String.
-            TAG_STRING => {
-                let s = crate::quickjs_utils::primitives::to_string(q_js_rt, value_ref)
-                    .ok()
-                    .expect("failed to convert to string");
 
-                Ok(s.to_es_value_facade())
-            }
             // Object.
             TAG_OBJECT => {
                 let is_array = crate::quickjs_utils::arrays::is_array(q_js_rt, value_ref);
@@ -378,11 +378,10 @@ impl EsValueFacade {
     ) -> Result<EsValueFacade, EsError> {
         assert!(obj_ref.is_object());
 
-        let mut map: HashMap<String, EsValueFacade> = HashMap::new();
-        crate::quickjs_utils::objects::traverse_properties(q_js_rt, obj_ref, |key, val| {
-            map.insert(key.to_string(), EsValueFacade::from_jsval(q_js_rt, &val)?);
-            Ok(())
-        });
+        let map =
+            crate::quickjs_utils::objects::traverse_properties(q_js_rt, obj_ref, |_key, val| {
+                EsValueFacade::from_jsval(q_js_rt, &val)
+            })?;
         Ok(map.to_es_value_facade())
     }
     /// get the String value

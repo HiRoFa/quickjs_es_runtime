@@ -2,7 +2,6 @@
 
 use crate::eserror::EsError;
 use crate::esscript::EsScript;
-use crate::esvalue::EsValueFacade;
 use libquickjs_sys as q;
 use libquickjs_sys::JSValue as JSVal;
 use std::cell::RefCell;
@@ -37,10 +36,10 @@ pub struct QuickJsRuntime {
 }
 
 impl QuickJsRuntime {
-    fn new() -> Result<Self, &'static str> {
+    fn new() -> Self {
         let runtime = unsafe { q::JS_NewRuntime() };
         if runtime.is_null() {
-            return Err("RuntimeCreationFailed");
+            panic!("RuntimeCreationFailed");
         }
 
         // Configure memory limit if specified.
@@ -56,7 +55,7 @@ impl QuickJsRuntime {
             unsafe {
                 q::JS_FreeRuntime(runtime);
             }
-            return Err("ContextCreationFailed");
+            panic!("ContextCreationFailed");
         }
 
         // Initialize the promise resolver helper code.
@@ -67,12 +66,12 @@ impl QuickJsRuntime {
         q_rt.set_module_loader();
         q_rt.set_promise_rejection_tracker();
 
-        Ok(q_rt)
+        q_rt
     }
 
     pub fn gc(&self) {}
 
-    pub fn eval(&self, script: EsScript) -> Result<JSVal, EsError> {
+    pub fn eval(&self, script: EsScript) -> Result<OwnedValueRef, EsError> {
         let filename_c = make_cstring(script.get_path())
             .ok()
             .expect("failed to create c_string from path");
@@ -91,11 +90,20 @@ impl QuickJsRuntime {
         };
 
         // check for error
-
-        Ok(value_raw)
+        let ret = OwnedValueRef::new(value_raw);
+        if ret.is_exception() {
+            let ex_opt = self.get_exception();
+            if let Some(ex) = ex_opt {
+                Err(ex)
+            } else {
+                Err(EsError::new_str("eval failed and could not get exception"))
+            }
+        } else {
+            Ok(ret)
+        }
     }
 
-    pub fn eval_module(&self, script: EsScript) -> Result<JSVal, EsError> {
+    pub fn eval_module(&self, script: EsScript) -> Result<OwnedValueRef, EsError> {
         let filename_c = make_cstring(script.get_path())
             .ok()
             .expect("failed to create c_string from path");
@@ -115,7 +123,20 @@ impl QuickJsRuntime {
 
         // check for error
 
-        Ok(value_raw)
+        // check for error
+        let ret = OwnedValueRef::new(value_raw);
+        if ret.is_exception() {
+            let ex_opt = self.get_exception();
+            if let Some(ex) = ex_opt {
+                Err(ex)
+            } else {
+                Err(EsError::new_str(
+                    "eval_module failed and could not get exception",
+                ))
+            }
+        } else {
+            Ok(ret)
+        }
     }
 
     pub(crate) fn do_with<C, R>(task: C) -> R
@@ -137,9 +158,10 @@ impl QuickJsRuntime {
             None
         } else {
             let err = if value.is_exception() {
-                EsError::new_str("Could get exception from runtime".into())
-            } else {
-                match value.to_string() {
+                EsError::new_str("Could not get exception from runtime".into())
+            } else if value.is_object() {
+                // todo figure out how to get lineno/col/filename etc
+                match crate::quickjs_utils::functions::call_to_string(self, &value) {
                     Ok(strval) => {
                         if strval.contains("out of memory") {
                             EsError::new_str("out of memory".into())
@@ -147,8 +169,10 @@ impl QuickJsRuntime {
                             EsError::new_string(strval)
                         }
                     }
-                    Err(_) => EsError::new_str("Unknown exception".into()),
+                    Err(_) => EsError::new_str("Unknown exception2".into()),
                 }
+            } else {
+                EsError::new_str("no clue what happended")
             };
             Some(err)
         }
@@ -230,6 +254,15 @@ impl OwnedValueRef {
         Self { value }
     }
 
+    pub fn is_null_or_undefined(&self) -> bool {
+        self.is_null() || self.is_undefined()
+    }
+
+    /// return true if the wrapped value represents a JS null value
+    pub fn is_undefined(&self) -> bool {
+        self.value.tag == TAG_UNDEFINED
+    }
+
     /// Get the inner JSValue without freeing in drop.
     ///
     /// Unsafe because the caller is responsible for freeing the value.
@@ -247,14 +280,23 @@ impl OwnedValueRef {
         self.value.tag == TAG_NULL
     }
 
-    /// return true if the wrapped value represents a JS null value
-    pub fn is_undefined(&self) -> bool {
-        self.value.tag == TAG_UNDEFINED
-    }
-
     /// return true if the wrapped value represents a JS boolean value
     pub fn is_bool(&self) -> bool {
         self.value.tag == TAG_BOOL
+    }
+
+    /// return true if the wrapped value represents a JS INT value
+    pub fn is_i32(&self) -> bool {
+        self.value.tag == TAG_INT
+    }
+
+    /// return true if the wrapped value represents a JS F64 value
+    pub fn is_f64(&self) -> bool {
+        self.value.tag == TAG_FLOAT64
+    }
+
+    pub fn is_big_int(&self) -> bool {
+        self.value.tag == TAG_BIG_INT
     }
 
     /// return true if the wrapped value represents a JS Esception value
@@ -271,137 +313,6 @@ impl OwnedValueRef {
     pub fn is_string(&self) -> bool {
         self.value.tag == TAG_STRING
     }
-
-    /// convert the value to a String
-    pub fn to_string(&self) -> Result<String, EsError> {
-        let value = if self.is_string() {
-            Ok(self
-                .to_value()
-                .ok()
-                .expect("could not create string")
-                .get_str()
-                .to_string())
-        } else {
-            QuickJsRuntime::do_with(|q_js_rt| {
-                let raw = unsafe { q::JS_ToString(q_js_rt.context, self.value) };
-                let value = OwnedValueRef::new(raw);
-
-                if value.value.tag != TAG_STRING {
-                    return Err(EsError::new_str("Could not convert value to string".into()));
-                }
-                Ok(value
-                    .to_value()
-                    .ok()
-                    .expect("Could not convert value to string")
-                    .get_str()
-                    .to_string())
-            })
-        };
-
-        value
-    }
-
-    /// return true if the wrapped value represents a JsValue
-    pub fn to_value(&self) -> Result<EsValueFacade, EsError> {
-        QuickJsRuntime::do_with(|q_js_rt| EsValueFacade::from_jsval(q_js_rt, self))
-    }
-
-    /// return true if the wrapped value represents a bool
-    pub fn to_bool(&self) -> Result<bool, EsError> {
-        let esvf = self.to_value().ok().unwrap();
-        if esvf.is_boolean() {
-            Ok(esvf.get_boolean())
-        } else {
-            Err(EsError::new_str("not a boolean value"))
-        }
-    }
-}
-
-/// Wraps an object from the quickjs runtime.
-/// Provides convenience property accessors.
-pub struct OwnedObjectRef {
-    value: OwnedValueRef,
-}
-
-#[allow(missing_docs)]
-impl OwnedObjectRef {
-    pub fn new(value: OwnedValueRef) -> Result<Self, EsError> {
-        if value.value.tag != TAG_OBJECT {
-            Err(EsError::new_str("Expected an object"))
-        } else {
-            Ok(Self { value })
-        }
-    }
-
-    fn into_value(self) -> OwnedValueRef {
-        self.value
-    }
-
-    /// Get the tag of a property.
-    fn property_tag(&self, name: &str) -> Result<i64, EsError> {
-        let cname = make_cstring(name)
-            .ok()
-            .expect("could not convert to cstring");
-        let raw = unsafe {
-            q::JS_GetPropertyStr(self.value.context.context, self.value.value, cname.as_ptr())
-        };
-        let t = raw.tag;
-        unsafe {
-            free_value(self.value.context.context, raw);
-        }
-        Ok(t)
-    }
-
-    /// Determine if the object is a promise by checking the presence of
-    /// a 'then' and a 'catch' property.
-    fn is_promise(&self) -> Result<bool, EsError> {
-        if self.property_tag("then")? == TAG_OBJECT && self.property_tag("catch")? == TAG_OBJECT {
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    pub fn property(&self, name: &str) -> Result<OwnedValueRef, EsError> {
-        let cname = make_cstring(name)?;
-        let raw = unsafe {
-            q::JS_GetPropertyStr(self.value.context.context, self.value.value, cname.as_ptr())
-        };
-
-        if raw.tag == TAG_EXCEPTION {
-            Err(EsError::new_string(format!(
-                "Exception while getting property '{}'",
-                name
-            )))
-        } else if raw.tag == TAG_UNDEFINED {
-            Err(EsError::new_string(format!(
-                "Property '{}' not found",
-                name
-            )))
-        } else {
-            Ok(OwnedValueRef::new(raw))
-        }
-    }
-
-    unsafe fn set_property_raw(&self, name: &str, value: q::JSValue) -> Result<(), EsError> {
-        let cname = make_cstring(name)?;
-        let ret = q::JS_SetPropertyStr(
-            self.value.context.context,
-            self.value.value,
-            cname.as_ptr(),
-            value,
-        );
-        if ret < 0 {
-            Err(EsError::new_str("Could not set property"))
-        } else {
-            Ok(())
-        }
-    }
-
-    // pub fn set_property(&self, name: &str, value: JsValue) -> Result<(), ExecutionError> {
-    //     let qval = self.value.context.serialize_value(value)?;
-    //     unsafe { self.set_property_raw(name, qval.value) }
-    // }
 }
 
 unsafe extern "C" fn promise_rejection_tracker(
@@ -460,14 +371,6 @@ pub(crate) fn make_cstring(value: impl Into<Vec<u8>>) -> Result<CString, NulErro
     CString::new(value)
 }
 
-/// Helper to construct null JsValue
-fn js_null_value() -> q::JSValue {
-    q::JSValue {
-        u: q::JSValueUnion { int32: 0 },
-        tag: TAG_NULL,
-    }
-}
-
 #[cfg(test)]
 pub mod tests {
     use crate::esscript::EsScript;
@@ -475,7 +378,9 @@ pub mod tests {
 
     #[test]
     fn test_rt() {
-        let rt = QuickJsRuntime::new().ok().expect("whoops");
-        rt.eval(EsScript::new("test.es".to_string(), "1+1;".to_string()));
+        let rt = QuickJsRuntime::new();
+        rt.eval(EsScript::new("test.es".to_string(), "1+1;".to_string()))
+            .ok()
+            .expect("could not eval");
     }
 }
