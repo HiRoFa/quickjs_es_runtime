@@ -100,14 +100,19 @@ impl EsRuntime {
     pub fn add_helper_task() {}
 
     fn _add_job_run_task(&self) {
+        log::trace!("EsRuntime._add_job_run_task!");
         self.event_queue.add_task(|| {
             QuickJsRuntime::do_with(|quick_js_rt| {
+                log::trace!("EsRuntime._add_job_run_task > async!");
                 while quick_js_rt.has_pending_jobs() {
+                    log::trace!("quick_js_rt.has_pending_jobs!");
                     let res = quick_js_rt.run_pending_job();
                     match res {
-                        Ok(_) => {}
+                        Ok(_) => {
+                            log::trace!("run_pending_job OK!");
+                        }
                         Err(e) => {
-                            error!("job run failed: {}", e);
+                            error!("run_pending_job failed: {}", e);
                         }
                     }
                 }
@@ -125,6 +130,7 @@ pub mod tests {
     use ::log::debug;
     use log::LevelFilter;
     use std::sync::Arc;
+    use std::time::Duration;
 
     lazy_static! {
         pub static ref TEST_ESRT: Arc<EsRuntime> = init();
@@ -163,17 +169,19 @@ pub mod tests {
 
     #[test]
     fn test_promise() {
-        let rt = &TEST_ESRT;
+        let rt: Arc<EsRuntime> = TEST_ESRT.clone();
 
         let res = rt.eval_sync(EsScript::new(
             "testp2.es".to_string(),
-            "let p = (new Promise((res, rej) => {console.log('before res');res(123);console.log('after res');return 456;}).then((a) => {console.log('prom ressed to ' + a);}).catch((x) => {console.log('p.ca ex=' + x);}))".to_string(),
+            "let test_promise_P = (new Promise(function(res, rej) {console.log('before res');res(123);console.log('after res');}).then(function (a) {console.log('prom ressed to ' + a);}).catch(function(x) {console.log('p.ca ex=' + x);}))".to_string(),
         ));
 
         match res {
             Ok(_) => {}
             Err(e) => panic!("p script failed: {}", e),
         }
+        rt._add_job_run_task();
+        std::thread::sleep(Duration::from_secs(1));
     }
 
     #[test]
