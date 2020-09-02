@@ -2,6 +2,46 @@ use crate::eserror::EsError;
 use crate::quickjsruntime::{make_cstring, OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
 
+#[allow(dead_code)]
+pub fn call_function(
+    q_js_rt: &QuickJsRuntime,
+    function_ref: &OwnedValueRef,
+    arguments: &Vec<OwnedValueRef>,
+) -> Result<OwnedValueRef, EsError> {
+    let arg_count = arguments.len() as i32;
+
+    let mut qargs = arguments
+        .iter()
+        .map(|arg| *arg.borrow_value())
+        .collect::<Vec<_>>();
+
+    let this_ref = crate::quickjs_utils::new_null_ref();
+
+    let res = unsafe {
+        q::JS_Call(
+            q_js_rt.context,
+            *function_ref.borrow_value(),
+            *this_ref.borrow_value(), // this todo
+            arg_count,
+            qargs.as_mut_ptr(),
+        )
+    };
+
+    let res_ref = OwnedValueRef::new(res);
+
+    if res_ref.is_exception() {
+        if let Some(ex) = q_js_rt.get_exception() {
+            Err(ex)
+        } else {
+            Err(EsError::new_str(
+                "function invocation failed but could not get ex",
+            ))
+        }
+    } else {
+        Ok(res_ref)
+    }
+}
+
 pub fn call_to_string(
     q_js_rt: &QuickJsRuntime,
     obj_ref: &OwnedValueRef,
@@ -101,4 +141,44 @@ where
 {
     // put func in map, retrieve on call.. todo.. delete on destroy?
     Ok(crate::quickjs_utils::new_null_ref())
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::esruntime::EsRuntime;
+    use crate::esscript::EsScript;
+    use crate::quickjs_utils::functions::call_function;
+    use crate::quickjs_utils::primitives;
+    use std::sync::Arc;
+
+    #[test]
+    pub fn test_call() {
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let io = rt.add_to_event_queue_sync(|q_js_rt| {
+            let func_ref = q_js_rt
+                .eval(EsScript::new(
+                    "test_call.es".to_string(),
+                    "(function(a, b){return ((a || 7)*(b || 7));});".to_string(),
+                ))
+                .ok()
+                .expect("could not get func obj");
+
+            let res = call_function(
+                q_js_rt,
+                &func_ref,
+                &vec![primitives::from_i32(8), primitives::from_i32(6)],
+            );
+            if res.is_err() {
+                panic!("test_call failed: {}");
+            }
+            let res_val = res.ok().unwrap();
+
+            assert!(res_val.is_i32());
+
+            assert_eq!(primitives::to_i32(&res_val).ok().unwrap(), 6 * 8);
+
+            true
+        });
+        assert!(io)
+    }
 }

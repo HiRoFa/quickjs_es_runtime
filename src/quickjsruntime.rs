@@ -150,7 +150,7 @@ impl QuickJsRuntime {
     }
 
     /// Get the last exception from the runtime, and if present, convert it to a ExceptionError.
-    fn get_exception(&self) -> Option<EsError> {
+    pub(crate) fn get_exception(&self) -> Option<EsError> {
         let raw = unsafe { q::JS_GetException(self.context) };
         let value = OwnedValueRef::new(raw);
 

@@ -5,6 +5,23 @@ use crate::quickjsruntime::{make_cstring, OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
 use std::collections::HashMap;
 
+#[allow(dead_code)]
+pub fn construct_object(
+    _q_js_rt: &QuickJsRuntime,
+    _constructor_ref: &OwnedValueRef,
+) -> Result<OwnedValueRef, EsError> {
+    /*
+    q::JS_CallConstructor(
+        context,
+        date_constructor,
+        args.len() as i32,
+        args.as_mut_ptr(),
+    )
+
+     */
+    unimplemented!();
+}
+
 pub fn create_object(q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
     let obj = unsafe { q::JS_NewObject(q_js_rt.context) };
     let obj_ref = OwnedValueRef::new(obj);
