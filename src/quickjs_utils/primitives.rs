@@ -5,8 +5,8 @@ use libquickjs_sys::JSValue as JSVal;
 use std::os::raw::c_char;
 
 pub fn to_bool(value_ref: &OwnedValueRef) -> Result<bool, EsError> {
-    let r = &value_ref.value;
     if value_ref.is_bool() {
+        let r = value_ref.borrow_value();
         let raw = unsafe { r.u.int32 };
         let val: bool = raw > 0;
         Ok(val)
@@ -25,8 +25,8 @@ pub fn from_bool(b: bool) -> OwnedValueRef {
 }
 
 pub fn to_f64(value_ref: &OwnedValueRef) -> Result<f64, EsError> {
-    let r = &value_ref.value;
     if value_ref.is_f64() {
+        let r = value_ref.borrow_value();
         let val = unsafe { r.u.float64 };
         Ok(val)
     } else {
@@ -42,9 +42,8 @@ pub fn from_f64(f: f64) -> OwnedValueRef {
 }
 
 pub fn to_i32(value_ref: &OwnedValueRef) -> Result<i32, EsError> {
-    let r = &value_ref.value;
-
     if value_ref.is_i32() {
+        let r = value_ref.borrow_value();
         let val: i32 = unsafe { r.u.int32 };
         Ok(val)
     } else {
@@ -60,12 +59,18 @@ pub fn from_i32(i: i32) -> OwnedValueRef {
 }
 
 pub fn to_string(q_js_rt: &QuickJsRuntime, value_ref: &OwnedValueRef) -> Result<String, EsError> {
-    log::trace!("primitives::to_string on {}", value_ref.value.tag);
+    log::trace!("primitives::to_string on {}", value_ref.borrow_value().tag);
 
     assert!(value_ref.is_string());
 
-    let ptr =
-        unsafe { q::JS_ToCStringLen2(q_js_rt.context, std::ptr::null_mut(), value_ref.value, 0) };
+    let ptr = unsafe {
+        q::JS_ToCStringLen2(
+            q_js_rt.context,
+            std::ptr::null_mut(),
+            *value_ref.borrow_value(),
+            0,
+        )
+    };
 
     if ptr.is_null() {
         return Err(EsError::new_str(

@@ -10,6 +10,7 @@ pub mod esruntime;
 pub mod esruntimebuilder;
 pub mod esscript;
 pub mod esvalue;
+mod features;
 mod quickjs_utils;
 pub mod quickjsruntime;
 mod taskmanager;

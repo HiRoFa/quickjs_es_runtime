@@ -85,13 +85,13 @@ struct EsNullValue {}
 
 impl EsValueConvertible for EsNullValue {
     fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
-        Ok(crate::quickjs_utils::new_null())
+        Ok(crate::quickjs_utils::new_null_ref())
     }
 }
 
 impl EsValueConvertible for EsUndefinedValue {
     fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
-        Ok(crate::quickjs_utils::new_undefined())
+        Ok(crate::quickjs_utils::new_undefined_ref())
     }
 }
 
@@ -164,7 +164,7 @@ impl EsValueConvertible for Vec<EsValueFacade> {
 
             let item_val_ref = item.to_js_value(q_js_rt)?;
 
-            crate::quickjs_utils::arrays::set_element(q_js_rt, &arr, index as u32, &item_val_ref)?;
+            crate::quickjs_utils::arrays::set_element(q_js_rt, &arr, index as u32, item_val_ref)?;
         }
         Ok(arr)
     }
@@ -197,7 +197,7 @@ impl EsValueConvertible for HashMap<String, EsValueFacade> {
                 q_js_rt,
                 &obj_ref,
                 prop_name.as_str(),
-                &property_value_ref,
+                property_value_ref,
             )?;
         }
 
@@ -226,7 +226,7 @@ impl EsValueFacade {
         q_js_rt: &QuickJsRuntime,
         value_ref: &OwnedValueRef,
     ) -> Result<Self, EsError> {
-        let r = &value_ref.value;
+        let r = value_ref.borrow_value();
 
         let res = match r.tag {
             TAG_STRING => {

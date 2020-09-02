@@ -16,18 +16,22 @@ use libquickjs_sys as q;
 /// all function (where applicable) get an Option<QuickJSRuntime> which if None will be gotten from the thread_local
 /// every function which returns a q::JSValue will return a OwnedValueRef to ensure values are freed on drop
 
-pub fn new_undefined() -> OwnedValueRef {
+pub fn new_undefined_ref() -> OwnedValueRef {
     OwnedValueRef::new(q::JSValue {
         u: q::JSValueUnion { int32: 0 },
         tag: TAG_UNDEFINED,
     })
 }
 
-pub fn new_null() -> OwnedValueRef {
-    OwnedValueRef::new(q::JSValue {
+pub fn new_null() -> q::JSValue {
+    q::JSValue {
         u: q::JSValueUnion { int32: 0 },
         tag: TAG_NULL,
-    })
+    }
+}
+
+pub fn new_null_ref() -> OwnedValueRef {
+    OwnedValueRef::new(new_null())
 }
 
 pub fn get_global(q_js_rt: &QuickJsRuntime) -> OwnedValueRef {

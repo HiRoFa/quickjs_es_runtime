@@ -9,12 +9,12 @@ pub fn call_to_string(
     if obj_ref.is_string() {
         crate::quickjs_utils::primitives::to_string(q_js_rt, obj_ref)
     } else {
-        log::trace!("calling JS_ToString on a {}", obj_ref.value.tag);
+        log::trace!("calling JS_ToString on a {}", obj_ref.borrow_value().tag);
 
-        let res = unsafe { q::JS_ToString(q_js_rt.context, obj_ref.value) };
+        let res = unsafe { q::JS_ToString(q_js_rt.context, *obj_ref.borrow_value()) };
         let res_ref = OwnedValueRef::new(res);
 
-        log::trace!("called JS_ToString got a {}", res_ref.value.tag);
+        log::trace!("called JS_ToString got a {}", res_ref.borrow_value().tag);
 
         if !res_ref.is_string() {
             return Err(EsError::new_str("Could not convert value to string"));
@@ -23,6 +23,7 @@ pub fn call_to_string(
     }
 }
 
+#[allow(dead_code)]
 pub fn new_native_function(
     q_js_rt: &QuickJsRuntime,
     name: &str,
@@ -58,6 +59,7 @@ pub fn new_native_function(
     }
 }
 
+#[allow(dead_code)]
 pub fn new_native_function_data(
     q_js_rt: &QuickJsRuntime,
     func: q::JSCFunctionData,
@@ -75,7 +77,7 @@ pub fn new_native_function_data(
             magic,
             arg_count as i32,
             data_len,
-            &mut data.value,
+            &mut data.consume_value(),
         )
     };
     let func_ref = OwnedValueRef::new(func_val);
@@ -87,15 +89,16 @@ pub fn new_native_function_data(
     }
 }
 
+#[allow(dead_code)]
 pub fn new_function<F>(
-    q_js_rt: &QuickJsRuntime,
-    name: &str,
-    func: F,
-    arg_count: u32,
+    _q_js_rt: &QuickJsRuntime,
+    _name: &str,
+    _func: F,
+    _arg_count: u32,
 ) -> Result<OwnedValueRef, EsError>
 where
     F: Fn(OwnedValueRef, u32, OwnedValueRef) -> Result<OwnedValueRef, EsError>,
 {
     // put func in map, retrieve on call.. todo.. delete on destroy?
-    Ok(crate::quickjs_utils::new_null())
+    Ok(crate::quickjs_utils::new_null_ref())
 }

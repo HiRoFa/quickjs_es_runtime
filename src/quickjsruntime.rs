@@ -3,7 +3,6 @@
 use crate::eserror::EsError;
 use crate::esscript::EsScript;
 use libquickjs_sys as q;
-use libquickjs_sys::JSValue as JSVal;
 use std::cell::RefCell;
 use std::ffi::{CString, NulError};
 
@@ -37,6 +36,7 @@ pub struct QuickJsRuntime {
 
 impl QuickJsRuntime {
     fn new() -> Self {
+        log::trace!("creating new QuickJsRuntime");
         let runtime = unsafe { q::JS_NewRuntime() };
         if runtime.is_null() {
             panic!("RuntimeCreationFailed");
@@ -220,20 +220,23 @@ impl QuickJsRuntime {
 }
 
 pub struct OwnedValueRef {
-    pub(crate) value: q::JSValue,
+    value: Option<q::JSValue>,
 }
 
 impl Drop for OwnedValueRef {
     fn drop(&mut self) {
-        QuickJsRuntime::do_with(|q_js_rt| unsafe {
-            free_value(q_js_rt.context, self.value);
-        })
+        log::trace!("dropping OwnedValueRef, isSome={}", self.value.is_some());
+        if self.value.is_some() {
+            QuickJsRuntime::do_with(|q_js_rt| unsafe {
+                free_value(q_js_rt.context, self.consume_value());
+            })
+        }
     }
 }
 
 impl<'a> std::fmt::Debug for OwnedValueRef {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self.value.tag {
+        match self.borrow_value().tag {
             TAG_EXCEPTION => write!(f, "Exception(?)"),
             TAG_NULL => write!(f, "NULL"),
             TAG_UNDEFINED => write!(f, "UNDEFINED"),
@@ -251,7 +254,15 @@ impl OwnedValueRef {
     /// create a new OwnedValueRef
     pub fn new(value: q::JSValue) -> Self {
         // todo assert in worker thread
-        Self { value }
+        Self { value: Some(value) }
+    }
+
+    pub fn borrow_value(&self) -> &q::JSValue {
+        self.value.as_ref().expect("OwnedValueRef was consumed")
+    }
+
+    pub fn consume_value(&mut self) -> q::JSValue {
+        std::mem::replace(&mut self.value, None).unwrap()
     }
 
     pub fn is_null_or_undefined(&self) -> bool {
@@ -260,7 +271,7 @@ impl OwnedValueRef {
 
     /// return true if the wrapped value represents a JS null value
     pub fn is_undefined(&self) -> bool {
-        self.value.tag == TAG_UNDEFINED
+        self.borrow_value().tag == TAG_UNDEFINED
     }
 
     /// Get the inner JSValue without freeing in drop.
@@ -277,41 +288,41 @@ impl OwnedValueRef {
 
     /// return true if the wrapped value represents a JS null value
     pub fn is_null(&self) -> bool {
-        self.value.tag == TAG_NULL
+        self.borrow_value().tag == TAG_NULL
     }
 
     /// return true if the wrapped value represents a JS boolean value
     pub fn is_bool(&self) -> bool {
-        self.value.tag == TAG_BOOL
+        self.borrow_value().tag == TAG_BOOL
     }
 
     /// return true if the wrapped value represents a JS INT value
     pub fn is_i32(&self) -> bool {
-        self.value.tag == TAG_INT
+        self.borrow_value().tag == TAG_INT
     }
 
     /// return true if the wrapped value represents a JS F64 value
     pub fn is_f64(&self) -> bool {
-        self.value.tag == TAG_FLOAT64
+        self.borrow_value().tag == TAG_FLOAT64
     }
 
     pub fn is_big_int(&self) -> bool {
-        self.value.tag == TAG_BIG_INT
+        self.borrow_value().tag == TAG_BIG_INT
     }
 
     /// return true if the wrapped value represents a JS Esception value
     pub fn is_exception(&self) -> bool {
-        self.value.tag == TAG_EXCEPTION
+        self.borrow_value().tag == TAG_EXCEPTION
     }
 
     /// return true if the wrapped value represents a JS Object value
     pub fn is_object(&self) -> bool {
-        self.value.tag == TAG_OBJECT
+        self.borrow_value().tag == TAG_OBJECT
     }
 
     /// return true if the wrapped value represents a JS String value
     pub fn is_string(&self) -> bool {
-        self.value.tag == TAG_STRING
+        self.borrow_value().tag == TAG_STRING
     }
 }
 

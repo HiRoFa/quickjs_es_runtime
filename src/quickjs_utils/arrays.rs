@@ -3,7 +3,7 @@ use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
 
 pub fn is_array(q_js_rt: &QuickJsRuntime, obj_ref: &OwnedValueRef) -> bool {
-    let r = &obj_ref.value;
+    let r = obj_ref.borrow_value();
     let val = unsafe { q::JS_IsArray(q_js_rt.context, *r) };
     val > 0
 }
@@ -29,14 +29,16 @@ pub fn set_element(
     q_js_rt: &QuickJsRuntime,
     array_ref: &OwnedValueRef,
     index: u32,
-    entry_value_ref: &OwnedValueRef,
+    entry_value_ref: OwnedValueRef,
 ) -> Result<(), EsError> {
+    let mut entry_value_ref = entry_value_ref;
+
     let ret = unsafe {
         q::JS_DefinePropertyValueUint32(
             q_js_rt.context,
-            array_ref.value,
+            *array_ref.borrow_value(),
             index,
-            entry_value_ref.value,
+            entry_value_ref.consume_value(),
             q::JS_PROP_C_W_E as i32,
         )
     };
@@ -51,7 +53,8 @@ pub fn get_element(
     array_ref: &OwnedValueRef,
     index: u32,
 ) -> Result<OwnedValueRef, EsError> {
-    let value_raw = unsafe { q::JS_GetPropertyUint32(q_js_rt.context, array_ref.value, index) };
+    let value_raw =
+        unsafe { q::JS_GetPropertyUint32(q_js_rt.context, *array_ref.borrow_value(), index) };
     let ret = OwnedValueRef::new(value_raw);
     if ret.is_exception() {
         return Err(EsError::new_str("Could not build array"));
