@@ -221,12 +221,13 @@ impl QuickJsRuntime {
 
 pub struct OwnedValueRef {
     value: Option<q::JSValue>,
+    no_free: bool,
 }
 
 impl Drop for OwnedValueRef {
     fn drop(&mut self) {
         log::trace!("dropping OwnedValueRef, isSome={}", self.value.is_some());
-        if self.value.is_some() {
+        if !self.no_free && self.value.is_some() {
             QuickJsRuntime::do_with(|q_js_rt| unsafe {
                 free_value(q_js_rt.context, self.consume_value());
             })
@@ -254,7 +255,18 @@ impl OwnedValueRef {
     /// create a new OwnedValueRef
     pub fn new(value: q::JSValue) -> Self {
         // todo assert in worker thread
-        Self { value: Some(value) }
+        Self {
+            value: Some(value),
+            no_free: false,
+        }
+    }
+
+    pub fn new_no_free(value: q::JSValue) -> Self {
+        // todo assert in worker thread
+        Self {
+            value: Some(value),
+            no_free: true,
+        }
     }
 
     pub fn borrow_value(&self) -> &q::JSValue {

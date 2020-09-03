@@ -180,7 +180,6 @@ pub mod tests {
             Ok(_) => {}
             Err(e) => panic!("p script failed: {}", e),
         }
-        rt._add_job_run_task();
         std::thread::sleep(Duration::from_secs(1));
     }
 

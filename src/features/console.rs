@@ -30,15 +30,13 @@ unsafe extern "C" fn console_log(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    //let mut argv_ref = OwnedValueRef::new(*argv);
-
     log::info!("console.log called, argc={}", argc,);
 
     let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
 
-    let mut args_vec: Vec<OwnedValueRef> = arg_slice
+    let args_vec: Vec<OwnedValueRef> = arg_slice
         .iter()
-        .map(|raw| OwnedValueRef::new(*raw))
+        .map(|raw| OwnedValueRef::new_no_free(*raw))
         .collect::<Vec<_>>();
 
     QuickJsRuntime::do_with(|q_js_rt| {
@@ -54,12 +52,6 @@ unsafe extern "C" fn console_log(
             }
         }
     });
-
-    // prevent free
-    while !args_vec.is_empty() {
-        let mut arg_ref = args_vec.remove(0);
-        let _ = arg_ref.consume_value();
-    }
 
     quickjs_utils::new_null()
 }
