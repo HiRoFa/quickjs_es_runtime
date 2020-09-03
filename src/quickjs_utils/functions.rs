@@ -147,9 +147,30 @@ where
 pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
-    use crate::quickjs_utils::functions::call_function;
+    use crate::quickjs_utils::functions::{call_function, call_to_string};
     use crate::quickjs_utils::primitives;
     use std::sync::Arc;
+
+    #[test]
+    pub fn test_to_string() {
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let io = rt.add_to_event_queue_sync(|q_js_rt| {
+            let i = primitives::from_i32(480);
+            let i_s = call_to_string(q_js_rt, &i)
+                .ok()
+                .expect("to_string failed on i");
+            assert_eq!(i_s.as_str(), "480");
+
+            let b = primitives::from_bool(true);
+            let b_s = call_to_string(q_js_rt, &b)
+                .ok()
+                .expect("to_string failed on b");
+            assert_eq!(b_s.as_str(), "true");
+
+            true
+        });
+        assert!(io);
+    }
 
     #[test]
     pub fn test_call() {

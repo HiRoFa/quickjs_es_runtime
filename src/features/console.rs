@@ -30,8 +30,6 @@ unsafe extern "C" fn console_log(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    log::info!("console.log called, argc={}", argc,);
-
     let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
 
     let args_vec: Vec<OwnedValueRef> = arg_slice
@@ -39,19 +37,18 @@ unsafe extern "C" fn console_log(
         .map(|raw| OwnedValueRef::new_no_free(*raw))
         .collect::<Vec<_>>();
 
-    QuickJsRuntime::do_with(|q_js_rt| {
-        for arg in &args_vec {
-            log::trace!("arg tag = {}", arg.borrow_value().tag);
-            if arg.is_string() {
-                log::trace!(
-                    "arg = {}",
-                    primitives::to_string(q_js_rt, &arg).ok().expect("wtf1")
-                );
-            } else if arg.is_i32() {
-                log::trace!("arg = {}", primitives::to_i32(&arg).ok().expect("wtf2"));
-            }
-        }
+    let strings = QuickJsRuntime::do_with(|q_js_rt| {
+        args_vec
+            .iter()
+            .map(|arg| {
+                functions::call_to_string(q_js_rt, arg)
+                    .ok()
+                    .expect("could not convert arg to string")
+            })
+            .collect::<Vec<String>>()
     });
+
+    log::info!("console.log > {}", strings.join(", "));
 
     quickjs_utils::new_null()
 }
