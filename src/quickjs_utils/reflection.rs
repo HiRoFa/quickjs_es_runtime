@@ -1,7 +1,6 @@
 use crate::quickjs_utils::{functions, objects, primitives};
 use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
-use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -227,14 +226,15 @@ unsafe extern "C" fn constructor(
         let class_id = resolve_class_id(class_name.as_str());
 
         log::trace!("constructor called, class_id={}", class_id);
-        let class_val: q::JSValue = unsafe { q::JS_NewObjectClass(ctx, class_id as i32) };
+        let class_val: q::JSValue = q::JS_NewObjectClass(ctx, class_id as i32);
 
         let class_val_ref = OwnedValueRef::new_no_free(class_val);
-        objects::set_property(
+        objects::set_property2(
             q_js_rt,
             &class_val_ref,
             "_ES_INSTANCE_ID_",
             primitives::from_i32(2581),
+            0, // not configurable, writable or enumerable
         )
         .ok()
         .expect("could not set instance id");

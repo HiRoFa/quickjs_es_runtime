@@ -30,16 +30,44 @@ pub fn create_object(q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError>
     }
     Ok(obj_ref)
 }
-
 pub fn set_property(
     q_js_rt: &QuickJsRuntime,
     obj_ref: &OwnedValueRef,
     prop_name: &str,
     prop_ref: OwnedValueRef,
 ) -> Result<(), EsError> {
+    set_property2(
+        q_js_rt,
+        obj_ref,
+        prop_name,
+        prop_ref,
+        q::JS_PROP_C_W_E as i32,
+    )
+}
+
+pub fn set_property2(
+    q_js_rt: &QuickJsRuntime,
+    obj_ref: &OwnedValueRef,
+    prop_name: &str,
+    prop_ref: OwnedValueRef,
+    flags: i32,
+) -> Result<(), EsError> {
     let ckey = make_cstring(prop_name.clone());
 
     let mut prop_ref = prop_ref;
+
+    /*
+        pub const JS_PROP_CONFIGURABLE: u32 = 1;
+    pub const JS_PROP_WRITABLE: u32 = 2;
+    pub const JS_PROP_ENUMERABLE: u32 = 4;
+    pub const JS_PROP_C_W_E: u32 = 7;
+    pub const JS_PROP_LENGTH: u32 = 8;
+    pub const JS_PROP_TMASK: u32 = 48;
+    pub const JS_PROP_NORMAL: u32 = 0;
+    pub const JS_PROP_GETSET: u32 = 16;
+    pub const JS_PROP_VARREF: u32 = 32;
+    pub const JS_PROP_AUTOINIT: u32 = 48;
+        */
 
     let ret = unsafe {
         q::JS_DefinePropertyValueStr(
@@ -47,7 +75,7 @@ pub fn set_property(
             *obj_ref.borrow_value(),
             ckey.ok().unwrap().as_ptr(),
             prop_ref.consume_value(),
-            q::JS_PROP_C_W_E as i32,
+            flags,
         )
     };
     if ret < 0 {
