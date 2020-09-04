@@ -1,15 +1,24 @@
-use crate::quickjs_utils::{functions, objects};
+use crate::quickjs_utils::{functions, objects, primitives};
 use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
+use std::borrow::Borrow;
+use std::cell::RefCell;
+use std::collections::HashMap;
+
+thread_local! {
+    static CLASSNAME_CLASSID_MAPPINGS: RefCell<HashMap<String, i32>> = RefCell::new(HashMap::new());
+}
 
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
-    use crate::quickjs_utils::functions::{new_native_function, new_native_function_data};
+    use crate::quickjs_utils::functions::new_native_function;
     use crate::quickjs_utils::get_global;
-    use crate::quickjs_utils::reflection::{constructor, finalizer, js_class_call};
-    use crate::quickjsruntime::{make_cstring, OwnedValueRef};
+    use crate::quickjs_utils::reflection::{
+        constructor, finalizer, js_class_call, register_class_name,
+    };
+    use crate::quickjsruntime::make_cstring;
     use libquickjs_sys as q;
     use std::sync::Arc;
     use std::time::Duration;
@@ -113,6 +122,7 @@ pub mod tests {
             let mut c_id: u32 = 0;
             let class_id: u32 = unsafe { q::JS_NewClassID(&mut c_id) };
             log::trace!("got class id {}", class_id);
+            register_class_name("TestClass", class_id as i32);
 
             let c_name = make_cstring("TestClass").ok().unwrap();
 
@@ -158,7 +168,7 @@ pub mod tests {
 
             let eval_res = q_js_rt.eval(EsScript::new(
                 "TestClass.es".to_string(),
-                "let i = new TestClass(1, true, 'abc'); i = null;".to_string(),
+                "let i = new TestClass(1, true, 'abc'); console.log('i._ES_INSTANCE_ID_ = '+i._ES_INSTANCE_ID_); i = null;".to_string(),
             ));
             if eval_res.is_err() {
                 log::trace!("{}", eval_res.err().unwrap());
@@ -180,6 +190,20 @@ pub mod tests {
     }
 }
 
+fn register_class_name(class_name: &str, class_id: i32) {
+    CLASSNAME_CLASSID_MAPPINGS.with(|rc: &RefCell<HashMap<String, i32>>| {
+        let mappings = &mut *rc.borrow_mut();
+        mappings.insert(class_name.to_string(), class_id);
+    });
+}
+
+fn resolve_class_id(class_name: &str) -> i32 {
+    CLASSNAME_CLASSID_MAPPINGS.with(|rc: &RefCell<HashMap<String, i32>>| {
+        let mappings = &*rc.borrow();
+        *mappings.get(class_name).unwrap()
+    })
+}
+
 unsafe extern "C" fn constructor(
     ctx: *mut q::JSContext,
     this_val: q::JSValue,
@@ -188,7 +212,7 @@ unsafe extern "C" fn constructor(
 ) -> q::JSValue {
     log::trace!("constructor called, this_tag={}", this_val.tag);
 
-    // this is the function we created earlier (the constrcutor)
+    // this is the function we created earlier (the constructor)
     // so classname = this.name;
     let this_ref = OwnedValueRef::new(this_val);
     QuickJsRuntime::do_with(|q_js_rt| {
@@ -200,14 +224,23 @@ unsafe extern "C" fn constructor(
             .expect("name.toString failed");
 
         log::trace!("classname={}", class_name);
-    });
+        let class_id = resolve_class_id(class_name.as_str());
 
-    // todo get class id from somehwere,.,,
-    let class_id = 0;
+        log::trace!("constructor called, class_id={}", class_id);
+        let class_val: q::JSValue = unsafe { q::JS_NewObjectClass(ctx, class_id as i32) };
 
-    let class_val: q::JSValue = unsafe { q::JS_NewObjectClass(ctx, class_id as i32) };
+        let class_val_ref = OwnedValueRef::new_no_free(class_val);
+        objects::set_property(
+            q_js_rt,
+            &class_val_ref,
+            "_ES_INSTANCE_ID_",
+            primitives::from_i32(2581),
+        )
+        .ok()
+        .expect("could not set instance id");
 
-    class_val
+        class_val
+    })
 }
 
 unsafe extern "C" fn finalizer(rt: *mut q::JSRuntime, val: q::JSValue) {

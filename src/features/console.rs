@@ -2,7 +2,6 @@ use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions;
 use crate::quickjs_utils::objects;
-use crate::quickjs_utils::primitives;
 use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
 
