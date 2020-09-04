@@ -206,8 +206,8 @@ fn resolve_class_id(class_name: &str) -> i32 {
 unsafe extern "C" fn constructor(
     ctx: *mut q::JSContext,
     this_val: q::JSValue,
-    argc: ::std::os::raw::c_int,
-    argv: *mut q::JSValue,
+    _argc: ::std::os::raw::c_int,
+    _argv: *mut q::JSValue,
 ) -> q::JSValue {
     log::trace!("constructor called, this_tag={}", this_val.tag);
 
@@ -243,19 +243,20 @@ unsafe extern "C" fn constructor(
     })
 }
 
-unsafe extern "C" fn finalizer(rt: *mut q::JSRuntime, val: q::JSValue) {
-    //
+unsafe extern "C" fn finalizer(_rt: *mut q::JSRuntime, _val: q::JSValue) {
+    //todo
     log::trace!("finalizer called");
 }
 
 unsafe extern "C" fn js_class_call(
-    ctx: *mut q::JSContext,
-    func_obj: q::JSValue,
-    this_val: q::JSValue,
-    argc: ::std::os::raw::c_int,
-    argv: *mut q::JSValue,
-    flags: ::std::os::raw::c_int,
+    _ctx: *mut q::JSContext,
+    _func_obj: q::JSValue,
+    _this_val: q::JSValue,
+    _argc: ::std::os::raw::c_int,
+    _argv: *mut q::JSValue,
+    _flags: ::std::os::raw::c_int,
 ) -> q::JSValue {
     log::trace!("js_class_call called");
+    //todo
     crate::quickjs_utils::new_null()
 }
