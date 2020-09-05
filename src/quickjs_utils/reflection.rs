@@ -1,11 +1,185 @@
-use crate::quickjs_utils::{functions, objects, primitives};
-use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime};
+use crate::eserror::EsError;
+use crate::quickjs_utils::functions::new_native_function;
+use crate::quickjs_utils::{functions, get_global, objects, primitives};
+use crate::quickjsruntime::{make_cstring, OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
+pub type ProxyConstructor = dyn Fn(Vec<OwnedValueRef>) -> i32 + 'static;
+pub type ProxyFinalizer = dyn Fn(i32) + 'static;
+pub type ProxyMethod = dyn Fn(&i32, Vec<OwnedValueRef>) -> OwnedValueRef + 'static;
+pub type ProxyStaticMethod = dyn Fn(Vec<OwnedValueRef>) -> OwnedValueRef + 'static;
+
+pub struct Proxy {
+    name: Option<String>,
+    constructor: Option<Box<ProxyConstructor>>,
+    finalizer: Option<Box<ProxyFinalizer>>,
+    methods: HashMap<String, Box<ProxyMethod>>,
+    static_methods: HashMap<String, Box<ProxyStaticMethod>>,
+}
+
+impl Proxy {
+    pub fn new() -> Self {
+        Proxy {
+            name: None,
+            constructor: None,
+            finalizer: None,
+            methods: Default::default(),
+            static_methods: Default::default(),
+        }
+    }
+    pub fn name(mut self, name: &str) -> Self {
+        self.name = Some(name.to_string());
+        self
+    }
+    pub fn constructor<C>(mut self, constructor: C) -> Self
+    where
+        C: Fn(Vec<OwnedValueRef>) -> i32 + 'static,
+    {
+        self.constructor = Some(Box::new(constructor));
+        self
+    }
+    pub fn finalizer<C>(mut self, finalizer: C) -> Self
+    where
+        C: Fn(i32) + 'static,
+    {
+        self.finalizer = Some(Box::new(finalizer));
+        self
+    }
+    pub fn method<M>(mut self, name: &str, method: M) -> Self
+    where
+        M: Fn(&i32, Vec<OwnedValueRef>) -> OwnedValueRef + 'static,
+    {
+        self.methods.insert(name.to_string(), Box::new(method));
+        self
+    }
+    pub fn static_method<M>(mut self, name: &str, method: M) -> Self
+    where
+        M: Fn(Vec<OwnedValueRef>) -> OwnedValueRef + 'static,
+    {
+        self.static_methods
+            .insert(name.to_string(), Box::new(method));
+        self
+    }
+    pub fn install(self, q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
+        if self.name.is_none() {
+            return Err(EsError::new_str("Proxy needs a name"));
+        }
+
+        self.install_js_class(q_js_rt);
+        let prop_ref = self.install_class_prop(q_js_rt)?;
+
+        // these all set the same func with a different name, actual method will be gotten from proxy from registry
+        self.install_methods(q_js_rt, &prop_ref)?;
+        self.install_getters_setters(q_js_rt, &prop_ref)?;
+        self.install_static_methods(q_js_rt, &prop_ref)?;
+        self.install_static_getters_setters(q_js_rt, &prop_ref)?;
+
+        // when we're done we store the proxy class in the registry so we can obtain method, getters, setters later
+        self.install_move_to_registry();
+
+        Ok(())
+    }
+    fn install_methods(
+        &self,
+        q_js_rt: &QuickJsRuntime,
+        prop_ref: &OwnedValueRef,
+    ) -> Result<OwnedValueRef, EsError> {
+        unimplemented!()
+    }
+    fn install_getters_setters(
+        &self,
+        q_js_rt: &QuickJsRuntime,
+        prop_ref: &OwnedValueRef,
+    ) -> Result<OwnedValueRef, EsError> {
+        unimplemented!()
+    }
+    fn install_static_methods(
+        &self,
+        q_js_rt: &QuickJsRuntime,
+        prop_ref: &OwnedValueRef,
+    ) -> Result<OwnedValueRef, EsError> {
+        unimplemented!()
+    }
+    fn install_static_getters_setters(
+        &self,
+        q_js_rt: &QuickJsRuntime,
+        prop_ref: &OwnedValueRef,
+    ) -> Result<OwnedValueRef, EsError> {
+        unimplemented!()
+    }
+    fn install_move_to_registry(self) {
+        let proxy = self;
+        PROXY_REGISTRY.with(move |rc| {
+            let reg_map = &mut *rc.borrow_mut();
+            reg_map.insert(proxy.name.as_ref().unwrap().clone(), proxy);
+        });
+    }
+    fn install_class_prop(&self, q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
+        let constructor_ref = new_native_function(
+            q_js_rt,
+            self.name.as_ref().unwrap().as_str(),
+            Some(constructor),
+            1,
+            true,
+        )
+        .ok()
+        .expect("shit failed yo");
+
+        // todo impl namespace here
+
+        let global_ref = get_global(q_js_rt);
+        objects::set_property(
+            q_js_rt,
+            &global_ref,
+            self.name.as_ref().unwrap().as_str(),
+            constructor_ref,
+        )
+        .ok()
+        .expect("could not set prop");
+
+        log::trace!("set prop done");
+
+        objects::get_property(q_js_rt, &global_ref, self.name.as_ref().unwrap().as_str())
+    }
+    fn install_js_class(&self, q_js_rt: &QuickJsRuntime) {
+        let mut c_id: u32 = 0;
+        let class_id: u32 = unsafe { q::JS_NewClassID(&mut c_id) };
+        log::trace!("got class id {}", class_id);
+
+        register_class_name(self.name.as_ref().unwrap().as_str(), class_id as i32);
+
+        let c_name = make_cstring(self.name.as_ref().unwrap().as_str())
+            .ok()
+            .unwrap();
+
+        let mut exotic = q::JSClassExoticMethods {
+            get_own_property: None,
+            get_own_property_names: None,
+            delete_property: None,
+            define_own_property: None,
+            has_property: None,
+            get_property: None,
+            set_property: None,
+        };
+
+        let class_def = q::JSClassDef {
+            class_name: c_name.as_ptr(),
+            finalizer: Some(finalizer),
+            gc_mark: None,
+            call: Some(js_class_call),
+            exotic: &mut exotic,
+        };
+
+        let res = unsafe { q::JS_NewClass(q_js_rt.runtime, class_id, &class_def) };
+        log::trace!("new class res {}", res);
+    }
+}
+
 thread_local! {
     static CLASSNAME_CLASSID_MAPPINGS: RefCell<HashMap<String, i32>> = RefCell::new(HashMap::new());
+    static PROXY_REGISTRY: RefCell<HashMap<String, Proxy>> = RefCell::new(HashMap::new());
 }
 
 #[cfg(test)]
@@ -15,7 +189,7 @@ pub mod tests {
     use crate::quickjs_utils::functions::new_native_function;
     use crate::quickjs_utils::get_global;
     use crate::quickjs_utils::reflection::{
-        constructor, finalizer, js_class_call, register_class_name,
+        constructor, finalizer, js_class_call, register_class_name, Proxy,
     };
     use crate::quickjsruntime::make_cstring;
     use libquickjs_sys as q;
@@ -114,6 +288,19 @@ pub mod tests {
 
     #[test]
     pub fn test_proxy() {
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let io = rt.add_to_event_queue_sync(|q_js_rt| {
+            Proxy::new()
+                .name("TestClass1")
+                .constructor(|args| 123)
+                .install(q_js_rt)
+                .ok()
+                .expect("could not install proxy");
+        });
+    }
+
+    #[test]
+    pub fn test_proxy2() {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
             //
