@@ -52,7 +52,11 @@ pub fn set_property2(
     prop_ref: OwnedValueRef,
     flags: i32,
 ) -> Result<(), EsError> {
-    let ckey = make_cstring(prop_name.clone());
+    log::trace!("set_property2: {}", prop_name);
+
+    let ckey = make_cstring(prop_name.clone())
+        .ok()
+        .expect("could not make cstring");
 
     let mut prop_ref = prop_ref;
 
@@ -69,18 +73,22 @@ pub fn set_property2(
     pub const JS_PROP_AUTOINIT: u32 = 48;
         */
 
+    log::trace!("set_property2 / 2");
+
     let ret = unsafe {
         q::JS_DefinePropertyValueStr(
             q_js_rt.context,
             *obj_ref.borrow_value(),
-            ckey.ok().unwrap().as_ptr(),
+            ckey.as_ptr(),
             prop_ref.consume_value(),
             flags,
         )
     };
+    log::trace!("set_property2 / 3");
     if ret < 0 {
         return Err(EsError::new_str("Could not add property to object"));
     }
+    log::trace!("set_property2 / 4");
     Ok(())
 }
 

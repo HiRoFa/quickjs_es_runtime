@@ -5,11 +5,41 @@ use crate::quickjsruntime::{make_cstring, OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ffi::CString;
+use std::os::raw::c_char;
 
 pub type ProxyConstructor = dyn Fn(Vec<OwnedValueRef>) -> i32 + 'static;
 pub type ProxyFinalizer = dyn Fn(i32) + 'static;
 pub type ProxyMethod = dyn Fn(&i32, Vec<OwnedValueRef>) -> OwnedValueRef + 'static;
 pub type ProxyStaticMethod = dyn Fn(Vec<OwnedValueRef>) -> OwnedValueRef + 'static;
+
+static CName: &str = "ProxyClass\0";
+
+thread_local! {
+    static EXOTIC: RefCell<q::JSClassExoticMethods> = RefCell::new(q::JSClassExoticMethods {
+        get_own_property: None,
+        get_own_property_names: None,
+        delete_property: None,
+        define_own_property: None,
+        has_property: None,
+        get_property: None,
+        set_property: None,
+    });
+}
+thread_local! {
+    static CLASS_DEF: RefCell<q::JSClassDef> = {
+    EXOTIC.with(|e_rc|{
+        let exotic = &mut *e_rc.borrow_mut();
+        RefCell::new(q::JSClassDef {
+            class_name: CName.as_ptr() as *const c_char,
+            finalizer: Some(finalizer),
+            gc_mark: None,
+            call: Some(js_class_call),
+            exotic,
+        })
+    })
+};
+}
 
 pub struct Proxy {
     name: Option<String>,
@@ -62,7 +92,7 @@ impl Proxy {
             .insert(name.to_string(), Box::new(method));
         self
     }
-    pub fn install(self, q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
+    pub fn install(mut self, q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
         if self.name.is_none() {
             return Err(EsError::new_str("Proxy needs a name"));
         }
@@ -85,29 +115,33 @@ impl Proxy {
         &self,
         q_js_rt: &QuickJsRuntime,
         prop_ref: &OwnedValueRef,
-    ) -> Result<OwnedValueRef, EsError> {
-        unimplemented!()
+    ) -> Result<(), EsError> {
+        //unimplemented!()
+        Ok(())
     }
     fn install_getters_setters(
         &self,
         q_js_rt: &QuickJsRuntime,
         prop_ref: &OwnedValueRef,
-    ) -> Result<OwnedValueRef, EsError> {
-        unimplemented!()
+    ) -> Result<(), EsError> {
+        //unimplemented!()
+        Ok(())
     }
     fn install_static_methods(
         &self,
         q_js_rt: &QuickJsRuntime,
         prop_ref: &OwnedValueRef,
-    ) -> Result<OwnedValueRef, EsError> {
-        unimplemented!()
+    ) -> Result<(), EsError> {
+        //unimplemented!()
+        Ok(())
     }
     fn install_static_getters_setters(
         &self,
         q_js_rt: &QuickJsRuntime,
         prop_ref: &OwnedValueRef,
-    ) -> Result<OwnedValueRef, EsError> {
-        unimplemented!()
+    ) -> Result<(), EsError> {
+        //unimplemented!()
+        Ok(())
     }
     fn install_move_to_registry(self) {
         let proxy = self;
@@ -150,30 +184,11 @@ impl Proxy {
 
         register_class_name(self.name.as_ref().unwrap().as_str(), class_id as i32);
 
-        let c_name = make_cstring(self.name.as_ref().unwrap().as_str())
-            .ok()
-            .unwrap();
-
-        let mut exotic = q::JSClassExoticMethods {
-            get_own_property: None,
-            get_own_property_names: None,
-            delete_property: None,
-            define_own_property: None,
-            has_property: None,
-            get_property: None,
-            set_property: None,
-        };
-
-        let class_def = q::JSClassDef {
-            class_name: c_name.as_ptr(),
-            finalizer: Some(finalizer),
-            gc_mark: None,
-            call: Some(js_class_call),
-            exotic: &mut exotic,
-        };
-
-        let res = unsafe { q::JS_NewClass(q_js_rt.runtime, class_id, &class_def) };
-        log::trace!("new class res {}", res);
+        CLASS_DEF.with(|cd_rc| {
+            let class_def = &*cd_rc.borrow();
+            let res = unsafe { q::JS_NewClass(q_js_rt.runtime, class_id, class_def) };
+            log::trace!("new class res {}", res);
+        });
     }
 }
 
@@ -297,82 +312,12 @@ pub mod tests {
                 .ok()
                 .expect("could not install proxy");
         });
-    }
-
-    #[test]
-    pub fn test_proxy2() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
-        let io = rt.add_to_event_queue_sync(|q_js_rt| {
-            //
-
-            let mut c_id: u32 = 0;
-            let class_id: u32 = unsafe { q::JS_NewClassID(&mut c_id) };
-            log::trace!("got class id {}", class_id);
-            register_class_name("TestClass", class_id as i32);
-
-            let c_name = make_cstring("TestClass").ok().unwrap();
-
-            let mut exotic = q::JSClassExoticMethods {
-                get_own_property: None,
-                get_own_property_names: None,
-                delete_property: None,
-                define_own_property: None,
-                has_property: None,
-                get_property: None,
-                set_property: None,
-            };
-
-            let class_def = q::JSClassDef {
-                class_name: c_name.as_ptr(),
-                finalizer: Some(finalizer),
-                gc_mark: None,
-                call: Some(js_class_call),
-                exotic: &mut exotic,
-            };
-
-            let res = unsafe { q::JS_NewClass(q_js_rt.runtime, class_id, &class_def) };
-            log::trace!("new class res {}", res);
-
-            // todo reg ClassName as native_func with constructor is true
-
-            let constructor_ref =
-                new_native_function(q_js_rt, "TestClass", Some(constructor), 1, true)
-                    .ok()
-                    .expect("shit failed yo");
-
-            let global_ref = get_global(q_js_rt);
-            crate::quickjs_utils::objects::set_property(
-                q_js_rt,
-                &global_ref,
-                "TestClass",
-                constructor_ref,
-            )
-            .ok()
-            .expect("could not set prop");
-
-            log::trace!("set prop done");
-
-            let eval_res = q_js_rt.eval(EsScript::new(
-                "TestClass.es".to_string(),
-                "let i = new TestClass(1, true, 'abc'); console.log('i._ES_INSTANCE_ID_ = '+i._ES_INSTANCE_ID_); i = null;".to_string(),
-            ));
-            if eval_res.is_err() {
-                log::trace!("{}", eval_res.err().unwrap());
-            }
-
-            log::trace!("aftert eval");
-
-            q_js_rt.gc();
-
-            log::trace!("aftert gc");
-
-            std::thread::sleep(Duration::from_secs(2));
-
-            true
-        });
-
-        std::thread::sleep(Duration::from_secs(2));
-        assert!(io)
+        rt.eval_sync(EsScript::new(
+            "test_proxy.es".to_string(),
+            "let tc1 = new TestClass1(1, true, 'abc'); tc1 = null;".to_string(),
+        ))
+        .ok()
+        .expect("script failed");
     }
 }
 
@@ -400,7 +345,7 @@ unsafe extern "C" fn constructor(
 
     // this is the function we created earlier (the constructor)
     // so classname = this.name;
-    let this_ref = OwnedValueRef::new(this_val);
+    let this_ref = OwnedValueRef::new_no_free(this_val);
     QuickJsRuntime::do_with(|q_js_rt| {
         let name_ref = objects::get_property(q_js_rt, &this_ref, "name")
             .ok()
@@ -416,15 +361,26 @@ unsafe extern "C" fn constructor(
         let class_val: q::JSValue = q::JS_NewObjectClass(ctx, class_id as i32);
 
         let class_val_ref = OwnedValueRef::new_no_free(class_val);
+
+        if class_val_ref.is_exception() {
+            return if let Some(e) = q_js_rt.get_exception() {
+                panic!("could not create class:{} due to: {}", class_name, e);
+            } else {
+                panic!("could not create class:{}", class_name);
+            };
+        }
+
         objects::set_property2(
             q_js_rt,
             &class_val_ref,
             "_ES_INSTANCE_ID_",
             primitives::from_i32(2581),
-            0, // not configurable, writable or enumerable
+            q::JS_PROP_NORMAL as i32, // not configurable, writable or enumerable
         )
         .ok()
         .expect("could not set instance id");
+
+        log::trace!("constructor done");
 
         class_val
     })
