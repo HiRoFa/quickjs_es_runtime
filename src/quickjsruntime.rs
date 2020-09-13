@@ -229,7 +229,9 @@ impl Drop for OwnedValueRef {
         log::trace!("dropping OwnedValueRef, isSome={}", self.value.is_some());
         if !self.no_free && self.value.is_some() {
             QuickJsRuntime::do_with(|q_js_rt| unsafe {
+                log::trace!("dropping OwnedValueRef, before free");
                 free_value(q_js_rt.context, self.consume_value());
+                log::trace!("dropping OwnedValueRef, after free");
             })
         }
     }

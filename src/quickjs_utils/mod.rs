@@ -1,6 +1,7 @@
 use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime, TAG_NULL, TAG_UNDEFINED};
 
 pub(crate) mod arrays;
+pub(crate) mod atoms;
 pub(crate) mod bigints;
 pub(crate) mod functions;
 pub(crate) mod modules;
