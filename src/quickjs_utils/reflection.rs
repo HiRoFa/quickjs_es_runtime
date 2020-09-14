@@ -2,12 +2,11 @@ use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions::new_native_function;
 use crate::quickjs_utils::{atoms, functions, get_global, objects, primitives};
-use crate::quickjsruntime::{make_cstring, OwnedValueRef, QuickJsRuntime};
+use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
 use log::trace;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ffi::CString;
 use std::os::raw::c_char;
 
 pub type ProxyConstructor = dyn Fn(Vec<OwnedValueRef>) -> i32 + 'static;
@@ -52,6 +51,7 @@ pub struct Proxy {
 }
 
 impl Proxy {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Proxy {
             name: None,
@@ -61,6 +61,7 @@ impl Proxy {
             static_methods: Default::default(),
         }
     }
+    #[allow(dead_code)]
     pub fn name(mut self, name: &str) -> Self {
         self.name = Some(name.to_string());
         self
@@ -72,6 +73,7 @@ impl Proxy {
             "__nameless_class__"
         }
     }
+    #[allow(dead_code)]
     pub fn constructor<C>(mut self, constructor: C) -> Self
     where
         C: Fn(Vec<OwnedValueRef>) -> i32 + 'static,
@@ -79,6 +81,8 @@ impl Proxy {
         self.constructor = Some(Box::new(constructor));
         self
     }
+
+    #[allow(dead_code)]
     pub fn finalizer<C>(mut self, finalizer: C) -> Self
     where
         C: Fn(i32) + 'static,
@@ -86,6 +90,8 @@ impl Proxy {
         self.finalizer = Some(Box::new(finalizer));
         self
     }
+
+    #[allow(dead_code)]
     pub fn method<M>(mut self, name: &str, method: M) -> Self
     where
         M: Fn(&i32, Vec<OwnedValueRef>) -> OwnedValueRef + 'static,
@@ -93,6 +99,8 @@ impl Proxy {
         self.methods.insert(name.to_string(), Box::new(method));
         self
     }
+
+    #[allow(dead_code)]
     pub fn static_method<M>(mut self, name: &str, method: M) -> Self
     where
         M: Fn(Vec<OwnedValueRef>) -> OwnedValueRef + 'static,
@@ -101,7 +109,8 @@ impl Proxy {
             .insert(name.to_string(), Box::new(method));
         self
     }
-    pub fn install(mut self, q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
+    #[allow(dead_code)]
+    pub fn install(self, q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
         if self.name.is_none() {
             return Err(EsError::new_str("Proxy needs a name"));
         }
@@ -120,46 +129,11 @@ impl Proxy {
 
         Ok(())
     }
-    fn install_methods(
-        &self,
-        q_js_rt: &QuickJsRuntime,
-        class_ref: &OwnedValueRef,
-    ) -> Result<(), EsError> {
-        //unimplemented!()
 
-        log::trace!("install_methods {}", self.get_class_name());
-        let pt_ref = objects::get_property(q_js_rt, class_ref, "prototype")?;
-
-        for (name, method) in &self.methods {
-            log::trace!("install_methods {} / {}", self.get_class_name(), name);
-
-            let func_ref = functions::new_native_function(
-                q_js_rt,
-                name.as_str(),
-                Some(proxy_instance_method),
-                1,
-                false,
-            )?;
-            objects::set_property(q_js_rt, &pt_ref, name.as_str(), func_ref)?;
-        }
-
-        Ok(())
-    }
-    fn install_getters_setters(
-        &self,
-        q_js_rt: &QuickJsRuntime,
-        class_ref: &OwnedValueRef,
-    ) -> Result<(), EsError> {
-        //unimplemented!()
-
-        log::trace!("install_getters_setters {}", self.get_class_name());
-
-        Ok(())
-    }
     fn install_static_methods(
         &self,
-        q_js_rt: &QuickJsRuntime,
-        class_ref: &OwnedValueRef,
+        _q_js_rt: &QuickJsRuntime,
+        _class_ref: &OwnedValueRef,
     ) -> Result<(), EsError> {
         //unimplemented!()
 
@@ -169,8 +143,8 @@ impl Proxy {
     }
     fn install_static_getters_setters(
         &self,
-        q_js_rt: &QuickJsRuntime,
-        class_ref: &OwnedValueRef,
+        _q_js_rt: &QuickJsRuntime,
+        _class_ref: &OwnedValueRef,
     ) -> Result<(), EsError> {
         //unimplemented!()
 
@@ -236,15 +210,9 @@ thread_local! {
 pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
-    use crate::quickjs_utils::functions::new_native_function;
-    use crate::quickjs_utils::reflection::{
-        constructor, finalizer, js_class_call, register_class_name, Proxy,
-    };
-    use crate::quickjs_utils::{get_global, primitives};
-    use crate::quickjsruntime::make_cstring;
-    use libquickjs_sys as q;
+    use crate::quickjs_utils::primitives;
+    use crate::quickjs_utils::reflection::Proxy;
     use std::sync::Arc;
-    use std::time::Duration;
 
     /*
 
@@ -339,14 +307,15 @@ pub mod tests {
     #[test]
     pub fn test_proxy() {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
-        let io = rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.add_to_event_queue_sync(|q_js_rt| {
             Proxy::new()
                 .name("TestClass1")
-                .constructor(|args| 123)
-                .method("doIt", |obj_id, args| primitives::from_i32(531))
-                .method("doIt2", |obj_id, args| primitives::from_i32(257))
-                .static_method("sDoIt", |args| primitives::from_i32(9876))
-                .static_method("sDoIt2", |args| primitives::from_i32(140))
+                .constructor(|_args| 123)
+                .method("doIt", |_obj_id, _args| primitives::from_i32(531))
+                .method("doIt2", |_obj_id, _args| primitives::from_i32(257))
+                .static_method("sDoIt", |_args| primitives::from_i32(9876))
+                .static_method("sDoIt2", |_args| primitives::from_i32(140))
+                .finalizer(|id| log::trace!("run finalizer: {}", id))
                 .install(q_js_rt)
                 .ok()
                 .expect("could not install proxy");
@@ -360,21 +329,21 @@ pub mod tests {
         .expect("script failed");
     }
 }
-
+#[allow(dead_code)]
 fn register_class_name(class_name: &str, class_id: i32) {
     CLASSNAME_CLASSID_MAPPINGS.with(|rc: &RefCell<HashMap<String, i32>>| {
         let mappings = &mut *rc.borrow_mut();
         mappings.insert(class_name.to_string(), class_id);
     });
 }
-
+#[allow(dead_code)]
 fn resolve_class_id(class_name: &str) -> i32 {
     CLASSNAME_CLASSID_MAPPINGS.with(|rc: &RefCell<HashMap<String, i32>>| {
         let mappings = &*rc.borrow();
         *mappings.get(class_name).unwrap()
     })
 }
-
+#[allow(dead_code)]
 unsafe extern "C" fn constructor(
     ctx: *mut q::JSContext,
     this_val: q::JSValue,
@@ -403,7 +372,7 @@ unsafe extern "C" fn constructor(
         let class_val_ref = OwnedValueRef::new_no_free(class_val);
 
         if class_val_ref.is_exception() {
-            return if let Some(e) = q_js_rt.get_exception() {
+            if let Some(e) = q_js_rt.get_exception() {
                 panic!("could not create class:{} due to: {}", class_name, e);
             } else {
                 panic!("could not create class:{}", class_name);
@@ -437,13 +406,13 @@ unsafe extern "C" fn constructor(
         class_val
     })
 }
-
+#[allow(dead_code)]
 unsafe extern "C" fn finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
     //todo
     log::trace!("finalizer called");
     OwnedValueRef::new(val);
 }
-
+#[allow(dead_code)]
 unsafe extern "C" fn js_class_call(
     _ctx: *mut q::JSContext,
     _func_obj: q::JSValue,
@@ -457,8 +426,9 @@ unsafe extern "C" fn js_class_call(
     crate::quickjs_utils::new_null()
 }
 
+#[allow(dead_code)]
 unsafe extern "C" fn proxy_instance_get_prop(
-    ctx: *mut q::JSContext,
+    _ctx: *mut q::JSContext,
     obj: q::JSValue,
     atom: q::JSAtom,
     receiver: q::JSValue,
@@ -466,7 +436,7 @@ unsafe extern "C" fn proxy_instance_get_prop(
     trace!("proxy_instance_get_prop");
 
     let obj_ref = OwnedValueRef::new_no_free(obj);
-    let receiver_ref = OwnedValueRef::new_no_free(receiver);
+    let _receiver_ref = OwnedValueRef::new_no_free(receiver);
 
     QuickJsRuntime::do_with(|q_js_rt| {
         let prop_name = atoms::to_string(q_js_rt, &atom)
@@ -511,11 +481,11 @@ unsafe extern "C" fn proxy_instance_get_prop(
     // get method or getter or setter
     // return native func (cache those?)
 }
-
+#[allow(dead_code)]
 unsafe extern "C" fn proxy_instance_has_prop(
-    ctx: *mut q::JSContext,
-    obj: q::JSValue,
-    atom: q::JSAtom,
+    _ctx: *mut q::JSContext,
+    _obj: q::JSValue,
+    _atom: q::JSAtom,
 ) -> ::std::os::raw::c_int {
     trace!("proxy_instance_has_prop");
     0

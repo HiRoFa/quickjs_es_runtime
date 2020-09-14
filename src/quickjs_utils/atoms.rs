@@ -3,7 +3,6 @@ use crate::eserror::EsError;
 use crate::quickjs_utils::primitives;
 use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
-use std::ffi::CString;
 
 pub unsafe fn to_string(q_js_rt: &QuickJsRuntime, atom: &q::JSAtom) -> Result<String, EsError> {
     let val = q::JS_AtomToString(q_js_rt.context, *atom);
