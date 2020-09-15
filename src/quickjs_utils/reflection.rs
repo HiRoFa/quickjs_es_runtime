@@ -5,7 +5,6 @@ use crate::quickjs_utils::{atoms, functions, get_global, objects, primitives};
 use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
 use log::trace;
-use std::borrow::{Borrow, BorrowMut};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::os::raw::{c_char, c_void};
@@ -18,6 +17,10 @@ pub type ProxyStaticMethod = dyn Fn(Vec<OwnedValueRef>) -> OwnedValueRef + 'stat
 static CNAME: &str = "ProxyClass\0";
 
 thread_local! {
+    static INSTANCE_ID_MAPPINGS: RefCell<HashMap<usize, Box<(usize, String)>>> = RefCell::new(HashMap::new());
+
+    static PROXY_REGISTRY: RefCell<HashMap<String, Proxy>> = RefCell::new(HashMap::new());
+
     static EXOTIC: RefCell<q::JSClassExoticMethods> = RefCell::new(q::JSClassExoticMethods {
         get_own_property: None,
         get_own_property_names: None,
@@ -27,20 +30,35 @@ thread_local! {
         get_property: Some(proxy_instance_get_prop),
         set_property: None,
     });
-}
-thread_local! {
+
     static CLASS_DEF: RefCell<q::JSClassDef> = {
-    EXOTIC.with(|e_rc|{
-        let exotic = &mut *e_rc.borrow_mut();
-        RefCell::new(q::JSClassDef {
-            class_name: CNAME.as_ptr() as *const c_char,
-            finalizer: Some(finalizer),
-            gc_mark: None,
-            call: Some(js_class_call),
-            exotic,
+        EXOTIC.with(|e_rc|{
+            let exotic = &mut *e_rc.borrow_mut();
+            RefCell::new(q::JSClassDef {
+                class_name: CNAME.as_ptr() as *const c_char,
+                finalizer: Some(finalizer),
+                gc_mark: None,
+                call: Some(js_class_call),
+                exotic,
+            })
         })
-    })
-};
+    };
+    static PROXY_CLASS_ID: RefCell<u32> = {
+        let mut c_id: u32 = 0;
+        let class_id: u32 = unsafe { q::JS_NewClassID(&mut c_id) };
+        log::trace!("got class id {}", class_id);
+
+        CLASS_DEF.with(|cd_rc| {
+            let class_def = &*cd_rc.borrow();
+            QuickJsRuntime::do_with(|q_js_rt| {
+                let res = unsafe { q::JS_NewClass(q_js_rt.runtime, class_id, class_def) };
+                log::trace!("new class res {}", res);
+                // todo res should be 0 for ok
+            });
+        });
+
+        RefCell::new(class_id)
+    };
 }
 
 pub struct Proxy {
@@ -116,7 +134,6 @@ impl Proxy {
             return Err(EsError::new_str("Proxy needs a name"));
         }
 
-        self.install_js_class(q_js_rt);
         let class_ref = self.install_class_prop(q_js_rt)?;
 
         // these all set the same func with a different name, actual method will be gotten from proxy from registry
@@ -187,25 +204,6 @@ impl Proxy {
 
         objects::get_property(q_js_rt, &global_ref, self.name.as_ref().unwrap().as_str())
     }
-    fn install_js_class(&self, q_js_rt: &QuickJsRuntime) {
-        let mut c_id: u32 = 0;
-        let class_id: u32 = unsafe { q::JS_NewClassID(&mut c_id) };
-        log::trace!("got class id {}", class_id);
-
-        register_class_name(self.name.as_ref().unwrap().as_str(), class_id as i32);
-
-        CLASS_DEF.with(|cd_rc| {
-            let class_def = &*cd_rc.borrow();
-            let res = unsafe { q::JS_NewClass(q_js_rt.runtime, class_id, class_def) };
-            log::trace!("new class res {}", res);
-        });
-    }
-}
-
-thread_local! {
-    static CLASSNAME_CLASSID_MAPPINGS: RefCell<HashMap<String, i32>> = RefCell::new(HashMap::new());
-    static INSTANCE_ID_MAPPINGS: RefCell<HashMap<usize, Box<(usize, String)>>> = RefCell::new(HashMap::new());
-    static PROXY_REGISTRY: RefCell<HashMap<String, Proxy>> = RefCell::new(HashMap::new());
 }
 
 #[cfg(test)]
@@ -215,6 +213,7 @@ pub mod tests {
     use crate::quickjs_utils::primitives;
     use crate::quickjs_utils::reflection::Proxy;
     use std::sync::Arc;
+    use std::time::Duration;
 
     /*
 
@@ -329,22 +328,10 @@ pub mod tests {
         ))
         .ok()
         .expect("script failed");
+        std::thread::sleep(Duration::from_secs(1));
     }
 }
-#[allow(dead_code)]
-fn register_class_name(class_name: &str, class_id: i32) {
-    CLASSNAME_CLASSID_MAPPINGS.with(|rc: &RefCell<HashMap<String, i32>>| {
-        let mappings = &mut *rc.borrow_mut();
-        mappings.insert(class_name.to_string(), class_id);
-    });
-}
-#[allow(dead_code)]
-fn resolve_class_id(class_name: &str) -> i32 {
-    CLASSNAME_CLASSID_MAPPINGS.with(|rc: &RefCell<HashMap<String, i32>>| {
-        let mappings = &*rc.borrow();
-        *mappings.get(class_name).unwrap()
-    })
-}
+
 #[allow(dead_code)]
 unsafe extern "C" fn constructor(
     ctx: *mut q::JSContext,
@@ -366,7 +353,7 @@ unsafe extern "C" fn constructor(
             .expect("name.toString failed");
 
         log::trace!("classname={}", class_name);
-        let class_id = resolve_class_id(class_name.as_str());
+        let class_id = PROXY_CLASS_ID.with(|rc| *rc.borrow());
 
         log::trace!("constructor called, class_id={}", class_id);
         let class_val: q::JSValue = q::JS_NewObjectClass(ctx, class_id as i32);
@@ -385,10 +372,10 @@ unsafe extern "C" fn constructor(
         INSTANCE_ID_MAPPINGS.with(|im_rc| {
             let mappings = &mut *im_rc.borrow_mut();
             let mut bx = Box::new((instance_id, class_name.clone()));
-            let mut ibp: &mut (usize, String) = &mut *bx;
+            let ibp: &mut (usize, String) = &mut *bx;
             let info_ptr = ibp as *mut _ as *mut c_void;
             mappings.insert(instance_id, bx);
-            unsafe { q::JS_SetOpaque(*class_val_ref.borrow_value(), info_ptr) };
+            q::JS_SetOpaque(*class_val_ref.borrow_value(), info_ptr);
         });
 
         objects::set_property2(
@@ -422,12 +409,12 @@ unsafe extern "C" fn constructor(
 unsafe extern "C" fn finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
     //todo
     log::trace!("finalizer called");
-    QuickJsRuntime::do_with(|q_js_rt| {
-        let class_id = 58;
-        let info_ptr: *mut c_void = q::JS_GetOpaque(val, class_id);
-        let info: &mut (usize, String) = unsafe { &mut *(info_ptr as *mut (usize, String)) };
-        trace!("finalize {}", info.0);
-    });
+    //QuickJsRuntime::do_with(|q_js_rt| {
+    let class_id = PROXY_CLASS_ID.with(|rc| *rc.borrow());
+    let info_ptr: *mut c_void = q::JS_GetOpaque(val, class_id);
+    let info: &mut (usize, String) = &mut *(info_ptr as *mut (usize, String));
+    trace!("finalize {}", info.0);
+    //});
 }
 #[allow(dead_code)]
 unsafe extern "C" fn js_class_call(

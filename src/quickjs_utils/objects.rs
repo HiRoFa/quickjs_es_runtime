@@ -289,15 +289,17 @@ pub mod tests {
     #[test]
     fn test_get_n_drop() {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
-        let io = rt.add_to_event_queue_sync(|q_js_rt| {
-            let objA = create_object(q_js_rt).ok().unwrap();
-            let objB = create_object(q_js_rt).ok().unwrap();
-            set_property(q_js_rt, &objA, "b", objB);
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            let obj_a = create_object(q_js_rt).ok().unwrap();
+            let obj_b = create_object(q_js_rt).ok().unwrap();
+            set_property(q_js_rt, &obj_a, "b", obj_b).ok().unwrap();
 
-            let b1 = get_property(q_js_rt, &objA, "b").ok().unwrap();
-            set_property(q_js_rt, &b1, "i", primitives::from_i32(123));
+            let b1 = get_property(q_js_rt, &obj_a, "b").ok().unwrap();
+            set_property(q_js_rt, &b1, "i", primitives::from_i32(123))
+                .ok()
+                .unwrap();
             drop(b1);
-            let b2 = get_property(q_js_rt, &objA, "b").ok().unwrap();
+            let b2 = get_property(q_js_rt, &obj_a, "b").ok().unwrap();
             let i_ref = get_property(q_js_rt, &b2, "i").ok().unwrap();
             let i = to_i32(&i_ref).ok().unwrap();
             drop(i_ref);
