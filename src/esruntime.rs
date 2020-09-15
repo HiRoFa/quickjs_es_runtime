@@ -1,21 +1,21 @@
 use crate::eserror::EsError;
-use crate::eseventqueue::EsEventQueue;
 use crate::esruntimebuilder::EsRuntimeBuilder;
 use crate::esscript::EsScript;
 use crate::esvalue::EsValueFacade;
 use crate::features;
 use crate::quickjsruntime::QuickJsRuntime;
+use hirofa_utils::single_threaded_event_queue::SingleThreadedEventQueue;
 use log::error;
 use std::sync::Arc;
 
 pub struct EsRuntime {
-    event_queue: Arc<EsEventQueue>,
+    event_queue: Arc<SingleThreadedEventQueue>,
 }
 
 impl EsRuntime {
     pub(crate) fn new(_builder: EsRuntimeBuilder) -> Arc<Self> {
         let ret = Arc::new(Self {
-            event_queue: EsEventQueue::new(),
+            event_queue: SingleThreadedEventQueue::new(),
         });
 
         let res = ret.add_to_event_queue_sync(|q_js_rt| features::init(q_js_rt));

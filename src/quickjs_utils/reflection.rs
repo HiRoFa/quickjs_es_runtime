@@ -5,9 +5,10 @@ use crate::quickjs_utils::{atoms, functions, get_global, objects, primitives};
 use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
 use log::trace;
+use std::borrow::{Borrow, BorrowMut};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::os::raw::c_char;
+use std::os::raw::{c_char, c_void};
 
 pub type ProxyConstructor = dyn Fn(Vec<OwnedValueRef>) -> i32 + 'static;
 pub type ProxyFinalizer = dyn Fn(i32) + 'static;
@@ -203,6 +204,7 @@ impl Proxy {
 
 thread_local! {
     static CLASSNAME_CLASSID_MAPPINGS: RefCell<HashMap<String, i32>> = RefCell::new(HashMap::new());
+    static INSTANCE_ID_MAPPINGS: RefCell<HashMap<usize, Box<(usize, String)>>> = RefCell::new(HashMap::new());
     static PROXY_REGISTRY: RefCell<HashMap<String, Proxy>> = RefCell::new(HashMap::new());
 }
 
@@ -379,6 +381,16 @@ unsafe extern "C" fn constructor(
             };
         }
 
+        let instance_id = 2581; // todo use autoIdMap
+        INSTANCE_ID_MAPPINGS.with(|im_rc| {
+            let mappings = &mut *im_rc.borrow_mut();
+            let mut bx = Box::new((instance_id, class_name.clone()));
+            let mut ibp: &mut (usize, String) = &mut *bx;
+            let info_ptr = ibp as *mut _ as *mut c_void;
+            mappings.insert(instance_id, bx);
+            unsafe { q::JS_SetOpaque(*class_val_ref.borrow_value(), info_ptr) };
+        });
+
         objects::set_property2(
             q_js_rt,
             &class_val_ref,
@@ -410,7 +422,12 @@ unsafe extern "C" fn constructor(
 unsafe extern "C" fn finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
     //todo
     log::trace!("finalizer called");
-    OwnedValueRef::new(val);
+    QuickJsRuntime::do_with(|q_js_rt| {
+        let class_id = 58;
+        let info_ptr: *mut c_void = q::JS_GetOpaque(val, class_id);
+        let info: &mut (usize, String) = unsafe { &mut *(info_ptr as *mut (usize, String)) };
+        trace!("finalize {}", info.0);
+    });
 }
 #[allow(dead_code)]
 unsafe extern "C" fn js_class_call(
