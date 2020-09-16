@@ -88,6 +88,39 @@ pub fn to_string(q_js_rt: &QuickJsRuntime, value_ref: &OwnedValueRef) -> Result<
     Ok(s)
 }
 
+pub fn to_str<'a>(
+    q_js_rt: &QuickJsRuntime,
+    value_ref: &'a OwnedValueRef,
+) -> Result<&'a str, EsError> {
+    log::trace!("primitives::to_string on {}", value_ref.borrow_value().tag);
+
+    assert!(value_ref.is_string());
+
+    let ptr = unsafe {
+        q::JS_ToCStringLen2(
+            q_js_rt.context,
+            std::ptr::null_mut(),
+            *value_ref.borrow_value(),
+            0,
+        )
+    };
+
+    if ptr.is_null() {
+        return Err(EsError::new_str(
+            "Could not convert string: got a null pointer",
+        ));
+    }
+
+    let cstr = unsafe { std::ffi::CStr::from_ptr(ptr) };
+
+    let s = cstr.to_str().ok().expect("invalid string");
+
+    // Free the c string.
+    unsafe { q::JS_FreeCString(q_js_rt.context, ptr) };
+
+    Ok(s)
+}
+
 pub fn from_string(q_js_rt: &QuickJsRuntime, s: &str) -> Result<OwnedValueRef, EsError> {
     let qval =
         unsafe { q::JS_NewStringLen(q_js_rt.context, s.as_ptr() as *const c_char, s.len() as _) };
