@@ -151,12 +151,19 @@ impl Proxy {
 
     fn install_static_methods(
         &self,
-        _q_js_rt: &QuickJsRuntime,
-        _class_ref: &OwnedValueRef,
+        q_js_rt: &QuickJsRuntime,
+        class_ref: &OwnedValueRef,
     ) -> Result<(), EsError> {
         //unimplemented!()
 
         log::trace!("install_static_methods {}", self.get_class_name());
+
+        for method_name in self.static_methods.keys() {
+            let data = primitives::from_string(q_js_rt, method_name)?;
+            let function_ref =
+                functions::new_native_function_data(q_js_rt, Some(proxy_static_method), 1, data)?;
+            objects::set_property2(q_js_rt, class_ref, method_name, function_ref, 0)?;
+        }
 
         Ok(())
     }
@@ -344,6 +351,18 @@ pub mod tests {
 
         assert!(i.is_i32());
         assert_eq!(i.get_i32(), 531);
+
+        let i3 = rt
+            .eval_sync(EsScript::new(
+                "test_proxy.es".to_string(),
+                "TestClass1.sDoIt();".to_string(),
+            ))
+            .ok()
+            .expect("script failed");
+
+        assert!(i3.is_i32());
+        assert_eq!(i3.get_i32(), 9876);
+
         std::thread::sleep(Duration::from_secs(1));
     }
 }
@@ -415,7 +434,7 @@ unsafe extern "C" fn constructor(
 
                     class_val
                 } else {
-                    // todo report ex, not a constrcutor
+                    // todo report ex, not a constructor
                     quickjs_utils::new_null()
                 }
             } else {
@@ -569,6 +588,52 @@ unsafe extern "C" fn proxy_instance_method(
             let proxy = registry.get(proxy_instance_info.1.as_str()).unwrap();
             if let Some(method) = proxy.methods.get(func_name) {
                 let mut m_res: OwnedValueRef = method(&proxy_instance_info.0, args_vec);
+                m_res.consume_value()
+            } else {
+                // return null if nothing was returned
+                quickjs_utils::new_null()
+            }
+        })
+    })
+}
+
+unsafe extern "C" fn proxy_static_method(
+    _ctx: *mut q::JSContext,
+    this_val: q::JSValue,
+    argc: ::std::os::raw::c_int,
+    argv: *mut q::JSValue,
+    _magic: ::std::os::raw::c_int,
+    func_data: *mut q::JSValue,
+) -> q::JSValue {
+    trace!("proxy_static_method");
+    QuickJsRuntime::do_with(|q_js_rt| {
+        let this_ref = OwnedValueRef::new_no_free(this_val);
+
+        let proxy_name_ref = objects::get_property(q_js_rt, &this_ref, "name")
+            .ok()
+            .unwrap();
+        let proxy_name = primitives::to_str(q_js_rt, &proxy_name_ref)
+            .ok()
+            .expect("could not to_string classname");
+
+        let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
+        let args_vec: Vec<OwnedValueRef> = arg_slice
+            .iter()
+            .map(|raw| OwnedValueRef::new_no_free(*raw))
+            .collect::<Vec<_>>();
+
+        let func_name_ref = OwnedValueRef::new_no_free(*func_data);
+        let func_name = primitives::to_str(q_js_rt, &func_name_ref)
+            .ok()
+            .expect("could not to_string func_name_ref");
+
+        trace!("proxy_instance_method: {}", func_name);
+
+        PROXY_REGISTRY.with(|registry_rc| {
+            let registry = &*registry_rc.borrow();
+            let proxy = registry.get(proxy_name).unwrap();
+            if let Some(method) = proxy.static_methods.get(func_name) {
+                let mut m_res: OwnedValueRef = method(args_vec);
                 m_res.consume_value()
             } else {
                 // return null if nothing was returned
