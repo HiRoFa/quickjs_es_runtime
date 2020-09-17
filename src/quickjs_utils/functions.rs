@@ -8,6 +8,8 @@ pub fn call_function(
     function_ref: &OwnedValueRef,
     arguments: &Vec<OwnedValueRef>,
 ) -> Result<OwnedValueRef, EsError> {
+    assert!(is_function(q_js_rt, function_ref));
+
     let arg_count = arguments.len() as i32;
 
     let mut qargs = arguments
@@ -60,6 +62,24 @@ pub fn call_to_string(
             return Err(EsError::new_str("Could not convert value to string"));
         }
         crate::quickjs_utils::primitives::to_string(q_js_rt, &res_ref)
+    }
+}
+
+pub fn is_function(q_js_rt: &QuickJsRuntime, obj_ref: &OwnedValueRef) -> bool {
+    if obj_ref.is_object() {
+        let res = unsafe { q::JS_IsFunction(q_js_rt.context, *obj_ref.borrow_value()) };
+        res != 0
+    } else {
+        false
+    }
+}
+
+pub fn is_constructor(q_js_rt: &QuickJsRuntime, obj_ref: &OwnedValueRef) -> bool {
+    if obj_ref.is_object() {
+        let res = unsafe { q::JS_IsConstructor(q_js_rt.context, *obj_ref.borrow_value()) };
+        res != 0
+    } else {
+        false
     }
 }
 

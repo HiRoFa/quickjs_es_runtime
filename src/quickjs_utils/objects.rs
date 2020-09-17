@@ -1,6 +1,6 @@
 use crate::droppable_value::DroppableValue;
 use crate::eserror::EsError;
-use crate::quickjs_utils::get_global;
+use crate::quickjs_utils::{atoms, functions, get_global};
 use crate::quickjsruntime::{make_cstring, OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
 use std::collections::HashMap;
@@ -90,6 +90,62 @@ pub fn set_property2(
     }
     log::trace!("set_property2 / 4");
     Ok(())
+}
+
+#[allow(dead_code)]
+pub fn define_getter_setter(
+    q_js_rt: &QuickJsRuntime,
+    obj_ref: &OwnedValueRef,
+    prop_name: &str,
+    mut getter_func_ref: OwnedValueRef,
+    mut setter_func_ref: OwnedValueRef,
+) -> Result<(), EsError> {
+    /*
+     pub fn JS_DefinePropertyGetSet(
+        ctx: *mut JSContext,
+        this_obj: JSValue,
+        prop: JSAtom,
+        getter: JSValue,
+        setter: JSValue,
+        flags: ::std::os::raw::c_int,
+    ) -> ::std::os::raw::c_int;
+     */
+
+    log::trace!("objects::define_getter_setter 1");
+
+    assert!(functions::is_function(q_js_rt, &getter_func_ref));
+    log::trace!("objects::define_getter_setter 2");
+    assert!(functions::is_function(q_js_rt, &setter_func_ref));
+    log::trace!("objects::define_getter_setter 3");
+
+    let prop_atom = atoms::from_string(q_js_rt, prop_name)?;
+
+    log::trace!("objects::define_getter_setter 4");
+
+    let res = unsafe {
+        q::JS_DefinePropertyGetSet(
+            q_js_rt.context,
+            *obj_ref.borrow_value(),
+            prop_atom,
+            getter_func_ref.consume_value(),
+            setter_func_ref.consume_value(),
+            0,
+        )
+    };
+
+    log::trace!("objects::define_getter_setter 5 {}", res);
+
+    if res != 0 {
+        if let Some(err) = q_js_rt.get_exception() {
+            Err(err)
+        } else {
+            Err(EsError::new_str(
+                "Unknown error while creating getter setter",
+            ))
+        }
+    } else {
+        Ok(())
+    }
 }
 
 pub fn get_property(
