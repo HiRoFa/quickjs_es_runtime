@@ -284,7 +284,6 @@ impl Proxy {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::eserror::EsError;
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
     use crate::quickjs_utils::reflection::Proxy;
@@ -395,7 +394,7 @@ pub mod tests {
                 .method("doIt2", |_obj_id, _args| Ok(primitives::from_i32(257)))
                 .getter_setter(
                     "gVar",
-                    |id| Ok(primitives::from_i32(147)),
+                    |_id| Ok(primitives::from_i32(147)),
                     |_id, _val| Ok(()),
                 )
                 .static_method("sDoIt", |_args| Ok(primitives::from_i32(9876)))
@@ -438,7 +437,7 @@ pub mod tests {
 
         let i = rt.eval_sync(EsScript::new(
             "test_proxy.es".to_string(),
-            "let tc1 = new TestClass1(1, true, 'abc'); let r = tc1.doIt(1, true, 'abc'); tc1 = null; r;"
+            "let tc1 = new TestClass1(1, true, 'abc'); let r = tc1.doIt(1, true, 'abc'); r = tc1.doIt(1, true, 'abc'); tc1 = null; r;"
                 .to_string(),
         ))
             .ok()
@@ -557,12 +556,10 @@ unsafe extern "C" fn constructor(
 
                     class_val
                 } else {
-                    // todo report ex, not a constructor
-                    quickjs_utils::new_null()
+                    q_js_rt.report_ex("not a constructor")
                 }
             } else {
-                // todo panic
-                quickjs_utils::new_null()
+                q_js_rt.report_ex("no such proxy")
             }
         })
     })
@@ -622,7 +619,7 @@ unsafe extern "C" fn proxy_static_get_prop(
     // static proxy class, not an instance
     trace!("proxy_static_get_prop");
 
-    let obj_ref = OwnedValueRef::new_no_free(obj);
+    let _obj_ref = OwnedValueRef::new_no_free(obj);
     let receiver_ref = OwnedValueRef::new_no_free(receiver);
     QuickJsRuntime::do_with(|q_js_rt| {
         let proxy_name_ref = objects::get_property(q_js_rt, &receiver_ref, "name")
@@ -639,39 +636,46 @@ unsafe extern "C" fn proxy_static_get_prop(
         PROXY_REGISTRY.with(|registry_rc| {
             let registry = &*registry_rc.borrow();
             if let Some(proxy) = registry.get(proxy_name) {
-                if let Some(method) = proxy.static_methods.get(&prop_name) {
-                    // todo, don't just return new val, add to receiver as prop
+                if proxy.static_methods.contains_key(&prop_name) {
                     trace!("found method for {}", prop_name);
 
                     let function_data_ref = from_string(q_js_rt, prop_name.as_str())
                         .ok()
                         .expect("could not create function_data_ref");
 
-                    functions::new_native_function_data(
+                    let func_ref = functions::new_native_function_data(
                         q_js_rt,
                         Some(proxy_static_method),
                         1,
                         function_data_ref,
                     )
                     .ok()
-                    .expect("could not create func")
-                    .consume_value()
+                    .expect("could not create func");
+
+                    objects::set_property(q_js_rt, &receiver_ref, prop_name.as_str(), func_ref)
+                        .ok()
+                        .expect("set_property 9656738 failed");
+
+                    objects::get_property(q_js_rt, &receiver_ref, prop_name.as_str())
+                        .ok()
+                        .unwrap()
+                        .consume_value()
                 } else if let Some(getter_setter) = proxy.static_getters_setters.get(&prop_name) {
                     // call the getter
                     let getter = &getter_setter.0;
-                    let mut res: Result<OwnedValueRef, EsError> = getter();
+                    let res: Result<OwnedValueRef, EsError> = getter();
                     match res {
                         Ok(mut g_val) => g_val.consume_value(),
                         Err(e) => {
-                            // todo report ex
-                            panic!("static getter produced error: {}", e);
+                            let es = format!("static getter produced error: {}", e);
+                            q_js_rt.report_ex(es.as_str())
                         }
                     }
                 } else {
                     quickjs_utils::new_null()
                 }
             } else {
-                quickjs_utils::new_null()
+                q_js_rt.report_ex("proxy class not found")
             }
         })
     })
@@ -689,7 +693,7 @@ unsafe extern "C" fn proxy_instance_get_prop(
     // todo, impl getter_setter and THEN copy paste to static variant
 
     let _obj_ref = OwnedValueRef::new_no_free(obj);
-    let _receiver_ref = OwnedValueRef::new_no_free(receiver);
+    let receiver_ref = OwnedValueRef::new_no_free(receiver);
 
     QuickJsRuntime::do_with(|q_js_rt| {
         let prop_name = atoms::to_string(q_js_rt, &atom)
@@ -715,24 +719,32 @@ unsafe extern "C" fn proxy_instance_get_prop(
                     .ok()
                     .expect("could not create function_data_ref");
 
-                functions::new_native_function_data(
+                let func_ref = functions::new_native_function_data(
                     q_js_rt,
                     Some(proxy_instance_method),
                     1,
                     function_data_ref,
                 )
                 .ok()
-                .expect("could not create func")
-                .consume_value()
+                .expect("could not create func");
+
+                objects::set_property(q_js_rt, &receiver_ref, prop_name.as_str(), func_ref)
+                    .ok()
+                    .expect("set_property 96385 failed");
+
+                objects::get_property(q_js_rt, &receiver_ref, prop_name.as_str())
+                    .ok()
+                    .unwrap()
+                    .consume_value()
             } else if let Some(getter_setter) = proxy.getters_setters.get(&prop_name) {
                 // call the getter
                 let getter = &getter_setter.0;
-                let mut res: Result<OwnedValueRef, EsError> = getter(info.0);
+                let res: Result<OwnedValueRef, EsError> = getter(info.0);
                 match res {
                     Ok(mut g_val) => g_val.consume_value(),
                     Err(e) => {
-                        // todo report ex
-                        panic!("static getter produced error: {}", e);
+                        let err = format!("static getter produced error: {}", e);
+                        q_js_rt.report_ex(err.as_str())
                     }
                 }
             } else {
@@ -798,11 +810,16 @@ unsafe extern "C" fn proxy_instance_method(
             let proxy = registry.get(proxy_instance_info.1.as_str()).unwrap();
             if let Some(method) = proxy.methods.get(func_name) {
                 // todo report ex
-                let mut m_res = method(&proxy_instance_info.0, args_vec)
-                    .ok()
-                    .expect("method failed");
+                let m_res: Result<OwnedValueRef, EsError> =
+                    method(&proxy_instance_info.0, args_vec);
 
-                m_res.consume_value()
+                match m_res {
+                    Ok(mut m_res_ref) => m_res_ref.consume_value(),
+                    Err(e) => {
+                        let err = format!("method failed: {}", e);
+                        q_js_rt.report_ex(err.as_str())
+                    }
+                }
             } else {
                 // return null if nothing was returned
                 quickjs_utils::new_null()
@@ -811,32 +828,7 @@ unsafe extern "C" fn proxy_instance_method(
     })
 }
 
-unsafe extern "C" fn proxy_static_getter(
-    _ctx: *mut q::JSContext,
-    this_val: q::JSValue,
-    argc: ::std::os::raw::c_int,
-    argv: *mut q::JSValue,
-    _magic: ::std::os::raw::c_int,
-    func_data: *mut q::JSValue,
-) -> q::JSValue {
-    trace!("proxy_static_getter called");
-
-    quickjs_utils::new_null()
-}
-
-unsafe extern "C" fn proxy_static_setter(
-    _ctx: *mut q::JSContext,
-    this_val: q::JSValue,
-    argc: ::std::os::raw::c_int,
-    argv: *mut q::JSValue,
-    _magic: ::std::os::raw::c_int,
-    func_data: *mut q::JSValue,
-) -> q::JSValue {
-    trace!("proxy_static_setter called");
-
-    quickjs_utils::new_null()
-}
-
+#[allow(dead_code)]
 unsafe extern "C" fn proxy_static_method(
     _ctx: *mut q::JSContext,
     this_val: q::JSValue,
@@ -867,14 +859,20 @@ unsafe extern "C" fn proxy_static_method(
             .ok()
             .expect("could not to_string func_name_ref");
 
-        trace!("proxy_instance_method: {}", func_name);
+        trace!("proxy_static_method: {}", func_name);
 
         PROXY_REGISTRY.with(|registry_rc| {
             let registry = &*registry_rc.borrow();
             let proxy = registry.get(proxy_name).unwrap();
             if let Some(method) = proxy.static_methods.get(func_name) {
-                let mut m_res: OwnedValueRef = method(args_vec).ok().expect("method failed");
-                m_res.consume_value()
+                let m_res: Result<OwnedValueRef, EsError> = method(args_vec);
+                match m_res {
+                    Ok(mut m_res_ref) => m_res_ref.consume_value(),
+                    Err(e) => {
+                        let err = format!("static method failed: {}", e);
+                        q_js_rt.report_ex(err.as_str())
+                    }
+                }
             } else {
                 // return null if nothing was returned
                 quickjs_utils::new_null()
@@ -884,24 +882,24 @@ unsafe extern "C" fn proxy_static_method(
 }
 
 unsafe extern "C" fn proxy_static_set_prop(
-    ctx: *mut q::JSContext,
-    obj: q::JSValue,
-    atom: q::JSAtom,
-    value: q::JSValue,
-    receiver: q::JSValue,
-    flags: ::std::os::raw::c_int,
+    _ctx: *mut q::JSContext,
+    _obj: q::JSValue,
+    _atom: q::JSAtom,
+    _value: q::JSValue,
+    _receiver: q::JSValue,
+    _flags: ::std::os::raw::c_int,
 ) -> ::std::os::raw::c_int {
     trace!("proxy_static_set_prop");
     0
 }
 
 unsafe extern "C" fn proxy_instance_set_prop(
-    ctx: *mut q::JSContext,
-    obj: q::JSValue,
-    atom: q::JSAtom,
-    value: q::JSValue,
-    receiver: q::JSValue,
-    flags: ::std::os::raw::c_int,
+    _ctx: *mut q::JSContext,
+    _obj: q::JSValue,
+    _atom: q::JSAtom,
+    _value: q::JSValue,
+    _receiver: q::JSValue,
+    _flags: ::std::os::raw::c_int,
 ) -> ::std::os::raw::c_int {
     trace!("proxy_instance_set_prop");
     0

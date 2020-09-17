@@ -149,8 +149,18 @@ impl QuickJsRuntime {
         })
     }
 
+    /// throw an internal error to quickjs and create a new ex obj
+    pub fn report_ex(&self, err: &str) -> q::JSValue {
+        let c_err = CString::new(err);
+        unsafe { q::JS_ThrowInternalError(self.context, c_err.as_ref().ok().unwrap().as_ptr()) };
+        q::JSValue {
+            u: q::JSValueUnion { int32: 0 },
+            tag: TAG_EXCEPTION,
+        }
+    }
+
     /// Get the last exception from the runtime, and if present, convert it to a ExceptionError.
-    pub(crate) fn get_exception(&self) -> Option<EsError> {
+    pub fn get_exception(&self) -> Option<EsError> {
         let raw = unsafe { q::JS_GetException(self.context) };
         let value = OwnedValueRef::new(raw);
 

@@ -65,6 +65,7 @@ pub fn call_to_string(
     }
 }
 
+#[allow(dead_code)]
 pub fn is_function(q_js_rt: &QuickJsRuntime, obj_ref: &OwnedValueRef) -> bool {
     if obj_ref.is_object() {
         let res = unsafe { q::JS_IsFunction(q_js_rt.context, *obj_ref.borrow_value()) };
@@ -74,6 +75,7 @@ pub fn is_function(q_js_rt: &QuickJsRuntime, obj_ref: &OwnedValueRef) -> bool {
     }
 }
 
+#[allow(dead_code)]
 pub fn is_constructor(q_js_rt: &QuickJsRuntime, obj_ref: &OwnedValueRef) -> bool {
     if obj_ref.is_object() {
         let res = unsafe { q::JS_IsConstructor(q_js_rt.context, *obj_ref.borrow_value()) };
