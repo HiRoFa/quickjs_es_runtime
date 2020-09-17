@@ -284,6 +284,7 @@ impl Proxy {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::eserror::EsError;
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
     use crate::quickjs_utils::reflection::Proxy;
@@ -391,7 +392,7 @@ pub mod tests {
                 .name("TestClass1")
                 .constructor(|_args| Ok(123))
                 .method("doIt", |_obj_id, _args| Ok(primitives::from_i32(531)))
-                .method("doIt2", |_obj_id, _args| Ok(primitives::from_i32(257)))
+                .method("doIt2", |_obj_id, _args| Err(EsError::new_str("aaargh")))
                 .getter_setter(
                     "gVar",
                     |_id| Ok(primitives::from_i32(147)),
@@ -480,6 +481,15 @@ pub mod tests {
 
         assert!(i5.is_i32());
         assert_eq!(i5.get_i32(), 147);
+
+        let i6_res = rt.eval_sync(EsScript::new(
+            "test_proxy.es".to_string(),
+            "let tc6 = new TestClass1(); let r6 = tc6.doIt2(); tc6 = null; r6;".to_string(),
+        ));
+        assert!(i6_res.is_err());
+        let e = i6_res.err().unwrap();
+        let e_msg = e.get_message();
+        assert_eq!(e_msg, "InternalError: proxy_instance_method failed: aaargh");
 
         std::thread::sleep(Duration::from_secs(1));
     }
@@ -576,7 +586,6 @@ fn get_proxy_instance_info(val: &q::JSValue) -> &(usize, String) {
 unsafe extern "C" fn finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
     //todo
     log::trace!("finalizer called");
-    //QuickJsRuntime::do_with(|q_js_rt| {
 
     let info: &(usize, String) = get_proxy_instance_info(&val);
     trace!("finalize {}", info.0);
@@ -592,21 +601,6 @@ unsafe extern "C" fn finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
             id_map.remove(&info.0);
         });
     });
-
-    //});
-}
-#[allow(dead_code)]
-unsafe extern "C" fn js_class_call(
-    _ctx: *mut q::JSContext,
-    _func_obj: q::JSValue,
-    _this_val: q::JSValue,
-    _argc: ::std::os::raw::c_int,
-    _argv: *mut q::JSValue,
-    _flags: ::std::os::raw::c_int,
-) -> q::JSValue {
-    log::trace!("js_class_call called");
-    //todo
-    crate::quickjs_utils::new_null()
 }
 
 #[allow(dead_code)]
@@ -667,7 +661,7 @@ unsafe extern "C" fn proxy_static_get_prop(
                     match res {
                         Ok(mut g_val) => g_val.consume_value(),
                         Err(e) => {
-                            let es = format!("static getter produced error: {}", e);
+                            let es = format!("proxy_static_get_prop failed: {}", e);
                             q_js_rt.report_ex(es.as_str())
                         }
                     }
@@ -743,7 +737,7 @@ unsafe extern "C" fn proxy_instance_get_prop(
                 match res {
                     Ok(mut g_val) => g_val.consume_value(),
                     Err(e) => {
-                        let err = format!("static getter produced error: {}", e);
+                        let err = format!("proxy_instance_get_prop failed: {}", e);
                         q_js_rt.report_ex(err.as_str())
                     }
                 }
@@ -816,7 +810,7 @@ unsafe extern "C" fn proxy_instance_method(
                 match m_res {
                     Ok(mut m_res_ref) => m_res_ref.consume_value(),
                     Err(e) => {
-                        let err = format!("method failed: {}", e);
+                        let err = format!("proxy_instance_method failed: {}", e);
                         q_js_rt.report_ex(err.as_str())
                     }
                 }
@@ -869,7 +863,7 @@ unsafe extern "C" fn proxy_static_method(
                 match m_res {
                     Ok(mut m_res_ref) => m_res_ref.consume_value(),
                     Err(e) => {
-                        let err = format!("static method failed: {}", e);
+                        let err = format!("proxy_static_method failed: {}", e);
                         q_js_rt.report_ex(err.as_str())
                     }
                 }
