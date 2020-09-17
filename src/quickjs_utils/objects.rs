@@ -372,10 +372,7 @@ pub mod tests {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
             let obj_ref = q_js_rt
-                .eval(EsScript::new(
-                    "test_propnames.es".to_string(),
-                    "({one: 1, two: 2});".to_string(),
-                ))
+                .eval(EsScript::new("test_propnames.es", "({one: 1, two: 2});"))
                 .ok()
                 .expect("could not get test obj");
             let prop_names = get_property_names(q_js_rt, &obj_ref)
@@ -412,19 +409,13 @@ pub mod tests {
 
             q_js_rt.gc();
             let a = q_js_rt
-                .eval(EsScript::new(
-                    "test_set_prop.es".to_string(),
-                    "(test_obj);".to_string(),
-                ))
+                .eval(EsScript::new("test_set_prop.es", "(test_obj);"))
                 .ok()
                 .unwrap()
                 .is_object();
             assert!(a);
             let b = q_js_rt
-                .eval(EsScript::new(
-                    "test_set_prop.es".to_string(),
-                    "(test_obj.test_prop);".to_string(),
-                ))
+                .eval(EsScript::new("test_set_prop.es", "(test_obj.test_prop);"))
                 .ok()
                 .unwrap()
                 .is_i32();

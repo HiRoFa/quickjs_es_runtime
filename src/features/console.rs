@@ -62,8 +62,8 @@ pub mod tests {
     pub fn test_console() {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.eval_sync(EsScript::new(
-            "test_console.es".to_string(),
-            "console.log('one %s %s', 'two', 3)".to_string(),
+            "test_console.es",
+            "console.log('one %s %s', 'two', 3)",
         ))
         .ok()
         .expect("test_console.es failed");

@@ -414,7 +414,7 @@ pub mod tests {
     #[test]
     fn test_rt() {
         let rt = QuickJsRuntime::new();
-        rt.eval(EsScript::new("test.es".to_string(), "1+1;".to_string()))
+        rt.eval(EsScript::new("test.es", "1+1;"))
             .ok()
             .expect("could not eval");
     }

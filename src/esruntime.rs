@@ -147,10 +147,7 @@ pub mod tests {
     #[test]
     fn test_eval_sync() {
         let rt: Arc<EsRuntime> = TEST_ESRT.clone();
-        let res = rt.eval_sync(EsScript::new(
-            "test.es".to_string(),
-            "console.log('foo bar');".to_string(),
-        ));
+        let res = rt.eval_sync(EsScript::new("test.es", "console.log('foo bar');"));
 
         match res {
             Ok(_) => {}
@@ -160,7 +157,7 @@ pub mod tests {
         }
 
         let res = rt
-            .eval_sync(EsScript::new("test.es".to_string(), "(2 * 7);".to_string()))
+            .eval_sync(EsScript::new("test.es", "(2 * 7);"))
             .ok()
             .expect("script failed");
 
@@ -172,8 +169,8 @@ pub mod tests {
         let rt: Arc<EsRuntime> = TEST_ESRT.clone();
 
         let res = rt.eval_sync(EsScript::new(
-            "testp2.es".to_string(),
-            "let test_promise_P = (new Promise(function(res, rej) {console.log('before res');res(123);console.log('after res');}).then(function (a) {console.log('prom ressed to ' + a);}).catch(function(x) {console.log('p.ca ex=' + x);}))".to_string(),
+            "testp2.es",
+            "let test_promise_P = (new Promise(function(res, rej) {console.log('before res');res(123);console.log('after res');}).then(function (a) {console.log('prom ressed to ' + a);}).catch(function(x) {console.log('p.ca ex=' + x);}))",
         ));
 
         match res {
@@ -188,8 +185,8 @@ pub mod tests {
         let rt = &TEST_ESRT;
         debug!("test static import");
         let res: Result<EsValueFacade, EsError> = rt.eval_module_sync(EsScript::new(
-            "test.es".to_string(),
-            "import {some} from 'test_module.mes';\n console.log(some.foo);".to_string(),
+            "test.es",
+            "import {some} from 'test_module.mes';\n console.log(some.foo);",
         ));
 
         match res {
@@ -201,8 +198,8 @@ pub mod tests {
 
         debug!("test dynamic import");
         let res: Result<EsValueFacade, EsError> = rt.eval_module_sync(EsScript::new(
-            "test.es".to_string(),
-            "console.log('about to load dynamic module');import('test_module.mes').then((some) => {console.log('after dyn ' + some);console.log(some.mltpl(1, 2));}).catch((x) => {console.log('imp.cat x=' + x);});".to_string(),
+            "test.es",
+            "console.log('about to load dynamic module');import('test_module.mes').then((some) => {console.log('after dyn ' + some);console.log(some.mltpl(1, 2));}).catch((x) => {console.log('imp.cat x=' + x);});",
         ));
 
         match res {

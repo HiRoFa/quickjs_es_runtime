@@ -23,7 +23,7 @@ pub fn call_function(
         q::JS_Call(
             q_js_rt.context,
             *function_ref.borrow_value(),
-            *this_ref.borrow_value(), // this todo
+            *this_ref.borrow_value(),
             arg_count,
             qargs.as_mut_ptr(),
         )
@@ -159,9 +159,13 @@ pub fn new_function<F>(
     _arg_count: u32,
 ) -> Result<OwnedValueRef, EsError>
 where
-    F: Fn(OwnedValueRef, u32, OwnedValueRef) -> Result<OwnedValueRef, EsError>,
+    F: Fn(OwnedValueRef, Vec<OwnedValueRef>) -> Result<OwnedValueRef, EsError>,
 {
-    // put func in map, retrieve on call.. todo.. delete on destroy?
+    // put func in map, retrieve on call.. delete on destroy
+    // create a new class_def for callbacks, with a finalize
+    // use setproto to bijnd class to function
+    // use autoidmap to store callbacks and generate ID's
+    // create function with newCFunctionData and put id in data
     Ok(crate::quickjs_utils::new_null_ref())
 }
 
@@ -200,8 +204,8 @@ pub mod tests {
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
             let func_ref = q_js_rt
                 .eval(EsScript::new(
-                    "test_call.es".to_string(),
-                    "(function(a, b){return ((a || 7)*(b || 7));});".to_string(),
+                    "test_call.es",
+                    "(function(a, b){return ((a || 7)*(b || 7));});",
                 ))
                 .ok()
                 .expect("could not get func obj");

@@ -1,6 +1,9 @@
 use crate::eserror::EsError;
+use crate::quickjs_utils;
+use crate::quickjs_utils::functions;
 use crate::quickjs_utils::objects::is_instance_of_by_name;
 use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime};
+use libquickjs_sys as q;
 
 #[allow(dead_code)]
 pub fn is_promise(q_js_rt: &QuickJsRuntime, obj_ref: &OwnedValueRef) -> Result<bool, EsError> {
@@ -8,35 +11,76 @@ pub fn is_promise(q_js_rt: &QuickJsRuntime, obj_ref: &OwnedValueRef) -> Result<b
 }
 
 pub struct PromiseRef {
-    promise_obj: OwnedValueRef,
-    reject_function_obj: OwnedValueRef,
-    resolve_function_obj: OwnedValueRef,
+    promise_obj_ref: OwnedValueRef,
+    reject_function_obj_ref: OwnedValueRef,
+    resolve_function_obj_ref: OwnedValueRef,
 }
-
+#[allow(dead_code)]
 impl PromiseRef {
-    fn get_promise_obj(&self) -> &OwnedValueRef {
-        &self.promise_obj
+    fn get_promise_obj_ref(&self) -> OwnedValueRef {
+        OwnedValueRef::new_no_free(*self.promise_obj_ref.borrow_value())
     }
-    fn resolve(&self, value: OwnedValueRef) -> Result<(), EsError> {
-        unimplemented!()
+
+    fn resolve(&self, q_js_rt: &QuickJsRuntime, value: OwnedValueRef) -> Result<(), EsError> {
+        crate::quickjs_utils::functions::call_function(
+            q_js_rt,
+            &self.resolve_function_obj_ref,
+            &vec![value],
+        )?;
+        Ok(())
     }
-    fn reject(&self, value: OwnedValueRef) -> Result<(), EsError> {
-        unimplemented!()
+    fn reject(&self, q_js_rt: &QuickJsRuntime, value: OwnedValueRef) -> Result<(), EsError> {
+        crate::quickjs_utils::functions::call_function(
+            q_js_rt,
+            &self.reject_function_obj_ref,
+            &vec![value],
+        )?;
+        Ok(())
     }
 }
 
-pub fn new_promise(q_js_rt: &QuickJsRuntime) -> Result<PromiseRefs, EsError> {}
+#[allow(dead_code)]
+pub fn new_promise(q_js_rt: &QuickJsRuntime) -> Result<PromiseRef, EsError> {
+    let mut promise_resolution_functions = [quickjs_utils::new_null(), quickjs_utils::new_null()];
+
+    let prom_val = unsafe {
+        q::JS_NewPromiseCapability(q_js_rt.context, promise_resolution_functions.as_mut_ptr())
+    };
+
+    let resolve_func_val = *promise_resolution_functions.get(0).unwrap();
+    let reject_func_val = *promise_resolution_functions.get(1).unwrap();
+
+    let resolve_function_obj_ref = OwnedValueRef::new(resolve_func_val);
+    let reject_function_obj_ref = OwnedValueRef::new(reject_func_val);
+    assert!(functions::is_function(q_js_rt, &resolve_function_obj_ref));
+    assert!(functions::is_function(q_js_rt, &reject_function_obj_ref));
+
+    let promise_obj_ref = OwnedValueRef::new(prom_val);
+
+    Ok(PromiseRef {
+        promise_obj_ref,
+        reject_function_obj_ref,
+        resolve_function_obj_ref,
+    })
+}
+
+pub fn add_promise_reactions(
+    q_js_rt: &QuickJsRuntime,
+    promise_obj_ref: &OwnedValueRef,
+    then_func_obj_ref: Option<OwnedValueRef>,
+    catch_func_obj_ref: Option<OwnedValueRef>,
+    finally_func_obj_ref: Option<OwnedValueRef>,
+) -> Result<(), EsError> {
+    // todo, before getting into this i want to get callbacks working decently
+    unimplemented!()
+}
 
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
-    use crate::quickjs_utils;
-    use crate::quickjs_utils::promises::is_promise;
+    use crate::quickjs_utils::promises::{is_promise, new_promise};
     use crate::quickjs_utils::{functions, primitives};
-    use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime, TAG_OBJECT};
-    use libquickjs_sys as q;
-    use log::trace;
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -45,8 +89,8 @@ pub mod tests {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
             let res = q_js_rt.eval(EsScript::new(
-                "".to_string(),
-                "(new Promise((res, rej) => {}));".to_string(),
+                "test_instance_of_prom.es",
+                "(new Promise((res, rej) => {}));",
             ));
             match res {
                 Ok(v) => is_promise(q_js_rt, &v)
@@ -61,51 +105,52 @@ pub mod tests {
     }
 
     #[test]
-    fn prom_sandbox() {
-        // pub fn JS_NewPromiseCapability(ctx: *mut JSContext, resolving_funcs: *mut JSValue) -> JSValue;
+    fn new_prom() {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
-        let io = rt.add_to_event_queue_sync(|q_js_rt| {
-
-            let mut promise_resolution_functions = [
-                quickjs_utils::new_null(),
-                quickjs_utils::new_null()
-            ];
-
-            let prom_val = unsafe {
-                q::JS_NewPromiseCapability(q_js_rt.context, promise_resolution_functions.as_mut_ptr())
-            };
-
-            let resolve_func_val = *promise_resolution_functions.get(0).unwrap();
-            let reject_func_val = *promise_resolution_functions.get(1).unwrap();
-
-            let resolve_func_ref = OwnedValueRef::new(resolve_func_val);
-            let reject_func_ref = OwnedValueRef::new(reject_func_val);
-            trace!("resolve_func_val.is_func = {}", functions::is_function(q_js_rt, &resolve_func_ref));
-            trace!("reject_func_val.is_func = {}", functions::is_function(q_js_rt, &reject_func_ref));
-
-            let prom_ref = OwnedValueRef::new(prom_val);
-
-            let func_ref2= q_js_rt
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            let func_ref = q_js_rt
                 .eval(EsScript::new(
-                    "prom_sandbox.es".to_string(),
-                    "(function(p){console.log('adding then');p.then((r) => {console.log('thenned with ' + r);}).catch((er) => {console.log('cought ' + er);});console.log('after then added');});".to_string(),
+                    "new_prom.es",
+                    "(function(p){p.then((res) => {console.log('prom resolved to ' + res);});});",
                 ))
                 .ok()
                 .unwrap();
 
-            crate::quickjs_utils::functions::call_function(q_js_rt, &func_ref2, &vec![prom_ref]).ok().expect("calling func2 failed");
+            let prom = new_promise(q_js_rt).ok().unwrap();
 
-            // resolve
-            //crate::quickjs_utils::functions::call_function(q_js_rt, &resolve_func_ref, &vec![primitives::from_i32(9864)]).ok().expect("calling func failed");
-            crate::quickjs_utils::functions::call_function(q_js_rt, &reject_func_ref, &vec![primitives::from_i32(345)]).ok().expect("calling func failed");
+            functions::call_function(q_js_rt, &func_ref, &vec![prom.get_promise_obj_ref()])
+                .ok()
+                .unwrap();
 
-            while q_js_rt.has_pending_jobs() {
-                trace!("running pending job in sandbox");
-                q_js_rt.run_pending_job();
-            }
-
-            std::thread::sleep(Duration::from_secs(1));
-            trace!("done");
+            prom.resolve(q_js_rt, primitives::from_i32(743))
+                .ok()
+                .expect("resolve failed");
         });
+        std::thread::sleep(Duration::from_secs(1));
+    }
+
+    #[test]
+    fn new_prom2() {
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            let func_ref = q_js_rt
+                .eval(EsScript::new(
+                    "new_prom.es",
+                    "(function(p){p.catch((res) => {console.log('prom rejected to ' + res);});});",
+                ))
+                .ok()
+                .unwrap();
+
+            let prom = new_promise(q_js_rt).ok().unwrap();
+
+            functions::call_function(q_js_rt, &func_ref, &vec![prom.get_promise_obj_ref()])
+                .ok()
+                .unwrap();
+
+            prom.reject(q_js_rt, primitives::from_i32(130))
+                .ok()
+                .expect("reject failed");
+        });
+        std::thread::sleep(Duration::from_secs(1));
     }
 }

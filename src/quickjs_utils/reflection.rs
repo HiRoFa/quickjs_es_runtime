@@ -426,9 +426,9 @@ pub mod tests {
         });
 
         let i2 = rt.eval_sync(EsScript::new(
-            "test_proxy.es".to_string(),
+            "test_proxy.es",
             "let tc2 = new TestClass1(1, true, 'abc'); let r2 = tc2.doIt(1, true, 'abc'); tc2 = null; r2;"
-                .to_string(),
+                ,
         ))
         .ok()
         .expect("script failed");
@@ -437,9 +437,8 @@ pub mod tests {
         assert_eq!(i2.get_i32(), 531);
 
         let i = rt.eval_sync(EsScript::new(
-            "test_proxy.es".to_string(),
+            "test_proxy.es",
             "let tc1 = new TestClass1(1, true, 'abc'); let r = tc1.doIt(1, true, 'abc'); r = tc1.doIt(1, true, 'abc'); tc1 = null; r;"
-                .to_string(),
         ))
             .ok()
             .expect("script failed");
@@ -447,10 +446,7 @@ pub mod tests {
         assert!(i.is_i32());
         assert_eq!(i.get_i32(), 531);
 
-        let i3_res = rt.eval_sync(EsScript::new(
-            "test_proxy.es".to_string(),
-            "TestClass1.sDoIt();".to_string(),
-        ));
+        let i3_res = rt.eval_sync(EsScript::new("test_proxy.es", "TestClass1.sDoIt();"));
 
         if i3_res.is_err() {
             panic!("script failed: {}", i3_res.err().unwrap());
@@ -462,8 +458,8 @@ pub mod tests {
 
         let i4 = rt
             .eval_sync(EsScript::new(
-                "test_proxy.es".to_string(),
-                "TestClass1.someThing = 1; TestClass1.someThing;".to_string(),
+                "test_proxy.es",
+                "TestClass1.someThing = 1; TestClass1.someThing;",
             ))
             .ok()
             .expect("script failed");
@@ -473,8 +469,8 @@ pub mod tests {
 
         let i5 = rt
             .eval_sync(EsScript::new(
-                "test_proxy.es".to_string(),
-                "let tc5 = new TestClass1(); let r5 = tc5.gVar; tc5 = null; r5;".to_string(),
+                "test_proxy.es",
+                "let tc5 = new TestClass1(); let r5 = tc5.gVar; tc5 = null; r5;",
             ))
             .ok()
             .expect("script failed");
@@ -483,8 +479,8 @@ pub mod tests {
         assert_eq!(i5.get_i32(), 147);
 
         let i6_res = rt.eval_sync(EsScript::new(
-            "test_proxy.es".to_string(),
-            "let tc6 = new TestClass1(); let r6 = tc6.doIt2(); tc6 = null; r6;".to_string(),
+            "test_proxy.es",
+            "let tc6 = new TestClass1(); let r6 = tc6.doIt2(); tc6 = null; r6;",
         ));
         assert!(i6_res.is_err());
         let e = i6_res.err().unwrap();

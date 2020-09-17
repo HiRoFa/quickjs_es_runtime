@@ -4,10 +4,10 @@ pub struct EsScript {
 }
 
 impl EsScript {
-    pub fn new(absolute_path: String, script_code: String) -> Self {
+    pub fn new(absolute_path: &str, script_code: &str) -> Self {
         Self {
-            absolute_path,
-            script_code,
+            absolute_path: absolute_path.to_string(),
+            script_code: script_code.to_string(),
         }
     }
     pub fn get_path(&self) -> &str {
