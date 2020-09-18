@@ -232,6 +232,7 @@ impl QuickJsRuntime {
 pub struct OwnedValueRef {
     value: Option<q::JSValue>,
     no_free: bool,
+    label: Option<String>,
 }
 
 impl Drop for OwnedValueRef {
@@ -239,7 +240,14 @@ impl Drop for OwnedValueRef {
         log::trace!("dropping OwnedValueRef, isSome={}", self.value.is_some());
         if !self.no_free && self.value.is_some() {
             QuickJsRuntime::do_with(|q_js_rt| unsafe {
-                log::trace!("dropping OwnedValueRef, before free");
+                if self.label.is_some() {
+                    log::trace!(
+                        "dropping OwnedValueRef, before free: {}",
+                        self.label.as_ref().unwrap()
+                    );
+                } else {
+                    log::trace!("dropping OwnedValueRef, before free");
+                }
                 free_value(q_js_rt.context, self.consume_value());
                 log::trace!("dropping OwnedValueRef, after free");
             })
@@ -270,6 +278,7 @@ impl OwnedValueRef {
         Self {
             value: Some(value),
             no_free: false,
+            label: None,
         }
     }
 
@@ -278,7 +287,12 @@ impl OwnedValueRef {
         Self {
             value: Some(value),
             no_free: true,
+            label: None,
         }
+    }
+
+    pub fn label(&mut self, label: &str) {
+        self.label = Some(label.to_string());
     }
 
     pub fn borrow_value(&self) -> &q::JSValue {

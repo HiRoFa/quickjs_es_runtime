@@ -1,6 +1,12 @@
 use crate::eserror::EsError;
+use crate::quickjs_utils::{objects, primitives};
 use crate::quickjsruntime::{make_cstring, OwnedValueRef, QuickJsRuntime};
+use hirofa_utils::auto_id_map::AutoIdMap;
 use libquickjs_sys as q;
+use log::trace;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::os::raw::c_char;
 
 #[allow(dead_code)]
 pub fn call_function(
@@ -151,31 +157,114 @@ pub fn new_native_function_data(
     }
 }
 
+static CNAME: &str = "CallbackClass\0";
+
+type Callback =
+    dyn Fn(OwnedValueRef, Vec<OwnedValueRef>) -> Result<OwnedValueRef, EsError> + 'static;
+
+thread_local! {
+    static INSTANCE_ID_MAPPINGS: RefCell<HashMap<usize, Box<(usize, String)>>> = RefCell::new(HashMap::new());
+
+    static CALLBACK_EXOTIC: RefCell<q::JSClassExoticMethods> = RefCell::new(q::JSClassExoticMethods {
+        get_own_property: None,
+        get_own_property_names: None,
+        delete_property: None,
+        define_own_property: None,
+        has_property: None,
+        get_property: None,
+        set_property: None,
+    });
+
+
+    static CALLBACK_CLASS_DEF: RefCell<q::JSClassDef> = {
+        CALLBACK_EXOTIC.with(|e_rc|{
+            let exotic = &mut *e_rc.borrow_mut();
+            RefCell::new(q::JSClassDef {
+                class_name: CNAME.as_ptr() as *const c_char,
+                finalizer: Some(callback_finalizer),
+                gc_mark: None,
+                call: None,
+                exotic,
+            })
+        })
+    };
+
+    static CALLBACK_CLASS_ID: RefCell<u32> = {
+        let mut c_id: u32 = 0;
+        let class_id: u32 = unsafe { q::JS_NewClassID(&mut c_id) };
+        log::trace!("got class id {}", class_id);
+
+        CALLBACK_CLASS_DEF.with(|cd_rc| {
+            let class_def = &*cd_rc.borrow();
+            QuickJsRuntime::do_with(|q_js_rt| {
+                let res = unsafe { q::JS_NewClass(q_js_rt.runtime, class_id, class_def) };
+                log::trace!("callback: new class res {}", res);
+                // todo res should be 0 for ok
+            });
+        });
+
+        RefCell::new(class_id)
+    };
+
+    static CALLBACK_REGISTRY: RefCell<AutoIdMap<Box<Callback>>> = {
+        RefCell::new(AutoIdMap::new())
+    };
+}
+
 #[allow(dead_code)]
 pub fn new_function<F>(
-    _q_js_rt: &QuickJsRuntime,
+    q_js_rt: &QuickJsRuntime,
     _name: &str,
-    _func: F,
+    func: F,
     _arg_count: u32,
 ) -> Result<OwnedValueRef, EsError>
 where
-    F: Fn(OwnedValueRef, Vec<OwnedValueRef>) -> Result<OwnedValueRef, EsError>,
+    F: Fn(OwnedValueRef, Vec<OwnedValueRef>) -> Result<OwnedValueRef, EsError> + 'static,
 {
     // put func in map, retrieve on call.. delete on destroy
     // create a new class_def for callbacks, with a finalize
-    // use setproto to bijnd class to function
+    // use setproto to bind class to function
     // use autoidmap to store callbacks and generate ID's
     // create function with newCFunctionData and put id in data
-    Ok(crate::quickjs_utils::new_null_ref())
+
+    let callback_id = CALLBACK_REGISTRY.with(|registry_rc| {
+        let registry = &mut *registry_rc.borrow_mut();
+        registry.insert(Box::new(func))
+    });
+    let data = primitives::from_i32(callback_id as i32);
+    let func_ref = new_native_function_data(q_js_rt, Some(callback_function), 0, data)?;
+
+    let static_class_id = CALLBACK_CLASS_ID.with(|rc| *rc.borrow());
+
+    let class_val: q::JSValue =
+        unsafe { q::JS_NewObjectClass(q_js_rt.context, static_class_id as i32) };
+
+    // todo, create a single instance of that class and reuse it, i'm not sure if the current impl GCs ok
+    let class_val_ref = OwnedValueRef::new_no_free(class_val);
+
+    if class_val_ref.is_exception() {
+        return if let Some(e) = q_js_rt.get_exception() {
+            Err(e)
+        } else {
+            Err(EsError::new_str("could not create callback class"))
+        };
+    }
+
+    objects::set_property2(q_js_rt, &func_ref, "_cb_fin_marker_", class_val_ref, 0)
+        .ok()
+        .expect("could not set cb marker");
+
+    Ok(func_ref)
 }
 
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
-    use crate::quickjs_utils::functions::{call_function, call_to_string};
+    use crate::quickjs_utils::functions::{call_function, call_to_string, new_function};
     use crate::quickjs_utils::primitives;
     use std::sync::Arc;
+    use std::time::Duration;
 
     #[test]
     pub fn test_to_string() {
@@ -228,4 +317,90 @@ pub mod tests {
         });
         assert!(io)
     }
+
+    #[test]
+    fn test_callback() {
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+
+        rt.eval_sync(EsScript::new("test_callback1.es", "let test_callback_563 = function(cb){console.log('before invoke cb');let result = cb(1, true, 'foobar');console.log('after invoke cb. got:' + result);};")).ok().expect("script failed");
+
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            let mut cb_ref = new_function(
+                q_js_rt,
+                "cb",
+                |this_ref, args| {
+                    log::trace!("native callback invoked");
+                    Ok(primitives::from_i32(983))
+                },
+                3,
+            )
+            .ok()
+            .expect("could not create function");
+
+            cb_ref.label("cb_ref at test_callback");
+
+            let func_ref = q_js_rt
+                .eval(EsScript::new("", "(test_callback_563);"))
+                .ok()
+                .expect("could not get function");
+
+            let res = call_function(q_js_rt, &func_ref, &vec![cb_ref])
+                .ok()
+                .expect("could not invoke test_callback_563");
+        });
+        log::trace!("done with cb");
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            q_js_rt.gc();
+        });
+        std::thread::sleep(Duration::from_secs(1));
+    }
+}
+
+unsafe extern "C" fn callback_finalizer(_rt: *mut q::JSRuntime, _val: q::JSValue) {
+    trace!("callback_finalizer called");
+}
+
+unsafe extern "C" fn callback_function(
+    _ctx: *mut q::JSContext,
+    this_val: q::JSValue,
+    argc: ::std::os::raw::c_int,
+    argv: *mut q::JSValue,
+    _magic: ::std::os::raw::c_int,
+    func_data: *mut q::JSValue,
+) -> q::JSValue {
+    trace!("callback_function called");
+
+    let data_ref = OwnedValueRef::new_no_free(*func_data);
+    let callback_id = primitives::to_i32(&data_ref)
+        .ok()
+        .expect("failed to get callback_id");
+
+    trace!("callback_function id = {}", callback_id);
+
+    CALLBACK_REGISTRY.with(|registry_rc| {
+        let registry = &*registry_rc.borrow();
+        if let Some(callback) = registry.get(&(callback_id as usize)) {
+            QuickJsRuntime::do_with(|q_js_rt| {
+                let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
+                let args_vec: Vec<OwnedValueRef> = arg_slice
+                    .iter()
+                    .map(|raw| OwnedValueRef::new_no_free(*raw))
+                    .collect::<Vec<_>>();
+
+                let this_ref = OwnedValueRef::new_no_free(this_val);
+
+                let callback_res: Result<OwnedValueRef, EsError> = callback(this_ref, args_vec);
+
+                match callback_res {
+                    Ok(mut res) => res.consume_value(),
+                    Err(e) => {
+                        let err = format!("{}", e);
+                        q_js_rt.report_ex(err.as_str())
+                    }
+                }
+            })
+        } else {
+            panic!("callback not found");
+        }
+    })
 }

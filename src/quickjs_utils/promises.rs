@@ -64,12 +64,13 @@ pub fn new_promise(q_js_rt: &QuickJsRuntime) -> Result<PromiseRef, EsError> {
     })
 }
 
+#[allow(dead_code)]
 pub fn add_promise_reactions(
-    q_js_rt: &QuickJsRuntime,
-    promise_obj_ref: &OwnedValueRef,
-    then_func_obj_ref: Option<OwnedValueRef>,
-    catch_func_obj_ref: Option<OwnedValueRef>,
-    finally_func_obj_ref: Option<OwnedValueRef>,
+    _q_js_rt: &QuickJsRuntime,
+    _promise_obj_ref: &OwnedValueRef,
+    _then_func_obj_ref: Option<OwnedValueRef>,
+    _catch_func_obj_ref: Option<OwnedValueRef>,
+    _finally_func_obj_ref: Option<OwnedValueRef>,
 ) -> Result<(), EsError> {
     // todo, before getting into this i want to get callbacks working decently
     unimplemented!()

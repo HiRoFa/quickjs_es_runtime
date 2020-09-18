@@ -250,11 +250,18 @@ impl Proxy {
         }
 
         unsafe {
-            q::JS_SetPrototype(
+            let res = q::JS_SetPrototype(
                 q_js_rt.context,
                 *constructor_ref.borrow_value(),
                 *class_val_ref.borrow_value(),
             );
+            /*if res != 0 {
+                return if let Some(err) = q_js_rt.get_exception() {
+                    Err(err)
+                } else {
+                    Err(EsError::new_str("could not set class proto"))
+                };
+            }*/
         }
 
         // todo impl namespace here
