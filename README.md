@@ -15,22 +15,21 @@ I learned a lot from their code and reused some of their concepts.
 
 # status
 
-you can eval code,
+you can eval code, modules
 
-there are utils to
+there are utils for
 * edit objects
 * call and create functions
 * convert primitives
 * a lot more
-
-Promises resolve async
+* ClassBuilder (reflection)
+* create Promises and add reactions to promises
 
 # next steps
 
 * Modules
-* ClassBuilder (reflection)
-* getting promise result sync
 * invoking callbacks from EsValueFacade
+* get promise result blocking
 * a lot more
 
 basicly getting it to the state where es_runtime is in
