@@ -54,9 +54,7 @@ pub fn set_property2(
 ) -> Result<(), EsError> {
     log::trace!("set_property2: {}", prop_name);
 
-    let ckey = make_cstring(prop_name.clone())
-        .ok()
-        .expect("could not make cstring");
+    let ckey = make_cstring(prop_name).expect("could not make cstring");
 
     let mut prop_ref = prop_ref;
 
@@ -159,9 +157,7 @@ pub fn get_property(
         ));
     }
 
-    let c_prop_name = make_cstring(prop_name)
-        .ok()
-        .expect("could not create cstring");
+    let c_prop_name = make_cstring(prop_name).expect("could not create cstring");
 
     let prop_val = unsafe {
         q::JS_GetPropertyStr(
@@ -301,15 +297,13 @@ pub fn is_instance_of(
     if !obj_ref.is_object() {
         return false;
     }
-    let ret = unsafe {
+    unsafe {
         q::JS_IsInstanceOf(
             q_js_rt.context,
             *obj_ref.borrow_value(),
             *constructor_ref.borrow_value(),
         ) > 0
-    };
-
-    ret
+    }
 }
 
 pub fn is_instance_of_by_name(

@@ -80,7 +80,7 @@ pub fn to_string(q_js_rt: &QuickJsRuntime, value_ref: &OwnedValueRef) -> Result<
 
     let cstr = unsafe { std::ffi::CStr::from_ptr(ptr) };
 
-    let s = cstr.to_str().ok().expect("invalid string").to_string();
+    let s = cstr.to_str().expect("invalid string").to_string();
 
     // Free the c string.
     unsafe { q::JS_FreeCString(q_js_rt.context, ptr) };
@@ -113,7 +113,7 @@ pub fn to_str<'a>(
 
     let cstr = unsafe { std::ffi::CStr::from_ptr(ptr) };
 
-    let s = cstr.to_str().ok().expect("invalid string");
+    let s = cstr.to_str().expect("invalid string");
 
     // Free the c string.
     unsafe { q::JS_FreeCString(q_js_rt.context, ptr) };

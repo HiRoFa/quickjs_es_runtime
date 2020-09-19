@@ -72,12 +72,9 @@ impl QuickJsRuntime {
     pub fn gc(&self) {}
 
     pub fn eval(&self, script: EsScript) -> Result<OwnedValueRef, EsError> {
-        let filename_c = make_cstring(script.get_path())
-            .ok()
-            .expect("failed to create c_string from path");
-        let code_c = make_cstring(script.get_code())
-            .ok()
-            .expect("failed to create c_string from code");
+        let filename_c =
+            make_cstring(script.get_path()).expect("failed to create c_string from path");
+        let code_c = make_cstring(script.get_code()).expect("failed to create c_string from code");
 
         let value_raw = unsafe {
             q::JS_Eval(
@@ -104,12 +101,9 @@ impl QuickJsRuntime {
     }
 
     pub fn eval_module(&self, script: EsScript) -> Result<OwnedValueRef, EsError> {
-        let filename_c = make_cstring(script.get_path())
-            .ok()
-            .expect("failed to create c_string from path");
-        let code_c = make_cstring(script.get_code())
-            .ok()
-            .expect("failed to create c_string from code");
+        let filename_c =
+            make_cstring(script.get_path()).expect("failed to create c_string from path");
+        let code_c = make_cstring(script.get_code()).expect("failed to create c_string from code");
 
         let value_raw = unsafe {
             q::JS_Eval(
@@ -168,18 +162,18 @@ impl QuickJsRuntime {
             None
         } else {
             let err = if value.is_exception() {
-                EsError::new_str("Could not get exception from runtime".into())
+                EsError::new_str("Could not get exception from runtime")
             } else if value.is_object() {
                 // todo figure out how to get lineno/col/filename etc
                 match crate::quickjs_utils::functions::call_to_string(self, &value) {
                     Ok(strval) => {
                         if strval.contains("out of memory") {
-                            EsError::new_str("out of memory".into())
+                            EsError::new_str("out of memory")
                         } else {
                             EsError::new_string(strval)
                         }
                     }
-                    Err(_) => EsError::new_str("Unknown exception2".into()),
+                    Err(_) => EsError::new_str("Unknown exception2"),
                 }
             } else {
                 EsError::new_str("no clue what happended")

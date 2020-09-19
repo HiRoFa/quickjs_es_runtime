@@ -250,7 +250,7 @@ impl Proxy {
         }
 
         unsafe {
-            let res = q::JS_SetPrototype(
+            let _res = q::JS_SetPrototype(
                 q_js_rt.context,
                 *constructor_ref.borrow_value(),
                 *class_val_ref.borrow_value(),

@@ -228,7 +228,7 @@ impl EsValueFacade {
     ) -> Result<Self, EsError> {
         let r = value_ref.borrow_value();
 
-        let res = match r.tag {
+        match r.tag {
             TAG_STRING => {
                 // String.
                 let s = crate::quickjs_utils::primitives::to_string(q_js_rt, value_ref)?;
@@ -347,9 +347,7 @@ impl EsValueFacade {
                 "Unhandled JS_TAG value: {}",
                 x
             ))),
-        };
-
-        res
+        }
     }
 
     fn from_jsval_array(

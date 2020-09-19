@@ -12,7 +12,8 @@ use std::os::raw::c_char;
 pub fn call_function(
     q_js_rt: &QuickJsRuntime,
     function_ref: &OwnedValueRef,
-    arguments: &Vec<OwnedValueRef>,
+    arguments: &[OwnedValueRef],
+    this_ref_opt: Option<&OwnedValueRef>,
 ) -> Result<OwnedValueRef, EsError> {
     assert!(is_function(q_js_rt, function_ref));
 
@@ -23,13 +24,16 @@ pub fn call_function(
         .map(|arg| *arg.borrow_value())
         .collect::<Vec<_>>();
 
-    let this_ref = crate::quickjs_utils::new_null_ref();
+    let this_val = match this_ref_opt {
+        Some(r) => *r.borrow_value(),
+        None => crate::quickjs_utils::new_null(),
+    };
 
     let res = unsafe {
         q::JS_Call(
             q_js_rt.context,
             *function_ref.borrow_value(),
-            *this_ref.borrow_value(),
+            this_val,
             arg_count,
             qargs.as_mut_ptr(),
         )
@@ -99,7 +103,7 @@ pub fn new_native_function(
     arg_count: u32,
     is_constructor: bool,
 ) -> Result<OwnedValueRef, EsError> {
-    let cname = make_cstring(name).ok().expect("could not create cstring");
+    let cname = make_cstring(name).expect("could not create cstring");
     let magic = 1;
 
     let cproto = if is_constructor {
@@ -121,7 +125,7 @@ pub fn new_native_function(
     let func_ref = OwnedValueRef::new(func_val);
 
     if !func_ref.is_object() {
-        return Err(EsError::new_str("Could not create new_native_function"));
+        Err(EsError::new_str("Could not create new_native_function"))
     } else {
         Ok(func_ref)
     }
@@ -151,7 +155,7 @@ pub fn new_native_function_data(
     let func_ref = OwnedValueRef::new(func_val);
 
     if !func_ref.is_object() {
-        return Err(EsError::new_str("Could not create new_native_function"));
+        Err(EsError::new_str("Could not create new_native_function"))
     } else {
         Ok(func_ref)
     }
@@ -303,6 +307,7 @@ pub mod tests {
                 q_js_rt,
                 &func_ref,
                 &vec![primitives::from_i32(8), primitives::from_i32(6)],
+                None,
             );
             if res.is_err() {
                 panic!("test_call failed: {}");
@@ -328,7 +333,7 @@ pub mod tests {
             let mut cb_ref = new_function(
                 q_js_rt,
                 "cb",
-                |this_ref, args| {
+                |_this_ref, _args| {
                     log::trace!("native callback invoked");
                     Ok(primitives::from_i32(983))
                 },
@@ -344,7 +349,7 @@ pub mod tests {
                 .ok()
                 .expect("could not get function");
 
-            let res = call_function(q_js_rt, &func_ref, &vec![cb_ref])
+            let _res = call_function(q_js_rt, &func_ref, &vec![cb_ref], None)
                 .ok()
                 .expect("could not invoke test_callback_563");
         });

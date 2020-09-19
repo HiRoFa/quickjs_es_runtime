@@ -8,12 +8,10 @@ use std::ffi::CString;
 pub fn to_string(q_js_rt: &QuickJsRuntime, atom: &q::JSAtom) -> Result<String, EsError> {
     let val = unsafe { q::JS_AtomToString(q_js_rt.context, *atom) };
     let val_ref = OwnedValueRef::new(val);
-    let s = primitives::to_string(q_js_rt, &val_ref);
-    s
+    primitives::to_string(q_js_rt, &val_ref)
 }
 
 pub fn from_string(q_js_rt: &QuickJsRuntime, string: &str) -> Result<q::JSAtom, EsError> {
     let s = CString::new(string).ok().unwrap();
-    let val = unsafe { q::JS_NewAtom(q_js_rt.context, s.as_ptr()) };
-    Ok(val)
+    Ok(unsafe { q::JS_NewAtom(q_js_rt.context, s.as_ptr()) })
 }

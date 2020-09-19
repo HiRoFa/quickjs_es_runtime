@@ -1,7 +1,7 @@
 use crate::eserror::EsError;
 use crate::quickjs_utils;
-use crate::quickjs_utils::functions;
 use crate::quickjs_utils::objects::is_instance_of_by_name;
+use crate::quickjs_utils::{functions, objects};
 use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
 
@@ -25,7 +25,8 @@ impl PromiseRef {
         crate::quickjs_utils::functions::call_function(
             q_js_rt,
             &self.resolve_function_obj_ref,
-            &vec![value],
+            &[value],
+            None,
         )?;
         Ok(())
     }
@@ -33,7 +34,8 @@ impl PromiseRef {
         crate::quickjs_utils::functions::call_function(
             q_js_rt,
             &self.reject_function_obj_ref,
-            &vec![value],
+            &[value],
+            None,
         )?;
         Ok(())
     }
@@ -66,22 +68,51 @@ pub fn new_promise(q_js_rt: &QuickJsRuntime) -> Result<PromiseRef, EsError> {
 
 #[allow(dead_code)]
 pub fn add_promise_reactions(
-    _q_js_rt: &QuickJsRuntime,
-    _promise_obj_ref: &OwnedValueRef,
-    _then_func_obj_ref: Option<OwnedValueRef>,
-    _catch_func_obj_ref: Option<OwnedValueRef>,
-    _finally_func_obj_ref: Option<OwnedValueRef>,
+    q_js_rt: &QuickJsRuntime,
+    promise_obj_ref: &OwnedValueRef,
+    then_func_obj_ref_opt: Option<OwnedValueRef>,
+    catch_func_obj_ref_opt: Option<OwnedValueRef>,
+    finally_func_obj_ref_opt: Option<OwnedValueRef>,
 ) -> Result<(), EsError> {
-    // todo, before getting into this i want to get callbacks working decently
-    unimplemented!()
+    assert!(is_promise(q_js_rt, promise_obj_ref)?);
+
+    if let Some(then_func_obj_ref) = then_func_obj_ref_opt {
+        let prom_then_ref = objects::get_property(q_js_rt, &promise_obj_ref, "then")?;
+        functions::call_function(
+            q_js_rt,
+            &prom_then_ref,
+            &[then_func_obj_ref],
+            Some(&promise_obj_ref),
+        )?;
+    }
+    if let Some(catch_func_obj_ref) = catch_func_obj_ref_opt {
+        let prom_catch_ref = objects::get_property(q_js_rt, &promise_obj_ref, "catch")?;
+        functions::call_function(
+            q_js_rt,
+            &prom_catch_ref,
+            &[catch_func_obj_ref],
+            Some(&promise_obj_ref),
+        )?;
+    }
+    if let Some(finally_func_obj_ref) = finally_func_obj_ref_opt {
+        let prom_finally_ref = objects::get_property(q_js_rt, &promise_obj_ref, "finally")?;
+        functions::call_function(
+            q_js_rt,
+            &prom_finally_ref,
+            &[finally_func_obj_ref],
+            Some(&promise_obj_ref),
+        )?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
-    use crate::quickjs_utils::promises::{is_promise, new_promise};
-    use crate::quickjs_utils::{functions, primitives};
+    use crate::quickjs_utils::promises::{add_promise_reactions, is_promise, new_promise};
+    use crate::quickjs_utils::{functions, new_null_ref, primitives};
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -119,7 +150,7 @@ pub mod tests {
 
             let prom = new_promise(q_js_rt).ok().unwrap();
 
-            functions::call_function(q_js_rt, &func_ref, &vec![prom.get_promise_obj_ref()])
+            functions::call_function(q_js_rt, &func_ref, &vec![prom.get_promise_obj_ref()], None)
                 .ok()
                 .unwrap();
 
@@ -144,13 +175,56 @@ pub mod tests {
 
             let prom = new_promise(q_js_rt).ok().unwrap();
 
-            functions::call_function(q_js_rt, &func_ref, &vec![prom.get_promise_obj_ref()])
+            functions::call_function(q_js_rt, &func_ref, &vec![prom.get_promise_obj_ref()], None)
                 .ok()
                 .unwrap();
 
             prom.reject(q_js_rt, primitives::from_i32(130))
                 .ok()
                 .expect("reject failed");
+        });
+        std::thread::sleep(Duration::from_secs(1));
+    }
+
+    #[test]
+    fn test_promise_reactions() {
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            let prom_ref = q_js_rt
+                .eval(EsScript::new(
+                    "test_promise_reactions.es",
+                    "(new Promise(function(resolve, reject) {resolve(364);}));",
+                ))
+                .ok()
+                .expect("script failed");
+
+            let then_cb = functions::new_function(
+                q_js_rt,
+                "testThen",
+                |_this, args| {
+                    let res = primitives::to_i32(args.get(0).unwrap()).ok().unwrap();
+                    log::trace!("prom resolved with: {}", res);
+                    Ok(new_null_ref())
+                },
+                1,
+            )
+            .ok()
+            .expect("could not create cb");
+            let finally_cb = functions::new_function(
+                q_js_rt,
+                "testThen",
+                |_this, _args| {
+                    log::trace!("prom finalied with");
+                    Ok(new_null_ref())
+                },
+                1,
+            )
+            .ok()
+            .expect("could not create cb");
+
+            add_promise_reactions(q_js_rt, &prom_ref, Some(then_cb), None, Some(finally_cb))
+                .ok()
+                .expect("could not add promise reactions");
         });
         std::thread::sleep(Duration::from_secs(1));
     }

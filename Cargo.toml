@@ -30,5 +30,4 @@ either = "1.6.0"
 [dev-dependencies.cargo-husky]
 version = "1.5.0"
 default-features = false # Disable features which are enabled by default
-features = []
-#features = ["precommit-hook", "run-cargo-test", "run-cargo-clippy"]
+features = ["precommit-hook", "run-cargo-test", "run-cargo-clippy"]
