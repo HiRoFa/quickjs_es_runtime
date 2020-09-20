@@ -13,5 +13,5 @@ pub fn to_string(q_js_rt: &QuickJsRuntime, atom: &q::JSAtom) -> Result<String, E
 
 pub fn from_string(q_js_rt: &QuickJsRuntime, string: &str) -> Result<q::JSAtom, EsError> {
     let s = CString::new(string).ok().unwrap();
-    Ok(unsafe { q::JS_NewAtom(q_js_rt.context, s.as_ptr()) })
+    Ok(unsafe { q::JS_NewAtomLen(q_js_rt.context, s.as_ptr(), string.len() as u64) })
 }

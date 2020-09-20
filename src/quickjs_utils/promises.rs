@@ -1,7 +1,7 @@
 use crate::eserror::EsError;
 use crate::quickjs_utils;
+use crate::quickjs_utils::functions;
 use crate::quickjs_utils::objects::is_instance_of_by_name;
-use crate::quickjs_utils::{functions, objects};
 use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime};
 use libquickjs_sys as q;
 
@@ -77,30 +77,22 @@ pub fn add_promise_reactions(
     assert!(is_promise(q_js_rt, promise_obj_ref)?);
 
     if let Some(then_func_obj_ref) = then_func_obj_ref_opt {
-        let prom_then_ref = objects::get_property(q_js_rt, &promise_obj_ref, "then")?;
-        functions::call_function(
-            q_js_rt,
-            &prom_then_ref,
-            &[then_func_obj_ref],
-            Some(&promise_obj_ref),
-        )?;
+        functions::invoke_member_function(q_js_rt, &promise_obj_ref, "then", &[then_func_obj_ref])?;
     }
     if let Some(catch_func_obj_ref) = catch_func_obj_ref_opt {
-        let prom_catch_ref = objects::get_property(q_js_rt, &promise_obj_ref, "catch")?;
-        functions::call_function(
+        functions::invoke_member_function(
             q_js_rt,
-            &prom_catch_ref,
+            &promise_obj_ref,
+            "catch",
             &[catch_func_obj_ref],
-            Some(&promise_obj_ref),
         )?;
     }
     if let Some(finally_func_obj_ref) = finally_func_obj_ref_opt {
-        let prom_finally_ref = objects::get_property(q_js_rt, &promise_obj_ref, "finally")?;
-        functions::call_function(
+        functions::invoke_member_function(
             q_js_rt,
-            &prom_finally_ref,
+            &promise_obj_ref,
+            "finally",
             &[finally_func_obj_ref],
-            Some(&promise_obj_ref),
         )?;
     }
 
@@ -214,7 +206,7 @@ pub mod tests {
                 q_js_rt,
                 "testThen",
                 |_this, _args| {
-                    log::trace!("prom finalied with");
+                    log::trace!("prom finalied");
                     Ok(new_null_ref())
                 },
                 1,

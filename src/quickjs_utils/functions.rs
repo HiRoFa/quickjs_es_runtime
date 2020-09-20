@@ -1,5 +1,5 @@
 use crate::eserror::EsError;
-use crate::quickjs_utils::{objects, primitives};
+use crate::quickjs_utils::{atoms, objects, primitives};
 use crate::quickjsruntime::{make_cstring, OwnedValueRef, QuickJsRuntime};
 use hirofa_utils::auto_id_map::AutoIdMap;
 use libquickjs_sys as q;
@@ -52,6 +52,44 @@ pub fn call_function(
     } else {
         Ok(res_ref)
     }
+}
+
+/*
+pub fn JS_Invoke(
+        ctx: *mut JSContext,
+        this_val: JSValue,
+        atom: JSAtom,
+        argc: ::std::os::raw::c_int,
+        argv: *mut JSValue,
+    ) -> JSValue;
+ */
+
+#[allow(dead_code)]
+pub fn invoke_member_function(
+    q_js_rt: &QuickJsRuntime,
+    obj_ref: &OwnedValueRef,
+    function_name: &str,
+    arguments: &[OwnedValueRef],
+) -> Result<OwnedValueRef, EsError> {
+    let arg_count = arguments.len() as i32;
+
+    let atm = atoms::from_string(q_js_rt, function_name)?;
+
+    let mut qargs = arguments
+        .iter()
+        .map(|arg| *arg.borrow_value())
+        .collect::<Vec<_>>();
+
+    let res_val = unsafe {
+        q::JS_Invoke(
+            q_js_rt.context,
+            *obj_ref.borrow_value(),
+            atm,
+            arg_count,
+            qargs.as_mut_ptr(),
+        )
+    };
+    Ok(OwnedValueRef::new(res_val))
 }
 
 pub fn call_to_string(
@@ -265,10 +303,38 @@ where
 pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
-    use crate::quickjs_utils::functions::{call_function, call_to_string, new_function};
+    use crate::quickjs_utils::functions::{
+        call_function, call_to_string, invoke_member_function, new_function,
+    };
     use crate::quickjs_utils::primitives;
     use std::sync::Arc;
     use std::time::Duration;
+
+    #[test]
+    pub fn test_invoke() {
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let _io = rt.add_to_event_queue_sync(|q_js_rt| {
+            let obj_ref = q_js_rt
+                .eval(EsScript::new(
+                    "test_to_invoke.es",
+                    "({func: function(a, b) {return a*b}});",
+                ))
+                .ok()
+                .expect("test_to_invoke.es failed");
+
+            let res = invoke_member_function(
+                q_js_rt,
+                &obj_ref,
+                "func",
+                &[primitives::from_i32(12), primitives::from_i32(14)],
+            )
+            .ok()
+            .expect("func failed");
+
+            assert!(res.is_i32());
+            assert_eq!(primitives::to_i32(&res).ok().expect("wtf?"), (12 * 14));
+        });
+    }
 
     #[test]
     pub fn test_to_string() {

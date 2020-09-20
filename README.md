@@ -3,14 +3,16 @@
 Same goals as es_runtime but with using quickjs
 
 so 
-* slower js 
+* slower js
+
+but
+ 
 * smaller footprint 
 * much faster compilation
 
 For some of my projects those are a big plus!
 
 A big thanks goes out to the people at https://github.com/theduke/quickjs-rs for making the bindings to quickjs!
-
 I learned a lot from their code and reused some of their concepts.
 
 # status
@@ -18,10 +20,9 @@ I learned a lot from their code and reused some of their concepts.
 you can eval code, modules
 
 there are utils for
-* edit objects
-* call and create functions
+* editting objects
+* create and call functions
 * convert primitives
-* a lot more
 * ClassBuilder (reflection)
 * create Promises and add reactions to promises
 
