@@ -206,7 +206,7 @@ pub mod tests {
                 q_js_rt,
                 "testThen",
                 |_this, _args| {
-                    log::trace!("prom finalied");
+                    log::trace!("prom finalized");
                     Ok(new_null_ref())
                 },
                 1,

@@ -4,7 +4,8 @@ use crate::eserror::EsError;
 use crate::esscript::EsScript;
 use libquickjs_sys as q;
 use std::cell::RefCell;
-use std::ffi::{CString, NulError};
+use std::ffi::{CStr, CString, NulError};
+use std::os::raw::c_char;
 
 thread_local! {
    /// the thread-local SpiderMonkeyRuntime
@@ -362,22 +363,38 @@ unsafe extern "C" fn promise_rejection_tracker(
     _ctx: *mut q::JSContext,
     _promise: q::JSValue,
     _reason: q::JSValue,
-    _is_handled: ::std::os::raw::c_int,
+    is_handled: ::std::os::raw::c_int,
     _opaque: *mut ::std::os::raw::c_void,
 ) {
-    log::error!("promise rejected");
+    if is_handled == 0 {
+        log::error!("unhandled promise rejection detected");
+    }
 }
 
 unsafe extern "C" fn js_module_normalize(
     _ctx: *mut q::JSContext,
-    _module_base_name: *const ::std::os::raw::c_char,
-    _module_name: *const ::std::os::raw::c_char,
+    module_base_name: *const ::std::os::raw::c_char,
+    module_name: *const ::std::os::raw::c_char,
     _opaque: *mut ::std::os::raw::c_void,
 ) -> *mut ::std::os::raw::c_char {
     // todo
 
-    log::trace!("js_module_normalize called");
-    std::ptr::null_mut()
+    let base_c = CStr::from_ptr(module_base_name);
+    let base_str = base_c
+        .to_str()
+        .expect("could not convert module_base_name to str");
+    let name_c = CStr::from_ptr(module_name);
+    let name_str = name_c
+        .to_str()
+        .expect("could not convert module_name to str");
+
+    log::trace!(
+        "js_module_normalize called. base: {}. name: {}",
+        base_str,
+        name_str
+    );
+    let ret_c = CString::new(name_str).expect("could not create cstring");
+    ret_c.as_ptr() as *mut c_char
 }
 
 unsafe extern "C" fn js_module_loader(
