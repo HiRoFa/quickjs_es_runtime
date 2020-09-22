@@ -3,7 +3,7 @@ use crate::esruntimebuilder::EsRuntimeBuilder;
 use crate::esscript::EsScript;
 use crate::esvalue::EsValueFacade;
 use crate::features;
-use crate::quickjsruntime::QuickJsRuntime;
+use crate::quickjsruntime::{QuickJsRuntime, QJS_RT};
 use hirofa_utils::single_threaded_event_queue::SingleThreadedEventQueue;
 use log::error;
 use std::sync::Arc;
@@ -13,15 +13,26 @@ pub struct EsRuntime {
 }
 
 impl EsRuntime {
-    pub(crate) fn new(_builder: EsRuntimeBuilder) -> Arc<Self> {
+    pub(crate) fn new(builder: EsRuntimeBuilder) -> Arc<Self> {
         let ret = Arc::new(Self {
             event_queue: SingleThreadedEventQueue::new(),
         });
+
+        // run single job in eventQueue to init thread_local weak<rtref>
 
         let res = ret.add_to_event_queue_sync(|q_js_rt| features::init(q_js_rt));
         if res.is_err() {
             panic!("could not init features: {}", res.err().unwrap());
         }
+
+        ret.event_queue.exe_task(|| {
+            QJS_RT.with(move |qjs_rt_rc| {
+                let q_js_rt = &mut *qjs_rt_rc.borrow_mut();
+                if builder.loader.is_some() {
+                    q_js_rt.module_script_loader = Some(builder.loader.unwrap());
+                }
+            })
+        });
 
         ret
     }

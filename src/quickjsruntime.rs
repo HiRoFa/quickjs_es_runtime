@@ -8,8 +8,10 @@ use libquickjs_sys as q;
 use std::cell::RefCell;
 use std::ffi::{CString, NulError};
 
+pub type ModuleScriptLoader = dyn Fn(&str, &str) -> Option<EsScript> + Send + Sync + 'static;
+
 thread_local! {
-   /// the thread-local SpiderMonkeyRuntime
+   /// the thread-local QuickJsRuntime
    /// this only exists for the worker thread of the EsEventQueue
    pub(crate) static QJS_RT: RefCell<QuickJsRuntime> = RefCell::new(QuickJsRuntime::new());
 }
@@ -17,6 +19,7 @@ thread_local! {
 pub struct QuickJsRuntime {
     pub(crate) runtime: *mut q::JSRuntime,
     pub(crate) context: *mut q::JSContext,
+    pub(crate) module_script_loader: Option<Box<ModuleScriptLoader>>,
 }
 
 impl QuickJsRuntime {
@@ -45,7 +48,11 @@ impl QuickJsRuntime {
 
         // Initialize the promise resolver helper code.
         // This code is needed by Self::resolve_value
-        let q_rt = Self { runtime, context };
+        let q_rt = Self {
+            runtime,
+            context,
+            module_script_loader: None,
+        };
 
         // test like this, impl later
         modules::set_module_loader(&q_rt);
