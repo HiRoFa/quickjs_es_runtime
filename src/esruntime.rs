@@ -152,7 +152,15 @@ pub mod tests {
         simple_logging::log_to_file("esruntime.log", LevelFilter::max())
             .ok()
             .expect("could not init logger");
-        EsRuntime::builder().build()
+        EsRuntime::builder()
+            .module_script_loader(|_rel, name| {
+                if name.eq("invalid.mes") {
+                    None
+                } else {
+                    Some(EsScript::new(name, "export const foo = 'bar';\nexport const mltpl = function(a, b){return a*b;};"))
+                }
+            })
+            .build()
     }
 
     #[test]
@@ -197,27 +205,32 @@ pub mod tests {
         debug!("test static import");
         let res: Result<EsValueFacade, EsError> = rt.eval_module_sync(EsScript::new(
             "test.es",
-            "import {some} from 'test_module.mes';\n console.log(some.foo);",
+            "import {foo} from 'test_module.mes';\n console.log('static imp foo = ' + foo);",
         ));
 
         match res {
-            Ok(_) => {}
+            Ok(_) => {
+                log::debug!("static import ok");
+            }
             Err(e) => {
                 log::error!("static import failed: {}", e);
             }
         }
 
         debug!("test dynamic import");
-        let res: Result<EsValueFacade, EsError> = rt.eval_module_sync(EsScript::new(
-            "test.es",
-            "console.log('about to load dynamic module');import('test_module.mes').then((some) => {console.log('after dyn ' + some);console.log(some.mltpl(1, 2));}).catch((x) => {console.log('imp.cat x=' + x);});",
+        let res: Result<EsValueFacade, EsError> = rt.eval_sync(EsScript::new(
+            "test_dyn.es",
+            "console.log('about to load dynamic module');let dyn_p = import('test_dyn_module.mes');dyn_p.then(function (some) {console.log('after dyn');console.log('after dyn ' + typeof some);console.log('mltpl 5, 7 = ' + some.mltpl(5, 7));});dyn_p.catch(function (x) {console.log('imp.cat x=' + x);});console.log('dyn done');",
         ));
 
         match res {
-            Ok(_) => {}
+            Ok(_) => {
+                log::debug!("dynamic import ok");
+            }
             Err(e) => {
                 log::error!("dynamic import failed: {}", e);
             }
         }
+        std::thread::sleep(Duration::from_secs(1));
     }
 }

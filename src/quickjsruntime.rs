@@ -14,6 +14,7 @@ thread_local! {
    /// the thread-local QuickJsRuntime
    /// this only exists for the worker thread of the EsEventQueue
    pub(crate) static QJS_RT: RefCell<QuickJsRuntime> = RefCell::new(QuickJsRuntime::new());
+
 }
 
 pub struct QuickJsRuntime {
@@ -95,6 +96,8 @@ impl QuickJsRuntime {
     }
 
     pub fn eval_module(&self, script: EsScript) -> Result<JSValueRef, EsError> {
+        log::debug!("q_js_rt.eval_module file {}", script.get_path());
+
         let filename_c =
             make_cstring(script.get_path()).expect("failed to create c_string from path");
         let code_c = make_cstring(script.get_code()).expect("failed to create c_string from code");

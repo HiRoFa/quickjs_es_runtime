@@ -4,6 +4,11 @@ use crate::quickjsruntime::ModuleScriptLoader;
 use std::sync::Arc;
 use std::time::Duration;
 
+// todo
+// JS_SetMemoryLimit
+// JS_SetGCThreshold
+// JS_SetMaxStackSize
+
 pub struct EsRuntimeBuilder {
     pub(crate) loader: Option<Box<ModuleScriptLoader>>,
     pub(crate) _memory_limit_mb: Option<usize>,
@@ -24,7 +29,7 @@ impl EsRuntimeBuilder {
         }
     }
 
-    pub fn module_script_loader<M>(&mut self, loader: M) -> &mut Self
+    pub fn module_script_loader<M>(mut self, loader: M) -> Self
     where
         M: Fn(&str, &str) -> Option<EsScript> + Send + Sync + 'static,
     {

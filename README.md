@@ -25,10 +25,10 @@ there are utils for
 * convert primitives
 * ClassBuilder (reflection)
 * create Promises and add reactions to promises
+* Modules (static and dynamic imports)
 
 # next steps
 
-* Modules
 * invoking callbacks from EsValueFacade
 * get promise result blocking
 * a lot more

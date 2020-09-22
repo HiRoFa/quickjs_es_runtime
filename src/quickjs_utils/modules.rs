@@ -1,6 +1,14 @@
+use crate::esscript::EsScript;
 use crate::quickjsruntime::QuickJsRuntime;
 use libquickjs_sys as q;
+use log::trace;
+use std::cell::RefCell;
+use std::collections::HashSet;
 use std::ffi::{CStr, CString};
+
+thread_local! {
+    static LOADED_MODULE_REGISTRY: RefCell<HashSet<String>> = RefCell::new(HashSet::new());
+}
 
 #[allow(dead_code)]
 pub fn set_module_loader(q_js_rt: &QuickJsRuntime) {
@@ -37,8 +45,42 @@ unsafe extern "C" fn js_module_normalize(
         name_str
     );
 
-    let c_name = CString::new(name_str).expect("could not create CString");
-    c_name.into_raw()
+    let script_opt: Option<EsScript> = QuickJsRuntime::do_with(|q_js_rt| {
+        if let Some(loader) = &q_js_rt.module_script_loader {
+            loader(base_str, name_str)
+        } else {
+            None
+        }
+    });
+
+    let mut absolute_path = name_str.to_string();
+
+    if let Some(script) = script_opt {
+        LOADED_MODULE_REGISTRY.with(|registry_rc| {
+            let registry = &mut *registry_rc.borrow_mut();
+            if !registry.contains(script.get_path()) {
+                trace!("module {} not loaded, initializing", name_str);
+                absolute_path = script.get_path().to_string();
+                registry.insert(absolute_path.to_string());
+                drop(registry);
+                // init module here
+                QuickJsRuntime::do_with(|q_js_rt| {
+                    q_js_rt
+                        .eval_module(script)
+                        .ok()
+                        .expect("could not init module");
+                });
+            } else {
+                trace!("module {} was already loaded, doing nothing", name_str);
+            }
+        });
+    } else {
+        trace!("no module found for {} at {}", name_str, base_str);
+    }
+
+    let c_absolute_path =
+        CString::new(absolute_path.as_str()).expect("could not create CString for absolute_path");
+    c_absolute_path.into_raw()
 }
 
 unsafe extern "C" fn js_module_loader(
