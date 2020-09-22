@@ -2,32 +2,16 @@
 
 use crate::eserror::EsError;
 use crate::esscript::EsScript;
+use crate::quickjs_utils::modules;
+use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use libquickjs_sys as q;
 use std::cell::RefCell;
-use std::ffi::{CStr, CString, NulError};
-use std::os::raw::c_char;
+use std::ffi::{CString, NulError};
 
 thread_local! {
    /// the thread-local SpiderMonkeyRuntime
    /// this only exists for the worker thread of the EsEventQueue
    pub(crate) static QJS_RT: RefCell<QuickJsRuntime> = RefCell::new(QuickJsRuntime::new());
-}
-
-/// Free a JSValue.
-/// This function is the equivalent of JS_FreeValue from quickjs, which can not
-/// be used due to being `static inline`.
-pub(crate) unsafe fn free_value(context: *mut q::JSContext, value: q::JSValue) {
-    // All tags < 0 are garbage collected and need to be freed.
-    if value.tag < 0 {
-        // This transmute is OK since if tag < 0, the union will be a refcount
-        // pointer.
-        let ptr = value.u.ptr as *mut q::JSRefCountHeader;
-        let pref: &mut q::JSRefCountHeader = &mut *ptr;
-        pref.ref_count -= 1;
-        if pref.ref_count <= 0 {
-            q::__JS_FreeValue(context, value);
-        }
-    }
 }
 
 pub struct QuickJsRuntime {
@@ -64,7 +48,7 @@ impl QuickJsRuntime {
         let q_rt = Self { runtime, context };
 
         // test like this, impl later
-        q_rt.set_module_loader();
+        modules::set_module_loader(&q_rt);
         q_rt.set_promise_rejection_tracker();
 
         q_rt
@@ -72,10 +56,12 @@ impl QuickJsRuntime {
 
     pub fn gc(&self) {}
 
-    pub fn eval(&self, script: EsScript) -> Result<OwnedValueRef, EsError> {
+    pub fn eval(&self, script: EsScript) -> Result<JSValueRef, EsError> {
         let filename_c =
             make_cstring(script.get_path()).expect("failed to create c_string from path");
         let code_c = make_cstring(script.get_code()).expect("failed to create c_string from code");
+
+        log::debug!("q_js_rt.eval file {}", script.get_path());
 
         let value_raw = unsafe {
             q::JS_Eval(
@@ -88,7 +74,7 @@ impl QuickJsRuntime {
         };
 
         // check for error
-        let ret = OwnedValueRef::new(value_raw);
+        let ret = JSValueRef::new(value_raw);
         if ret.is_exception() {
             let ex_opt = self.get_exception();
             if let Some(ex) = ex_opt {
@@ -101,7 +87,7 @@ impl QuickJsRuntime {
         }
     }
 
-    pub fn eval_module(&self, script: EsScript) -> Result<OwnedValueRef, EsError> {
+    pub fn eval_module(&self, script: EsScript) -> Result<JSValueRef, EsError> {
         let filename_c =
             make_cstring(script.get_path()).expect("failed to create c_string from path");
         let code_c = make_cstring(script.get_code()).expect("failed to create c_string from code");
@@ -119,7 +105,7 @@ impl QuickJsRuntime {
         // check for error
 
         // check for error
-        let ret = OwnedValueRef::new(value_raw);
+        let ret = JSValueRef::new(value_raw);
         if ret.is_exception() {
             let ex_opt = self.get_exception();
             if let Some(ex) = ex_opt {
@@ -157,7 +143,7 @@ impl QuickJsRuntime {
     /// Get the last exception from the runtime, and if present, convert it to a ExceptionError.
     pub fn get_exception(&self) -> Option<EsError> {
         let raw = unsafe { q::JS_GetException(self.context) };
-        let value = OwnedValueRef::new(raw);
+        let value = JSValueRef::new(raw);
 
         if value.is_null() {
             None
@@ -210,153 +196,6 @@ impl QuickJsRuntime {
             q::JS_SetHostPromiseRejectionTracker(self.runtime, tracker, std::ptr::null_mut());
         }
     }
-
-    #[allow(dead_code)]
-    pub fn set_module_loader(&self) {
-        log::trace!("setting up module loader");
-
-        let module_normalize: q::JSModuleNormalizeFunc = Some(js_module_normalize);
-        let module_loader: q::JSModuleLoaderFunc = Some(js_module_loader);
-
-        let opaque = std::ptr::null_mut();
-
-        unsafe { q::JS_SetModuleLoaderFunc(self.runtime, module_normalize, module_loader, opaque) }
-    }
-}
-
-pub struct OwnedValueRef {
-    value: Option<q::JSValue>,
-    no_free: bool,
-    label: Option<String>,
-}
-
-impl Drop for OwnedValueRef {
-    fn drop(&mut self) {
-        log::trace!("dropping OwnedValueRef, isSome={}", self.value.is_some());
-        if !self.no_free && self.value.is_some() {
-            QuickJsRuntime::do_with(|q_js_rt| unsafe {
-                if self.label.is_some() {
-                    log::trace!(
-                        "dropping OwnedValueRef, before free: {}",
-                        self.label.as_ref().unwrap()
-                    );
-                } else {
-                    log::trace!("dropping OwnedValueRef, before free");
-                }
-                free_value(q_js_rt.context, self.consume_value());
-                log::trace!("dropping OwnedValueRef, after free");
-            })
-        }
-    }
-}
-
-impl<'a> std::fmt::Debug for OwnedValueRef {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self.borrow_value().tag {
-            TAG_EXCEPTION => write!(f, "Exception(?)"),
-            TAG_NULL => write!(f, "NULL"),
-            TAG_UNDEFINED => write!(f, "UNDEFINED"),
-            TAG_BOOL => write!(f, "Bool(?)",),
-            TAG_INT => write!(f, "Int(?)"),
-            TAG_FLOAT64 => write!(f, "Float(?)"),
-            TAG_STRING => write!(f, "String(?)"),
-            TAG_OBJECT => write!(f, "Object(?)"),
-            _ => write!(f, "?"),
-        }
-    }
-}
-
-impl OwnedValueRef {
-    /// create a new OwnedValueRef
-    pub fn new(value: q::JSValue) -> Self {
-        // todo assert in worker thread
-        Self {
-            value: Some(value),
-            no_free: false,
-            label: None,
-        }
-    }
-
-    pub fn new_no_free(value: q::JSValue) -> Self {
-        // todo assert in worker thread
-        Self {
-            value: Some(value),
-            no_free: true,
-            label: None,
-        }
-    }
-
-    pub fn label(&mut self, label: &str) {
-        self.label = Some(label.to_string());
-    }
-
-    pub fn borrow_value(&self) -> &q::JSValue {
-        self.value.as_ref().expect("OwnedValueRef was consumed")
-    }
-
-    pub fn consume_value(&mut self) -> q::JSValue {
-        std::mem::replace(&mut self.value, None).unwrap()
-    }
-
-    pub fn is_null_or_undefined(&self) -> bool {
-        self.is_null() || self.is_undefined()
-    }
-
-    /// return true if the wrapped value represents a JS null value
-    pub fn is_undefined(&self) -> bool {
-        self.borrow_value().tag == TAG_UNDEFINED
-    }
-
-    /// Get the inner JSValue without freeing in drop.
-    ///
-    /// Unsafe because the caller is responsible for freeing the value.
-    //unsafe fn into_inner(mut self) -> q::JSValue {
-    //let v = self.value;
-    //self.value = q::JSValue {
-    //u: q::JSValueUnion { int32: 0 },
-    //tag: TAG_NULL,
-    //};
-    //v
-    //}
-
-    /// return true if the wrapped value represents a JS null value
-    pub fn is_null(&self) -> bool {
-        self.borrow_value().tag == TAG_NULL
-    }
-
-    /// return true if the wrapped value represents a JS boolean value
-    pub fn is_bool(&self) -> bool {
-        self.borrow_value().tag == TAG_BOOL
-    }
-
-    /// return true if the wrapped value represents a JS INT value
-    pub fn is_i32(&self) -> bool {
-        self.borrow_value().tag == TAG_INT
-    }
-
-    /// return true if the wrapped value represents a JS F64 value
-    pub fn is_f64(&self) -> bool {
-        self.borrow_value().tag == TAG_FLOAT64
-    }
-
-    pub fn is_big_int(&self) -> bool {
-        self.borrow_value().tag == TAG_BIG_INT
-    }
-
-    /// return true if the wrapped value represents a JS Esception value
-    pub fn is_exception(&self) -> bool {
-        self.borrow_value().tag == TAG_EXCEPTION
-    }
-
-    /// return true if the wrapped value represents a JS Object value
-    pub fn is_object(&self) -> bool {
-        self.borrow_value().tag == TAG_OBJECT
-    }
-
-    /// return true if the wrapped value represents a JS String value
-    pub fn is_string(&self) -> bool {
-        self.borrow_value().tag == TAG_STRING
-    }
 }
 
 unsafe extern "C" fn promise_rejection_tracker(
@@ -371,42 +210,6 @@ unsafe extern "C" fn promise_rejection_tracker(
     }
 }
 
-unsafe extern "C" fn js_module_normalize(
-    _ctx: *mut q::JSContext,
-    module_base_name: *const ::std::os::raw::c_char,
-    module_name: *const ::std::os::raw::c_char,
-    _opaque: *mut ::std::os::raw::c_void,
-) -> *mut ::std::os::raw::c_char {
-    // todo
-
-    let base_c = CStr::from_ptr(module_base_name);
-    let base_str = base_c
-        .to_str()
-        .expect("could not convert module_base_name to str");
-    let name_c = CStr::from_ptr(module_name);
-    let name_str = name_c
-        .to_str()
-        .expect("could not convert module_name to str");
-
-    log::trace!(
-        "js_module_normalize called. base: {}. name: {}",
-        base_str,
-        name_str
-    );
-    let ret_c = CString::new(name_str).expect("could not create cstring");
-    ret_c.as_ptr() as *mut c_char
-}
-
-unsafe extern "C" fn js_module_loader(
-    _ctx: *mut q::JSContext,
-    _module_name: *const ::std::os::raw::c_char,
-    _opaque: *mut ::std::os::raw::c_void,
-) -> *mut q::JSModuleDef {
-    //todo
-    log::trace!("js_module_loader called");
-    std::ptr::null_mut()
-}
-
 impl Drop for QuickJsRuntime {
     fn drop(&mut self) {
         unsafe {
@@ -415,16 +218,6 @@ impl Drop for QuickJsRuntime {
         }
     }
 }
-
-pub(crate) const TAG_BIG_INT: i64 = -10;
-pub(crate) const TAG_STRING: i64 = -7;
-pub(crate) const TAG_OBJECT: i64 = -1;
-pub(crate) const TAG_INT: i64 = 0;
-pub(crate) const TAG_BOOL: i64 = 1;
-pub(crate) const TAG_NULL: i64 = 2;
-pub(crate) const TAG_UNDEFINED: i64 = 3;
-pub(crate) const TAG_EXCEPTION: i64 = 6;
-pub(crate) const TAG_FLOAT64: i64 = 7;
 
 /// Helper for creating CStrings.
 pub(crate) fn make_cstring(value: impl Into<Vec<u8>>) -> Result<CString, NulError> {

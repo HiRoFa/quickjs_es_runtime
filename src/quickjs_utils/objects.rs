@@ -1,15 +1,16 @@
 use crate::droppable_value::DroppableValue;
 use crate::eserror::EsError;
 use crate::quickjs_utils::{atoms, functions, get_global};
-use crate::quickjsruntime::{make_cstring, OwnedValueRef, QuickJsRuntime};
+use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
+use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 use std::collections::HashMap;
 
 #[allow(dead_code)]
 pub fn construct_object(
     _q_js_rt: &QuickJsRuntime,
-    _constructor_ref: &OwnedValueRef,
-) -> Result<OwnedValueRef, EsError> {
+    _constructor_ref: &JSValueRef,
+) -> Result<JSValueRef, EsError> {
     /*
     q::JS_CallConstructor(
         context,
@@ -22,9 +23,9 @@ pub fn construct_object(
     unimplemented!();
 }
 
-pub fn create_object(q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
+pub fn create_object(q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
     let obj = unsafe { q::JS_NewObject(q_js_rt.context) };
-    let obj_ref = OwnedValueRef::new(obj);
+    let obj_ref = JSValueRef::new(obj);
     if obj_ref.is_exception() {
         return Err(EsError::new_str("Could not create object"));
     }
@@ -32,9 +33,9 @@ pub fn create_object(q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError>
 }
 pub fn set_property(
     q_js_rt: &QuickJsRuntime,
-    obj_ref: &OwnedValueRef,
+    obj_ref: &JSValueRef,
     prop_name: &str,
-    prop_ref: OwnedValueRef,
+    prop_ref: &JSValueRef,
 ) -> Result<(), EsError> {
     set_property2(
         q_js_rt,
@@ -47,16 +48,14 @@ pub fn set_property(
 
 pub fn set_property2(
     q_js_rt: &QuickJsRuntime,
-    obj_ref: &OwnedValueRef,
+    obj_ref: &JSValueRef,
     prop_name: &str,
-    prop_ref: OwnedValueRef,
+    prop_ref: &JSValueRef,
     flags: i32,
 ) -> Result<(), EsError> {
     log::trace!("set_property2: {}", prop_name);
 
     let ckey = make_cstring(prop_name).expect("could not make cstring");
-
-    let mut prop_ref = prop_ref;
 
     /*
         pub const JS_PROP_CONFIGURABLE: u32 = 1;
@@ -78,7 +77,7 @@ pub fn set_property2(
             q_js_rt.context,
             *obj_ref.borrow_value(),
             ckey.as_ptr(),
-            prop_ref.consume_value(),
+            prop_ref.clone_value_up_rc(),
             flags,
         )
     };
@@ -93,10 +92,10 @@ pub fn set_property2(
 #[allow(dead_code)]
 pub fn define_getter_setter(
     q_js_rt: &QuickJsRuntime,
-    obj_ref: &OwnedValueRef,
+    obj_ref: &JSValueRef,
     prop_name: &str,
-    mut getter_func_ref: OwnedValueRef,
-    mut setter_func_ref: OwnedValueRef,
+    getter_func_ref: &JSValueRef,
+    setter_func_ref: &JSValueRef,
 ) -> Result<(), EsError> {
     /*
      pub fn JS_DefinePropertyGetSet(
@@ -125,8 +124,8 @@ pub fn define_getter_setter(
             q_js_rt.context,
             *obj_ref.borrow_value(),
             prop_atom,
-            getter_func_ref.consume_value(),
-            setter_func_ref.consume_value(),
+            *getter_func_ref.borrow_value(),
+            *setter_func_ref.borrow_value(),
             0,
         )
     };
@@ -148,9 +147,9 @@ pub fn define_getter_setter(
 
 pub fn get_property(
     q_js_rt: &QuickJsRuntime,
-    obj_ref: &OwnedValueRef,
+    obj_ref: &JSValueRef,
     prop_name: &str,
-) -> Result<OwnedValueRef, EsError> {
+) -> Result<JSValueRef, EsError> {
     if obj_ref.is_null() || obj_ref.is_undefined() {
         return Err(EsError::new_str(
             "could not get prop from null or undefined",
@@ -166,13 +165,13 @@ pub fn get_property(
             c_prop_name.as_ptr(),
         )
     };
-    Ok(OwnedValueRef::new(prop_val))
+    Ok(JSValueRef::new(prop_val))
 }
 
 #[allow(dead_code)]
 pub fn get_property_names(
     q_js_rt: &QuickJsRuntime,
-    obj_ref: &OwnedValueRef,
+    obj_ref: &JSValueRef,
 ) -> Result<Vec<String>, EsError> {
     let mut properties: *mut q::JSPropertyEnum = std::ptr::null_mut();
     let mut count: u32 = 0;
@@ -208,7 +207,7 @@ pub fn get_property_names(
         let prop = unsafe { (*properties).offset(index as isize) };
 
         let key_value = unsafe { q::JS_AtomToString(q_js_rt.context, (*prop).atom) };
-        let key_ref = OwnedValueRef::new(key_value);
+        let key_ref = JSValueRef::new(key_value);
         if key_ref.is_exception() {
             return Err(EsError::new_str("Could not get object property name"));
         }
@@ -221,11 +220,11 @@ pub fn get_property_names(
 
 pub fn traverse_properties<V, R>(
     q_js_rt: &QuickJsRuntime,
-    obj_ref: &OwnedValueRef,
+    obj_ref: &JSValueRef,
     visitor: V,
 ) -> Result<HashMap<String, R>, EsError>
 where
-    V: Fn(&str, OwnedValueRef) -> Result<R, EsError>,
+    V: Fn(&str, JSValueRef) -> Result<R, EsError>,
 {
     let mut properties: *mut q::JSPropertyEnum = std::ptr::null_mut();
     let mut count: u32 = 0;
@@ -269,13 +268,13 @@ where
                 0,
             )
         };
-        let prop_val_ref = OwnedValueRef::new(raw_value);
+        let prop_val_ref = JSValueRef::new(raw_value);
         if prop_val_ref.is_exception() {
             return Err(EsError::new_str("Could not get object property"));
         }
 
         let key_value = unsafe { q::JS_AtomToString(q_js_rt.context, (*prop).atom) };
-        let key_ref = OwnedValueRef::new(key_value);
+        let key_ref = JSValueRef::new(key_value);
         if key_ref.is_exception() {
             return Err(EsError::new_str("Could not get object property name"));
         }
@@ -291,8 +290,8 @@ where
 
 pub fn is_instance_of(
     q_js_rt: &QuickJsRuntime,
-    obj_ref: &OwnedValueRef,
-    constructor_ref: OwnedValueRef,
+    obj_ref: &JSValueRef,
+    constructor_ref: JSValueRef,
 ) -> bool {
     if !obj_ref.is_object() {
         return false;
@@ -308,7 +307,7 @@ pub fn is_instance_of(
 
 pub fn is_instance_of_by_name(
     q_js_rt: &QuickJsRuntime,
-    obj_ref: &OwnedValueRef,
+    obj_ref: &JSValueRef,
     constructor_name: &str,
 ) -> Result<bool, EsError> {
     if !obj_ref.is_object() {
@@ -341,11 +340,11 @@ pub mod tests {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let obj_a = create_object(q_js_rt).ok().unwrap();
-            let obj_b = create_object(q_js_rt).ok().unwrap();
-            set_property(q_js_rt, &obj_a, "b", obj_b).ok().unwrap();
+            let mut obj_b = create_object(q_js_rt).ok().unwrap();
+            set_property(q_js_rt, &obj_a, "b", &mut obj_b).ok().unwrap();
 
             let b1 = get_property(q_js_rt, &obj_a, "b").ok().unwrap();
-            set_property(q_js_rt, &b1, "i", primitives::from_i32(123))
+            set_property(q_js_rt, &b1, "i", &mut primitives::from_i32(123))
                 .ok()
                 .unwrap();
             drop(b1);
@@ -386,16 +385,16 @@ pub mod tests {
     fn test_set_prop() {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
-            let obj_ref = create_object(q_js_rt).ok().unwrap();
+            let mut obj_ref = create_object(q_js_rt).ok().unwrap();
             let global_ref = get_global(q_js_rt);
-            set_property(q_js_rt, &global_ref, "test_obj", obj_ref)
+            set_property(q_js_rt, &global_ref, "test_obj", &mut obj_ref)
                 .ok()
                 .expect("could not set property 1");
-            let prop_ref = from_i32(123);
+            let mut prop_ref = from_i32(123);
             let obj_ref = get_property(q_js_rt, &global_ref, "test_obj")
                 .ok()
                 .expect("could not get test_obj");
-            set_property(q_js_rt, &obj_ref, "test_prop", prop_ref)
+            set_property(q_js_rt, &obj_ref, "test_prop", &mut prop_ref)
                 .ok()
                 .expect("could not set property 2");
 

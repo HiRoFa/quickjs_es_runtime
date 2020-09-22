@@ -1,6 +1,7 @@
 use crate::eserror::EsError;
 use crate::quickjs_utils::{atoms, objects, primitives};
-use crate::quickjsruntime::{make_cstring, OwnedValueRef, QuickJsRuntime};
+use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
+use crate::valueref::JSValueRef;
 use hirofa_utils::auto_id_map::AutoIdMap;
 use libquickjs_sys as q;
 use log::trace;
@@ -11,10 +12,10 @@ use std::os::raw::c_char;
 #[allow(dead_code)]
 pub fn call_function(
     q_js_rt: &QuickJsRuntime,
-    function_ref: &OwnedValueRef,
-    arguments: &[OwnedValueRef],
-    this_ref_opt: Option<&OwnedValueRef>,
-) -> Result<OwnedValueRef, EsError> {
+    function_ref: &JSValueRef,
+    arguments: &[JSValueRef],
+    this_ref_opt: Option<&JSValueRef>,
+) -> Result<JSValueRef, EsError> {
     assert!(is_function(q_js_rt, function_ref));
 
     let arg_count = arguments.len() as i32;
@@ -39,7 +40,7 @@ pub fn call_function(
         )
     };
 
-    let res_ref = OwnedValueRef::new(res);
+    let res_ref = JSValueRef::new(res);
 
     if res_ref.is_exception() {
         if let Some(ex) = q_js_rt.get_exception() {
@@ -67,10 +68,10 @@ pub fn JS_Invoke(
 #[allow(dead_code)]
 pub fn invoke_member_function(
     q_js_rt: &QuickJsRuntime,
-    obj_ref: &OwnedValueRef,
+    obj_ref: &JSValueRef,
     function_name: &str,
-    arguments: &[OwnedValueRef],
-) -> Result<OwnedValueRef, EsError> {
+    arguments: &[JSValueRef],
+) -> Result<JSValueRef, EsError> {
     let arg_count = arguments.len() as i32;
 
     let atm = atoms::from_string(q_js_rt, function_name)?;
@@ -89,20 +90,17 @@ pub fn invoke_member_function(
             qargs.as_mut_ptr(),
         )
     };
-    Ok(OwnedValueRef::new(res_val))
+    Ok(JSValueRef::new(res_val))
 }
 
-pub fn call_to_string(
-    q_js_rt: &QuickJsRuntime,
-    obj_ref: &OwnedValueRef,
-) -> Result<String, EsError> {
+pub fn call_to_string(q_js_rt: &QuickJsRuntime, obj_ref: &JSValueRef) -> Result<String, EsError> {
     if obj_ref.is_string() {
         crate::quickjs_utils::primitives::to_string(q_js_rt, obj_ref)
     } else {
         log::trace!("calling JS_ToString on a {}", obj_ref.borrow_value().tag);
 
         let res = unsafe { q::JS_ToString(q_js_rt.context, *obj_ref.borrow_value()) };
-        let res_ref = OwnedValueRef::new(res);
+        let res_ref = JSValueRef::new(res);
 
         log::trace!("called JS_ToString got a {}", res_ref.borrow_value().tag);
 
@@ -114,7 +112,7 @@ pub fn call_to_string(
 }
 
 #[allow(dead_code)]
-pub fn is_function(q_js_rt: &QuickJsRuntime, obj_ref: &OwnedValueRef) -> bool {
+pub fn is_function(q_js_rt: &QuickJsRuntime, obj_ref: &JSValueRef) -> bool {
     if obj_ref.is_object() {
         let res = unsafe { q::JS_IsFunction(q_js_rt.context, *obj_ref.borrow_value()) };
         res != 0
@@ -124,7 +122,7 @@ pub fn is_function(q_js_rt: &QuickJsRuntime, obj_ref: &OwnedValueRef) -> bool {
 }
 
 #[allow(dead_code)]
-pub fn is_constructor(q_js_rt: &QuickJsRuntime, obj_ref: &OwnedValueRef) -> bool {
+pub fn is_constructor(q_js_rt: &QuickJsRuntime, obj_ref: &JSValueRef) -> bool {
     if obj_ref.is_object() {
         let res = unsafe { q::JS_IsConstructor(q_js_rt.context, *obj_ref.borrow_value()) };
         res != 0
@@ -140,7 +138,7 @@ pub fn new_native_function(
     func: q::JSCFunction,
     arg_count: u32,
     is_constructor: bool,
-) -> Result<OwnedValueRef, EsError> {
+) -> Result<JSValueRef, EsError> {
     let cname = make_cstring(name).expect("could not create cstring");
     let magic = 1;
 
@@ -160,7 +158,7 @@ pub fn new_native_function(
             magic,
         )
     };
-    let func_ref = OwnedValueRef::new(func_val);
+    let func_ref = JSValueRef::new(func_val);
 
     if !func_ref.is_object() {
         Err(EsError::new_str("Could not create new_native_function"))
@@ -174,9 +172,8 @@ pub fn new_native_function_data(
     q_js_rt: &QuickJsRuntime,
     func: q::JSCFunctionData,
     arg_count: u32,
-    data: OwnedValueRef,
-) -> Result<OwnedValueRef, EsError> {
-    let mut data = data;
+    mut data: JSValueRef,
+) -> Result<JSValueRef, EsError> {
     let magic = 1;
     let data_len = 1;
 
@@ -187,10 +184,10 @@ pub fn new_native_function_data(
             magic,
             arg_count as i32,
             data_len,
-            &mut data.consume_value(),
+            data.borrow_value_mut(),
         )
     };
-    let func_ref = OwnedValueRef::new(func_val);
+    let func_ref = JSValueRef::new(func_val);
 
     if !func_ref.is_object() {
         Err(EsError::new_str("Could not create new_native_function"))
@@ -201,8 +198,7 @@ pub fn new_native_function_data(
 
 static CNAME: &str = "CallbackClass\0";
 
-type Callback =
-    dyn Fn(OwnedValueRef, Vec<OwnedValueRef>) -> Result<OwnedValueRef, EsError> + 'static;
+type Callback = dyn Fn(JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static;
 
 thread_local! {
     static INSTANCE_ID_MAPPINGS: RefCell<HashMap<usize, Box<(usize, String)>>> = RefCell::new(HashMap::new());
@@ -259,9 +255,9 @@ pub fn new_function<F>(
     _name: &str,
     func: F,
     _arg_count: u32,
-) -> Result<OwnedValueRef, EsError>
+) -> Result<JSValueRef, EsError>
 where
-    F: Fn(OwnedValueRef, Vec<OwnedValueRef>) -> Result<OwnedValueRef, EsError> + 'static,
+    F: Fn(JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
 {
     // put func in map, retrieve on call.. delete on destroy
     // create a new class_def for callbacks, with a finalize
@@ -282,7 +278,7 @@ where
         unsafe { q::JS_NewObjectClass(q_js_rt.context, static_class_id as i32) };
 
     // todo, create a single instance of that class and reuse it, i'm not sure if the current impl GCs ok
-    let class_val_ref = OwnedValueRef::new_no_free(class_val);
+    let class_val_ref = JSValueRef::new(class_val);
 
     if class_val_ref.is_exception() {
         return if let Some(e) = q_js_rt.get_exception() {
@@ -292,7 +288,7 @@ where
         };
     }
 
-    objects::set_property2(q_js_rt, &func_ref, "_cb_fin_marker_", class_val_ref, 0)
+    objects::set_property2(q_js_rt, &func_ref, "_cb_fin_marker_", &class_val_ref, 0)
         .ok()
         .expect("could not set cb marker");
 
@@ -441,7 +437,7 @@ unsafe extern "C" fn callback_function(
 ) -> q::JSValue {
     trace!("callback_function called");
 
-    let data_ref = OwnedValueRef::new_no_free(*func_data);
+    let data_ref = JSValueRef::new(*func_data);
     let callback_id = primitives::to_i32(&data_ref)
         .ok()
         .expect("failed to get callback_id");
@@ -453,17 +449,17 @@ unsafe extern "C" fn callback_function(
         if let Some(callback) = registry.get(&(callback_id as usize)) {
             QuickJsRuntime::do_with(|q_js_rt| {
                 let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
-                let args_vec: Vec<OwnedValueRef> = arg_slice
+                let args_vec: Vec<JSValueRef> = arg_slice
                     .iter()
-                    .map(|raw| OwnedValueRef::new_no_free(*raw))
+                    .map(|raw| JSValueRef::new_no_free(*raw))
                     .collect::<Vec<_>>();
 
-                let this_ref = OwnedValueRef::new_no_free(this_val);
+                let this_ref = JSValueRef::new_no_free(this_val);
 
-                let callback_res: Result<OwnedValueRef, EsError> = callback(this_ref, args_vec);
+                let callback_res: Result<JSValueRef, EsError> = callback(this_ref, args_vec);
 
                 match callback_res {
-                    Ok(mut res) => res.consume_value(),
+                    Ok(res) => *res.borrow_value(),
                     Err(e) => {
                         let err = format!("{}", e);
                         q_js_rt.report_ex(err.as_str())

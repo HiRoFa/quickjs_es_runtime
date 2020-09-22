@@ -1,14 +1,12 @@
 use crate::eserror::EsError;
-use crate::quickjsruntime::{
-    OwnedValueRef, QuickJsRuntime, TAG_BOOL, TAG_FLOAT64, TAG_INT, TAG_NULL, TAG_OBJECT,
-    TAG_STRING, TAG_UNDEFINED,
-};
+use crate::quickjsruntime::QuickJsRuntime;
+use crate::valueref::*;
 use std::collections::HashMap;
 use std::sync::mpsc::RecvTimeoutError;
 use std::time::Duration;
 
 pub trait EsValueConvertible {
-    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError>;
+    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError>;
 
     fn to_es_value_facade(self) -> EsValueFacade
     where
@@ -84,19 +82,19 @@ struct EsUndefinedValue {}
 struct EsNullValue {}
 
 impl EsValueConvertible for EsNullValue {
-    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
+    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::new_null_ref())
     }
 }
 
 impl EsValueConvertible for EsUndefinedValue {
-    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
+    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::new_undefined_ref())
     }
 }
 
 impl EsValueConvertible for String {
-    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
+    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         crate::quickjs_utils::primitives::from_string(q_js_rt, self.as_str())
     }
 
@@ -110,7 +108,7 @@ impl EsValueConvertible for String {
 }
 
 impl EsValueConvertible for i32 {
-    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
+    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::primitives::from_i32(*self))
     }
 
@@ -124,7 +122,7 @@ impl EsValueConvertible for i32 {
 }
 
 impl EsValueConvertible for bool {
-    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
+    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::primitives::from_bool(*self))
     }
 
@@ -138,7 +136,7 @@ impl EsValueConvertible for bool {
 }
 
 impl EsValueConvertible for f64 {
-    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
+    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::primitives::from_f64(*self))
     }
     fn is_f64(&self) -> bool {
@@ -151,7 +149,7 @@ impl EsValueConvertible for f64 {
 }
 
 impl EsValueConvertible for Vec<EsValueFacade> {
-    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
+    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         // create the array
 
         let arr = crate::quickjs_utils::arrays::create_array(q_js_rt)
@@ -179,7 +177,7 @@ impl EsValueConvertible for Vec<EsValueFacade> {
 }
 
 impl EsValueConvertible for HashMap<String, EsValueFacade> {
-    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
+    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         // create new obj
         let obj_ref = crate::quickjs_utils::objects::create_object(q_js_rt)
             .ok()
@@ -197,7 +195,7 @@ impl EsValueConvertible for HashMap<String, EsValueFacade> {
                 q_js_rt,
                 &obj_ref,
                 prop_name.as_str(),
-                property_value_ref,
+                &property_value_ref,
             )?;
         }
 
@@ -218,13 +216,13 @@ pub struct EsValueFacade {
 }
 
 impl EsValueFacade {
-    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<OwnedValueRef, EsError> {
+    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         self.convertible.to_js_value(q_js_rt)
     }
 
     pub(crate) fn from_jsval(
         q_js_rt: &QuickJsRuntime,
-        value_ref: &OwnedValueRef,
+        value_ref: &JSValueRef,
     ) -> Result<Self, EsError> {
         let r = value_ref.borrow_value();
 
@@ -352,7 +350,7 @@ impl EsValueFacade {
 
     fn from_jsval_array(
         q_js_rt: &QuickJsRuntime,
-        value_ref: &OwnedValueRef,
+        value_ref: &JSValueRef,
     ) -> Result<EsValueFacade, EsError> {
         assert!(value_ref.is_object());
 
@@ -372,7 +370,7 @@ impl EsValueFacade {
 
     fn from_jsval_object(
         q_js_rt: &QuickJsRuntime,
-        obj_ref: &OwnedValueRef,
+        obj_ref: &JSValueRef,
     ) -> Result<EsValueFacade, EsError> {
         assert!(obj_ref.is_object());
 

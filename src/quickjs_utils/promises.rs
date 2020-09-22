@@ -2,26 +2,27 @@ use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions;
 use crate::quickjs_utils::objects::is_instance_of_by_name;
-use crate::quickjsruntime::{OwnedValueRef, QuickJsRuntime};
+use crate::quickjsruntime::QuickJsRuntime;
+use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 
 #[allow(dead_code)]
-pub fn is_promise(q_js_rt: &QuickJsRuntime, obj_ref: &OwnedValueRef) -> Result<bool, EsError> {
+pub fn is_promise(q_js_rt: &QuickJsRuntime, obj_ref: &JSValueRef) -> Result<bool, EsError> {
     is_instance_of_by_name(q_js_rt, obj_ref, "Promise")
 }
 
 pub struct PromiseRef {
-    promise_obj_ref: OwnedValueRef,
-    reject_function_obj_ref: OwnedValueRef,
-    resolve_function_obj_ref: OwnedValueRef,
+    promise_obj_ref: JSValueRef,
+    reject_function_obj_ref: JSValueRef,
+    resolve_function_obj_ref: JSValueRef,
 }
 #[allow(dead_code)]
 impl PromiseRef {
-    fn get_promise_obj_ref(&self) -> OwnedValueRef {
-        OwnedValueRef::new_no_free(*self.promise_obj_ref.borrow_value())
+    fn get_promise_obj_ref(&self) -> JSValueRef {
+        self.promise_obj_ref.clone()
     }
 
-    fn resolve(&self, q_js_rt: &QuickJsRuntime, value: OwnedValueRef) -> Result<(), EsError> {
+    fn resolve(&self, q_js_rt: &QuickJsRuntime, value: JSValueRef) -> Result<(), EsError> {
         crate::quickjs_utils::functions::call_function(
             q_js_rt,
             &self.resolve_function_obj_ref,
@@ -30,7 +31,7 @@ impl PromiseRef {
         )?;
         Ok(())
     }
-    fn reject(&self, q_js_rt: &QuickJsRuntime, value: OwnedValueRef) -> Result<(), EsError> {
+    fn reject(&self, q_js_rt: &QuickJsRuntime, value: JSValueRef) -> Result<(), EsError> {
         crate::quickjs_utils::functions::call_function(
             q_js_rt,
             &self.reject_function_obj_ref,
@@ -52,12 +53,12 @@ pub fn new_promise(q_js_rt: &QuickJsRuntime) -> Result<PromiseRef, EsError> {
     let resolve_func_val = *promise_resolution_functions.get(0).unwrap();
     let reject_func_val = *promise_resolution_functions.get(1).unwrap();
 
-    let resolve_function_obj_ref = OwnedValueRef::new(resolve_func_val);
-    let reject_function_obj_ref = OwnedValueRef::new(reject_func_val);
+    let resolve_function_obj_ref = JSValueRef::new_no_free(resolve_func_val);
+    let reject_function_obj_ref = JSValueRef::new_no_free(reject_func_val);
     assert!(functions::is_function(q_js_rt, &resolve_function_obj_ref));
     assert!(functions::is_function(q_js_rt, &reject_function_obj_ref));
 
-    let promise_obj_ref = OwnedValueRef::new(prom_val);
+    let promise_obj_ref = JSValueRef::new(prom_val);
 
     Ok(PromiseRef {
         promise_obj_ref,
@@ -69,10 +70,10 @@ pub fn new_promise(q_js_rt: &QuickJsRuntime) -> Result<PromiseRef, EsError> {
 #[allow(dead_code)]
 pub fn add_promise_reactions(
     q_js_rt: &QuickJsRuntime,
-    promise_obj_ref: &OwnedValueRef,
-    then_func_obj_ref_opt: Option<OwnedValueRef>,
-    catch_func_obj_ref_opt: Option<OwnedValueRef>,
-    finally_func_obj_ref_opt: Option<OwnedValueRef>,
+    promise_obj_ref: &JSValueRef,
+    then_func_obj_ref_opt: Option<JSValueRef>,
+    catch_func_obj_ref_opt: Option<JSValueRef>,
+    finally_func_obj_ref_opt: Option<JSValueRef>,
 ) -> Result<(), EsError> {
     assert!(is_promise(q_js_rt, promise_obj_ref)?);
 
@@ -142,7 +143,7 @@ pub mod tests {
 
             let prom = new_promise(q_js_rt).ok().unwrap();
 
-            functions::call_function(q_js_rt, &func_ref, &vec![prom.get_promise_obj_ref()], None)
+            functions::call_function(q_js_rt, &func_ref, &[prom.get_promise_obj_ref()], None)
                 .ok()
                 .unwrap();
 
