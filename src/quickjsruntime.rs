@@ -2,8 +2,9 @@
 
 use crate::eserror::EsError;
 use crate::esscript::EsScript;
-use crate::quickjs_utils::modules;
+use crate::quickjs_utils::{modules, promises};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
+use hirofa_utils::auto_id_map::AutoIdMap;
 use libquickjs_sys as q;
 use std::cell::RefCell;
 use std::ffi::{CString, NulError};
@@ -21,6 +22,7 @@ pub struct QuickJsRuntime {
     pub(crate) runtime: *mut q::JSRuntime,
     pub(crate) context: *mut q::JSContext,
     pub(crate) module_script_loader: Option<Box<ModuleScriptLoader>>,
+    object_cache: RefCell<AutoIdMap<JSValueRef>>,
 }
 
 impl QuickJsRuntime {
@@ -53,11 +55,12 @@ impl QuickJsRuntime {
             runtime,
             context,
             module_script_loader: None,
+            object_cache: RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize)),
         };
 
         // test like this, impl later
         modules::set_module_loader(&q_rt);
-        q_rt.set_promise_rejection_tracker();
+        promises::init_promise_rejection_tracker(&q_rt);
 
         q_rt
     }
@@ -199,24 +202,23 @@ impl QuickJsRuntime {
         Ok(())
     }
 
-    pub fn set_promise_rejection_tracker(&self) {
-        let tracker: q::JSHostPromiseRejectionTracker = Some(promise_rejection_tracker);
-
-        unsafe {
-            q::JS_SetHostPromiseRejectionTracker(self.runtime, tracker, std::ptr::null_mut());
-        }
+    pub fn cache_object(&self, obj: JSValueRef) -> i32 {
+        let cache_map = &mut *self.object_cache.borrow_mut();
+        cache_map.insert(obj) as i32
     }
-}
 
-unsafe extern "C" fn promise_rejection_tracker(
-    _ctx: *mut q::JSContext,
-    _promise: q::JSValue,
-    _reason: q::JSValue,
-    is_handled: ::std::os::raw::c_int,
-    _opaque: *mut ::std::os::raw::c_void,
-) {
-    if is_handled == 0 {
-        log::error!("unhandled promise rejection detected");
+    pub fn consume_cached_obj(&self, id: i32) -> JSValueRef {
+        let cache_map = &mut *self.object_cache.borrow_mut();
+        cache_map.remove(&(id as usize))
+    }
+
+    pub fn with_cached_obj<C, R>(&self, id: i32, consumer: C) -> R
+    where
+        C: FnOnce(&JSValueRef) -> R,
+    {
+        let cache_map = &*self.object_cache.borrow();
+        let opt = cache_map.get(&(id as usize));
+        consumer(opt.expect("no such obj in cache"))
     }
 }
 

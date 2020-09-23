@@ -1,8 +1,10 @@
 use crate::eserror::EsError;
+use crate::esruntime::EsRuntime;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::*;
 use std::collections::HashMap;
-use std::sync::mpsc::RecvTimeoutError;
+use std::sync::mpsc::{Receiver, RecvTimeoutError};
+use std::sync::Arc;
 use std::time::Duration;
 
 pub trait EsValueConvertible {
@@ -90,6 +92,94 @@ impl EsValueConvertible for EsNullValue {
 impl EsValueConvertible for EsUndefinedValue {
     fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::new_undefined_ref())
+    }
+}
+
+// placeholder for promises that were passed from the script engine to rust
+struct CachedJSPromise {
+    cached_obj_id: i32,
+    opt_receiver: Option<Receiver<Result<EsValueFacade, EsValueFacade>>>,
+    rt_ref: Arc<EsRuntime>,
+}
+
+impl Drop for CachedJSPromise {
+    fn drop(&mut self) {
+        let rt_arc = self.rt_ref.clone();
+        let cached_obj_id = self.cached_obj_id;
+
+        rt_arc.add_to_event_queue(move |q_js_rt| {
+            q_js_rt.consume_cached_obj(cached_obj_id);
+        });
+    }
+}
+
+// placeholder for functions that were passed from the script engine to rust
+struct CachedJSFunction {
+    cached_obj_id: i32,
+    rt_ref: Arc<EsRuntime>,
+}
+
+impl Drop for CachedJSFunction {
+    fn drop(&mut self) {
+        let rt_arc = self.rt_ref.clone();
+        let cached_obj_id = self.cached_obj_id;
+
+        rt_arc.add_to_event_queue(move |q_js_rt| {
+            q_js_rt.consume_cached_obj(cached_obj_id);
+        });
+    }
+}
+
+impl EsValueConvertible for CachedJSPromise {
+    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+        let cloned_ref = q_js_rt.with_cached_obj(self.cached_obj_id, |obj_ref| {
+            JSValueRef::new(*obj_ref.borrow_value())
+        });
+        Ok(cloned_ref)
+    }
+
+    fn is_promise(&self) -> bool {
+        true
+    }
+
+    fn await_promise_blocking(
+        &self,
+        _timeout: Duration,
+    ) -> Result<Result<EsValueFacade, EsValueFacade>, RecvTimeoutError> {
+        unimplemented!()
+    }
+}
+
+impl EsValueConvertible for CachedJSFunction {
+    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+        let cloned_ref = q_js_rt.with_cached_obj(self.cached_obj_id, |obj_ref| {
+            JSValueRef::new(*obj_ref.borrow_value())
+        });
+        Ok(cloned_ref)
+    }
+
+    fn is_function(&self) -> bool {
+        true
+    }
+
+    fn invoke_function(&self, args: Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> {
+        let cached_obj_id = self.cached_obj_id;
+        self.rt_ref.add_to_event_queue_sync(move |q_js_rt| {
+            q_js_rt.with_cached_obj(cached_obj_id, move |obj_ref| {
+                let mut ref_args = vec![];
+                for arg in args {
+                    ref_args.push(arg.to_js_value(q_js_rt)?);
+                }
+
+                let res = crate::quickjs_utils::functions::call_function(
+                    q_js_rt, obj_ref, &ref_args, None,
+                );
+                match res {
+                    Ok(r) => EsValueFacade::from_jsval(q_js_rt, &r),
+                    Err(e) => Err(e),
+                }
+            })
+        })
     }
 }
 

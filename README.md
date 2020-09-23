@@ -26,10 +26,9 @@ there are utils for
 * ClassBuilder (reflection)
 * create Promises and add reactions to promises
 * Modules (static and dynamic imports)
+* invoking callbacks from EsValueFacade
 
 # next steps
-
-* invoking callbacks from EsValueFacade
 * get promise result blocking
 * a lot more
 

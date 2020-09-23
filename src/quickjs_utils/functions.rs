@@ -245,7 +245,7 @@ thread_local! {
     };
 
     static CALLBACK_REGISTRY: RefCell<AutoIdMap<Box<Callback>>> = {
-        RefCell::new(AutoIdMap::new())
+        RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize))
     };
 }
 
@@ -411,9 +411,13 @@ pub mod tests {
                 .ok()
                 .expect("could not get function");
 
-            let _res = call_function(q_js_rt, &func_ref, &vec![cb_ref], None)
-                .ok()
-                .expect("could not invoke test_callback_563");
+            let res = call_function(q_js_rt, &func_ref, &[cb_ref], None);
+            if res.is_err() {
+                let err = res.err().unwrap();
+                log::error!("could not invoke test_callback_563: {}", err);
+                panic!("could not invoke test_callback_563: {}", err);
+            }
+            res.ok().expect("could not invoke test_callback_563");
         });
         log::trace!("done with cb");
         rt.add_to_event_queue_sync(|q_js_rt| {

@@ -115,23 +115,28 @@ pub mod tests {
     fn test_module_sandbox() {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
-            q_js_rt
-                .eval_module(EsScript::new(
-                    "test1.mes",
-                    "export const name = 'foobar';\nconsole.log('evalling module'); this;",
-                ))
-                .ok()
-                .expect("parse mod failed");
+            let res = q_js_rt.eval_module(EsScript::new(
+                "test1.mes",
+                "export const name = 'foobar';\nconsole.log('evalling module');",
+            ));
+
+            if res.is_err() {
+                panic!("parse module failed: {}", res.err().unwrap())
+            }
+            res.ok().expect("parse module failed");
         });
 
         rt.add_to_event_queue_sync(|q_js_rt| {
-            q_js_rt
-                .eval_module(EsScript::new(
-                    "test2.mes",
-                    "import {name} from 'test1.mes';\n\nconsole.log('imported name: ' + name);",
-                ))
-                .ok()
-                .expect("parse mod2 failed");
+            let res = q_js_rt.eval_module(EsScript::new(
+                "test2.mes",
+                "import {name} from 'test1.mes';\n\nconsole.log('imported name: ' + name);",
+            ));
+
+            if res.is_err() {
+                panic!("parse module2 failed: {}", res.err().unwrap())
+            }
+
+            res.ok().expect("parse module2 failed");
         });
 
         std::thread::sleep(Duration::from_secs(1));

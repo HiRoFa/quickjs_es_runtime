@@ -17,7 +17,7 @@ categories = ["development-tools"]
 #quick-js = "0.3.3"
 libquickjs-sys = {git="https://github.com/theduke/quickjs-rs#6979b780"}
 lazy_static = "1.4.0"
-hirofa_utils = {git="https://github.com/DRFos/utils"}
+hirofa_utils = {git="https://github.com/DRFos/utils?1"}
 log = "0.4.11"
 simple-logging = "2.0.2"
 thread-id = "3.3.0"

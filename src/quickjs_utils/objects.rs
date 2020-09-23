@@ -385,7 +385,7 @@ pub mod tests {
     fn test_set_prop() {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
-            let mut obj_ref = create_object(q_js_rt).ok().unwrap();
+            let obj_ref = create_object(q_js_rt).ok().unwrap();
 
             assert_eq!(obj_ref.get_ref_count(), 1);
 
@@ -396,11 +396,11 @@ pub mod tests {
 
             assert_eq!(obj_ref.get_ref_count(), 2);
 
-            let mut prop_ref = from_i32(123);
+            let prop_ref = from_i32(123);
             let obj_ref = get_property(q_js_rt, &global_ref, "test_obj")
                 .ok()
                 .expect("could not get test_obj");
-            set_property(q_js_rt, &obj_ref, "test_prop", &mut prop_ref)
+            set_property(q_js_rt, &obj_ref, "test_prop", &prop_ref)
                 .ok()
                 .expect("could not set property 2");
 

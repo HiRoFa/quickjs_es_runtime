@@ -67,6 +67,14 @@ pub fn new_promise(q_js_rt: &QuickJsRuntime) -> Result<PromiseRef, EsError> {
     })
 }
 
+pub(crate) fn init_promise_rejection_tracker(q_js_rt: &QuickJsRuntime) {
+    let tracker: q::JSHostPromiseRejectionTracker = Some(promise_rejection_tracker);
+
+    unsafe {
+        q::JS_SetHostPromiseRejectionTracker(q_js_rt.runtime, tracker, std::ptr::null_mut());
+    }
+}
+
 #[allow(dead_code)]
 pub fn add_promise_reactions(
     q_js_rt: &QuickJsRuntime,
@@ -98,6 +106,18 @@ pub fn add_promise_reactions(
     }
 
     Ok(())
+}
+
+unsafe extern "C" fn promise_rejection_tracker(
+    _ctx: *mut q::JSContext,
+    _promise: q::JSValue,
+    _reason: q::JSValue,
+    is_handled: ::std::os::raw::c_int,
+    _opaque: *mut ::std::os::raw::c_void,
+) {
+    if is_handled == 0 {
+        log::error!("unhandled promise rejection detected");
+    }
 }
 
 #[cfg(test)]
