@@ -1,6 +1,6 @@
 # quick_es_runtime
 
-Same goals as es_runtime but with using quickjs
+Same goals as https://github/com/DRFos/es_runtime but with using quickjs
 
 so 
 * slower js
