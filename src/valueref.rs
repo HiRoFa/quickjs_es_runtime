@@ -36,6 +36,7 @@ impl Drop for JSValueRef {
 
                 pref.ref_count -= 1;
                 if pref.ref_count <= 0 {
+                    log::trace!("ref count <= 0, calling __JS_FreeValue");
                     q::__JS_FreeValue(q_js_rt.context, self.value);
                 }
             }

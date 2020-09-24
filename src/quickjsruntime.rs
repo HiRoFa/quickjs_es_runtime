@@ -93,7 +93,8 @@ impl QuickJsRuntime {
         };
 
         // check for error
-        let ret = JSValueRef::new_no_ref_ct_increment(value_raw);
+        let mut ret = JSValueRef::new_no_ref_ct_increment(value_raw);
+        ret.label(format!("eval result of {}", script.get_path()).as_str());
         if ret.is_exception() {
             let ex_opt = self.get_exception();
             if let Some(ex) = ex_opt {
@@ -125,7 +126,8 @@ impl QuickJsRuntime {
         // check for error
 
         // check for error
-        let ret = JSValueRef::new_no_ref_ct_increment(value_raw);
+        let mut ret = JSValueRef::new_no_ref_ct_increment(value_raw);
+        ret.label(format!("eval result of {}", script.get_path()).as_str());
         if ret.is_exception() {
             let ex_opt = self.get_exception();
             if let Some(ex) = ex_opt {
