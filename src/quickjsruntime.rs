@@ -103,6 +103,10 @@ impl QuickJsRuntime {
                 Err(EsError::new_str("eval failed and could not get exception"))
             }
         } else {
+            while self.has_pending_jobs() {
+                self.run_pending_job();
+            }
+
             Ok(ret)
         }
     }
@@ -139,6 +143,9 @@ impl QuickJsRuntime {
                 ))
             }
         } else {
+            while self.has_pending_jobs() {
+                self.run_pending_job();
+            }
             Ok(ret)
         }
     }

@@ -16,6 +16,8 @@ pub fn call_function(
     arguments: &[JSValueRef],
     this_ref_opt: Option<&JSValueRef>,
 ) -> Result<JSValueRef, EsError> {
+    log::trace!("functions::call_function()");
+
     assert!(is_function(q_js_rt, function_ref));
 
     let arg_count = arguments.len() as i32;

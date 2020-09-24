@@ -44,5 +44,7 @@ pub fn new_null_ref() -> JSValueRef {
 
 pub fn get_global(q_js_rt: &QuickJsRuntime) -> JSValueRef {
     let global = unsafe { q::JS_GetGlobalObject(q_js_rt.context) };
-    JSValueRef::new_no_ref_ct_increment(global)
+    let mut global_ref = JSValueRef::new_no_ref_ct_increment(global);
+    global_ref.label("global");
+    global_ref
 }

@@ -19,6 +19,9 @@ pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
 
     objects::set_property(q_js_rt, &console_ref, "log", &log_func_ref)?;
 
+    assert_eq!(console_ref.get_ref_count(), 2);
+    assert_eq!(log_func_ref.get_ref_count(), 2);
+
     Ok(())
 }
 

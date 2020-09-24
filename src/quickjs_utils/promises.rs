@@ -23,27 +23,41 @@ impl PromiseRef {
     }
 
     fn resolve(&self, q_js_rt: &QuickJsRuntime, value: JSValueRef) -> Result<(), EsError> {
+        log::trace!("PromiseRef.resolve()");
         crate::quickjs_utils::functions::call_function(
             q_js_rt,
             &self.resolve_function_obj_ref,
             &[value],
             None,
         )?;
+
+        while q_js_rt.has_pending_jobs() {
+            q_js_rt.run_pending_job();
+        }
+
         Ok(())
     }
     fn reject(&self, q_js_rt: &QuickJsRuntime, value: JSValueRef) -> Result<(), EsError> {
+        log::trace!("PromiseRef.reject()");
         crate::quickjs_utils::functions::call_function(
             q_js_rt,
             &self.reject_function_obj_ref,
             &[value],
             None,
         )?;
+
+        while q_js_rt.has_pending_jobs() {
+            q_js_rt.run_pending_job();
+        }
+
         Ok(())
     }
 }
 
 #[allow(dead_code)]
 pub fn new_promise(q_js_rt: &QuickJsRuntime) -> Result<PromiseRef, EsError> {
+    log::trace!("promises::new_promise()");
+
     let mut promise_resolution_functions = [quickjs_utils::new_null(), quickjs_utils::new_null()];
 
     let prom_val = unsafe {
@@ -53,12 +67,19 @@ pub fn new_promise(q_js_rt: &QuickJsRuntime) -> Result<PromiseRef, EsError> {
     let resolve_func_val = *promise_resolution_functions.get(0).unwrap();
     let reject_func_val = *promise_resolution_functions.get(1).unwrap();
 
-    let resolve_function_obj_ref = JSValueRef::new_no_ref_ct_increment(resolve_func_val);
-    let reject_function_obj_ref = JSValueRef::new_no_ref_ct_increment(reject_func_val);
+    let mut resolve_function_obj_ref = JSValueRef::new_no_ref_ct_increment(resolve_func_val);
+    resolve_function_obj_ref.label("resolve_function_obj_ref");
+    let mut reject_function_obj_ref = JSValueRef::new_no_ref_ct_increment(reject_func_val);
+    reject_function_obj_ref.label("reject_function_obj_ref");
     assert!(functions::is_function(q_js_rt, &resolve_function_obj_ref));
     assert!(functions::is_function(q_js_rt, &reject_function_obj_ref));
 
-    let promise_obj_ref = JSValueRef::new_no_ref_ct_increment(prom_val);
+    let mut promise_obj_ref = JSValueRef::new_no_ref_ct_increment(prom_val);
+    promise_obj_ref.label("promise_obj_ref");
+
+    assert_eq!(resolve_function_obj_ref.get_ref_count(), 1);
+    assert_eq!(reject_function_obj_ref.get_ref_count(), 1);
+    //assert_eq!(promise_obj_ref.get_ref_count(), 1);
 
     Ok(PromiseRef {
         promise_obj_ref,
@@ -111,12 +132,24 @@ pub fn add_promise_reactions(
 unsafe extern "C" fn promise_rejection_tracker(
     _ctx: *mut q::JSContext,
     _promise: q::JSValue,
-    _reason: q::JSValue,
+    reason: q::JSValue,
     is_handled: ::std::os::raw::c_int,
     _opaque: *mut ::std::os::raw::c_void,
 ) {
     if is_handled == 0 {
         log::error!("unhandled promise rejection detected");
+        QuickJsRuntime::do_with(|q_js_rt| {
+            let reason_ref = JSValueRef::new(reason);
+            let reason_str_res = functions::call_to_string(q_js_rt, &reason_ref);
+            match reason_str_res {
+                Ok(reason_str) => {
+                    log::error!("reason: {}", reason_str);
+                }
+                Err(e) => {
+                    log::error!("could not get reason: {}", e);
+                }
+            }
+        })
     }
 }
 

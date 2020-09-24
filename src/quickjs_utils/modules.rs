@@ -30,7 +30,7 @@ unsafe extern "C" fn js_module_normalize(
     module_name: *const ::std::os::raw::c_char,
     _opaque: *mut ::std::os::raw::c_void,
 ) -> *mut ::std::os::raw::c_char {
-    // todo
+    log::trace!("js_module_normalize called.");
 
     let base_c = CStr::from_ptr(module_base_name);
     let base_str = base_c
@@ -107,7 +107,8 @@ unsafe extern "C" fn js_module_loader(
     module_name: *const ::std::os::raw::c_char,
     _opaque: *mut ::std::os::raw::c_void,
 ) -> *mut q::JSModuleDef {
-    //todo
+    log::trace!("js_module_loader called.");
+
     let module_name_c = CStr::from_ptr(module_name);
     let res = module_name_c.to_str();
 
