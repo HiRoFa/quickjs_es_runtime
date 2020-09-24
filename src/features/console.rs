@@ -28,6 +28,8 @@ unsafe extern "C" fn console_log(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
+    log::trace!("> console.log");
+
     let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
 
     let args_vec: Vec<JSValueRef> = arg_slice
