@@ -362,8 +362,9 @@ impl EsValueFacade {
                 if arrays::is_array(q_js_rt, value_ref) {
                     Self::from_jsval_array(q_js_rt, value_ref, rti_ref)
                 } else if functions::is_function(q_js_rt, value_ref) {
+                    let cached_obj_id = q_js_rt.cache_object(value_ref.clone());
                     let cached_func = CachedJSFunction {
-                        cached_obj_id: 0,
+                        cached_obj_id,
                         es_rt_inner: Arc::downgrade(rti_ref),
                     };
                     Ok(cached_func.to_es_value_facade())

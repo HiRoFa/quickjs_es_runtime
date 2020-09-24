@@ -210,7 +210,7 @@ pub mod tests {
                 if name.eq("invalid.mes") {
                     None
                 } else {
-                    Some(EsScript::new(name, "export const foo = 'bar';\nexport const mltpl = function(a, b){return a*b;};"))
+                    Some(EsScript::new(name, "export const foo = 'bar';\nexport const mltpl = function(a, b){return a*b;}; globalThis;"))
                 }
             })
             .build()
@@ -275,7 +275,7 @@ pub mod tests {
         debug!("test dynamic import");
         let res: Result<EsValueFacade, EsError> = rt.eval_sync(EsScript::new(
             "test_dyn.es",
-            "console.log('about to load dynamic module');let dyn_p = import('test_dyn_module.mes');dyn_p.then(function (some) {console.log('after dyn');console.log('after dyn ' + typeof some);console.log('mltpl 5, 7 = ' + some.mltpl(5, 7));});dyn_p.catch(function (x) {console.log('imp.cat x=' + x);});console.log('dyn done');",
+            "console.log('about to load dynamic module');let dyn_p = import('test_module.mes');dyn_p.then(function (some) {console.log('after dyn');console.log('after dyn ' + typeof some);console.log('mltpl 5, 7 = ' + some.mltpl(5, 7));});dyn_p.catch(function (x) {console.log('imp.cat x=' + x);});console.log('dyn done');",
         ));
 
         match res {

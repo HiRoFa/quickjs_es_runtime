@@ -124,10 +124,11 @@ impl QuickJsRuntime {
         };
 
         // check for error
-
-        // check for error
         let mut ret = JSValueRef::new_no_ref_ct_increment(value_raw);
-        ret.label(format!("eval result of {}", script.get_path()).as_str());
+        ret.label(format!("eval_module result of {}", script.get_path()).as_str());
+
+        log::trace!("evalled module yielded a {}", ret.borrow_value().tag);
+
         if ret.is_exception() {
             let ex_opt = self.get_exception();
             if let Some(ex) = ex_opt {
