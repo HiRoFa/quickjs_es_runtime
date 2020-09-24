@@ -62,7 +62,8 @@ unsafe extern "C" fn js_module_normalize(
                 trace!("module {} not loaded, initializing", name_str);
                 absolute_path = script.get_path().to_string();
                 registry.insert(absolute_path.to_string());
-                drop(registry);
+                // todo, does this work with nested imports?
+                //drop(registry);
                 // init module here
                 QuickJsRuntime::do_with(|q_js_rt| {
                     q_js_rt

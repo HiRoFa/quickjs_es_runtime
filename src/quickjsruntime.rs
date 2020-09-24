@@ -2,7 +2,7 @@
 
 use crate::eserror::EsError;
 use crate::esscript::EsScript;
-use crate::quickjs_utils::{modules, promises};
+use crate::quickjs_utils::{functions, modules, objects, promises};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
 use libquickjs_sys as q;
@@ -65,7 +65,19 @@ impl QuickJsRuntime {
         q_rt
     }
 
-    pub fn gc(&self) {}
+    pub fn call_function(
+        &self,
+        namespace: Vec<&str>,
+        func_name: &str,
+        arguments: Vec<JSValueRef>,
+    ) -> Result<JSValueRef, EsError> {
+        let namespace_ref = objects::get_namespace(self, namespace, false)?;
+        functions::invoke_member_function(self, &namespace_ref, func_name, &arguments)
+    }
+
+    pub fn gc(&self) {
+        unimplemented!()
+    }
 
     pub fn eval(&self, script: EsScript) -> Result<JSValueRef, EsError> {
         let filename_c =

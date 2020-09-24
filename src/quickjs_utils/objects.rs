@@ -6,6 +6,32 @@ use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 use std::collections::HashMap;
 
+pub fn get_namespace(
+    q_js_rt: &QuickJsRuntime,
+    namespace: Vec<&str>,
+    create_if_absent: bool,
+) -> Result<JSValueRef, EsError> {
+    let mut obj = get_global(q_js_rt);
+    for p_name in namespace {
+        let sub = get_property(q_js_rt, &obj, p_name)?;
+        if sub.is_null_or_undefined() {
+            if create_if_absent {
+                // create
+                let sub = create_object(q_js_rt)?;
+                set_property(q_js_rt, &obj, p_name, &sub)?;
+            } else {
+                return Err(EsError::new_string(format!(
+                    "could not find namespace part: {}",
+                    p_name
+                )));
+            }
+        }
+        obj = sub;
+    }
+
+    Ok(obj)
+}
+
 #[allow(dead_code)]
 pub fn construct_object(
     _q_js_rt: &QuickJsRuntime,

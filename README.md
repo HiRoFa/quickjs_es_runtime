@@ -20,13 +20,13 @@ I learned a lot from their code and reused some of their concepts.
 you can eval code, modules
 
 there are utils for
-* editting objects
-* create and call functions
-* convert primitives
+* Editting objects
+* Create and call functions
+* Convert primitives
 * ClassBuilder (reflection)
-* create Promises and add reactions to promises
+* Create Promises and add reactions to promises
 * Modules (static and dynamic imports)
-* invoking callbacks from EsValueFacade
+* Invoking callbacks from EsValueFacade
 
 # next steps
 * get promise result blocking
@@ -34,4 +34,17 @@ there are utils for
 
 basicly getting it to the state where es_runtime is in
 
+# examples
 
+```toml
+[dependencies]
+quick_es_runtime = {git="https://github.com/DRFos/quick_es_runtime"}
+```
+
+```rust
+
+fn test(){
+    let rt = EsR 
+}
+
+```

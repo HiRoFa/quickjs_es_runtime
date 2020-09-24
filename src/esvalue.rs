@@ -1,10 +1,11 @@
 use crate::eserror::EsError;
-use crate::esruntime::EsRuntime;
+use crate::esruntime::{EsRuntime, EsRuntimeInner};
+use crate::quickjs_utils::{arrays, functions};
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::*;
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use std::time::Duration;
 
 pub trait EsValueConvertible {
@@ -62,6 +63,7 @@ pub trait EsValueConvertible {
     }
     fn await_promise_blocking(
         &self,
+        _es_rt: &EsRuntime,
         _timeout: Duration,
     ) -> Result<Result<EsValueFacade, EsValueFacade>, RecvTimeoutError> {
         panic!("i am not a promise");
@@ -98,35 +100,37 @@ impl EsValueConvertible for EsUndefinedValue {
 // placeholder for promises that were passed from the script engine to rust
 struct CachedJSPromise {
     cached_obj_id: i32,
-    opt_receiver: Option<Receiver<Result<EsValueFacade, EsValueFacade>>>,
-    rt_ref: Arc<EsRuntime>,
+    _opt_receiver: Option<Receiver<Result<EsValueFacade, EsValueFacade>>>,
+    es_rt_inner: Weak<EsRuntimeInner>,
 }
 
 impl Drop for CachedJSPromise {
     fn drop(&mut self) {
-        let rt_arc = self.rt_ref.clone();
-        let cached_obj_id = self.cached_obj_id;
+        if let Some(rt_arc) = self.es_rt_inner.upgrade() {
+            let cached_obj_id = self.cached_obj_id;
 
-        rt_arc.add_to_event_queue(move |q_js_rt| {
-            q_js_rt.consume_cached_obj(cached_obj_id);
-        });
+            rt_arc.add_to_event_queue(move |q_js_rt| {
+                q_js_rt.consume_cached_obj(cached_obj_id);
+            });
+        }
     }
 }
 
 // placeholder for functions that were passed from the script engine to rust
 struct CachedJSFunction {
     cached_obj_id: i32,
-    rt_ref: Arc<EsRuntime>,
+    es_rt_inner: Weak<EsRuntimeInner>,
 }
 
 impl Drop for CachedJSFunction {
     fn drop(&mut self) {
-        let rt_arc = self.rt_ref.clone();
-        let cached_obj_id = self.cached_obj_id;
+        if let Some(rt_arc) = self.es_rt_inner.upgrade() {
+            let cached_obj_id = self.cached_obj_id;
 
-        rt_arc.add_to_event_queue(move |q_js_rt| {
-            q_js_rt.consume_cached_obj(cached_obj_id);
-        });
+            rt_arc.add_to_event_queue(move |q_js_rt| {
+                q_js_rt.consume_cached_obj(cached_obj_id);
+            });
+        }
     }
 }
 
@@ -144,6 +148,7 @@ impl EsValueConvertible for CachedJSPromise {
 
     fn await_promise_blocking(
         &self,
+        _es_rt: &EsRuntime,
         _timeout: Duration,
     ) -> Result<Result<EsValueFacade, EsValueFacade>, RecvTimeoutError> {
         unimplemented!()
@@ -164,22 +169,27 @@ impl EsValueConvertible for CachedJSFunction {
 
     fn invoke_function(&self, args: Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> {
         let cached_obj_id = self.cached_obj_id;
-        self.rt_ref.add_to_event_queue_sync(move |q_js_rt| {
-            q_js_rt.with_cached_obj(cached_obj_id, move |obj_ref| {
-                let mut ref_args = vec![];
-                for arg in args {
-                    ref_args.push(arg.to_js_value(q_js_rt)?);
-                }
+        if let Some(rt_arc) = self.es_rt_inner.upgrade() {
+            let rt_arc2 = rt_arc.clone();
+            rt_arc.add_to_event_queue_sync(move |q_js_rt| {
+                q_js_rt.with_cached_obj(cached_obj_id, move |obj_ref| {
+                    let mut ref_args = vec![];
+                    for arg in args {
+                        ref_args.push(arg.to_js_value(q_js_rt)?);
+                    }
 
-                let res = crate::quickjs_utils::functions::call_function(
-                    q_js_rt, obj_ref, &ref_args, None,
-                );
-                match res {
-                    Ok(r) => EsValueFacade::from_jsval(q_js_rt, &r),
-                    Err(e) => Err(e),
-                }
+                    let res = crate::quickjs_utils::functions::call_function(
+                        q_js_rt, obj_ref, &ref_args, None,
+                    );
+                    match res {
+                        Ok(r) => EsValueFacade::from_jsval(q_js_rt, &r, &rt_arc2),
+                        Err(e) => Err(e),
+                    }
+                })
             })
-        })
+        } else {
+            Err(EsError::new_str("rt was dropped"))
+        }
     }
 }
 
@@ -306,13 +316,14 @@ pub struct EsValueFacade {
 }
 
 impl EsValueFacade {
-    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+    pub(crate) fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         self.convertible.to_js_value(q_js_rt)
     }
 
     pub(crate) fn from_jsval(
         q_js_rt: &QuickJsRuntime,
         value_ref: &JSValueRef,
+        rti_ref: &Arc<EsRuntimeInner>,
     ) -> Result<Self, EsError> {
         let r = value_ref.borrow_value();
 
@@ -352,9 +363,14 @@ impl EsValueFacade {
 
             // Object.
             TAG_OBJECT => {
-                let is_array = crate::quickjs_utils::arrays::is_array(q_js_rt, value_ref);
-                if is_array {
-                    Self::from_jsval_array(q_js_rt, value_ref)
+                if arrays::is_array(q_js_rt, value_ref) {
+                    Self::from_jsval_array(q_js_rt, value_ref, rti_ref)
+                } else if functions::is_function(q_js_rt, value_ref) {
+                    let cached_func = CachedJSFunction {
+                        cached_obj_id: 0,
+                        es_rt_inner: Arc::downgrade(rti_ref),
+                    };
+                    Ok(cached_func.to_es_value_facade())
                 } else {
                     #[cfg(feature = "chrono")]
                     {
@@ -399,7 +415,7 @@ impl EsValueFacade {
                         }
                     }
 
-                    Self::from_jsval_object(q_js_rt, value_ref)
+                    Self::from_jsval_object(q_js_rt, value_ref, rti_ref)
                 }
             }
             // BigInt
@@ -441,6 +457,7 @@ impl EsValueFacade {
     fn from_jsval_array(
         q_js_rt: &QuickJsRuntime,
         value_ref: &JSValueRef,
+        rti_ref: &Arc<EsRuntimeInner>,
     ) -> Result<EsValueFacade, EsError> {
         assert!(value_ref.is_object());
 
@@ -450,7 +467,7 @@ impl EsValueFacade {
         for index in 0..len {
             let element_ref = crate::quickjs_utils::arrays::get_element(q_js_rt, value_ref, index)?;
 
-            let element_value = EsValueFacade::from_jsval(q_js_rt, &element_ref)?;
+            let element_value = EsValueFacade::from_jsval(q_js_rt, &element_ref, rti_ref)?;
 
             values.push(element_value);
         }
@@ -461,12 +478,13 @@ impl EsValueFacade {
     fn from_jsval_object(
         q_js_rt: &QuickJsRuntime,
         obj_ref: &JSValueRef,
+        rti_ref: &Arc<EsRuntimeInner>,
     ) -> Result<EsValueFacade, EsError> {
         assert!(obj_ref.is_object());
 
         let map =
             crate::quickjs_utils::objects::traverse_properties(q_js_rt, obj_ref, |_key, val| {
-                EsValueFacade::from_jsval(q_js_rt, &val)
+                EsValueFacade::from_jsval(q_js_rt, &val, rti_ref)
             })?;
         Ok(map.to_es_value_facade())
     }

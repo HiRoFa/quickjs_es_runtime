@@ -8,14 +8,64 @@ use hirofa_utils::single_threaded_event_queue::SingleThreadedEventQueue;
 use log::error;
 use std::sync::Arc;
 
-pub struct EsRuntime {
+pub struct EsRuntimeInner {
     event_queue: Arc<SingleThreadedEventQueue>,
+}
+
+pub struct EsRuntime {
+    inner: Arc<EsRuntimeInner>,
+}
+
+impl EsRuntimeInner {
+    pub fn add_to_event_queue<C>(&self, consumer: C)
+    where
+        C: FnOnce(&QuickJsRuntime) + Send + 'static,
+    {
+        self.event_queue
+            .add_task(|| QuickJsRuntime::do_with(consumer));
+        self._add_job_run_task();
+    }
+
+    pub fn add_to_event_queue_sync<C, R>(&self, consumer: C) -> R
+    where
+        C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        let res = self
+            .event_queue
+            .exe_task(|| QuickJsRuntime::do_with(consumer));
+        self._add_job_run_task();
+        res
+    }
+
+    fn _add_job_run_task(&self) {
+        log::trace!("EsRuntime._add_job_run_task!");
+        self.event_queue.add_task(|| {
+            QuickJsRuntime::do_with(|quick_js_rt| {
+                log::trace!("EsRuntime._add_job_run_task > async!");
+                while quick_js_rt.has_pending_jobs() {
+                    log::trace!("quick_js_rt.has_pending_jobs!");
+                    let res = quick_js_rt.run_pending_job();
+                    match res {
+                        Ok(_) => {
+                            log::trace!("run_pending_job OK!");
+                        }
+                        Err(e) => {
+                            error!("run_pending_job failed: {}", e);
+                        }
+                    }
+                }
+            })
+        });
+    }
 }
 
 impl EsRuntime {
     pub(crate) fn new(builder: EsRuntimeBuilder) -> Arc<Self> {
         let ret = Arc::new(Self {
-            event_queue: SingleThreadedEventQueue::new(),
+            inner: Arc::new(EsRuntimeInner {
+                event_queue: SingleThreadedEventQueue::new(),
+            }),
         });
 
         // run single job in eventQueue to init thread_local weak<rtref>
@@ -25,7 +75,7 @@ impl EsRuntime {
             panic!("could not init features: {}", res.err().unwrap());
         }
 
-        ret.event_queue.exe_task(|| {
+        ret.inner.event_queue.exe_task(|| {
             QJS_RT.with(move |qjs_rt_rc| {
                 let q_js_rt = &mut *qjs_rt_rc.borrow_mut();
                 if builder.loader.is_some() {
@@ -52,18 +102,49 @@ impl EsRuntime {
     }
 
     pub fn eval_sync(&self, script: EsScript) -> Result<EsValueFacade, EsError> {
-        self.add_to_event_queue_sync(|qjs_rt| {
+        let inner_arc = self.inner.clone();
+        self.add_to_event_queue_sync(move |qjs_rt| {
             let res = qjs_rt.eval(script);
             match res {
-                Ok(val_ref) => EsValueFacade::from_jsval(qjs_rt, &val_ref),
+                Ok(val_ref) => EsValueFacade::from_jsval(qjs_rt, &val_ref, &inner_arc),
                 Err(e) => Err(e),
             }
         })
     }
 
-    pub fn gc() {}
+    pub fn gc(&self) {
+        self.add_to_event_queue(|q_js_rt| q_js_rt.gc())
+    }
 
-    pub fn gc_sync() {}
+    pub fn gc_sync(&self) {
+        self.add_to_event_queue_sync(|q_js_rt| q_js_rt.gc())
+    }
+
+    pub fn call_function_sync(
+        &self,
+        namespace: Vec<&'static str>,
+        func_name: &str,
+        arguments: Vec<EsValueFacade>,
+    ) -> Result<EsValueFacade, EsError> {
+        let func_name_string = func_name.to_string();
+        let inner_arc = self.inner.clone();
+        self.add_to_event_queue_sync(move |q_js_rt| {
+            let q_args = arguments
+                .iter()
+                .map(|arg| {
+                    arg.to_js_value(q_js_rt)
+                        .ok()
+                        .expect("arg conversion failed")
+                })
+                .collect::<Vec<_>>();
+
+            let res = q_js_rt.call_function(namespace, func_name_string.as_str(), q_args);
+            match res {
+                Ok(val_ref) => EsValueFacade::from_jsval(q_js_rt, &val_ref, &inner_arc),
+                Err(e) => Err(e),
+            }
+        })
+    }
 
     pub fn eval_module(&self, script: EsScript) {
         self.add_to_event_queue(|qjs_rt| {
@@ -76,24 +157,21 @@ impl EsRuntime {
     }
 
     pub fn eval_module_sync(&self, script: EsScript) -> Result<EsValueFacade, EsError> {
-        self.add_to_event_queue_sync(|qjs_rt| {
+        let inner_arc = self.inner.clone();
+        self.add_to_event_queue_sync(move |qjs_rt| {
             let res = qjs_rt.eval_module(script);
             match res {
-                Ok(val_ref) => EsValueFacade::from_jsval(qjs_rt, &val_ref),
+                Ok(val_ref) => EsValueFacade::from_jsval(qjs_rt, &val_ref, &inner_arc),
                 Err(e) => Err(e),
             }
         })
     }
 
-    pub fn new_class_builder() {}
-
     pub fn add_to_event_queue<C>(&self, consumer: C)
     where
         C: FnOnce(&QuickJsRuntime) + Send + 'static,
     {
-        self.event_queue
-            .add_task(|| QuickJsRuntime::do_with(consumer));
-        self._add_job_run_task();
+        self.inner.add_to_event_queue(consumer)
     }
 
     pub fn add_to_event_queue_sync<C, R>(&self, consumer: C) -> R
@@ -101,35 +179,10 @@ impl EsRuntime {
         C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,
         R: Send + 'static,
     {
-        let res = self
-            .event_queue
-            .exe_task(|| QuickJsRuntime::do_with(consumer));
-        self._add_job_run_task();
-        res
+        self.inner.add_to_event_queue_sync(consumer)
     }
 
     pub fn add_helper_task() {}
-
-    fn _add_job_run_task(&self) {
-        log::trace!("EsRuntime._add_job_run_task!");
-        self.event_queue.add_task(|| {
-            QuickJsRuntime::do_with(|quick_js_rt| {
-                log::trace!("EsRuntime._add_job_run_task > async!");
-                while quick_js_rt.has_pending_jobs() {
-                    log::trace!("quick_js_rt.has_pending_jobs!");
-                    let res = quick_js_rt.run_pending_job();
-                    match res {
-                        Ok(_) => {
-                            log::trace!("run_pending_job OK!");
-                        }
-                        Err(e) => {
-                            error!("run_pending_job failed: {}", e);
-                        }
-                    }
-                }
-            })
-        });
-    }
 }
 
 #[cfg(test)]
