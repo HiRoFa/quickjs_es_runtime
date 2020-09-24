@@ -139,7 +139,7 @@ pub fn new_native_function(
     arg_count: u32,
     is_constructor: bool,
 ) -> Result<JSValueRef, EsError> {
-    let cname = make_cstring(name).expect("could not create cstring");
+    let cname = make_cstring(name)?;
     let magic = 1;
 
     let cproto = if is_constructor {

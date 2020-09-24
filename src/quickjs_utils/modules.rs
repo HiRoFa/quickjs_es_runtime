@@ -1,10 +1,12 @@
+use crate::eserror::EsError;
 use crate::esscript::EsScript;
 use crate::quickjsruntime::QuickJsRuntime;
+use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 use log::trace;
 use std::cell::RefCell;
 use std::collections::HashSet;
-use std::ffi::{CStr, CString};
+use std::ffi::{CStr, CString, NulError};
 
 thread_local! {
     static LOADED_MODULE_REGISTRY: RefCell<HashSet<String>> = RefCell::new(HashSet::new());
@@ -56,32 +58,48 @@ unsafe extern "C" fn js_module_normalize(
     let mut absolute_path = name_str.to_string();
 
     if let Some(script) = script_opt {
-        LOADED_MODULE_REGISTRY.with(|registry_rc| {
-            let registry = &mut *registry_rc.borrow_mut();
-            if !registry.contains(script.get_path()) {
-                trace!("module {} not loaded, initializing", name_str);
-                absolute_path = script.get_path().to_string();
-                registry.insert(absolute_path.to_string());
-                // todo, does this work with nested imports?
-                //drop(registry);
-                // init module here
-                QuickJsRuntime::do_with(|q_js_rt| {
-                    q_js_rt
-                        .eval_module(script)
-                        .ok()
-                        .expect("could not init module");
-                });
-            } else {
-                trace!("module {} was already loaded, doing nothing", name_str);
-            }
+        absolute_path = script.get_path().to_string();
+        let needs_init = LOADED_MODULE_REGISTRY.with(|registry_rc| {
+            let registry = &*registry_rc.borrow();
+            !registry.contains(&absolute_path)
         });
+        if needs_init {
+            trace!("module {} not loaded, initializing", name_str);
+
+            // init module here
+            let eval_res = QuickJsRuntime::do_with(|q_js_rt| q_js_rt.eval_module(script));
+            match eval_res {
+                Ok(_) => {
+                    // add to registry
+                    trace!("module {} was loaded, adding to registry", name_str);
+                    LOADED_MODULE_REGISTRY.with(|registry_rc| {
+                        let registry = &mut *registry_rc.borrow_mut();
+                        registry.insert(absolute_path.to_string())
+                    });
+                }
+                Err(e) => {
+                    log::error!("module {} failed: {}", name_str, e);
+                    //QuickJsRuntime::do_with(|q_js_rt| q_js_rt.report_ex(e.get_message()));
+                }
+            }
+        } else {
+            trace!("module {} was already loaded, doing nothing", name_str);
+        }
     } else {
         trace!("no module found for {} at {}", name_str, base_str);
     }
 
-    let c_absolute_path =
-        CString::new(absolute_path.as_str()).expect("could not create CString for absolute_path");
-    c_absolute_path.into_raw()
+    let c_absolute_path_res = CString::new(absolute_path.as_str());
+    match c_absolute_path_res {
+        Ok(c_absolute_path) => c_absolute_path.into_raw(),
+        Err(_e) => {
+            log::error!(
+                "could not normalize due to NullError about: {}",
+                absolute_path.as_str()
+            );
+            panic!("could not normalize due to NullError");
+        }
+    }
 }
 
 unsafe extern "C" fn js_module_loader(

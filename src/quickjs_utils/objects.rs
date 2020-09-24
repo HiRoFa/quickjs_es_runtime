@@ -81,7 +81,7 @@ pub fn set_property2(
 ) -> Result<(), EsError> {
     log::trace!("set_property2: {}", prop_name);
 
-    let ckey = make_cstring(prop_name).expect("could not make cstring");
+    let ckey = make_cstring(prop_name)?;
 
     /*
         pub const JS_PROP_CONFIGURABLE: u32 = 1;
@@ -182,7 +182,7 @@ pub fn get_property(
         ));
     }
 
-    let c_prop_name = make_cstring(prop_name).expect("could not create cstring");
+    let c_prop_name = make_cstring(prop_name)?;
 
     let prop_val = unsafe {
         q::JS_GetPropertyStr(

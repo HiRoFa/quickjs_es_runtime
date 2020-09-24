@@ -7,7 +7,7 @@ use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
 use libquickjs_sys as q;
 use std::cell::RefCell;
-use std::ffi::{CString, NulError};
+use std::ffi::CString;
 
 pub type ModuleScriptLoader = dyn Fn(&str, &str) -> Option<EsScript> + Send + Sync + 'static;
 
@@ -77,9 +77,8 @@ impl QuickJsRuntime {
     }
 
     pub fn eval(&self, script: EsScript) -> Result<JSValueRef, EsError> {
-        let filename_c =
-            make_cstring(script.get_path()).expect("failed to create c_string from path");
-        let code_c = make_cstring(script.get_code()).expect("failed to create c_string from code");
+        let filename_c = make_cstring(script.get_path())?;
+        let code_c = make_cstring(script.get_code())?;
 
         log::debug!("q_js_rt.eval file {}", script.get_path());
 
@@ -110,9 +109,8 @@ impl QuickJsRuntime {
     pub fn eval_module(&self, script: EsScript) -> Result<JSValueRef, EsError> {
         log::debug!("q_js_rt.eval_module file {}", script.get_path());
 
-        let filename_c =
-            make_cstring(script.get_path()).expect("failed to create c_string from path");
-        let code_c = make_cstring(script.get_code()).expect("failed to create c_string from code");
+        let filename_c = make_cstring(script.get_path())?;
+        let code_c = make_cstring(script.get_code())?;
 
         let value_raw = unsafe {
             q::JS_Eval(
@@ -241,8 +239,15 @@ impl Drop for QuickJsRuntime {
 }
 
 /// Helper for creating CStrings.
-pub(crate) fn make_cstring(value: impl Into<Vec<u8>>) -> Result<CString, NulError> {
-    CString::new(value)
+pub(crate) fn make_cstring(value: &str) -> Result<CString, EsError> {
+    let res = CString::new(value);
+    match res {
+        Ok(val) => Ok(val),
+        Err(_) => Err(EsError::new_string(format!(
+            "could not create cstring from {}",
+            value
+        ))),
+    }
 }
 
 #[cfg(test)]
