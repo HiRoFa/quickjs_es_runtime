@@ -32,7 +32,7 @@ unsafe extern "C" fn console_log(
 
     let args_vec: Vec<JSValueRef> = arg_slice
         .iter()
-        .map(|raw| JSValueRef::new_no_free(*raw))
+        .map(|raw| JSValueRef::new(*raw))
         .collect::<Vec<_>>();
 
     let strings = QuickJsRuntime::do_with(|q_js_rt| {
@@ -59,6 +59,7 @@ pub mod tests {
 
     #[test]
     pub fn test_console() {
+        log::info!("> test_console");
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.eval_sync(EsScript::new(
             "test_console.es",
@@ -66,5 +67,6 @@ pub mod tests {
         ))
         .ok()
         .expect("test_console.es failed");
+        log::info!("< test_console");
     }
 }

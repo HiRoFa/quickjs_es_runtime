@@ -8,7 +8,7 @@ use std::ffi::CString;
 
 pub fn to_string(q_js_rt: &QuickJsRuntime, atom: &q::JSAtom) -> Result<String, EsError> {
     let val = unsafe { q::JS_AtomToString(q_js_rt.context, *atom) };
-    let val_ref = JSValueRef::new(val);
+    let val_ref = JSValueRef::new_no_ref_ct_increment(val);
     primitives::to_string(q_js_rt, &val_ref)
 }
 

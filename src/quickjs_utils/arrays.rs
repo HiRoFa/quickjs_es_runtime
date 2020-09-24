@@ -19,7 +19,7 @@ pub fn get_length(q_js_rt: &QuickJsRuntime, arr_ref: &JSValueRef) -> Result<u32,
 
 pub fn create_array(q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
     let arr = unsafe { q::JS_NewArray(q_js_rt.context) };
-    let arr_ref = JSValueRef::new(arr);
+    let arr_ref = JSValueRef::new_no_ref_ct_increment(arr);
     if arr_ref.is_exception() {
         return Err(EsError::new_str("Could not create array in runtime"));
     }
@@ -56,9 +56,25 @@ pub fn get_element(
 ) -> Result<JSValueRef, EsError> {
     let value_raw =
         unsafe { q::JS_GetPropertyUint32(q_js_rt.context, *array_ref.borrow_value(), index) };
-    let ret = JSValueRef::new(value_raw);
+    let ret = JSValueRef::new_no_ref_ct_increment(value_raw);
     if ret.is_exception() {
         return Err(EsError::new_str("Could not build array"));
     }
     Ok(ret)
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::esruntime::EsRuntime;
+    use crate::quickjs_utils::arrays::create_array;
+    use std::sync::Arc;
+
+    #[test]
+    fn test_array() {
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            let arr = create_array(q_js_rt).ok().unwrap();
+            assert_eq!(arr.get_ref_count(), 1);
+        });
+    }
 }

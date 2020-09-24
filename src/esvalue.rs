@@ -136,9 +136,7 @@ impl Drop for CachedJSFunction {
 
 impl EsValueConvertible for CachedJSPromise {
     fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
-        let cloned_ref = q_js_rt.with_cached_obj(self.cached_obj_id, |obj_ref| {
-            JSValueRef::new(*obj_ref.borrow_value())
-        });
+        let cloned_ref = q_js_rt.with_cached_obj(self.cached_obj_id, |obj_ref| obj_ref.clone());
         Ok(cloned_ref)
     }
 
@@ -157,9 +155,7 @@ impl EsValueConvertible for CachedJSPromise {
 
 impl EsValueConvertible for CachedJSFunction {
     fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
-        let cloned_ref = q_js_rt.with_cached_obj(self.cached_obj_id, |obj_ref| {
-            JSValueRef::new(*obj_ref.borrow_value())
-        });
+        let cloned_ref = q_js_rt.with_cached_obj(self.cached_obj_id, |obj_ref| obj_ref.clone());
         Ok(cloned_ref)
     }
 

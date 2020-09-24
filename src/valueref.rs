@@ -4,7 +4,12 @@ use libquickjs_sys as q;
 pub struct JSValueRef {
     value: q::JSValue,
     label: Option<String>,
-    no_free: bool,
+}
+
+impl Clone for JSValueRef {
+    fn clone(&self) -> Self {
+        Self::new(self.value)
+    }
 }
 
 impl Drop for JSValueRef {
@@ -19,11 +24,16 @@ impl Drop for JSValueRef {
                 log::trace!("dropping OwnedValueRef, before free");
             }
             // All tags < 0 are garbage collected and need to be freed.
-            if !self.no_free && self.value.tag < 0 {
+            if self.value.tag < 0 {
                 // This transmute is OK since if tag < 0, the union will be a refcount
                 // pointer.
                 let ptr = self.value.u.ptr as *mut q::JSRefCountHeader;
                 let pref: &mut q::JSRefCountHeader = &mut *ptr;
+
+                if pref.ref_count <= 0 {
+                    log::trace!("dropping ref while refcount already 0, which is bad mmkay..");
+                }
+
                 pref.ref_count -= 1;
                 if pref.ref_count <= 0 {
                     q::__JS_FreeValue(q_js_rt.context, self.value);
@@ -52,31 +62,25 @@ impl<'a> std::fmt::Debug for JSValueRef {
 
 impl JSValueRef {
     /// create a new OwnedValueRef
-    pub fn new(value: q::JSValue) -> Self {
+    pub fn new_no_ref_ct_increment(value: q::JSValue) -> Self {
         // todo assert in worker thread
-        let s = Self {
-            value,
-            label: None,
-            no_free: false,
-        };
-
-        if s.value.tag < 0 {
-            // This transmute is OK since if tag < 0, the union will be a refcount
-            // pointer.
-            let ptr = unsafe { s.value.u.ptr as *mut q::JSRefCountHeader };
-            let pref: &mut q::JSRefCountHeader = &mut unsafe { *ptr };
-            pref.ref_count += 1;
-        }
-
-        s
+        Self { value, label: None }
     }
 
-    pub fn new_no_free(value: q::JSValue) -> Self {
-        Self {
-            value,
-            label: None,
-            no_free: true,
+    pub fn increment_ref_count(&self) {
+        if self.value.tag < 0 {
+            unsafe {
+                let ptr = self.value.u.ptr;
+                let p = ptr as *mut q::JSRefCountHeader;
+                (*p).ref_count += 1;
+            }
         }
+    }
+
+    pub fn new(value: q::JSValue) -> Self {
+        let s = Self { value, label: None };
+        s.increment_ref_count();
+        s
     }
 
     pub fn get_ref_count(&self) -> i32 {
@@ -96,16 +100,7 @@ impl JSValueRef {
     }
 
     pub fn clone_value_up_rc(&self) -> q::JSValue {
-        if self.no_free {
-            panic!("invalid use of non-freeing ref")
-        }
-        if self.value.tag < 0 {
-            unsafe {
-                let ptr = self.value.u.ptr;
-                let p = ptr as *mut q::JSRefCountHeader;
-                (*p).ref_count += 1;
-            }
-        }
+        self.increment_ref_count();
         self.value
     }
 
@@ -175,12 +170,6 @@ impl JSValueRef {
     /// return true if the wrapped value represents a JS String value
     pub fn is_string(&self) -> bool {
         self.borrow_value().tag == TAG_STRING
-    }
-}
-
-impl Clone for JSValueRef {
-    fn clone(&self) -> Self {
-        Self::new(self.value)
     }
 }
 

@@ -40,7 +40,7 @@ pub fn call_function(
         )
     };
 
-    let res_ref = JSValueRef::new(res);
+    let res_ref = JSValueRef::new_no_ref_ct_increment(res);
 
     if res_ref.is_exception() {
         if let Some(ex) = q_js_rt.get_exception() {
@@ -90,7 +90,7 @@ pub fn invoke_member_function(
             qargs.as_mut_ptr(),
         )
     };
-    Ok(JSValueRef::new(res_val))
+    Ok(JSValueRef::new_no_ref_ct_increment(res_val))
 }
 
 pub fn call_to_string(q_js_rt: &QuickJsRuntime, obj_ref: &JSValueRef) -> Result<String, EsError> {
@@ -100,7 +100,7 @@ pub fn call_to_string(q_js_rt: &QuickJsRuntime, obj_ref: &JSValueRef) -> Result<
         log::trace!("calling JS_ToString on a {}", obj_ref.borrow_value().tag);
 
         let res = unsafe { q::JS_ToString(q_js_rt.context, *obj_ref.borrow_value()) };
-        let res_ref = JSValueRef::new(res);
+        let res_ref = JSValueRef::new_no_ref_ct_increment(res);
 
         log::trace!("called JS_ToString got a {}", res_ref.borrow_value().tag);
 
@@ -158,7 +158,7 @@ pub fn new_native_function(
             magic,
         )
     };
-    let func_ref = JSValueRef::new(func_val);
+    let func_ref = JSValueRef::new_no_ref_ct_increment(func_val);
 
     if !func_ref.is_object() {
         Err(EsError::new_str("Could not create new_native_function"))
@@ -187,7 +187,7 @@ pub fn new_native_function_data(
             data.borrow_value_mut(),
         )
     };
-    let func_ref = JSValueRef::new(func_val);
+    let func_ref = JSValueRef::new_no_ref_ct_increment(func_val);
 
     if !func_ref.is_object() {
         Err(EsError::new_str("Could not create new_native_function"))
@@ -278,7 +278,7 @@ where
         unsafe { q::JS_NewObjectClass(q_js_rt.context, static_class_id as i32) };
 
     // todo, create a single instance of that class and reuse it, i'm not sure if the current impl GCs ok
-    let class_val_ref = JSValueRef::new(class_val);
+    let class_val_ref = JSValueRef::new_no_ref_ct_increment(class_val);
 
     if class_val_ref.is_exception() {
         return if let Some(e) = q_js_rt.get_exception() {
@@ -441,7 +441,7 @@ unsafe extern "C" fn callback_function(
 ) -> q::JSValue {
     trace!("callback_function called");
 
-    let data_ref = JSValueRef::new(*func_data);
+    let data_ref = JSValueRef::new_no_ref_ct_increment(*func_data);
     let callback_id = primitives::to_i32(&data_ref)
         .ok()
         .expect("failed to get callback_id");
@@ -455,10 +455,10 @@ unsafe extern "C" fn callback_function(
                 let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
                 let args_vec: Vec<JSValueRef> = arg_slice
                     .iter()
-                    .map(|raw| JSValueRef::new_no_free(*raw))
+                    .map(|raw| JSValueRef::new(*raw))
                     .collect::<Vec<_>>();
 
-                let this_ref = JSValueRef::new_no_free(this_val);
+                let this_ref = JSValueRef::new(this_val);
 
                 let callback_res: Result<JSValueRef, EsError> = callback(this_ref, args_vec);
 

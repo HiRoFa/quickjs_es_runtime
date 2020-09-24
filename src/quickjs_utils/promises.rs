@@ -53,12 +53,12 @@ pub fn new_promise(q_js_rt: &QuickJsRuntime) -> Result<PromiseRef, EsError> {
     let resolve_func_val = *promise_resolution_functions.get(0).unwrap();
     let reject_func_val = *promise_resolution_functions.get(1).unwrap();
 
-    let resolve_function_obj_ref = JSValueRef::new_no_free(resolve_func_val);
-    let reject_function_obj_ref = JSValueRef::new_no_free(reject_func_val);
+    let resolve_function_obj_ref = JSValueRef::new_no_ref_ct_increment(resolve_func_val);
+    let reject_function_obj_ref = JSValueRef::new_no_ref_ct_increment(reject_func_val);
     assert!(functions::is_function(q_js_rt, &resolve_function_obj_ref));
     assert!(functions::is_function(q_js_rt, &reject_function_obj_ref));
 
-    let promise_obj_ref = JSValueRef::new(prom_val);
+    let promise_obj_ref = JSValueRef::new_no_ref_ct_increment(prom_val);
 
     Ok(PromiseRef {
         promise_obj_ref,
@@ -131,6 +131,8 @@ pub mod tests {
 
     #[test]
     fn test_instance_of_prom() {
+        log::info!("> test_instance_of_prom");
+
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
             let res = q_js_rt.eval(EsScript::new(
@@ -147,10 +149,14 @@ pub mod tests {
             }
         });
         assert!(io);
+
+        log::info!("< test_instance_of_prom");
     }
 
     #[test]
     fn new_prom() {
+        log::info!("> new_prom");
+
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let func_ref = q_js_rt
@@ -172,10 +178,14 @@ pub mod tests {
                 .expect("resolve failed");
         });
         std::thread::sleep(Duration::from_secs(1));
+
+        log::info!("< new_prom");
     }
 
     #[test]
     fn new_prom2() {
+        log::info!("> new_prom2");
+
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let func_ref = q_js_rt
@@ -197,10 +207,14 @@ pub mod tests {
                 .expect("reject failed");
         });
         std::thread::sleep(Duration::from_secs(1));
+
+        log::info!("< new_prom2");
     }
 
     #[test]
     fn test_promise_reactions() {
+        log::info!("> test_promise_reactions");
+
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let prom_ref = q_js_rt
@@ -240,5 +254,7 @@ pub mod tests {
                 .expect("could not add promise reactions");
         });
         std::thread::sleep(Duration::from_secs(1));
+
+        log::info!("< test_promise_reactions");
     }
 }

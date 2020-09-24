@@ -36,16 +36,22 @@ basicly getting it to the state where es_runtime is in
 
 # examples
 
+Cargo.toml
+
 ```toml
 [dependencies]
 quick_es_runtime = {git="https://github.com/DRFos/quick_es_runtime"}
+log = "0.4.11"
+simple-logging = "2.0.2"
 ```
+
+main.rs
 
 ```rust
 
 use quick_es_runtime::esruntimebuilder::EsRuntimeBuilder;
 use quick_es_runtime::esscript::EsScript;
-use quick_es_runtime::esvalue::{EsValueFacade, EsValueConvertible};
+use quick_es_runtime::esvalue::EsValueFacade;
 
 fn load_module(base: &str, name: &str) -> Option<EsScript> {
     // you should load your modules from files here

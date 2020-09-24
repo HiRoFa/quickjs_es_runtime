@@ -2,7 +2,7 @@
 
 use crate::eserror::EsError;
 use crate::esscript::EsScript;
-use crate::quickjs_utils::{functions, modules, objects, promises};
+use crate::quickjs_utils::{functions, gc, modules, objects, promises};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
 use libquickjs_sys as q;
@@ -49,8 +49,6 @@ impl QuickJsRuntime {
             panic!("ContextCreationFailed");
         }
 
-        // Initialize the promise resolver helper code.
-        // This code is needed by Self::resolve_value
         let q_rt = Self {
             runtime,
             context,
@@ -58,7 +56,6 @@ impl QuickJsRuntime {
             object_cache: RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize)),
         };
 
-        // test like this, impl later
         modules::set_module_loader(&q_rt);
         promises::init_promise_rejection_tracker(&q_rt);
 
@@ -76,7 +73,7 @@ impl QuickJsRuntime {
     }
 
     pub fn gc(&self) {
-        unimplemented!()
+        gc(self);
     }
 
     pub fn eval(&self, script: EsScript) -> Result<JSValueRef, EsError> {
@@ -97,7 +94,7 @@ impl QuickJsRuntime {
         };
 
         // check for error
-        let ret = JSValueRef::new(value_raw);
+        let ret = JSValueRef::new_no_ref_ct_increment(value_raw);
         if ret.is_exception() {
             let ex_opt = self.get_exception();
             if let Some(ex) = ex_opt {
@@ -130,7 +127,7 @@ impl QuickJsRuntime {
         // check for error
 
         // check for error
-        let ret = JSValueRef::new(value_raw);
+        let ret = JSValueRef::new_no_ref_ct_increment(value_raw);
         if ret.is_exception() {
             let ex_opt = self.get_exception();
             if let Some(ex) = ex_opt {
@@ -168,7 +165,7 @@ impl QuickJsRuntime {
     /// Get the last exception from the runtime, and if present, convert it to a ExceptionError.
     pub fn get_exception(&self) -> Option<EsError> {
         let raw = unsafe { q::JS_GetException(self.context) };
-        let value = JSValueRef::new(raw);
+        let value = JSValueRef::new_no_ref_ct_increment(raw);
 
         if value.is_null() {
             None
@@ -255,9 +252,13 @@ pub mod tests {
 
     #[test]
     fn test_rt() {
+        log::info!("> test_rt");
+
         let rt = QuickJsRuntime::new();
         rt.eval(EsScript::new("test.es", "1+1;"))
             .ok()
             .expect("could not eval");
+
+        log::info!("< test_rt");
     }
 }

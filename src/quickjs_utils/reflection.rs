@@ -236,7 +236,7 @@ impl Proxy {
         let class_val: q::JSValue =
             unsafe { q::JS_NewObjectClass(q_js_rt.context, static_class_id as i32) };
 
-        let class_val_ref = JSValueRef::new(class_val);
+        let class_val_ref = JSValueRef::new_no_ref_ct_increment(class_val);
 
         if class_val_ref.is_exception() {
             return if let Some(e) = q_js_rt.get_exception() {
@@ -393,6 +393,8 @@ pub mod tests {
 
     #[test]
     pub fn test_proxy() {
+        log::info!("> test_proxy");
+
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let res = Proxy::new()
@@ -495,6 +497,8 @@ pub mod tests {
         assert_eq!(e_msg, "InternalError: proxy_instance_method failed: aaargh");
 
         std::thread::sleep(Duration::from_secs(1));
+
+        log::info!("< test_proxy");
     }
 }
 
@@ -509,7 +513,7 @@ unsafe extern "C" fn constructor(
 
     // this is the function we created earlier (the constructor)
     // so classname = this.name;
-    let this_ref = JSValueRef::new_no_free(this_val);
+    let this_ref = JSValueRef::new(this_val);
     QuickJsRuntime::do_with(|q_js_rt| {
         let name_ref = objects::get_property(q_js_rt, &this_ref, "name")
             .ok()
@@ -527,7 +531,7 @@ unsafe extern "C" fn constructor(
                     let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
                     let args_vec: Vec<JSValueRef> = arg_slice
                         .iter()
-                        .map(|raw| JSValueRef::new_no_free(*raw))
+                        .map(|raw| JSValueRef::new(*raw))
                         .collect::<Vec<_>>();
 
                     let instance_id_res = constructor(args_vec);
@@ -542,7 +546,7 @@ unsafe extern "C" fn constructor(
                     log::trace!("constructor called, class_id={}", class_id);
                     let class_val: q::JSValue = q::JS_NewObjectClass(ctx, class_id as i32);
 
-                    let class_val_ref = JSValueRef::new(class_val);
+                    let class_val_ref = JSValueRef::new_no_ref_ct_increment(class_val);
 
                     if class_val_ref.is_exception() {
                         if let Some(e) = q_js_rt.get_exception() {
@@ -616,8 +620,8 @@ unsafe extern "C" fn proxy_static_get_prop(
     // static proxy class, not an instance
     trace!("proxy_static_get_prop");
 
-    let _obj_ref = JSValueRef::new_no_free(obj);
-    let receiver_ref = JSValueRef::new_no_free(receiver);
+    let _obj_ref = JSValueRef::new(obj);
+    let receiver_ref = JSValueRef::new(receiver);
     QuickJsRuntime::do_with(|q_js_rt| {
         let proxy_name_ref = objects::get_property(q_js_rt, &receiver_ref, "name")
             .ok()
@@ -684,8 +688,8 @@ unsafe extern "C" fn proxy_instance_get_prop(
 ) -> q::JSValue {
     trace!("proxy_instance_get_prop");
 
-    let _obj_ref = JSValueRef::new_no_free(obj);
-    let receiver_ref = JSValueRef::new_no_free(receiver);
+    let _obj_ref = JSValueRef::new(obj);
+    let receiver_ref = JSValueRef::new(receiver);
 
     QuickJsRuntime::do_with(|q_js_rt| {
         let prop_name = atoms::to_string(q_js_rt, &atom)
@@ -777,17 +781,17 @@ unsafe extern "C" fn proxy_instance_method(
 ) -> q::JSValue {
     trace!("proxy_instance_method");
     QuickJsRuntime::do_with(|q_js_rt| {
-        let _this_ref = JSValueRef::new_no_free(this_val);
+        let _this_ref = JSValueRef::new(this_val);
 
         let proxy_instance_info: &(usize, String) = get_proxy_instance_info(&this_val);
 
         let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
         let args_vec: Vec<JSValueRef> = arg_slice
             .iter()
-            .map(|raw| JSValueRef::new_no_free(*raw))
+            .map(|raw| JSValueRef::new(*raw))
             .collect::<Vec<_>>();
 
-        let func_name_ref = JSValueRef::new_no_free(*func_data);
+        let func_name_ref = JSValueRef::new(*func_data);
         let func_name = primitives::to_str(q_js_rt, &func_name_ref)
             .ok()
             .expect("could not to_string func_name_ref");
@@ -827,7 +831,7 @@ unsafe extern "C" fn proxy_static_method(
 ) -> q::JSValue {
     trace!("proxy_static_method");
     QuickJsRuntime::do_with(|q_js_rt| {
-        let this_ref = JSValueRef::new_no_free(this_val);
+        let this_ref = JSValueRef::new(this_val);
 
         let proxy_name_ref = objects::get_property(q_js_rt, &this_ref, "name")
             .ok()
@@ -839,10 +843,10 @@ unsafe extern "C" fn proxy_static_method(
         let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
         let args_vec: Vec<JSValueRef> = arg_slice
             .iter()
-            .map(|raw| JSValueRef::new_no_free(*raw))
+            .map(|raw| JSValueRef::new(*raw))
             .collect::<Vec<_>>();
 
-        let func_name_ref = JSValueRef::new_no_free(*func_data);
+        let func_name_ref = JSValueRef::new(*func_data);
         let func_name = primitives::to_str(q_js_rt, &func_name_ref)
             .ok()
             .expect("could not to_string func_name_ref");

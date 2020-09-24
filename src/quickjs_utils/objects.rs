@@ -51,7 +51,7 @@ pub fn construct_object(
 
 pub fn create_object(q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
     let obj = unsafe { q::JS_NewObject(q_js_rt.context) };
-    let obj_ref = JSValueRef::new(obj);
+    let obj_ref = JSValueRef::new_no_ref_ct_increment(obj);
     if obj_ref.is_exception() {
         return Err(EsError::new_str("Could not create object"));
     }
@@ -191,7 +191,9 @@ pub fn get_property(
             c_prop_name.as_ptr(),
         )
     };
-    Ok(JSValueRef::new(prop_val))
+    let prop_ref = JSValueRef::new_no_ref_ct_increment(prop_val);
+
+    Ok(prop_ref)
 }
 
 #[allow(dead_code)]
@@ -233,7 +235,7 @@ pub fn get_property_names(
         let prop = unsafe { (*properties).offset(index as isize) };
 
         let key_value = unsafe { q::JS_AtomToString(q_js_rt.context, (*prop).atom) };
-        let key_ref = JSValueRef::new(key_value);
+        let key_ref = JSValueRef::new_no_ref_ct_increment(key_value);
         if key_ref.is_exception() {
             return Err(EsError::new_str("Could not get object property name"));
         }
@@ -294,13 +296,13 @@ where
                 0,
             )
         };
-        let prop_val_ref = JSValueRef::new(raw_value);
+        let prop_val_ref = JSValueRef::new_no_ref_ct_increment(raw_value);
         if prop_val_ref.is_exception() {
             return Err(EsError::new_str("Could not get object property"));
         }
 
         let key_value = unsafe { q::JS_AtomToString(q_js_rt.context, (*prop).atom) };
-        let key_ref = JSValueRef::new(key_value);
+        let key_ref = JSValueRef::new_no_ref_ct_increment(key_value);
         if key_ref.is_exception() {
             return Err(EsError::new_str("Could not get object property name"));
         }
@@ -362,7 +364,35 @@ pub mod tests {
     use std::sync::Arc;
 
     #[test]
+    fn test_get_refs() {
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            let obj = create_object(q_js_rt).ok().expect("a");
+            let prop_ref = create_object(q_js_rt).ok().expect("b");
+            let prop2_ref = create_object(q_js_rt).ok().expect("c");
+            assert_eq!(obj.get_ref_count(), 1);
+            assert_eq!(prop_ref.get_ref_count(), 1);
+            set_property(q_js_rt, &obj, "a", &prop_ref).ok().expect("d");
+            assert_eq!(prop_ref.get_ref_count(), 2);
+            set_property(q_js_rt, &obj, "b", &prop_ref).ok().expect("e");
+            assert_eq!(prop_ref.get_ref_count(), 3);
+            set_property(q_js_rt, &obj, "b", &prop2_ref)
+                .ok()
+                .expect("f");
+            assert_eq!(prop_ref.get_ref_count(), 2);
+
+            drop(prop_ref);
+            drop(prop2_ref);
+            drop(obj);
+
+            q_js_rt.gc();
+        });
+    }
+
+    #[test]
     fn test_get_n_drop() {
+        log::info!("> test_get_n_drop");
+
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let obj_a = create_object(q_js_rt).ok().unwrap();
@@ -374,20 +404,26 @@ pub mod tests {
                 .ok()
                 .unwrap();
             drop(b1);
+            q_js_rt.gc();
             let b2 = get_property(q_js_rt, &obj_a, "b").ok().unwrap();
             let i_ref = get_property(q_js_rt, &b2, "i").ok().unwrap();
             let i = to_i32(&i_ref).ok().unwrap();
             drop(i_ref);
+            q_js_rt.gc();
             let i_ref2 = get_property(q_js_rt, &b2, "i").ok().unwrap();
             let i2 = to_i32(&i_ref2).ok().unwrap();
 
             assert_eq!(i, 123);
             assert_eq!(i2, 123);
         });
+
+        log::info!("< test_get_n_drop");
     }
 
     #[test]
     fn test_propnames() {
+        log::info!("> test_propnames");
+
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
             let obj_ref = q_js_rt
@@ -404,11 +440,15 @@ pub mod tests {
             assert!(prop_names.contains(&"two".to_string()));
             true
         });
-        assert!(io)
+        assert!(io);
+
+        log::info!("< test_propnames");
     }
 
     #[test]
     fn test_set_prop() {
+        log::info!("> test_set_prop");
+
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
             let obj_ref = create_object(q_js_rt).ok().unwrap();
@@ -433,6 +473,7 @@ pub mod tests {
             drop(global_ref);
 
             q_js_rt.gc();
+
             let a = q_js_rt
                 .eval(EsScript::new("test_set_prop.es", "(test_obj);"))
                 .ok()
@@ -448,5 +489,7 @@ pub mod tests {
             a && b
         });
         assert!(io);
+
+        log::info!("< test_set_prop");
     }
 }

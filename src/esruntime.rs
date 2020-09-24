@@ -254,6 +254,8 @@ pub mod tests {
 
     #[test]
     fn test_module_sync() {
+        log::info!("> test_module_sync");
+
         let rt = &TEST_ESRT;
         debug!("test static import");
         let res: Result<EsValueFacade, EsError> = rt.eval_module_sync(EsScript::new(
@@ -285,5 +287,7 @@ pub mod tests {
             }
         }
         std::thread::sleep(Duration::from_secs(1));
+
+        log::info!("< test_module_sync");
     }
 }

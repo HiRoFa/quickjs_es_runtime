@@ -114,6 +114,8 @@ pub mod tests {
 
     #[test]
     fn test_module_sandbox() {
+        log::info!("> test_module_sandbox");
+
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let res = q_js_rt.eval_module(EsScript::new(
@@ -141,5 +143,7 @@ pub mod tests {
         });
 
         std::thread::sleep(Duration::from_secs(1));
+
+        log::info!("< test_module_sandbox");
     }
 }
