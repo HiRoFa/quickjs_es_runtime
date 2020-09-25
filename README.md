@@ -61,11 +61,20 @@ fn load_module(base: &str, name: &str) -> Option<EsScript> {
 }
 
 fn main() {
-    let rt = EsRuntimeBuilder::new().module_script_loader(load_module).build();
+    simple_logging::log_to_stderr(LevelFilter::Info);
+
+    let rt = EsRuntimeBuilder::new()
+        .module_script_loader(load_module)
+        .build();
 
     // eval some basic stuff
 
-    rt.eval_sync(EsScript::new("basics.es", "this.my_app_utils = {f: function(a, b){return a * b;}};"));
+    rt.eval_sync(EsScript::new(
+        "basics.es",
+        "this.my_app_utils = {f: function(a, b){return a * b;}, f2: function(rf){rf(12);}};",
+    ))
+    .ok()
+    .expect("basics.es failed");
 
     // invoke a js method from rust
 
@@ -73,12 +82,67 @@ fn main() {
     let b = 7.to_es_value_facade();
     let res = rt.call_function_sync(vec!["my_app_utils"], "f", vec![a, b]);
     match res {
-        Ok(val) => {
-            println!("got {}", val.get_i32())
-        },
-        Err(e) => println!("script failed: {}", e)
+        Ok(val) => log::info!("8*7 in JavaScript = {}", val.get_i32()),
+        Err(e) => println!("script failed: {}", e),
     }
 
+    // add a function from rust and invoke it
+
+    rt.set_function(vec!["nl", "my", "utils"], "methodA", |args| {
+        if args.len() != 2 || !args.get(0).unwrap().is_i32() || !args.get(1).unwrap().is_i32() {
+            Err(EsError::new_str(
+                "i'd really like 2 args of the int32 kind please",
+            ))
+        } else {
+            let a = args.get(0).unwrap().get_i32();
+            let b = args.get(1).unwrap().get_i32();
+            log::info!("rust is multiplying {} and {}", a, b);
+            Ok((a * b).to_es_value_facade())
+        }
+    })
+    .ok()
+    .expect("set_function failed");
+
+    let method_a_res = rt.eval_sync(EsScript::new(
+        "test_func.es",
+        "(nl.my.utils.methodA(13, 56));",
+    ));
+
+    match method_a_res {
+        Ok(val) => {
+            assert!(val.is_i32());
+            assert_eq!(val.get_i32(), 13 * 56);
+        }
+        Err(e) => {
+            panic!("test_func.es failed: {}", e);
+        }
+    }
+
+    // eval a module
+
+    rt.eval_module_sync(EsScript::new(
+        "my_app.mes",
+        "\
+    import {foo} from 'example.mes';\
+    console.log('static foo is ' + foo);\
+    ",
+    ))
+    .ok()
+    .expect("module failed");
+
+    // eval a module with a dynamic import
+
+    rt.eval_module_sync(EsScript::new(
+        "my_app2.es",
+        "\
+    import('example.mes')\
+    .then((example_module) => {\
+        console.log('dynamic foo is ' + example_module.foo);\
+    });\
+    ",
+    ))
+    .ok()
+    .expect("script failed");
 }
 
 ```
