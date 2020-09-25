@@ -75,9 +75,12 @@ fn main() {
     ))
     .ok()
     .expect("basics.es failed");
+}
+```
 
-    // invoke a js method from rust
+## invoke a js method from rust
 
+```rust
     let a = 8.to_es_value_facade();
     let b = 7.to_es_value_facade();
     let res = rt.call_function_sync(vec!["my_app_utils"], "f", vec![a, b]);
@@ -85,9 +88,11 @@ fn main() {
         Ok(val) => log::info!("8*7 in JavaScript = {}", val.get_i32()),
         Err(e) => println!("script failed: {}", e),
     }
+```
 
-    // add a function from rust and invoke it
+## add a function from rust and invoke it
 
+```rust
     rt.set_function(vec!["nl", "my", "utils"], "methodA", |args| {
         if args.len() != 2 || !args.get(0).unwrap().is_i32() || !args.get(1).unwrap().is_i32() {
             Err(EsError::new_str(
@@ -117,9 +122,11 @@ fn main() {
             panic!("test_func.es failed: {}", e);
         }
     }
+```
 
-    // eval a module
+## eval a module
 
+```rust
     rt.eval_module_sync(EsScript::new(
         "my_app.mes",
         "\
@@ -129,9 +136,12 @@ fn main() {
     ))
     .ok()
     .expect("module failed");
+```
 
-    // eval a module with a dynamic import
+## eval a module with a dynamic import
 
+```rust
+    
     rt.eval_module_sync(EsScript::new(
         "my_app2.es",
         "\
@@ -143,9 +153,11 @@ fn main() {
     ))
     .ok()
     .expect("script failed");
+```
 
-    // get a function from js and invoke it in rust
+##  get a function from js and invoke it in rust
 
+```rust
     rt.set_function(vec!["nl", "my", "utils"], "methodB", |mut args| {
         if args.len() != 1 || !args.get(0).unwrap().is_function() {
             Err(EsError::new_str(
@@ -175,8 +187,6 @@ fn main() {
         "(nl.my.utils.methodB(function(a, b){console.log('consumer was called with ' +a + ', ' + b);}));",
     )).ok().expect("test_func2.es failed");
 
+    // wait a sec for the async onvoker to run
     std::thread::sleep(Duration::from_secs(1));
-}
-
-
 ```
