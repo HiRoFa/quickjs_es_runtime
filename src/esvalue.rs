@@ -82,8 +82,8 @@ pub trait EsValueConvertible {
     }
 }
 
-struct EsUndefinedValue {}
-struct EsNullValue {}
+pub struct EsUndefinedValue {}
+pub struct EsNullValue {}
 
 impl EsValueConvertible for EsNullValue {
     fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
