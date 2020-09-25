@@ -1,12 +1,10 @@
-use crate::eserror::EsError;
 use crate::esscript::EsScript;
 use crate::quickjsruntime::QuickJsRuntime;
-use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 use log::trace;
 use std::cell::RefCell;
 use std::collections::HashSet;
-use std::ffi::{CStr, CString, NulError};
+use std::ffi::{CStr, CString};
 
 thread_local! {
     static LOADED_MODULE_REGISTRY: RefCell<HashSet<String>> = RefCell::new(HashSet::new());

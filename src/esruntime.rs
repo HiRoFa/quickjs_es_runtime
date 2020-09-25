@@ -3,6 +3,7 @@ use crate::esruntimebuilder::EsRuntimeBuilder;
 use crate::esscript::EsScript;
 use crate::esvalue::EsValueFacade;
 use crate::features;
+use crate::quickjs_utils::{functions, objects};
 use crate::quickjsruntime::{QuickJsRuntime, QJS_RT};
 use hirofa_utils::single_threaded_event_queue::SingleThreadedEventQueue;
 use log::error;
@@ -182,6 +183,51 @@ impl EsRuntime {
         self.inner.add_to_event_queue_sync(consumer)
     }
 
+    pub fn set_function<F>(
+        &self,
+        namespace: Vec<&'static str>,
+        name: &str,
+        function: F,
+    ) -> Result<(), EsError>
+    where
+        F: Fn(Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> + Send + 'static,
+    {
+        let rti_ref = self.inner.clone();
+        let name = name.to_string();
+        self.add_to_event_queue_sync(move |q_js_rt| {
+            let ns = objects::get_namespace(q_js_rt, namespace, true)?;
+            let func = functions::new_function(
+                q_js_rt,
+                name.as_str(),
+                move |_this_ref, args| {
+                    QuickJsRuntime::do_with(|q_js_rt| {
+                        let mut args_facades = vec![];
+
+                        for arg_ref in args {
+                            args_facades.push(EsValueFacade::from_jsval(
+                                q_js_rt,
+                                &arg_ref,
+                                &rti_ref.clone(),
+                            )?);
+                        }
+
+                        let res = function(args_facades);
+
+                        match res {
+                            Ok(val_ref) => val_ref.to_js_value(q_js_rt),
+                            Err(e) => Err(e),
+                        }
+                    })
+                },
+                1,
+            )?;
+
+            objects::set_property2(q_js_rt, &ns, name.as_str(), &func, 0)?;
+
+            Ok(())
+        })
+    }
+
     pub fn add_helper_task() {}
 }
 
@@ -190,7 +236,7 @@ pub mod tests {
     use crate::eserror::EsError;
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
-    use crate::esvalue::EsValueFacade;
+    use crate::esvalue::{EsValueConvertible, EsValueFacade};
     use ::log::debug;
     use log::LevelFilter;
     use std::sync::Arc;
@@ -214,6 +260,44 @@ pub mod tests {
                 }
             })
             .build()
+    }
+
+    #[test]
+    fn test_func() {
+        let rt: Arc<EsRuntime> = TEST_ESRT.clone();
+        let res = rt.set_function(vec!["nl", "my", "utils"], "methodA", |args| {
+            if args.len() != 2 || !args.get(0).unwrap().is_i32() || !args.get(1).unwrap().is_i32() {
+                Err(EsError::new_str(
+                    "i'd realy like 2 args of the int32 kind please",
+                ))
+            } else {
+                let a = args.get(0).unwrap().get_i32();
+                let b = args.get(1).unwrap().get_i32();
+                Ok((a * b).to_es_value_facade())
+            }
+        });
+
+        match res {
+            Ok(_) => {}
+            Err(e) => {
+                panic!("set_function failed: {}", e);
+            }
+        }
+
+        let res = rt.eval_sync(EsScript::new(
+            "test_func.es",
+            "(nl.my.utils.methodA(13, 56));",
+        ));
+
+        match res {
+            Ok(val) => {
+                assert!(val.is_i32());
+                assert_eq!(val.get_i32(), 13 * 56);
+            }
+            Err(e) => {
+                panic!("test_func.es failed: {}", e);
+            }
+        }
     }
 
     #[test]

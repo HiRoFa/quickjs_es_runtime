@@ -32,7 +32,7 @@ impl PromiseRef {
         )?;
 
         while q_js_rt.has_pending_jobs() {
-            q_js_rt.run_pending_job();
+            q_js_rt.run_pending_job()?;
         }
 
         Ok(())
@@ -47,7 +47,7 @@ impl PromiseRef {
         )?;
 
         while q_js_rt.has_pending_jobs() {
-            q_js_rt.run_pending_job();
+            q_js_rt.run_pending_job()?;
         }
 
         Ok(())

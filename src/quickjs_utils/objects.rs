@@ -11,20 +11,28 @@ pub fn get_namespace(
     namespace: Vec<&str>,
     create_if_absent: bool,
 ) -> Result<JSValueRef, EsError> {
+    log::trace!("objects::get_namespace({})", namespace.join("."));
+
     let mut obj = get_global(q_js_rt);
     for p_name in namespace {
-        let sub = get_property(q_js_rt, &obj, p_name)?;
+        log::trace!("objects::get_namespace -> {}", p_name);
+        let mut sub = get_property(q_js_rt, &obj, p_name)?;
         if sub.is_null_or_undefined() {
+            log::trace!("objects::get_namespace -> is null");
             if create_if_absent {
+                log::trace!("objects::get_namespace -> is null, creating");
                 // create
-                let sub = create_object(q_js_rt)?;
-                set_property(q_js_rt, &obj, p_name, &sub)?;
+                sub = create_object(q_js_rt)?;
+                set_property2(q_js_rt, &obj, p_name, &sub, 0)?;
             } else {
+                log::trace!("objects::get_namespace -> is null -> err");
                 return Err(EsError::new_string(format!(
                     "could not find namespace part: {}",
                     p_name
                 )));
             }
+        } else {
+            log::trace!("objects::get_namespace -> found");
         }
         obj = sub;
     }

@@ -104,7 +104,7 @@ impl QuickJsRuntime {
             }
         } else {
             while self.has_pending_jobs() {
-                self.run_pending_job();
+                self.run_pending_job()?;
             }
 
             Ok(ret)
@@ -144,7 +144,7 @@ impl QuickJsRuntime {
             }
         } else {
             while self.has_pending_jobs() {
-                self.run_pending_job();
+                self.run_pending_job()?;
             }
             Ok(ret)
         }
