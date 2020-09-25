@@ -143,6 +143,40 @@ fn main() {
     ))
     .ok()
     .expect("script failed");
+
+    // get a function from js and invoke it in rust
+
+    rt.set_function(vec!["nl", "my", "utils"], "methodB", |mut args| {
+        if args.len() != 1 || !args.get(0).unwrap().is_function() {
+            Err(EsError::new_str(
+                "i'd really like 1 arg of the function kind please",
+            ))
+        } else {
+            let consumer_func = args.remove(0);
+
+            // invoke the func async, just because we can
+            std::thread::spawn(move || {
+                let a = 19.to_es_value_facade();
+                let b = 17.to_es_value_facade();
+                consumer_func
+                    .invoke_function(vec![a, b])
+                    .ok()
+                    .expect("func failed");
+            });
+
+            Ok(quick_es_runtime::esvalue::EsNullValue {}.to_es_value_facade())
+        }
+    })
+    .ok()
+    .expect("set_function failed");
+
+    rt.eval_sync(EsScript::new(
+        "test_func2.es",
+        "(nl.my.utils.methodB(function(a, b){console.log('consumer was called with ' +a + ', ' + b);}));",
+    )).ok().expect("test_func2.es failed");
+
+    std::thread::sleep(Duration::from_secs(1));
 }
+
 
 ```
