@@ -539,4 +539,8 @@ impl EsValueFacade {
     pub fn is_function(&self) -> bool {
         self.convertible.is_function()
     }
+
+    pub fn invoke_function(&self, arguments: Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> {
+        self.convertible.invoke_function(arguments)
+    }
 }
