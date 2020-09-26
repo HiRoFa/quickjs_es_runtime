@@ -8,6 +8,9 @@ use std::sync::mpsc::{channel, RecvTimeoutError};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 
+pub type PromiseReactionType =
+    Option<Box<dyn FnOnce(EsValueFacade) -> Result<EsValueFacade, EsError>>>;
+
 pub trait EsValueConvertible {
     fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError>;
 
@@ -73,8 +76,8 @@ pub trait EsValueConvertible {
     }
     fn add_promise_reactions(
         &self,
-        _then: Option<Box<dyn FnOnce(EsValueFacade) -> Result<EsValueFacade, EsError>>>,
-        _catch: Option<Box<dyn FnOnce(EsValueFacade) -> Result<EsValueFacade, EsError>>>,
+        _then: PromiseReactionType,
+        _catch: PromiseReactionType,
         _finally: Option<Box<dyn FnOnce()>>,
     ) -> Result<(), EsError> {
         panic!("i am not a promise")
@@ -218,8 +221,8 @@ impl EsValueConvertible for CachedJSPromise {
 
     fn add_promise_reactions(
         &self,
-        _then: Option<Box<dyn FnOnce(EsValueFacade) -> Result<EsValueFacade, EsError>>>,
-        _catch: Option<Box<dyn FnOnce(EsValueFacade) -> Result<EsValueFacade, EsError>>>,
+        _then: PromiseReactionType,
+        _catch: PromiseReactionType,
         _finally: Option<Box<dyn FnOnce()>>,
     ) -> Result<(), EsError> {
         unimplemented!()
