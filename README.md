@@ -27,9 +27,10 @@ there are utils for
 * Create Promises and add reactions to promises
 * Modules (static and dynamic imports)
 * Invoking callbacks from EsValueFacade
+* get promise result blocking
 
 # next steps
-* get promise result blocking
+* add promise reactions
 * a lot more
 
 basicly getting it to the state where es_runtime is in

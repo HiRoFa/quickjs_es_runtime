@@ -14,7 +14,7 @@ pub struct EsRuntimeInner {
 }
 
 pub struct EsRuntime {
-    inner: Arc<EsRuntimeInner>,
+    pub(crate) inner: Arc<EsRuntimeInner>,
 }
 
 impl EsRuntimeInner {
