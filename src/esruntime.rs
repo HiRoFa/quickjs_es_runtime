@@ -1,7 +1,7 @@
 use crate::eserror::EsError;
 use crate::esruntimebuilder::EsRuntimeBuilder;
 use crate::esscript::EsScript;
-use crate::esvalue::EsValueFacade;
+use crate::esvalue::{EsValueConvertible, EsValueFacade};
 use crate::features;
 use crate::quickjs_utils::{functions, objects};
 use crate::quickjsruntime::{QuickJsRuntime, QJS_RT};
@@ -183,14 +183,15 @@ impl EsRuntime {
         self.inner.add_to_event_queue_sync(consumer)
     }
 
-    pub fn set_function<F>(
+    pub fn set_function<F, E>(
         &self,
         namespace: Vec<&'static str>,
         name: &str,
         function: F,
     ) -> Result<(), EsError>
     where
-        F: Fn(Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> + Send + 'static,
+        F: Fn(Vec<EsValueFacade>) -> Result<E, EsError> + Send + 'static,
+        E: EsValueConvertible + Send + 'static,
     {
         let rti_ref = self.inner.clone();
         let name = name.to_string();
@@ -214,7 +215,7 @@ impl EsRuntime {
                         let res = function(args_facades);
 
                         match res {
-                            Ok(val_ref) => val_ref.to_js_value(q_js_rt),
+                            Ok(val_ref) => val_ref.to_es_value_facade().to_js_value(q_js_rt),
                             Err(e) => Err(e),
                         }
                     })
@@ -236,7 +237,7 @@ pub mod tests {
     use crate::eserror::EsError;
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
-    use crate::esvalue::{EsValueConvertible, EsValueFacade};
+    use crate::esvalue::EsValueFacade;
     use ::log::debug;
     use log::LevelFilter;
     use std::sync::Arc;
@@ -273,7 +274,7 @@ pub mod tests {
             } else {
                 let a = args.get(0).unwrap().get_i32();
                 let b = args.get(1).unwrap().get_i32();
-                Ok((a * b).to_es_value_facade())
+                Ok(a * b)
             }
         });
 
