@@ -4,11 +4,11 @@ version = "0.1.0"
 authors = ["Andries Hiemstra"]
 edition = "2018"
 description = "An API and Utils around the QuickJS script engine"
-homepage = "https://github.com/DRFos/quick_es_runtime"
-keywords = ["quickjs", "javascript", "runtime", "engine"]
-repository = "https://github.com/DRFos/quick_es_runtime"
+homepage = "https://github.com/HiRoFa/quickjs_es_runtime"
+keywords = ["quickjs", "javascript", "runtime", "engine", "rust"]
+repository = "https://github.com/HiRoFa/quickjs_es_runtime"
 license = "GPL-3.0"
-documentation = "https://drfos.github.io/quick_es_runtime/quick_es_runtime/index.html"
+documentation = "https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/index.html"
 readme = "README.md"
 categories = ["development-tools"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -17,7 +17,7 @@ categories = ["development-tools"]
 #quick-js = "0.3.3"
 libquickjs-sys = {git="https://github.com/theduke/quickjs-rs#6979b780"}
 lazy_static = "1.4.0"
-hirofa_utils = {git="https://github.com/DRFos/utils?1"}
+hirofa_utils = {git="https://github.com/HiRoFa/utils?1"}
 log = "0.4.11"
 simple-logging = "2.0.2"
 thread-id = "3.3.0"
