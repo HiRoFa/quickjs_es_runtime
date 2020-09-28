@@ -1,5 +1,5 @@
 [package]
-name = "quick_es_runtime"
+name = "quickjs_es_runtime"
 version = "0.1.0"
 authors = ["Andries Hiemstra"]
 edition = "2018"
