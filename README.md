@@ -1,6 +1,6 @@
-# quick_es_runtime
+# quickjs_es_runtime
 
-Same goals as https://github.com/DRFos/es_runtime but with using quickjs
+Same goals as https://github.com/HiRoFa/es_runtime but with using quickjs
 
 so 
 * slower js
@@ -41,7 +41,7 @@ Cargo.toml
 
 ```toml
 [dependencies]
-quick_es_runtime = {git="https://github.com/DRFos/quick_es_runtime"}
+quick_es_runtime = {git="https://github.com/HiRoFa/quickjs_es_runtime"}
 log = "0.4.11"
 simple-logging = "2.0.2"
 ```
