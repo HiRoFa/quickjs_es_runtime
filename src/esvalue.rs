@@ -4,12 +4,13 @@ use crate::quickjs_utils::{arrays, functions, new_null_ref, promises};
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::*;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::mpsc::{channel, RecvTimeoutError};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 
 pub type PromiseReactionType =
-    Option<Box<dyn FnOnce(EsValueFacade) -> Result<EsValueFacade, EsError>>>;
+    Option<Box<dyn Fn(EsValueFacade) -> Result<EsValueFacade, EsError> + Send + 'static>>;
 
 pub trait EsValueConvertible {
     fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError>;
@@ -76,9 +77,10 @@ pub trait EsValueConvertible {
     }
     fn add_promise_reactions(
         &self,
+        _es_rt: &EsRuntime,
         _then: PromiseReactionType,
         _catch: PromiseReactionType,
-        _finally: Option<Box<dyn FnOnce()>>,
+        _finally: Option<Box<dyn Fn() + Send + 'static>>,
     ) -> Result<(), EsError> {
         panic!("i am not a promise")
     }
@@ -221,11 +223,85 @@ impl EsValueConvertible for CachedJSPromise {
 
     fn add_promise_reactions(
         &self,
-        _then: PromiseReactionType,
-        _catch: PromiseReactionType,
-        _finally: Option<Box<dyn FnOnce()>>,
+        es_rt: &EsRuntime,
+        then: PromiseReactionType,
+        catch: PromiseReactionType,
+        finally: Option<Box<dyn Fn() + Send + 'static>>,
     ) -> Result<(), EsError> {
-        unimplemented!()
+        let cached_obj_id = self.cached_obj_id;
+        let rti_ref = es_rt.inner.clone();
+        es_rt.add_to_event_queue(move |q_js_rt| {
+            q_js_rt.with_cached_obj(cached_obj_id, move |prom_ref| {
+                let then_ref = if let Some(then_fn) = then {
+                    let rti_ref = rti_ref.clone();
+                    let then_fn_rc = Rc::new(then_fn);
+                    let then_fn_raw = move |_this_ref, mut args_ref: Vec<JSValueRef>| {
+                        let rti_ref = rti_ref.clone();
+                        let then_fn_rc = then_fn_rc.clone();
+                        let val_ref = args_ref.remove(0);
+
+                        QuickJsRuntime::do_with(move |q_js_rt| {
+                            let rti_ref = rti_ref.clone();
+                            let val_esvf = EsValueFacade::from_jsval(q_js_rt, &val_ref, &rti_ref)
+                                .ok()
+                                .expect("could not convert val to esvf");
+
+                            then_fn_rc(val_esvf).ok().expect("then failed");
+                            Ok(crate::quickjs_utils::new_null_ref())
+                        })
+                    };
+                    let t = functions::new_function(q_js_rt, "", then_fn_raw, 1)
+                        .ok()
+                        .expect("could not create function");
+                    Some(t)
+                } else {
+                    None
+                };
+
+                let catch_ref = if let Some(catch_fn) = catch {
+                    let rti_ref = rti_ref.clone();
+                    let catch_fn_rc = Rc::new(catch_fn);
+                    let catch_fn_raw = move |_this_ref, mut args_ref: Vec<JSValueRef>| {
+                        let rti_ref = rti_ref.clone();
+                        let val_ref = args_ref.remove(0);
+                        let catch_fn_rc = catch_fn_rc.clone();
+                        QuickJsRuntime::do_with(move |q_js_rt| {
+                            let rti_ref = rti_ref.clone();
+                            let val_esvf = EsValueFacade::from_jsval(q_js_rt, &val_ref, &rti_ref)
+                                .ok()
+                                .expect("could not convert val to esvf");
+
+                            catch_fn_rc(val_esvf).ok().expect("catch failed");
+                            Ok(crate::quickjs_utils::new_null_ref())
+                        })
+                    };
+                    let t = functions::new_function(q_js_rt, "", catch_fn_raw, 1)
+                        .ok()
+                        .expect("could not create function");
+                    Some(t)
+                } else {
+                    None
+                };
+
+                let finally_ref = if let Some(finally_fn) = finally {
+                    let finally_fn_raw = move |_this_ref, _args_ref| {
+                        finally_fn();
+                        Ok(crate::quickjs_utils::new_null_ref())
+                    };
+                    let t = functions::new_function(q_js_rt, "", finally_fn_raw, 0)
+                        .ok()
+                        .expect("could not create function");
+                    Some(t)
+                } else {
+                    None
+                };
+
+                promises::add_promise_reactions(q_js_rt, prom_ref, then_ref, catch_ref, finally_ref)
+                    .ok()
+                    .expect("could not add reactions")
+            });
+        });
+        Ok(())
     }
 }
 
