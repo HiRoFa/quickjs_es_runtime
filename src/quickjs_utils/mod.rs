@@ -1,15 +1,15 @@
 use crate::quickjsruntime::QuickJsRuntime;
 
-pub(crate) mod arrays;
-pub(crate) mod atoms;
-pub(crate) mod bigints;
-pub(crate) mod functions;
-pub(crate) mod modules;
-pub(crate) mod objects;
-pub(crate) mod primitives;
-pub(crate) mod promises;
-pub(crate) mod reflection;
-pub(crate) mod typedarrays;
+pub mod arrays;
+pub mod atoms;
+pub mod bigints;
+pub mod functions;
+pub mod modules;
+pub mod objects;
+pub mod primitives;
+pub mod promises;
+pub mod reflection;
+pub mod typedarrays;
 use crate::valueref::{JSValueRef, TAG_NULL, TAG_UNDEFINED};
 use libquickjs_sys as q;
 
