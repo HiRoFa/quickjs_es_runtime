@@ -92,6 +92,7 @@ impl EsRuntime {
         EsRuntimeBuilder::new()
     }
 
+    /// Evaluate a script asynchronously
     pub fn eval(&self, script: EsScript) {
         self.add_to_event_queue(|qjs_rt| {
             let res = qjs_rt.eval(script);
@@ -102,6 +103,16 @@ impl EsRuntime {
         });
     }
 
+    /// Evaluate a script and return the result synchronously
+    /// # example
+    /// ```rust
+    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_es_runtime::esscript::EsScript;
+    /// let rt = EsRuntimeBuilder::new().build();
+    /// let script = EsScript::new("my_file.es", "(9 * 3);");
+    /// let res = rt.eval_sync(script).ok().expect("script failed");
+    /// assert_eq!(res.get_i32(), 27);
+    /// ```
     pub fn eval_sync(&self, script: EsScript) -> Result<EsValueFacade, EsError> {
         let inner_arc = self.inner.clone();
         self.add_to_event_queue_sync(move |qjs_rt| {
@@ -113,14 +124,28 @@ impl EsRuntime {
         })
     }
 
+    /// run the garbage collector asynchronously
     pub fn gc(&self) {
         self.add_to_event_queue(|q_js_rt| q_js_rt.gc())
     }
 
+    /// run the garbage collector and wait for it to be done
     pub fn gc_sync(&self) {
         self.add_to_event_queue_sync(|q_js_rt| q_js_rt.gc())
     }
 
+    /// call a function in the engine and await the result
+    /// # example
+    /// ```rust
+    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_es_runtime::esscript::EsScript;
+    /// use quickjs_es_runtime::esvalue::EsValueConvertible;
+    /// let rt = EsRuntimeBuilder::new().build();
+    /// let script = EsScript::new("my_file.es", "this.com = {my: {methodA: function(a, b){return a*b;}}};");
+    /// rt.eval_sync(script).ok().expect("script failed");
+    /// let res = rt.call_function_sync(vec!["com", "my"], "methodA", vec![7.to_es_value_facade(), 5.to_es_value_facade()]).ok().expect("func failed");
+    /// assert_eq!(res.get_i32(), 35);
+    /// ```
     pub fn call_function_sync(
         &self,
         namespace: Vec<&'static str>,
@@ -147,6 +172,32 @@ impl EsRuntime {
         })
     }
 
+    /// evaluate a module, you need if you want to compile a script that contains static imports
+    /// e.g.
+    /// ```javascript
+    /// import {util} from 'file.mes';
+    /// console.log(util(1, 2, 3));
+    /// ```
+    /// please note that the module is cached under the absolute path you passed in the EsScript object
+    /// and thus you should take care to make the path unique (hence the absolute_ name)
+    /// also to use this you need to build the EsRuntime with a module loader closure
+    /// # example
+    /// ```rust
+    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_es_runtime::esscript::EsScript;
+    /// use quickjs_es_runtime::esvalue::EsValueConvertible;
+    /// let rt = EsRuntimeBuilder::new().module_script_loader(|relative_file_path, name| {
+    ///     // here you should analyze the relative_file_path, this is the absolute path of the script which contains the import statement
+    ///     // if this is e.g. '/opt/files/my_module.mes' and the name is 'other_module.mes' then you should return
+    ///     // EsScript object with '/opt/files/other_module.mes' as absolute path
+    ///     let name = format!("/opt/files/{}", name);
+    ///     // this is of course a bad impl, name might for example be '../files/other_module.mes'
+    ///     Some(EsScript::new(name.as_str(), "export const util = function(a, b, c){return a+b+c;};"))
+    /// }).build();
+    /// let script = EsScript::new("/opt/files/my_module.mes", "import {util} from 'other_module.mes';
+    /// console.log(util(1, 2, 3));");
+    /// rt.eval_module(script);
+    /// ```
     pub fn eval_module(&self, script: EsScript) {
         self.add_to_event_queue(|qjs_rt| {
             let res = qjs_rt.eval_module(script);
@@ -157,6 +208,7 @@ impl EsRuntime {
         });
     }
 
+    /// evaluate a module and return result synchronously
     pub fn eval_module_sync(&self, script: EsScript) -> Result<EsValueFacade, EsError> {
         let inner_arc = self.inner.clone();
         self.add_to_event_queue_sync(move |qjs_rt| {
@@ -168,6 +220,17 @@ impl EsRuntime {
         })
     }
 
+    /// this is how you add a closure to the worker thread which has an instance of the QuickJsRuntime
+    /// this will run asynchronously
+    /// # example
+    /// ```rust
+    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// let rt = EsRuntimeBuilder::new().build();
+    /// rt.add_to_event_queue(|q_js_rt| {
+    ///     // here you are in the worker thread and you can use the quickjs_utils
+    ///     q_js_rt.gc();
+    /// });
+    /// ```
     pub fn add_to_event_queue<C>(&self, consumer: C)
     where
         C: FnOnce(&QuickJsRuntime) + Send + 'static,
@@ -175,6 +238,21 @@ impl EsRuntime {
         self.inner.add_to_event_queue(consumer)
     }
 
+    /// this is how you add a closure to the worker thread which has an instance of the QuickJsRuntime
+    /// this will run and return synchronously
+    /// # example
+    /// ```rust
+    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_es_runtime::esscript::EsScript;
+    /// use quickjs_es_runtime::quickjs_utils::primitives;
+    /// let rt = EsRuntimeBuilder::new().build();
+    /// let res = rt.add_to_event_queue_sync(|q_js_rt| {
+    ///     // here you are in the worker thread and you can use the quickjs_utils
+    ///     let val_ref = q_js_rt.eval(EsScript::new("test.es", "(11 * 6);")).ok().expect("script failed");
+    ///     primitives::to_i32(&val_ref).ok().expect("could not get i32")
+    /// });
+    /// assert_eq!(res, 66);
+    /// ```
     pub fn add_to_event_queue_sync<C, R>(&self, consumer: C) -> R
     where
         C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,
