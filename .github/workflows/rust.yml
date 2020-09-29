@@ -1,0 +1,77 @@
+name: Rust
+
+on:
+  push:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Prepare
+      run: |
+        sudo apt update
+        sudo apt install gcc-7 ccache llvm autoconf2.13 automake clang python -y
+    - name: Cache cargo registry
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+    - name: Cache cargo index
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
+    - name: Ccache
+      uses: actions/cache@v2
+      with:
+        path: ~/.ccache
+        key: ${{ runner.OS }}-ccache-${{ hashFiles('**\Cargo.toml') }}
+    - name: Build
+      run: |
+        export SHELL=/bin/bash
+        export CC=/usr/bin/clang
+        export CXX=/usr/bin/clang++
+        ccache -z
+        CCACHE=$(which ccache) cargo build --verbose
+        ccache -s
+    - name: Run tests
+      run: cargo test --verbose
+    - name: Format
+      run: |
+        cargo fmt
+    - name: Commit fmt files
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git commit -m "autofmt" -a || true
+        git push "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref }} || true
+    - name: Doc
+      run: |
+        cargo doc
+    - name: Commit docs
+      run: |
+        cp -r ./target/doc /tmp
+        cd /tmp/doc
+        git init
+        echo '<!DOCTYPE html><html><head><title>Redirect</title><meta http-equiv = "refresh" content = "0; url = https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/index.html" /></head><body><p>Redirecting</p></body></html>' >> index.html
+        git add .
+        git remote add origin https://github.com/${{ github.repository }}.git
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git commit -m "doc" -a || true
+        git push "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:gh-pages --force || true
+    - name: Deploy to gh-pages 
+      run: |
+        curl -X POST https://api.github.com/repos/${{ github.repository }}/pages/builds -H "Accept: application/vnd.github.mister-fantastic-preview+json" -u ${{ github.actor }}:${{ secrets.GH_TOKEN }}
+    - name: Clippy check
+      uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,51 @@
+name: Rust
+
+on:
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Prepare
+      run: |
+        sudo apt update
+        sudo apt install gcc-7 ccache llvm autoconf2.13 automake clang python -y
+    - name: Cache cargo registry
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+    - name: Cache cargo index
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
+    - name: Ccache
+      uses: actions/cache@v2
+      with:
+        path: ~/.ccache
+        key: ${{ runner.OS }}-ccache-${{ hashFiles('**\Cargo.toml') }}
+    - name: Build
+      run: |
+        export SHELL=/bin/bash
+        export CC=/usr/bin/clang
+        export CXX=/usr/bin/clang++
+        ccache -z
+        CCACHE=$(which ccache) cargo build --verbose
+        ccache -s
+    - name: Run tests
+      run: cargo test --verbose
+    - name: Format
+      run: |
+        cargo fmt --all -- --check
+    - name: Clippy check
+      uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
