@@ -117,6 +117,12 @@ pub struct Proxy {
     getters_setters: HashMap<String, (Box<ProxyGetter>, Box<ProxySetter>)>,
 }
 
+impl Default for quickjs_utils::reflection::Proxy {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Proxy {
     #[allow(dead_code)]
     pub fn new() -> Self {

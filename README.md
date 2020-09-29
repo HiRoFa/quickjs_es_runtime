@@ -25,11 +25,11 @@ This lib serves two main goals:
 * Wrap JSValue to provide reference counting (+1 on init, -1 on drop)
 * Pass a module loader
 
-## 2. Wrap quickjs for use from other threads
+## 2. Wrap quickjs for use as a ready to go JS Runtime
 * This is the ESRuntime struct, it provides an EventQueue which has a thread_local QuickJSRuntime
 * All values are copied or abstracted in an ESValueFacade
-* No need to worry about Garbage collection
-* Get promise result blocking
+* So no need to worry about Garbage collection
+* Get promise result blocking or async
 
 # What works?
 
@@ -57,6 +57,8 @@ This lib serves two main goals:
 * fetch api #2
 * EventTarget
 * WebAssembly
+* Macro / IFDef support
+* Pre processing (for e.g. typescript)
 
 # examples
 
