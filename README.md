@@ -35,30 +35,32 @@ This lib serves two main goals:
 
 ## Script
 
-* Eval script
-* Add functions from rust
+* Eval script ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.eval_sync))
+* Add functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.set_function))
 * Invoke JS functions from rust
-* Invoke rust functions form JS 
+* Invoke rust functions from JS 
 * Pass primitives, objects and arrays from and to rust
 * Create Classes from rust
 
 ## Modules
 
-* Eval modules
-* Load modules (dynamic and static)
-* Create promises which execute async in JS
+* Eval modules ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.eval_module_sync))
+* Load modules (dynamic and static) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntimebuilder/struct.EsRuntimeBuilder.html#method.module_script_loader))
+* Create promises which execute async in JS 
 * Pass Promises from and to rust
 * Resolve promises from rust
 
 ## Future / Todo
 
 * import native Modules (e.g. dynamic loading of rust functions)
-* setImmediate / setTimeout
-* fetch api
+* setImmediate / setTimeout #3, #4
+* fetch api #2
 * EventTarget
 * WebAssembly
 
 # examples
+
+see [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/index.html) for all inner working but here are some quickstarts:
 
 Cargo.toml
 
