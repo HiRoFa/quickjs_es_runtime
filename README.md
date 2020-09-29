@@ -37,10 +37,10 @@ This lib serves two main goals:
 
 * Eval script ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.eval_sync))
 * Add functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.set_function))
-* Invoke JS functions from rust
-* Invoke rust functions from JS 
-* Pass primitives, objects and arrays from and to rust
-* Create Classes from rust
+* Invoke JS functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/quickjs_utils/functions/index.html))
+* Invoke rust functions from JS ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/quickjs_utils/functions/fn.new_function.html))
+* Pass primitives, objects and arrays from and to rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/quickjs_utils/primitives/index.html]))
+* Create Classes from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/quickjs_utils/reflection/struct.Proxy.html))
 
 ## Modules
 
@@ -48,13 +48,13 @@ This lib serves two main goals:
 * Load modules (dynamic and static) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntimebuilder/struct.EsRuntimeBuilder.html#method.module_script_loader))
 * Create promises which execute async in JS 
 * Pass Promises from and to rust
-* Resolve promises from rust
+* Resolve promises from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/quickjs_utils/promises/fn.new_promise.html))
 
 ## Future / Todo
 
 * import native Modules (e.g. dynamic loading of rust functions)
-* setImmediate / setTimeout #3, #4
-* fetch api #2
+* setImmediate / setTimeout [#3](https://github.com/HiRoFa/quickjs_es_runtime/issues/3), [#4](https://github.com/HiRoFa/quickjs_es_runtime/issues/4)
+* fetch api [#2](https://github.com/HiRoFa/quickjs_es_runtime/issues/2)
 * EventTarget
 * WebAssembly
 * Macro / IFDef support
@@ -62,7 +62,7 @@ This lib serves two main goals:
 
 # examples
 
-see [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/index.html) for all inner working but here are some quickstarts:
+see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/index.html) for all inner working but here are some quickstarts:
 
 Cargo.toml
 
