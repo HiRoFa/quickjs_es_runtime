@@ -15,25 +15,48 @@ For some of my projects those are a big plus!
 A big thanks goes out to the people at https://github.com/theduke/quickjs-rs for making the bindings to quickjs!
 I learned a lot from their code and reused some of their concepts.
 
-# status
+# What is it?
 
-you can eval code, modules
+This lib serves two main goals:
 
-there are utils for
-* Editting objects
-* Create and call functions
-* Convert primitives
-* ClassBuilder (reflection)
-* Create Promises and add reactions to promises
-* Modules (static and dynamic imports)
-* Invoking callbacks from EsValueFacade
-* get promise result blocking
+## 1. Provide simple utils for working with quickjs (these are located in the quickjs_utils mod)
+* The QuickJSRuntime struct, this is to be used from a single thread 
+* E.g. objects::set_property(), functions::invoke_func()
+* Wrap JSValue to provide reference counting (+1 on init, -1 on drop)
+* Pass a module loader
 
-# next steps
-* add promise reactions
-* a lot more
+## 2. Wrap quickjs for use from other threads
+* This is the ESRuntime struct, it provides an EventQueue which has a thread_local QuickJSRuntime
+* All values are copied or abstracted in an ESValueFacade
+* No need to worry about Garbage collection
+* Get promise result blocking
 
-basicly getting it to the state where es_runtime is in
+# What works?
+
+## Script
+
+* Eval script
+* Add functions from rust
+* Invoke JS functions from rust
+* Invoke rust functions form JS 
+* Pass primitives, objects and arrays from and to rust
+* Create Classes from rust
+
+## Modules
+
+* Eval modules
+* Load modules (dynamic and static)
+* Create promises which execute async in JS
+* Pass Promises from and to rust
+* Resolve promises from rust
+
+## Future / Todo
+
+* import native Modules (e.g. dynamic loading of rust functions)
+* setImmediate / setTimeout
+* fetch api
+* EventTarget
+* WebAssembly
 
 # examples
 
