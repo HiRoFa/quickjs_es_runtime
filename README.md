@@ -37,8 +37,7 @@ This lib serves two main goals:
 
 * Eval script ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.eval_sync))
 * Add functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.set_function))
-* Invoke JS functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/quickjs_utils/functions/index.html))
-* Invoke rust functions from JS ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/quickjs_utils/functions/fn.new_function.html))
+* Invoke JS functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.call_function_sync))
 * Pass primitives, objects and arrays from and to rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/quickjs_utils/primitives/index.html]))
 * Create Classes from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/quickjs_utils/reflection/struct.Proxy.html))
 

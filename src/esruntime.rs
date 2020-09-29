@@ -261,6 +261,22 @@ impl EsRuntime {
         self.inner.add_to_event_queue_sync(consumer)
     }
 
+    /// this adds a rust function to JavaScript
+    /// # Example
+    /// ```rust
+    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_es_runtime::esscript::EsScript;
+    /// use quickjs_es_runtime::quickjs_utils::primitives;
+    /// use quickjs_es_runtime::esvalue::{EsValueFacade, EsValueConvertible};
+    /// let rt = EsRuntimeBuilder::new().build();
+    /// rt.set_function(vec!["com", "mycompany", "util"], "methodA", |args: Vec<EsValueFacade>|{
+    ///     let a = args[0].get_i32();
+    ///     let b = args[1].get_i32();
+    ///     Ok(a * b)
+    /// });
+    /// let res = rt.eval_sync(EsScript::new("test.es", "let a = com.mycompany.util.methodA(13, 17); a * 2;")).ok().expect("script failed");
+    /// assert_eq!(res.get_i32(), (13*17*2));
+    /// ```
     pub fn set_function<F, E>(
         &self,
         namespace: Vec<&'static str>,
