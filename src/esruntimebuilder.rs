@@ -18,7 +18,7 @@ pub struct EsRuntimeBuilder {
     pub(crate) opt_memory_limit_bytes: Option<u64>,
     pub(crate) opt_gc_threshold: Option<u64>,
     pub(crate) opt_max_stack_size: Option<u64>,
-    pub(crate) _gc_interval: Option<Duration>,
+    pub(crate) opt_gc_interval: Option<Duration>,
 }
 
 impl EsRuntimeBuilder {
@@ -34,7 +34,7 @@ impl EsRuntimeBuilder {
             opt_memory_limit_bytes: None,
             opt_gc_threshold: None,
             opt_max_stack_size: None,
-            _gc_interval: None,
+            opt_gc_interval: None,
         }
     }
 
@@ -78,6 +78,11 @@ impl EsRuntimeBuilder {
     /// set a max stack size
     pub fn max_stack_size(mut self, size: u64) -> Self {
         self.opt_max_stack_size = Some(size);
+        self
+    }
+
+    pub fn gc_interval(mut self, interval: Duration) -> Self {
+        self.opt_gc_interval = Some(interval);
         self
     }
 }

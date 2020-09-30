@@ -8,7 +8,7 @@ use crate::quickjsruntime::{QuickJsRuntime, QJS_RT};
 use hirofa_utils::single_threaded_event_queue::SingleThreadedEventQueue;
 use libquickjs_sys as q;
 use log::error;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 use hirofa_utils::task_manager::TaskManager;
 
@@ -82,6 +82,19 @@ impl EsRuntime {
         let res = ret.add_to_event_queue_sync(|q_js_rt| features::init(q_js_rt));
         if res.is_err() {
             panic!("could not init features: {}", res.err().unwrap());
+        }
+
+        if let Some(interval) = builder.opt_gc_interval {
+            let e_ref: Weak<EsRuntime> = Arc::downgrade(&ret);
+            std::thread::spawn(move || loop {
+                std::thread::sleep(interval);
+                if let Some(rt) = e_ref.upgrade() {
+                    log::trace!("running gc from gc interval thread");
+                    rt.gc_sync();
+                } else {
+                    break;
+                }
+            });
         }
 
         ret.inner.event_queue.exe_task(|| {
@@ -377,6 +390,7 @@ pub mod tests {
             .ok()
             .expect("could not init logger");
         EsRuntime::builder()
+            .gc_interval(Duration::from_secs(1))
             .module_script_loader(|_rel, name| {
                 if name.eq("invalid.mes") {
                     None
