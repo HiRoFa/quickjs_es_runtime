@@ -90,9 +90,19 @@ impl EsRuntime {
                 if builder.loader.is_some() {
                     q_js_rt.module_script_loader = Some(builder.loader.unwrap());
                 }
-                if let Some(limit) = builder.memory_limit_bytes {
+                if let Some(limit) = builder.opt_memory_limit_bytes {
                     unsafe {
                         q::JS_SetMemoryLimit(q_js_rt.runtime, limit as _);
+                    }
+                }
+                if let Some(threshold) = builder.opt_gc_threshold {
+                    unsafe {
+                        q::JS_SetGCThreshold(q_js_rt.runtime, threshold as _);
+                    }
+                }
+                if let Some(stack_size) = builder.opt_max_stack_size {
+                    unsafe {
+                        q::JS_SetMaxStackSize(q_js_rt.runtime, stack_size as _);
                     }
                 }
             })

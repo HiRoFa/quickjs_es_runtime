@@ -4,28 +4,37 @@ use crate::quickjsruntime::ModuleScriptLoader;
 use std::sync::Arc;
 use std::time::Duration;
 
-// todo
-// JS_SetMemoryLimit
-// JS_SetGCThreshold
-// JS_SetMaxStackSize
-
+/// the EsRuntimeBuilder is used to init an EsRuntime
+/// # Example
+/// ```rust
+/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// // init a rt which may use 16MB of memory
+/// let rt = EsRuntimeBuilder::new()
+/// .memory_limit(1024*1024*16)
+/// .build();
+/// ```
 pub struct EsRuntimeBuilder {
     pub(crate) loader: Option<Box<ModuleScriptLoader>>,
-    pub(crate) memory_limit_bytes: Option<usize>,
+    pub(crate) opt_memory_limit_bytes: Option<u64>,
+    pub(crate) opt_gc_threshold: Option<u64>,
+    pub(crate) opt_max_stack_size: Option<u64>,
     pub(crate) _gc_interval: Option<Duration>,
-    pub(crate) _helper_thread_count: Option<usize>,
 }
 
 impl EsRuntimeBuilder {
+    /// build an EsRuntime
     pub fn build(self) -> Arc<EsRuntime> {
         EsRuntime::new(self)
     }
+
+    /// init a new EsRuntimeBuilder
     pub fn new() -> Self {
         Self {
             loader: None,
-            memory_limit_bytes: None,
+            opt_memory_limit_bytes: None,
+            opt_gc_threshold: None,
+            opt_max_stack_size: None,
             _gc_interval: None,
-            _helper_thread_count: None,
         }
     }
 
@@ -54,9 +63,21 @@ impl EsRuntimeBuilder {
         self
     }
 
-    /// maximate the memory the runtime may use
-    pub fn memory_limit<M>(mut self, bytes: usize) -> Self {
-        self.memory_limit_bytes = Some(bytes);
+    /// set max memory the runtime may use
+    pub fn memory_limit(mut self, bytes: u64) -> Self {
+        self.opt_memory_limit_bytes = Some(bytes);
+        self
+    }
+
+    /// number of allocations before gc is run
+    pub fn gc_threshold(mut self, size: u64) -> Self {
+        self.opt_gc_threshold = Some(size);
+        self
+    }
+
+    /// set a max stack size
+    pub fn max_stack_size(mut self, size: u64) -> Self {
+        self.opt_max_stack_size = Some(size);
         self
     }
 }
