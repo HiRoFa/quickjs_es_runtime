@@ -76,7 +76,7 @@ pub fn new_promise(q_js_rt: &QuickJsRuntime) -> Result<PromiseRef, EsError> {
     assert!(functions::is_function(q_js_rt, &resolve_function_obj_ref));
     assert!(functions::is_function(q_js_rt, &reject_function_obj_ref));
 
-    let mut promise_obj_ref = JSValueRef::new_no_ref_ct_increment(prom_val);
+    let mut promise_obj_ref = JSValueRef::new(prom_val);
     promise_obj_ref.label("promise_obj_ref");
 
     assert_eq!(resolve_function_obj_ref.get_ref_count(), 1);

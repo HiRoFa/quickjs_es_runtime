@@ -31,7 +31,14 @@ impl Drop for JSValueRef {
                 let pref: &mut q::JSRefCountHeader = &mut *ptr;
 
                 if pref.ref_count <= 0 {
-                    log::trace!("dropping ref while refcount already 0, which is bad mmkay..");
+                    if let Some(label) = &self.label {
+                        panic!(
+                            "dropping ref while refcount already 0, which is bad mmkay.. {}",
+                            label
+                        );
+                    } else {
+                        panic!("dropping ref while refcount already 0, which is bad mmkay..");
+                    }
                 }
 
                 pref.ref_count -= 1;
