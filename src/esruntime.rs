@@ -6,6 +6,7 @@ use crate::features;
 use crate::quickjs_utils::{functions, objects};
 use crate::quickjsruntime::{QuickJsRuntime, QJS_RT};
 use hirofa_utils::single_threaded_event_queue::SingleThreadedEventQueue;
+use libquickjs_sys as q;
 use log::error;
 use std::sync::Arc;
 
@@ -88,6 +89,11 @@ impl EsRuntime {
                 let q_js_rt = &mut *qjs_rt_rc.borrow_mut();
                 if builder.loader.is_some() {
                     q_js_rt.module_script_loader = Some(builder.loader.unwrap());
+                }
+                if let Some(limit) = builder.memory_limit_bytes {
+                    unsafe {
+                        q::JS_SetMemoryLimit(q_js_rt.runtime, limit as _);
+                    }
                 }
             })
         });
