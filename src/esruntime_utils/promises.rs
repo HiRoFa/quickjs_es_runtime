@@ -73,7 +73,7 @@ where
 {
     // create promise
     let promise_ref = new_promise(q_js_rt)?;
-    let return_ref = promise_ref.get_promise_obj_ref().clone();
+    let return_ref = promise_ref.get_promise_obj_ref();
 
     // add to map and keep id
     let id = RESOLVING_PROMISES.with(|map_rc| {
