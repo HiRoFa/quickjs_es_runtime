@@ -9,6 +9,13 @@ use hirofa_utils::single_threaded_event_queue::SingleThreadedEventQueue;
 use log::error;
 use std::sync::Arc;
 
+use hirofa_utils::task_manager::TaskManager;
+
+lazy_static! {
+    /// a static Multithreaded taskmanager used to run rust ops async and multithreaded ( in at least 2 threads)
+    static ref HELPER_TASKS: Arc<TaskManager> = Arc::new(TaskManager::new(std::cmp::max(2, num_cpus::get())));
+}
+
 pub struct EsRuntimeInner {
     event_queue: Arc<SingleThreadedEventQueue>,
 }
@@ -323,7 +330,14 @@ impl EsRuntime {
         })
     }
 
-    pub fn add_helper_task() {}
+    /// add a task the the "helper" thread pool
+    pub fn add_helper_task<T>(task: T)
+    where
+        T: FnOnce() + Send + 'static,
+    {
+        log::trace!("adding a helper task");
+        HELPER_TASKS.add_task(task);
+    }
 }
 
 #[cfg(test)]

@@ -18,11 +18,11 @@ pub struct PromiseRef {
 }
 #[allow(dead_code)]
 impl PromiseRef {
-    fn get_promise_obj_ref(&self) -> JSValueRef {
+    pub fn get_promise_obj_ref(&self) -> JSValueRef {
         self.promise_obj_ref.clone()
     }
 
-    fn resolve(&self, q_js_rt: &QuickJsRuntime, value: JSValueRef) -> Result<(), EsError> {
+    pub fn resolve(&self, q_js_rt: &QuickJsRuntime, value: JSValueRef) -> Result<(), EsError> {
         log::trace!("PromiseRef.resolve()");
         crate::quickjs_utils::functions::call_function(
             q_js_rt,
@@ -37,7 +37,7 @@ impl PromiseRef {
 
         Ok(())
     }
-    fn reject(&self, q_js_rt: &QuickJsRuntime, value: JSValueRef) -> Result<(), EsError> {
+    pub fn reject(&self, q_js_rt: &QuickJsRuntime, value: JSValueRef) -> Result<(), EsError> {
         log::trace!("PromiseRef.reject()");
         crate::quickjs_utils::functions::call_function(
             q_js_rt,
@@ -55,6 +55,8 @@ impl PromiseRef {
 }
 
 #[allow(dead_code)]
+/// create a new Promise
+/// you can use this to respond asynchronously to method calls from JavaScript by returning a Promise
 pub fn new_promise(q_js_rt: &QuickJsRuntime) -> Result<PromiseRef, EsError> {
     log::trace!("promises::new_promise()");
 

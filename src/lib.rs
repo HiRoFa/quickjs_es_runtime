@@ -5,6 +5,7 @@ extern crate lazy_static;
 mod droppable_value;
 pub mod eserror;
 pub mod esruntime;
+pub mod esruntime_utils;
 pub mod esruntimebuilder;
 pub mod esscript;
 pub mod esvalue;

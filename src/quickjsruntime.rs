@@ -150,7 +150,7 @@ impl QuickJsRuntime {
         }
     }
 
-    pub(crate) fn do_with<C, R>(task: C) -> R
+    pub fn do_with<C, R>(task: C) -> R
     where
         C: FnOnce(&QuickJsRuntime) -> R,
     {
