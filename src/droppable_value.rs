@@ -1,5 +1,8 @@
 /// A small wrapper that frees resources that have to be freed
 /// automatically when they go out of scope.
+
+// todo i'm guesing i can replace this with a auto freeing AtomRef
+
 pub struct DroppableValue<T, F>
 where
     F: FnMut(&mut T),
