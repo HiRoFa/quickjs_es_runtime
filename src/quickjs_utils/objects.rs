@@ -199,8 +199,8 @@ pub fn get_property(
             c_prop_name.as_ptr(),
         )
     };
-    let prop_ref = JSValueRef::new_no_ref_ct_increment(prop_val);
-
+    let mut prop_ref = JSValueRef::new_no_ref_ct_increment(prop_val);
+    prop_ref.label(format!("object::get_property result: {}", prop_name).as_str());
     Ok(prop_ref)
 }
 

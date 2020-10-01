@@ -391,6 +391,7 @@ pub mod tests {
             .expect("could not init logger");
         EsRuntime::builder()
             .gc_interval(Duration::from_secs(1))
+            .max_stack_size(1024*16)
             .module_script_loader(|_rel, name| {
                 if name.eq("invalid.mes") {
                     None

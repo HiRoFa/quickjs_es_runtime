@@ -1,5 +1,5 @@
 use crate::eserror::EsError;
-use crate::quickjs_utils::{atoms, objects, primitives};
+use crate::quickjs_utils::{atoms, errors, objects, primitives};
 use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::valueref::JSValueRef;
 use hirofa_utils::auto_id_map::AutoIdMap;
@@ -467,8 +467,17 @@ unsafe extern "C" fn callback_function(
                 match callback_res {
                     Ok(res) => *res.borrow_value(),
                     Err(e) => {
-                        let err = format!("{}", e);
-                        q_js_rt.report_ex(err.as_str())
+                        let message =
+                            format!("\n{} at\nnative_code\n{}", e.get_message(), e.get_stack());
+                        let err = errors::new_error(
+                            q_js_rt,
+                            e.get_name(),
+                            message.as_str(),
+                            e.get_stack(),
+                        )
+                        .ok()
+                        .expect("could not create err");
+                        errors::throw(q_js_rt, err)
                     }
                 }
             })

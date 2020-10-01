@@ -2,7 +2,7 @@
 
 use crate::eserror::EsError;
 use crate::esscript::EsScript;
-use crate::quickjs_utils::{functions, gc, modules, objects, promises};
+use crate::quickjs_utils::{errors, functions, gc, modules, objects, promises};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
 use libquickjs_sys as q;
@@ -93,7 +93,7 @@ impl QuickJsRuntime {
         };
 
         // check for error
-        let mut ret = JSValueRef::new_no_ref_ct_increment(value_raw);
+        let mut ret = JSValueRef::new(value_raw);
         ret.label(format!("eval result of {}", script.get_path()).as_str());
         if ret.is_exception() {
             let ex_opt = self.get_exception();
@@ -128,7 +128,7 @@ impl QuickJsRuntime {
         };
 
         // check for error
-        let mut ret = JSValueRef::new_no_ref_ct_increment(value_raw);
+        let mut ret = JSValueRef::new(value_raw);
         ret.label(format!("eval_module result of {}", script.get_path()).as_str());
 
         log::trace!("evalled module yielded a {}", ret.borrow_value().tag);
@@ -170,33 +170,9 @@ impl QuickJsRuntime {
         }
     }
 
-    /// Get the last exception from the runtime, and if present, convert it to a ExceptionError.
+    /// Get the last exception from the runtime, and if present, convert it to a EsError.
     pub fn get_exception(&self) -> Option<EsError> {
-        let raw = unsafe { q::JS_GetException(self.context) };
-        let value = JSValueRef::new_no_ref_ct_increment(raw);
-
-        if value.is_null() {
-            None
-        } else {
-            let err = if value.is_exception() {
-                EsError::new_str("Could not get exception from runtime")
-            } else if value.is_object() {
-                // todo figure out how to get lineno/col/filename etc
-                match crate::quickjs_utils::functions::call_to_string(self, &value) {
-                    Ok(strval) => {
-                        if strval.contains("out of memory") {
-                            EsError::new_str("out of memory")
-                        } else {
-                            EsError::new_string(strval)
-                        }
-                    }
-                    Err(_) => EsError::new_str("Unknown exception2"),
-                }
-            } else {
-                EsError::new_str("no clue what happended")
-            };
-            Some(err)
-        }
+        errors::get_exception(self)
     }
 
     pub fn has_pending_jobs(&self) -> bool {

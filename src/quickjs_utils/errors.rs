@@ -1,10 +1,46 @@
 use crate::eserror::EsError;
 use crate::quickjs_utils::{objects, primitives};
 use crate::quickjsruntime::QuickJsRuntime;
-use crate::valueref::JSValueRef;
+use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use libquickjs_sys as q;
 
-pub fn new_error(q_js_rt: &QuickJsRuntime, message: &str) -> Result<JSValueRef, EsError> {
+/// Get the last exception from the runtime, and if present, convert it to a EsError.
+pub fn get_exception(q_js_rt: &QuickJsRuntime) -> Option<EsError> {
+    let raw = unsafe { q::JS_GetException(q_js_rt.context) };
+    let mut value = JSValueRef::new_no_ref_ct_increment(raw);
+    value.label("get_exception value obj");
+
+    if value.is_null() {
+        None
+    } else {
+        let err = if value.is_exception() {
+            EsError::new_str("Could not get exception from runtime")
+        } else if value.is_object() {
+            let name_ref = objects::get_property(q_js_rt, &value, "name").ok().unwrap();
+            let name_string = primitives::to_string(q_js_rt, &name_ref).ok().unwrap();
+            let message_ref = objects::get_property(q_js_rt, &value, "message")
+                .ok()
+                .unwrap();
+            let message_string = primitives::to_string(q_js_rt, &message_ref).ok().unwrap();
+            let stack_ref = objects::get_property(q_js_rt, &value, "stack")
+                .ok()
+                .unwrap();
+            let stack_string = primitives::to_string(q_js_rt, &stack_ref).ok().unwrap();
+
+            EsError::new(name_string, message_string, stack_string)
+        } else {
+            EsError::new_str("no clue what happened")
+        };
+        Some(err)
+    }
+}
+
+pub fn new_error(
+    q_js_rt: &QuickJsRuntime,
+    name: &str,
+    message: &str,
+    stack: &str,
+) -> Result<JSValueRef, EsError> {
     let obj = unsafe { q::JS_NewError(q_js_rt.context) };
     let obj_ref = JSValueRef::new(obj);
     objects::set_property(
@@ -12,6 +48,18 @@ pub fn new_error(q_js_rt: &QuickJsRuntime, message: &str) -> Result<JSValueRef, 
         &obj_ref,
         "message",
         &primitives::from_string(q_js_rt, message)?,
+    )?;
+    objects::set_property(
+        q_js_rt,
+        &obj_ref,
+        "name",
+        &primitives::from_string(q_js_rt, name)?,
+    )?;
+    objects::set_property(
+        q_js_rt,
+        &obj_ref,
+        "stack",
+        &primitives::from_string(q_js_rt, stack)?,
     )?;
     Ok(obj_ref)
 }
@@ -22,5 +70,76 @@ pub fn is_error(q_js_rt: &QuickJsRuntime, obj_ref: &JSValueRef) -> bool {
         res != 0
     } else {
         false
+    }
+}
+
+pub fn throw(q_js_rt: &QuickJsRuntime, error: JSValueRef) -> q::JSValue {
+    assert!(is_error(q_js_rt, &error));
+    unsafe { q::JS_Throw(q_js_rt.context, *error.borrow_value()) };
+    q::JSValue {
+        u: q::JSValueUnion { int32: 0 },
+        tag: TAG_EXCEPTION,
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::esruntime::EsRuntime;
+    use crate::esscript::EsScript;
+    use crate::quickjs_utils::functions;
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    #[test]
+    fn test_ex() {
+        // check if stacktrace is preserved when invoking native methods
+
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        rt.set_function(vec![], "test_consume", |args| {
+            // args[0] is a function i'll want to call
+            let func_esvf = &args[0];
+            func_esvf.invoke_function_sync(vec![])?;
+            Ok(0)
+        })
+        .ok()
+        .expect("could not set function");
+        let s_res = rt.eval_sync(EsScript::new(
+            "test_ex.es",
+            "let consumer = function() {\n
+        console.log('consuming');\n
+        throw Error('oh dear shit failed at line 3 in consumer');\n
+        };\n
+        console.log('calling consume from line 5');test_consume(consumer);\n
+        console.log('should never reach line 7')",
+        ));
+        if s_res.is_err() {
+            log::info!("script failed: {}", s_res.err().unwrap());
+        }
+        std::thread::sleep(Duration::from_secs(1));
+    }
+
+    #[test]
+    fn test_ex2() {
+        // check if stacktrace is preserved when invoking native methods
+
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            let func_ref = q_js_rt
+                .eval(EsScript::new(
+                    "test_ex2.es",
+                    "(function(){\nconsole.log('running f');\nthrow Error('poof');\n});",
+                ))
+                .ok()
+                .expect("script failed");
+            let res = functions::call_function(q_js_rt, &func_ref, &vec![], None);
+            match res {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("func failed: {}", e);
+                }
+            }
+        });
+
+        std::thread::sleep(Duration::from_secs(1));
     }
 }

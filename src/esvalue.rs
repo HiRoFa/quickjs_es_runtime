@@ -331,7 +331,10 @@ impl EsValueConvertible for CachedJSFunction {
                     );
                     match res {
                         Ok(r) => EsValueFacade::from_jsval(q_js_rt, &r, &rt_arc2),
-                        Err(e) => Err(e),
+                        Err(e) => {
+                            log::error!("invoke_func_sync failed: {}", e);
+                            Err(e)
+                        }
                     }
                 })
             })
