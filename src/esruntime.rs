@@ -1,7 +1,7 @@
 use crate::eserror::EsError;
 use crate::esruntimebuilder::EsRuntimeBuilder;
 use crate::esscript::EsScript;
-use crate::esvalue::{EsValueConvertible, EsValueFacade};
+use crate::esvalue::EsValueFacade;
 use crate::features;
 use crate::quickjs_utils::{functions, objects};
 use crate::quickjsruntime::{QuickJsRuntime, QJS_RT};
@@ -308,20 +308,19 @@ impl EsRuntime {
     /// rt.set_function(vec!["com", "mycompany", "util"], "methodA", |args: Vec<EsValueFacade>|{
     ///     let a = args[0].get_i32();
     ///     let b = args[1].get_i32();
-    ///     Ok(a * b)
+    ///     Ok((a * b).to_es_value_facade())
     /// });
     /// let res = rt.eval_sync(EsScript::new("test.es", "let a = com.mycompany.util.methodA(13, 17); a * 2;")).ok().expect("script failed");
     /// assert_eq!(res.get_i32(), (13*17*2));
     /// ```
-    pub fn set_function<F, E>(
+    pub fn set_function<F>(
         &self,
         namespace: Vec<&'static str>,
         name: &str,
         function: F,
     ) -> Result<(), EsError>
     where
-        F: Fn(Vec<EsValueFacade>) -> Result<E, EsError> + Send + 'static,
-        E: EsValueConvertible + Send + 'static,
+        F: Fn(Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> + Send + 'static,
     {
         let rti_ref = self.inner.clone();
         let name = name.to_string();
@@ -345,7 +344,7 @@ impl EsRuntime {
                         let res = function(args_facades);
 
                         match res {
-                            Ok(val_ref) => val_ref.to_es_value_facade().to_js_value(q_js_rt),
+                            Ok(val_esvf) => val_esvf.to_js_value(q_js_rt),
                             Err(e) => Err(e),
                         }
                     })
@@ -374,7 +373,7 @@ pub mod tests {
     use crate::eserror::EsError;
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
-    use crate::esvalue::EsValueFacade;
+    use crate::esvalue::{EsValueConvertible, EsValueFacade};
     use ::log::debug;
     use log::LevelFilter;
     use std::sync::Arc;
@@ -413,7 +412,7 @@ pub mod tests {
             } else {
                 let a = args.get(0).unwrap().get_i32();
                 let b = args.get(1).unwrap().get_i32();
-                Ok(a * b)
+                Ok((a * b).to_es_value_facade())
             }
         });
 

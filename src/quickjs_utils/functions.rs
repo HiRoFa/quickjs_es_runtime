@@ -138,6 +138,38 @@ pub fn is_constructor(q_js_rt: &QuickJsRuntime, obj_ref: &JSValueRef) -> bool {
     }
 }
 
+pub fn call_constructor(
+    q_js_rt: &QuickJsRuntime,
+    constructor_ref: &JSValueRef,
+    arguments: &[JSValueRef],
+) -> Result<JSValueRef, EsError> {
+    //extern "C" {
+    //     pub fn JS_CallConstructor(
+    //         ctx: *mut JSContext,
+    //         func_obj: JSValue,
+    //         argc: ::std::os::raw::c_int,
+    //         argv: *mut JSValue,
+    //     ) -> JSValue;
+    // }
+
+    let arg_count = arguments.len() as i32;
+
+    let mut qargs = arguments
+        .iter()
+        .map(|arg| *arg.borrow_value())
+        .collect::<Vec<_>>();
+
+    let ret_val = unsafe {
+        q::JS_CallConstructor(
+            q_js_rt.context,
+            *constructor_ref.borrow_value(),
+            arg_count,
+            qargs.as_mut_ptr(),
+        )
+    };
+    Ok(JSValueRef::new_no_ref_ct_increment(ret_val))
+}
+
 #[allow(dead_code)]
 pub fn new_native_function(
     q_js_rt: &QuickJsRuntime,

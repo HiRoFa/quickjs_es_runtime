@@ -1,6 +1,6 @@
 use crate::droppable_value::DroppableValue;
 use crate::eserror::EsError;
-use crate::quickjs_utils::{atoms, functions, get_global};
+use crate::quickjs_utils::{atoms, functions, get_constructor, get_global};
 use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
@@ -350,9 +350,7 @@ pub fn is_instance_of_by_name(
         return Ok(false);
     }
 
-    let global_ref = get_global(q_js_rt);
-
-    let constructor_ref = get_property(q_js_rt, &global_ref, constructor_name)?;
+    let constructor_ref = get_constructor(q_js_rt, constructor_name)?;
     if !constructor_ref.is_object() {
         return Ok(false);
     }

@@ -100,7 +100,7 @@ pub mod tests {
             // args[0] is a function i'll want to call
             let func_esvf = &args[0];
             func_esvf.invoke_function_sync(vec![12.to_es_value_facade()])?;
-            Ok(0)
+            Ok(0.to_es_value_facade())
         })
         .ok()
         .expect("could not set function");

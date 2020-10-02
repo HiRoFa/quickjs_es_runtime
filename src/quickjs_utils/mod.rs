@@ -3,6 +3,7 @@ use crate::quickjsruntime::QuickJsRuntime;
 pub mod arrays;
 pub mod atoms;
 pub mod bigints;
+pub mod dates;
 pub mod errors;
 pub mod functions;
 pub mod modules;
@@ -11,6 +12,9 @@ pub mod primitives;
 pub mod promises;
 pub mod reflection;
 pub mod typedarrays;
+
+use crate::eserror::EsError;
+use crate::quickjs_utils::objects::get_property;
 use crate::valueref::{JSValueRef, TAG_NULL, TAG_UNDEFINED};
 use libquickjs_sys as q;
 
@@ -48,4 +52,15 @@ pub fn get_global(q_js_rt: &QuickJsRuntime) -> JSValueRef {
     let mut global_ref = JSValueRef::new_no_ref_ct_increment(global);
     global_ref.label("global");
     global_ref
+}
+
+pub fn get_constructor(
+    q_js_rt: &QuickJsRuntime,
+    constructor_name: &str,
+) -> Result<JSValueRef, EsError> {
+    let global_ref = get_global(q_js_rt);
+
+    let constructor_ref = get_property(q_js_rt, &global_ref, constructor_name)?;
+
+    Ok(constructor_ref)
 }
