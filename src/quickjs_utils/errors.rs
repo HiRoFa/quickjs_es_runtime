@@ -86,7 +86,8 @@ pub fn throw(q_js_rt: &QuickJsRuntime, error: JSValueRef) -> q::JSValue {
 pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
-    use crate::quickjs_utils::functions;
+    use crate::esvalue::EsValueConvertible;
+    use crate::quickjs_utils::{functions, primitives};
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -98,7 +99,7 @@ pub mod tests {
         rt.set_function(vec![], "test_consume", |args| {
             // args[0] is a function i'll want to call
             let func_esvf = &args[0];
-            func_esvf.invoke_function_sync(vec![])?;
+            func_esvf.invoke_function_sync(vec![12.to_es_value_facade()])?;
             Ok(0)
         })
         .ok()
@@ -127,11 +128,13 @@ pub mod tests {
             let func_ref = q_js_rt
                 .eval(EsScript::new(
                     "test_ex2.es",
-                    "(function(){\nconsole.log('running f');\nthrow Error('poof');\n});",
+                    "(function t(){\nconsole.log('running f');\nthrow Error('poof');\n});",
                 ))
                 .ok()
                 .expect("script failed");
-            let res = functions::call_function(q_js_rt, &func_ref, &vec![], None);
+            assert!(functions::is_function(q_js_rt, &func_ref));
+            let res =
+                functions::call_function(q_js_rt, &func_ref, &vec![primitives::from_i32(12)], None);
             match res {
                 Ok(_) => {}
                 Err(e) => {

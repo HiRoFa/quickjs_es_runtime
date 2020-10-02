@@ -42,7 +42,8 @@ pub fn call_function(
         )
     };
 
-    let res_ref = JSValueRef::new_no_ref_ct_increment(res);
+    let mut res_ref = JSValueRef::new_no_ref_ct_increment(res);
+    res_ref.label("functions::call_function res");
 
     if res_ref.is_exception() {
         if let Some(ex) = q_js_rt.get_exception() {
@@ -92,7 +93,11 @@ pub fn invoke_member_function(
             qargs.as_mut_ptr(),
         )
     };
-    Ok(JSValueRef::new_no_ref_ct_increment(res_val))
+
+    let mut res_ref = JSValueRef::new_no_ref_ct_increment(res_val);
+    res_ref.label(format!("functions::invoke_member_function res: {}", function_name).as_str());
+
+    Ok(res_ref)
 }
 
 pub fn call_to_string(q_js_rt: &QuickJsRuntime, obj_ref: &JSValueRef) -> Result<String, EsError> {
@@ -329,6 +334,8 @@ pub mod tests {
             .ok()
             .expect("func failed");
 
+            q_js_rt.gc();
+
             assert!(res.is_i32());
             assert_eq!(primitives::to_i32(&res).ok().expect("wtf?"), (12 * 14));
         });
@@ -377,6 +384,8 @@ pub mod tests {
                 panic!("test_call failed: {}");
             }
             let res_val = res.ok().unwrap();
+
+            q_js_rt.gc();
 
             assert!(res_val.is_i32());
 

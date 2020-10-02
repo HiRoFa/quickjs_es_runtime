@@ -2,7 +2,7 @@ use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions::new_native_function;
 use crate::quickjs_utils::primitives::from_string;
-use crate::quickjs_utils::{atoms, functions, get_global, objects, primitives};
+use crate::quickjs_utils::{atoms, errors, functions, get_global, objects, primitives};
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
@@ -500,7 +500,7 @@ pub mod tests {
         assert!(i6_res.is_err());
         let e = i6_res.err().unwrap();
         let e_msg = e.get_message();
-        assert_eq!(e_msg, "InternalError: proxy_instance_method failed: aaargh");
+        assert_eq!(e_msg, "proxy_instance_method failed: aaargh");
 
         std::thread::sleep(Duration::from_secs(1));
 
@@ -814,8 +814,12 @@ unsafe extern "C" fn proxy_instance_method(
                 match m_res {
                     Ok(m_res_ref) => m_res_ref.clone_value_up_rc(),
                     Err(e) => {
-                        let err = format!("proxy_instance_method failed: {}", e);
-                        q_js_rt.report_ex(err.as_str())
+                        let msg = format!("proxy_instance_method failed: {}", e.get_message());
+                        let err =
+                            errors::new_error(q_js_rt, e.get_name(), msg.as_str(), e.get_stack())
+                                .ok()
+                                .expect("create error failed");
+                        errors::throw(q_js_rt, err)
                     }
                 }
             } else {
