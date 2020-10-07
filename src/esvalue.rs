@@ -1,6 +1,6 @@
 use crate::eserror::EsError;
 use crate::esruntime::{EsRuntime, EsRuntimeInner};
-use crate::quickjs_utils::{arrays, functions, new_null_ref, promises};
+use crate::quickjs_utils::{arrays, dates, functions, new_null_ref, promises};
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::*;
 use std::collections::HashMap;
@@ -556,82 +556,14 @@ impl EsValueFacade {
                         es_rt_inner: Arc::downgrade(rti_ref),
                     };
                     Ok(cached_func.to_es_value_facade())
+                } else if dates::is_date(q_js_rt, value_ref)? {
+                    Err(EsError::new_str("dates are currently not supported"))
                 } else {
-                    #[cfg(feature = "chrono")]
-                    {
-                        use chrono::offset::TimeZone;
-
-                        let date_constructor = js_date_constructor(context);
-                        let is_date = unsafe {
-                            q::JS_IsInstanceOf(q_js_rt.context, *r, date_constructor) > 0
-                        };
-
-                        if is_date {
-                            let getter = unsafe {
-                                q::JS_GetPropertyStr(
-                                    q_js_rt.context,
-                                    *r,
-                                    std::ffi::CStr::from_bytes_with_nul(b"getTime\0")
-                                        .unwrap()
-                                        .as_ptr(),
-                                )
-                            };
-                            assert_eq!(getter.tag, TAG_OBJECT);
-
-                            let timestamp_raw =
-                                unsafe { q::JS_Call(context, getter, *r, 0, std::ptr::null_mut()) };
-                            unsafe {
-                                free_value(q_js_rt.context, getter);
-                                free_value(q_js_rt.context, date_constructor);
-                            };
-
-                            let res = if timestamp_raw.tag != TAG_FLOAT64 {
-                                Err(ValueError::Internal(
-                                    "Could not convert 'Date' instance to timestamp".into(),
-                                ))
-                            } else {
-                                let f = unsafe { timestamp_raw.u.float64 } as i64;
-                                let datetime = chrono::Utc.timestamp_millis(f);
-                                Ok(JsValue::Date(datetime))
-                            };
-                            return res;
-                        } else {
-                            unsafe { free_value(q_js_rt.context, date_constructor) };
-                        }
-                    }
-
                     Self::from_jsval_object(q_js_rt, value_ref, rti_ref)
                 }
             }
             // BigInt
-            #[cfg(feature = "bigint")]
-            TAG_BIG_INT => {
-                let mut int: i64 = 0;
-                let ret = unsafe { q::JS_ToBigInt64(context, &mut int, *r) };
-                if ret == 0 {
-                    Ok(JsValue::BigInt(BigInt {
-                        inner: BigIntOrI64::Int(int),
-                    }))
-                } else {
-                    let ptr = unsafe { q::JS_ToCStringLen2(context, std::ptr::null_mut(), *r, 0) };
-
-                    if ptr.is_null() {
-                        return Err(ValueError::Internal(
-                            "Could not convert BigInt to string: got a null pointer".into(),
-                        ));
-                    }
-
-                    let cstr = unsafe { std::ffi::CStr::from_ptr(ptr) };
-                    let bigint = num_bigint::BigInt::parse_bytes(cstr.to_bytes(), 10).unwrap();
-
-                    // Free the c string.
-                    unsafe { q::JS_FreeCString(context, ptr) };
-
-                    Ok(JsValue::BigInt(BigInt {
-                        inner: BigIntOrI64::BigInt(bigint),
-                    }))
-                }
-            }
+            TAG_BIG_INT => Err(EsError::new_str("BigInts are currently not supported")),
             x => Err(EsError::new_string(format!(
                 "Unhandled JS_TAG value: {}",
                 x
