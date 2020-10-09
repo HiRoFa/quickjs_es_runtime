@@ -327,7 +327,7 @@ impl EsValueConvertible for CachedJSFunction {
                     }
 
                     let res = crate::quickjs_utils::functions::call_function(
-                        q_js_rt, obj_ref, &ref_args, None,
+                        q_js_rt, obj_ref, ref_args, None,
                     );
                     match res {
                         Ok(r) => EsValueFacade::from_jsval(q_js_rt, &r, &rt_arc2),
@@ -358,7 +358,7 @@ impl EsValueConvertible for CachedJSFunction {
                     }
 
                     let res = crate::quickjs_utils::functions::call_function(
-                        q_js_rt, obj_ref, &ref_args, None,
+                        q_js_rt, obj_ref, ref_args, None,
                     );
                     match res {
                         Ok(_) => {
@@ -479,7 +479,7 @@ impl EsValueConvertible for HashMap<String, EsValueFacade> {
                 q_js_rt,
                 &obj_ref,
                 prop_name.as_str(),
-                &property_value_ref,
+                property_value_ref,
             )?;
         }
 
@@ -509,6 +509,8 @@ impl EsValueFacade {
         value_ref: &JSValueRef,
         rti_ref: &Arc<EsRuntimeInner>,
     ) -> Result<Self, EsError> {
+        log::trace!("EsValueFacade::from_jsval: tag:{}", value_ref.get_tag());
+
         let r = value_ref.borrow_value();
 
         match r.tag {

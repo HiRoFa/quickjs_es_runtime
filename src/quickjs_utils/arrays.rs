@@ -65,14 +65,14 @@ pub fn get_length(q_js_rt: &QuickJsRuntime, arr_ref: &JSValueRef) -> Result<u32,
 ///     arrays::set_element(q_js_rt, &arr_ref, 0, val0);
 ///     arrays::set_element(q_js_rt, &arr_ref, 1, val1);
 ///     // call the function
-///     let result_ref = functions::invoke_member_function(q_js_rt, &quickjs_utils::get_global(q_js_rt), "create_array_func", &vec![arr_ref]).ok().expect("could not invoke function");
+///     let result_ref = functions::invoke_member_function(q_js_rt, &quickjs_utils::get_global(q_js_rt), "create_array_func", vec![arr_ref]).ok().expect("could not invoke function");
 ///     let len = primitives::to_i32(&result_ref).ok().unwrap();
 ///     assert_eq!(len, 2);
 /// });
 /// ```
 pub fn create_array(q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
     let arr = unsafe { q::JS_NewArray(q_js_rt.context) };
-    let arr_ref = JSValueRef::new_no_ref_ct_increment(arr);
+    let arr_ref = JSValueRef::new_no_ref_ct_increment(arr, "create_array");
     if arr_ref.is_exception() {
         return Err(EsError::new_str("Could not create array in runtime"));
     }
@@ -112,7 +112,7 @@ pub fn set_element(
             q_js_rt.context,
             *array_ref.borrow_value(),
             index,
-            *entry_value_ref.borrow_value(),
+            entry_value_ref.consume_value_no_decr_rc(),
             q::JS_PROP_C_W_E as i32,
         )
     };
@@ -148,7 +148,8 @@ pub fn get_element(
 ) -> Result<JSValueRef, EsError> {
     let value_raw =
         unsafe { q::JS_GetPropertyUint32(q_js_rt.context, *array_ref.borrow_value(), index) };
-    let ret = JSValueRef::new_no_ref_ct_increment(value_raw);
+    let ret =
+        JSValueRef::new_no_ref_ct_increment(value_raw, format!("get_element[{}]", index).as_str());
     if ret.is_exception() {
         return Err(EsError::new_str("Could not build array"));
     }
@@ -158,7 +159,8 @@ pub fn get_element(
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::EsRuntime;
-    use crate::quickjs_utils::arrays::create_array;
+    use crate::quickjs_utils::arrays::{create_array, get_element, set_element};
+    use crate::quickjs_utils::objects;
     use std::sync::Arc;
 
     #[test]
@@ -167,6 +169,16 @@ pub mod tests {
         rt.add_to_event_queue_sync(|q_js_rt| {
             let arr = create_array(q_js_rt).ok().unwrap();
             assert_eq!(arr.get_ref_count(), 1);
+
+            let a = objects::create_object(q_js_rt).ok().unwrap();
+            assert_eq!(1, a.get_ref_count());
+
+            set_element(q_js_rt, &arr, 0, a.clone()).ok().unwrap();
+            assert_eq!(2, a.get_ref_count());
+
+            let a2 = get_element(q_js_rt, &arr, 0).ok().unwrap();
+            assert_eq!(3, a.get_ref_count());
+            assert_eq!(3, a2.get_ref_count());
         });
     }
 }

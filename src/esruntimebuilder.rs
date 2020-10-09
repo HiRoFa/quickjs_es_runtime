@@ -1,5 +1,8 @@
-use crate::esruntime::EsRuntime;
+use crate::esruntime::{EsRuntime, FetchResponseProvider};
 use crate::esscript::EsScript;
+use crate::features::fetch::request::FetchRequest;
+
+use crate::features::fetch::FetchResponse;
 use crate::quickjsruntime::ModuleScriptLoader;
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,7 +17,8 @@ use std::time::Duration;
 /// .build();
 /// ```
 pub struct EsRuntimeBuilder {
-    pub(crate) loader: Option<Box<ModuleScriptLoader>>,
+    pub(crate) opt_module_script_loader: Option<Box<ModuleScriptLoader>>,
+    pub(crate) opt_fetch_response_provider: Option<Box<FetchResponseProvider>>,
     pub(crate) opt_memory_limit_bytes: Option<u64>,
     pub(crate) opt_gc_threshold: Option<u64>,
     pub(crate) opt_max_stack_size: Option<u64>,
@@ -30,7 +34,8 @@ impl EsRuntimeBuilder {
     /// init a new EsRuntimeBuilder
     pub fn new() -> Self {
         Self {
-            loader: None,
+            opt_module_script_loader: None,
+            opt_fetch_response_provider: None,
             opt_memory_limit_bytes: None,
             opt_gc_threshold: None,
             opt_max_stack_size: None,
@@ -59,7 +64,15 @@ impl EsRuntimeBuilder {
     where
         M: Fn(&str, &str) -> Option<EsScript> + Send + Sync + 'static,
     {
-        self.loader = Some(Box::new(loader));
+        self.opt_module_script_loader = Some(Box::new(loader));
+        self
+    }
+
+    pub fn fetch_response_provider<P>(mut self, provider: P) -> Self
+    where
+        P: Fn(&FetchRequest) -> Box<dyn FetchResponse + Send> + Send + Sync + 'static,
+    {
+        self.opt_fetch_response_provider = Some(Box::new(provider));
         self
     }
 

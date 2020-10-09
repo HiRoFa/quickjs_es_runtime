@@ -8,7 +8,7 @@ use libquickjs_sys as q;
 #[allow(dead_code)]
 pub fn new_bigint_i64(q_js_rt: &QuickJsRuntime, int: i64) -> Result<JSValueRef, EsError> {
     let res_val = unsafe { q::JS_NewBigInt64(q_js_rt.context, int) };
-    let ret = JSValueRef::new_no_ref_ct_increment(res_val);
+    let ret = JSValueRef::new_no_ref_ct_increment(res_val, "new_bigint_i64");
     assert_eq!(ret.get_ref_count(), 1);
     Ok(ret)
 }
@@ -16,7 +16,7 @@ pub fn new_bigint_i64(q_js_rt: &QuickJsRuntime, int: i64) -> Result<JSValueRef, 
 #[allow(dead_code)]
 pub fn new_bigint_u64(q_js_rt: &QuickJsRuntime, int: u64) -> Result<JSValueRef, EsError> {
     let res_val = unsafe { q::JS_NewBigUint64(q_js_rt.context, int) };
-    let ret = JSValueRef::new_no_ref_ct_increment(res_val);
+    let ret = JSValueRef::new_no_ref_ct_increment(res_val, "new_bigint_u64");
     assert_eq!(ret.get_ref_count(), 1);
     Ok(ret)
 }
@@ -25,7 +25,8 @@ pub fn new_bigint_u64(q_js_rt: &QuickJsRuntime, int: u64) -> Result<JSValueRef, 
 pub fn new_bigint_str(q_js_rt: &QuickJsRuntime, input_str: &str) -> Result<JSValueRef, EsError> {
     let global_ref = quickjs_utils::get_global(q_js_rt);
     let str_ref = primitives::from_string(q_js_rt, input_str)?;
-    let bigint_ref = functions::invoke_member_function(q_js_rt, &global_ref, "BigInt", &[str_ref])?;
+    let bigint_ref =
+        functions::invoke_member_function(q_js_rt, &global_ref, "BigInt", vec![str_ref])?;
     let ret = bigint_ref;
     assert_eq!(ret.get_ref_count(), 1);
     Ok(ret)

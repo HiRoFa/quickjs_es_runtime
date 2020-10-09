@@ -242,7 +242,8 @@ impl Proxy {
         let class_val: q::JSValue =
             unsafe { q::JS_NewObjectClass(q_js_rt.context, static_class_id as i32) };
 
-        let class_val_ref = JSValueRef::new_no_ref_ct_increment(class_val);
+        let class_val_ref =
+            JSValueRef::new(class_val, "reflection::Proxy::install_class_prop class_val");
 
         if class_val_ref.is_exception() {
             return if let Some(e) = q_js_rt.get_exception() {
@@ -259,7 +260,7 @@ impl Proxy {
             let _res = q::JS_SetPrototype(
                 q_js_rt.context,
                 *constructor_ref.borrow_value(),
-                *class_val_ref.borrow_value(),
+                class_val_ref.consume_value_no_decr_rc(),
             );
             /*if res != 0 {
                 return if let Some(err) = q_js_rt.get_exception() {
@@ -276,7 +277,7 @@ impl Proxy {
             q_js_rt,
             &constructor_ref,
             "name",
-            &primitives::from_string(q_js_rt, self.get_class_name())?,
+            primitives::from_string(q_js_rt, self.get_class_name())?,
             0,
         )?;
 
@@ -285,7 +286,7 @@ impl Proxy {
             q_js_rt,
             &global_ref,
             self.name.as_ref().unwrap().as_str(),
-            &constructor_ref,
+            constructor_ref,
             0,
         )?;
 
@@ -300,102 +301,20 @@ pub mod tests {
     use crate::eserror::EsError;
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
+    use crate::esvalue::EsValueFacade;
     use crate::quickjs_utils::reflection::Proxy;
     use crate::quickjs_utils::{functions, primitives};
     use crate::quickjsruntime::QuickJsRuntime;
+    use hirofa_utils::auto_id_map::AutoIdMap;
     use log::trace;
+    use std::borrow::BorrowMut;
+    use std::cell::RefCell;
     use std::sync::Arc;
     use std::time::Duration;
 
-    /*
-
-    JSClassExoticMethods {
-        pub get_own_property: ::std::option::Option<
-            unsafe extern "C" fn(
-                ctx: *mut JSContext,
-                desc: *mut JSPropertyDescriptor,
-                obj: JSValue,
-                prop: JSAtom,
-            ) -> ::std::os::raw::c_int,
-        >,
-        pub get_own_property_names: ::std::option::Option<
-            unsafe extern "C" fn(
-                ctx: *mut JSContext,
-                ptab: *mut *mut JSPropertyEnum,
-                plen: *mut u32,
-                obj: JSValue,
-            ) -> ::std::os::raw::c_int,
-        >,
-        pub delete_property: ::std::option::Option<
-            unsafe extern "C" fn(
-                ctx: *mut JSContext,
-                obj: JSValue,
-                prop: JSAtom,
-            ) -> ::std::os::raw::c_int,
-        >,
-        pub define_own_property: ::std::option::Option<
-            unsafe extern "C" fn(
-                ctx: *mut JSContext,
-                this_obj: JSValue,
-                prop: JSAtom,
-                val: JSValue,
-                getter: JSValue,
-                setter: JSValue,
-                flags: ::std::os::raw::c_int,
-            ) -> ::std::os::raw::c_int,
-        >,
-        pub has_property: ::std::option::Option<
-            unsafe extern "C" fn(
-                ctx: *mut JSContext,
-                obj: JSValue,
-                atom: JSAtom,
-            ) -> ::std::os::raw::c_int,
-        >,
-        pub get_property: ::std::option::Option<
-            unsafe extern "C" fn(
-                ctx: *mut JSContext,
-                obj: JSValue,
-                atom: JSAtom,
-                receiver: JSValue,
-            ) -> JSValue,
-        >,
-        pub set_property: ::std::option::Option<
-            unsafe extern "C" fn(
-                ctx: *mut JSContext,
-                obj: JSValue,
-                atom: JSAtom,
-                value: JSValue,
-                receiver: JSValue,
-                flags: ::std::os::raw::c_int,
-            ) -> ::std::os::raw::c_int,
-        >,
-
-            pub type JSClassFinalizer =
-            ::std::option::Option<unsafe extern "C" fn(rt: *mut JSRuntime, val: JSValue)>;
-        pub type JSClassGCMark = ::std::option::Option<
-            unsafe extern "C" fn(rt: *mut JSRuntime, val: JSValue, mark_func: JS_MarkFunc),
-        >;
-        pub type JSClassCall = ::std::option::Option<
-            unsafe extern "C" fn(
-                ctx: *mut JSContext,
-                func_obj: JSValue,
-                this_val: JSValue,
-                argc: ::std::os::raw::c_int,
-                argv: *mut JSValue,
-                flags: ::std::os::raw::c_int,
-            ) -> JSValue,
-        >;
-        #[repr(C)]
-        #[derive(Debug, Copy, Clone)]
-        pub struct JSClassDef {
-            pub class_name: *const ::std::os::raw::c_char,
-            pub finalizer: JSClassFinalizer,
-            pub gc_mark: JSClassGCMark,
-            pub call: JSClassCall,
-            pub exotic: *mut JSClassExoticMethods,
-        }
-
-             */
+    thread_local! {
+        static TEST_INSTANCES: RefCell<AutoIdMap<String>> = RefCell::new(AutoIdMap::new())
+    }
 
     #[test]
     pub fn test_proxy() {
@@ -405,7 +324,13 @@ pub mod tests {
         rt.add_to_event_queue_sync(|q_js_rt| {
             let res = Proxy::new()
                 .name("TestClass1")
-                .constructor(|_args| Ok(123))
+                .constructor(|_args| {
+                    let id = TEST_INSTANCES.with(|rc| {
+                        let map = &mut *rc.borrow_mut();
+                        map.insert("hi".to_string())
+                    });
+                    Ok(id)
+                })
                 .method("doIt", |_obj_id, _args| Ok(primitives::from_i32(531)))
                 .method("doIt2", |_obj_id, _args| Err(EsError::new_str("aaargh")))
                 .getter_setter(
@@ -431,7 +356,13 @@ pub mod tests {
                         })
                     },
                 )
-                .finalizer(|id| log::trace!("run finalizer: {}", id))
+                .finalizer(|id| {
+                    TEST_INSTANCES.with(|rc| {
+                        let map = &mut *rc.borrow_mut();
+                        let _ = map.remove(&id);
+                    });
+                    log::trace!("ran finalizer: {}", id);
+                })
                 .install(q_js_rt);
 
             match res {
@@ -440,19 +371,25 @@ pub mod tests {
             }
         });
 
-        let i2 = rt.eval_sync(EsScript::new(
+        let i2_res = rt.eval_sync(EsScript::new(
             "test_proxy.es",
-            "let tc2 = new TestClass1(1, true, 'abc'); let r2 = tc2.doIt(1, true, 'abc'); tc2 = null; r2;"
+            "let tc2 = new TestClass1(1, true, 'abc'); let r2 = tc2.doIt(1, true, 'abc'); console.log('< setting tc2 to null'); tc2 = null; console.log('> setting tc2 to null'); r2;"
                 ,
-        ))
-        .ok()
-        .expect("script failed");
-
-        assert!(i2.is_i32());
-        assert_eq!(i2.get_i32(), 531);
+        ));
+        log::debug!("test_proxy.es done, ok = {}", i2_res.is_ok());
+        match i2_res {
+            Ok(i2) => {
+                assert!(i2.is_i32());
+                assert_eq!(i2.get_i32(), 531);
+            }
+            Err(e) => {
+                log::error!("test_proxy.es failed with: {}", e);
+                panic!("test_proxy.es failed");
+            }
+        }
 
         let i = rt.eval_sync(EsScript::new(
-            "test_proxy.es",
+            "test_proxy2.es",
             "let tc1 = new TestClass1(1, true, 'abc'); let r = tc1.doIt(1, true, 'abc'); r = tc1.doIt(1, true, 'abc'); tc1 = null; r;"
         ))
             .ok()
@@ -502,15 +439,83 @@ pub mod tests {
         let e_msg = e.get_message();
         assert_eq!(e_msg, "proxy_instance_method failed: aaargh");
 
+        rt.gc_sync();
+
         std::thread::sleep(Duration::from_secs(1));
 
         log::info!("< test_proxy");
     }
 }
 
+pub fn new_instance2(
+    proxy: &Proxy,
+    instance_id: usize,
+    q_js_rt: &QuickJsRuntime,
+) -> Result<JSValueRef, EsError> {
+    let ctx = q_js_rt.context;
+    let class_id = PROXY_INSTANCE_CLASS_ID.with(|rc| *rc.borrow());
+
+    let class_val: q::JSValue = unsafe { q::JS_NewObjectClass(ctx, class_id as i32) };
+
+    let class_name = proxy.get_class_name();
+
+    let class_val_ref = JSValueRef::new_no_ref_ct_increment(
+        class_val,
+        format!("reflection::Proxy; cn={}", class_name).as_str(),
+    );
+
+    if class_val_ref.is_exception() {
+        return if let Some(e) = q_js_rt.get_exception() {
+            Err(EsError::new_string(format!(
+                "could not create class:{} due to: {}",
+                class_name, e
+            )))
+        } else {
+            Err(EsError::new_string(format!(
+                "could not create class:{}",
+                class_name
+            )))
+        };
+    }
+
+    INSTANCE_ID_MAPPINGS.with(|im_rc| {
+        let mappings = &mut *im_rc.borrow_mut();
+        assert!(!mappings.contains_key(&instance_id));
+
+        let mut bx = Box::new((instance_id, proxy.get_class_name().to_string()));
+
+        let ibp: &mut (usize, String) = &mut *bx;
+        let info_ptr = ibp as *mut _ as *mut c_void;
+
+        mappings.insert(instance_id, bx);
+        unsafe { q::JS_SetOpaque(*class_val_ref.borrow_value(), info_ptr) };
+    });
+
+    Ok(class_val_ref)
+}
+
+pub fn new_instance(
+    class_name: &str,
+    instance_id: usize,
+    q_js_rt: &QuickJsRuntime,
+) -> Result<JSValueRef, EsError> {
+    // todo
+
+    PROXY_REGISTRY.with(|registry_rc| {
+        let registry = &*registry_rc.borrow();
+        if let Some(proxy) = registry.get(class_name) {
+            // construct
+
+            new_instance2(proxy, instance_id, q_js_rt)
+        } else {
+            Err(EsError::new_str("no such proxy"))
+        }
+    })
+}
+
 #[allow(dead_code)]
 unsafe extern "C" fn constructor(
-    ctx: *mut q::JSContext,
+    _ctx: *mut q::JSContext,
     this_val: q::JSValue,
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
@@ -519,7 +524,7 @@ unsafe extern "C" fn constructor(
 
     // this is the function we created earlier (the constructor)
     // so classname = this.name;
-    let this_ref = JSValueRef::new(this_val);
+    let this_ref = JSValueRef::new(this_val, "reflection::constructor this_val");
     QuickJsRuntime::do_with(|q_js_rt| {
         let name_ref = objects::get_property(q_js_rt, &this_ref, "name")
             .ok()
@@ -537,47 +542,31 @@ unsafe extern "C" fn constructor(
                     let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
                     let args_vec: Vec<JSValueRef> = arg_slice
                         .iter()
-                        .map(|raw| JSValueRef::new(*raw))
+                        .map(|raw| JSValueRef::new(*raw, "reflection::constructor arg"))
                         .collect::<Vec<_>>();
 
                     let instance_id_res = constructor(args_vec);
-                    let instance_id = match instance_id_res {
-                        Ok(id) => id,
-                        Err(e) => panic!(e),
-                    };
 
-                    log::trace!("classname={}", class_name);
-                    let class_id = PROXY_INSTANCE_CLASS_ID.with(|rc| *rc.borrow());
+                    match instance_id_res {
+                        Ok(instance_id) => {
+                            let instance_ref_res = new_instance2(proxy, instance_id, q_js_rt);
 
-                    log::trace!("constructor called, class_id={}", class_id);
-                    let class_val: q::JSValue = q::JS_NewObjectClass(ctx, class_id as i32);
-
-                    let class_val_ref = JSValueRef::new_no_ref_ct_increment(class_val);
-
-                    if class_val_ref.is_exception() {
-                        if let Some(e) = q_js_rt.get_exception() {
-                            panic!("could not create class:{} due to: {}", class_name, e);
-                        } else {
-                            panic!("could not create class:{}", class_name);
-                        };
+                            match instance_ref_res {
+                                Ok(instance_ref) => instance_ref.consume_value_no_decr_rc(),
+                                Err(e) => q_js_rt.report_ex(
+                                    format!(
+                                        "could not create proxy instance for {} due to {}",
+                                        class_name, e
+                                    )
+                                    .as_str(),
+                                ),
+                            }
+                        }
+                        Err(es_err) => q_js_rt.report_ex(
+                            format!("constructor for {} failed with {}", class_name, es_err)
+                                .as_str(),
+                        ),
                     }
-
-                    INSTANCE_ID_MAPPINGS.with(|im_rc| {
-                        let mappings = &mut *im_rc.borrow_mut();
-                        assert!(!mappings.contains_key(&instance_id));
-
-                        let mut bx = Box::new((instance_id, class_name.clone()));
-
-                        let ibp: &mut (usize, String) = &mut *bx;
-                        let info_ptr = ibp as *mut _ as *mut c_void;
-
-                        mappings.insert(instance_id, bx);
-                        q::JS_SetOpaque(*class_val_ref.borrow_value(), info_ptr);
-                    });
-
-                    log::trace!("constructor done");
-
-                    class_val_ref.clone_value_up_rc()
                 } else {
                     q_js_rt.report_ex("not a constructor")
                 }
@@ -607,13 +596,19 @@ unsafe extern "C" fn finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
         let registry = &*pr_rc.borrow();
         let proxy = registry.get(&info.1).unwrap();
         if let Some(finalizer) = &proxy.finalizer {
+            log::trace!("calling Proxy's finalizer");
             finalizer(info.0);
+            log::trace!("after calling Proxy's finalizer");
         }
         INSTANCE_ID_MAPPINGS.with(|ids_rc| {
+            log::trace!("reflection::finalizer: remove from INSTANCE_ID_MAPPINGS");
             let id_map = &mut *ids_rc.borrow_mut();
-            id_map.remove(&info.0);
+            let _ = id_map.remove(&info.0).expect("no such id to finalize");
+            log::trace!("reflection::finalizer: remove from INSTANCE_ID_MAPPINGS -> done");
         });
+        log::trace!("reflection::finalizer: 2");
     });
+    log::trace!("reflection::finalizer: 3, exit");
 }
 
 #[allow(dead_code)]
@@ -626,8 +621,8 @@ unsafe extern "C" fn proxy_static_get_prop(
     // static proxy class, not an instance
     trace!("proxy_static_get_prop");
 
-    let _obj_ref = JSValueRef::new(obj);
-    let receiver_ref = JSValueRef::new(receiver);
+    let _obj_ref = JSValueRef::new(obj, "reflection::proxy_static_get_prop obj");
+    let receiver_ref = JSValueRef::new(receiver, "reflection::proxy_static_get_prop receiver");
     QuickJsRuntime::do_with(|q_js_rt| {
         let proxy_name_ref = objects::get_property(q_js_rt, &receiver_ref, "name")
             .ok()
@@ -659,17 +654,22 @@ unsafe extern "C" fn proxy_static_get_prop(
                     .ok()
                     .expect("could not create func");
 
-                    objects::set_property(q_js_rt, &receiver_ref, prop_name.as_str(), &func_ref)
-                        .ok()
-                        .expect("set_property 9656738 failed");
+                    objects::set_property(
+                        q_js_rt,
+                        &receiver_ref,
+                        prop_name.as_str(),
+                        func_ref.clone(),
+                    )
+                    .ok()
+                    .expect("set_property 9656738 failed");
 
-                    func_ref.clone_value_up_rc()
+                    func_ref.consume_value_no_decr_rc()
                 } else if let Some(getter_setter) = proxy.static_getters_setters.get(&prop_name) {
                     // call the getter
                     let getter = &getter_setter.0;
                     let res: Result<JSValueRef, EsError> = getter();
                     match res {
-                        Ok(g_val) => g_val.clone_value_up_rc(),
+                        Ok(g_val) => g_val.consume_value_no_decr_rc(),
                         Err(e) => {
                             let es = format!("proxy_static_get_prop failed: {}", e);
                             q_js_rt.report_ex(es.as_str())
@@ -694,8 +694,8 @@ unsafe extern "C" fn proxy_instance_get_prop(
 ) -> q::JSValue {
     trace!("proxy_instance_get_prop");
 
-    let _obj_ref = JSValueRef::new(obj);
-    let receiver_ref = JSValueRef::new(receiver);
+    let _obj_ref = JSValueRef::new(obj, "reflection::proxy_instance_get_prop obj");
+    let receiver_ref = JSValueRef::new(receiver, "reflection::proxy_instance_get_prop receiver");
 
     QuickJsRuntime::do_with(|q_js_rt| {
         let prop_name = atoms::to_string(q_js_rt, &atom)
@@ -730,17 +730,17 @@ unsafe extern "C" fn proxy_instance_get_prop(
                 .ok()
                 .expect("could not create func");
 
-                objects::set_property(q_js_rt, &receiver_ref, prop_name.as_str(), &func_ref)
+                objects::set_property(q_js_rt, &receiver_ref, prop_name.as_str(), func_ref.clone())
                     .ok()
                     .expect("set_property 96385 failed");
 
-                func_ref.clone_value_up_rc()
+                func_ref.consume_value_no_decr_rc()
             } else if let Some(getter_setter) = proxy.getters_setters.get(&prop_name) {
                 // call the getter
                 let getter = &getter_setter.0;
                 let res: Result<JSValueRef, EsError> = getter(info.0);
                 match res {
-                    Ok(g_val) => g_val.clone_value_up_rc(),
+                    Ok(g_val) => g_val.consume_value_no_decr_rc(),
                     Err(e) => {
                         let err = format!("proxy_instance_get_prop failed: {}", e);
                         q_js_rt.report_ex(err.as_str())
@@ -787,17 +787,18 @@ unsafe extern "C" fn proxy_instance_method(
 ) -> q::JSValue {
     trace!("proxy_instance_method");
     QuickJsRuntime::do_with(|q_js_rt| {
-        let _this_ref = JSValueRef::new(this_val);
+        //let _this_ref = JSValueRef::new(this_val, "reflection::proxy_instance_method this_val");
 
         let proxy_instance_info: &(usize, String) = get_proxy_instance_info(&this_val);
 
         let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
         let args_vec: Vec<JSValueRef> = arg_slice
             .iter()
-            .map(|raw| JSValueRef::new(*raw))
+            .map(|raw| JSValueRef::new(*raw, "reflection::proxy_instance_method arg"))
             .collect::<Vec<_>>();
 
-        let func_name_ref = JSValueRef::new(*func_data);
+        let func_name_ref =
+            JSValueRef::new(*func_data, "reflection::proxy_instance_method func_data");
         let func_name = primitives::to_str(q_js_rt, &func_name_ref)
             .ok()
             .expect("could not to_string func_name_ref");
@@ -812,7 +813,7 @@ unsafe extern "C" fn proxy_instance_method(
                 let m_res: Result<JSValueRef, EsError> = method(&proxy_instance_info.0, args_vec);
 
                 match m_res {
-                    Ok(m_res_ref) => m_res_ref.clone_value_up_rc(),
+                    Ok(m_res_ref) => m_res_ref.consume_value_no_decr_rc(),
                     Err(e) => {
                         let msg = format!("proxy_instance_method failed: {}", e.get_message());
                         let err =
@@ -841,7 +842,7 @@ unsafe extern "C" fn proxy_static_method(
 ) -> q::JSValue {
     trace!("proxy_static_method");
     QuickJsRuntime::do_with(|q_js_rt| {
-        let this_ref = JSValueRef::new(this_val);
+        let this_ref = JSValueRef::new(this_val, "reflection::proxy_static_method this_val");
 
         let proxy_name_ref = objects::get_property(q_js_rt, &this_ref, "name")
             .ok()
@@ -853,10 +854,11 @@ unsafe extern "C" fn proxy_static_method(
         let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
         let args_vec: Vec<JSValueRef> = arg_slice
             .iter()
-            .map(|raw| JSValueRef::new(*raw))
+            .map(|raw| JSValueRef::new(*raw, "reflection::proxy_static_method arg"))
             .collect::<Vec<_>>();
 
-        let func_name_ref = JSValueRef::new(*func_data);
+        let func_name_ref =
+            JSValueRef::new(*func_data, "reflection::proxy_static_method func_data");
         let func_name = primitives::to_str(q_js_rt, &func_name_ref)
             .ok()
             .expect("could not to_string func_name_ref");
@@ -869,7 +871,7 @@ unsafe extern "C" fn proxy_static_method(
             if let Some(method) = proxy.static_methods.get(func_name) {
                 let m_res: Result<JSValueRef, EsError> = method(args_vec);
                 match m_res {
-                    Ok(m_res_ref) => m_res_ref.clone_value_up_rc(),
+                    Ok(m_res_ref) => m_res_ref.consume_value_no_decr_rc(),
                     Err(e) => {
                         let err = format!("proxy_static_method failed: {}", e);
                         q_js_rt.report_ex(err.as_str())

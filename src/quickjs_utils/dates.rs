@@ -23,13 +23,13 @@ pub fn set_time(
         q_js_rt,
         date_ref,
         "setTime",
-        &[primitives::from_f64(timestamp)],
+        vec![primitives::from_f64(timestamp)],
     )?;
     Ok(())
 }
 
 pub fn get_time(q_js_rt: &QuickJsRuntime, date_ref: &JSValueRef) -> Result<f64, EsError> {
-    let time_ref = functions::invoke_member_function(q_js_rt, date_ref, "getTime", &[])?;
+    let time_ref = functions::invoke_member_function(q_js_rt, date_ref, "getTime", vec![])?;
     primitives::to_f64(&time_ref)
 }
 

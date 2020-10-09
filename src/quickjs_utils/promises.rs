@@ -27,7 +27,7 @@ impl PromiseRef {
         crate::quickjs_utils::functions::call_function(
             q_js_rt,
             &self.resolve_function_obj_ref,
-            &[value],
+            vec![value],
             None,
         )?;
 
@@ -42,7 +42,7 @@ impl PromiseRef {
         crate::quickjs_utils::functions::call_function(
             q_js_rt,
             &self.reject_function_obj_ref,
-            &[value],
+            vec![value],
             None,
         )?;
 
@@ -69,15 +69,19 @@ pub fn new_promise(q_js_rt: &QuickJsRuntime) -> Result<PromiseRef, EsError> {
     let resolve_func_val = *promise_resolution_functions.get(0).unwrap();
     let reject_func_val = *promise_resolution_functions.get(1).unwrap();
 
-    let mut resolve_function_obj_ref = JSValueRef::new_no_ref_ct_increment(resolve_func_val);
-    resolve_function_obj_ref.label("resolve_function_obj_ref");
-    let mut reject_function_obj_ref = JSValueRef::new_no_ref_ct_increment(reject_func_val);
-    reject_function_obj_ref.label("reject_function_obj_ref");
+    let resolve_function_obj_ref = JSValueRef::new_no_ref_ct_increment(
+        resolve_func_val,
+        "promises::new_promise resolve_func_val",
+    );
+    let reject_function_obj_ref = JSValueRef::new_no_ref_ct_increment(
+        reject_func_val,
+        "promises::new_promise reject_func_val",
+    );
     assert!(functions::is_function(q_js_rt, &resolve_function_obj_ref));
     assert!(functions::is_function(q_js_rt, &reject_function_obj_ref));
 
-    let mut promise_obj_ref = JSValueRef::new(prom_val);
-    promise_obj_ref.label("promise_obj_ref");
+    let promise_obj_ref =
+        JSValueRef::new_no_ref_ct_increment(prom_val, "promises::new_promise prom_val");
 
     assert_eq!(resolve_function_obj_ref.get_ref_count(), 1);
     assert_eq!(reject_function_obj_ref.get_ref_count(), 1);
@@ -109,14 +113,19 @@ pub fn add_promise_reactions(
     assert!(is_promise(q_js_rt, promise_obj_ref)?);
 
     if let Some(then_func_obj_ref) = then_func_obj_ref_opt {
-        functions::invoke_member_function(q_js_rt, &promise_obj_ref, "then", &[then_func_obj_ref])?;
+        functions::invoke_member_function(
+            q_js_rt,
+            &promise_obj_ref,
+            "then",
+            vec![then_func_obj_ref],
+        )?;
     }
     if let Some(catch_func_obj_ref) = catch_func_obj_ref_opt {
         functions::invoke_member_function(
             q_js_rt,
             &promise_obj_ref,
             "catch",
-            &[catch_func_obj_ref],
+            vec![catch_func_obj_ref],
         )?;
     }
     if let Some(finally_func_obj_ref) = finally_func_obj_ref_opt {
@@ -124,7 +133,7 @@ pub fn add_promise_reactions(
             q_js_rt,
             &promise_obj_ref,
             "finally",
-            &[finally_func_obj_ref],
+            vec![finally_func_obj_ref],
         )?;
     }
 
@@ -141,7 +150,10 @@ unsafe extern "C" fn promise_rejection_tracker(
     if is_handled == 0 {
         log::error!("unhandled promise rejection detected");
         QuickJsRuntime::do_with(|q_js_rt| {
-            let reason_ref = JSValueRef::new(reason);
+            let reason_ref = JSValueRef::new_no_ref_ct_increment(
+                reason,
+                "promises::promise_rejection_tracker reason",
+            );
             let reason_str_res = functions::call_to_string(q_js_rt, &reason_ref);
             match reason_str_res {
                 Ok(reason_str) => {
@@ -204,7 +216,7 @@ pub mod tests {
 
             let prom = new_promise(q_js_rt).ok().unwrap();
 
-            functions::call_function(q_js_rt, &func_ref, &[prom.get_promise_obj_ref()], None)
+            functions::call_function(q_js_rt, &func_ref, vec![prom.get_promise_obj_ref()], None)
                 .ok()
                 .unwrap();
 
@@ -233,7 +245,7 @@ pub mod tests {
 
             let prom = new_promise(q_js_rt).ok().unwrap();
 
-            functions::call_function(q_js_rt, &func_ref, &vec![prom.get_promise_obj_ref()], None)
+            functions::call_function(q_js_rt, &func_ref, vec![prom.get_promise_obj_ref()], None)
                 .ok()
                 .unwrap();
 

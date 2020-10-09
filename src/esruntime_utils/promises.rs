@@ -44,7 +44,7 @@ thread_local! {
 ///
 ///      // add func to global scope
 ///      let global_ref = quickjs_utils::get_global(q_js_rt);
-///      objects::set_property(q_js_rt, &global_ref, "asyncTest", &func_ref).ok()
+///      objects::set_property(q_js_rt, &global_ref, "asyncTest", func_ref).ok()
 ///             .expect("could not set prop");;
 ///            
 /// });
@@ -97,6 +97,7 @@ where
                 Ok(ok_res) => {
                     // map result to JSValueRef
                     let raw_res = mapper(ok_res);
+
                     // resolve or reject promise
                     match raw_res {
                         Ok(val_ref) => {
@@ -177,7 +178,7 @@ pub mod tests {
 
             // add func to global scope
             let global_ref = quickjs_utils::get_global(q_js_rt);
-            objects::set_property(q_js_rt, &global_ref, "asyncTest", &func_ref)
+            objects::set_property(q_js_rt, &global_ref, "asyncTest", func_ref)
                 .ok()
                 .expect("could not set prop");
         });

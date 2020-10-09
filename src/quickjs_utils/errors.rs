@@ -7,7 +7,7 @@ use libquickjs_sys as q;
 /// Get the last exception from the runtime, and if present, convert it to a EsError.
 pub fn get_exception(q_js_rt: &QuickJsRuntime) -> Option<EsError> {
     let raw = unsafe { q::JS_GetException(q_js_rt.context) };
-    let mut value = JSValueRef::new_no_ref_ct_increment(raw);
+    let mut value = JSValueRef::new_no_ref_ct_increment(raw, "errors::get_exception");
     value.label("get_exception value obj");
 
     if value.is_null() {
@@ -42,24 +42,24 @@ pub fn new_error(
     stack: &str,
 ) -> Result<JSValueRef, EsError> {
     let obj = unsafe { q::JS_NewError(q_js_rt.context) };
-    let obj_ref = JSValueRef::new(obj);
+    let obj_ref = JSValueRef::new(obj, format!("new_error {}", name).as_str());
     objects::set_property(
         q_js_rt,
         &obj_ref,
         "message",
-        &primitives::from_string(q_js_rt, message)?,
+        primitives::from_string(q_js_rt, message)?,
     )?;
     objects::set_property(
         q_js_rt,
         &obj_ref,
         "name",
-        &primitives::from_string(q_js_rt, name)?,
+        primitives::from_string(q_js_rt, name)?,
     )?;
     objects::set_property(
         q_js_rt,
         &obj_ref,
         "stack",
-        &primitives::from_string(q_js_rt, stack)?,
+        primitives::from_string(q_js_rt, stack)?,
     )?;
     Ok(obj_ref)
 }
@@ -134,7 +134,7 @@ pub mod tests {
                 .expect("script failed");
             assert!(functions::is_function(q_js_rt, &func_ref));
             let res =
-                functions::call_function(q_js_rt, &func_ref, &vec![primitives::from_i32(12)], None);
+                functions::call_function(q_js_rt, &func_ref, vec![primitives::from_i32(12)], None);
             match res {
                 Ok(_) => {}
                 Err(e) => {

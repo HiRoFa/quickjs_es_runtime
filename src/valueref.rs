@@ -2,49 +2,52 @@ use crate::quickjsruntime::QuickJsRuntime;
 use libquickjs_sys as q;
 
 pub struct JSValueRef {
-    value: q::JSValue,
-    label: Option<String>,
+    value: Option<q::JSValue>,
+    label: String,
+}
+
+impl JSValueRef {
+    pub(crate) fn label(&mut self, label: &str) {
+        self.label = label.to_string()
+    }
 }
 
 impl Clone for JSValueRef {
     fn clone(&self) -> Self {
-        Self::new(self.value)
+        Self::new(
+            self.value.unwrap(),
+            format!("clone of {}", self.label).as_str(),
+        )
     }
 }
 
 impl Drop for JSValueRef {
     fn drop(&mut self) {
         QuickJsRuntime::do_with(|q_js_rt| unsafe {
-            if self.label.is_some() {
-                log::debug!(
-                    "dropping OwnedValueRef, before free: {}",
-                    self.label.as_ref().unwrap()
-                );
-            } else {
-                log::trace!("dropping OwnedValueRef, before free");
-            }
-            // All tags < 0 are garbage collected and need to be freed.
-            if self.value.tag < 0 {
-                // This transmute is OK since if tag < 0, the union will be a refcount
-                // pointer.
-                let ptr = self.value.u.ptr as *mut q::JSRefCountHeader;
-                let pref: &mut q::JSRefCountHeader = &mut *ptr;
+            log::debug!("dropping OwnedValueRef, before free: {}", self.label);
 
-                if pref.ref_count <= 0 {
-                    if let Some(label) = &self.label {
+            if let Some(value) = self.value {
+                // All tags < 0 are garbage collected and need to be freed.
+                if value.tag < 0 {
+                    // This transmute is OK since if tag < 0, the union will be a refcount
+                    // pointer.
+
+                    if self.get_ref_count() < 0 {
+                        log::error!(
+                            "dropping ref while refcount already 0, which is bad mmkay.. {}",
+                            self.label
+                        );
                         panic!(
                             "dropping ref while refcount already 0, which is bad mmkay.. {}",
-                            label
+                            self.label
                         );
-                    } else {
-                        panic!("dropping ref while refcount already 0, which is bad mmkay..");
                     }
-                }
 
-                pref.ref_count -= 1;
-                if pref.ref_count <= 0 {
-                    log::trace!("ref count <= 0, calling __JS_FreeValue");
-                    q::__JS_FreeValue(q_js_rt.context, self.value);
+                    self.decrement_ref_count();
+                    if self.get_ref_count() <= 0 {
+                        log::trace!("ref count <= 0, calling __JS_FreeValue");
+                        q::__JS_FreeValue(q_js_rt.context, value);
+                    }
                 }
             }
             log::trace!("dropping OwnedValueRef, after free");
@@ -54,7 +57,7 @@ impl Drop for JSValueRef {
 
 impl<'a> std::fmt::Debug for JSValueRef {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self.value.tag {
+        match self.value.as_ref().unwrap().tag {
             TAG_EXCEPTION => write!(f, "Exception(?)"),
             TAG_NULL => write!(f, "NULL"),
             TAG_UNDEFINED => write!(f, "UNDEFINED"),
@@ -70,32 +73,52 @@ impl<'a> std::fmt::Debug for JSValueRef {
 
 impl JSValueRef {
     /// create a new OwnedValueRef
-    pub fn new_no_ref_ct_increment(value: q::JSValue) -> Self {
+    pub fn new_no_ref_ct_increment(value: q::JSValue, label: &str) -> Self {
         // todo assert in worker thread
-        Self { value, label: None }
+        Self {
+            value: Some(value),
+            label: label.to_string(),
+        }
     }
 
-    pub fn increment_ref_count(&self) {
-        if self.value.tag < 0 {
+    pub(crate) fn increment_ref_count(&self) {
+        if self.get_tag() < 0 {
             unsafe {
-                let ptr = self.value.u.ptr;
+                let ptr = self.value.as_ref().unwrap().u.ptr;
                 let p = ptr as *mut q::JSRefCountHeader;
                 (*p).ref_count += 1;
             }
         }
     }
 
-    pub fn new(value: q::JSValue) -> Self {
-        let s = Self { value, label: None };
+    pub(crate) fn decrement_ref_count(&self) {
+        if self.get_tag() < 0 {
+            unsafe {
+                let ptr = self.value.as_ref().unwrap().u.ptr;
+                let p = ptr as *mut q::JSRefCountHeader;
+                (*p).ref_count -= 1;
+            }
+        }
+    }
+
+    pub fn get_tag(&self) -> i64 {
+        self.value.as_ref().unwrap().tag
+    }
+
+    pub fn new(value: q::JSValue, label: &str) -> Self {
+        let s = Self {
+            value: Some(value),
+            label: label.to_string(),
+        };
         s.increment_ref_count();
         s
     }
 
     pub fn get_ref_count(&self) -> i32 {
-        if self.value.tag < 0 {
+        if self.get_tag() < 0 {
             // This transmute is OK since if tag < 0, the union will be a refcount
             // pointer.
-            let ptr = unsafe { self.value.u.ptr as *mut q::JSRefCountHeader };
+            let ptr = unsafe { self.value.as_ref().unwrap().u.ptr as *mut q::JSRefCountHeader };
             let pref: &mut q::JSRefCountHeader = &mut unsafe { *ptr };
             pref.ref_count
         } else {
@@ -103,21 +126,21 @@ impl JSValueRef {
         }
     }
 
-    pub fn label(&mut self, label: &str) {
-        self.label = Some(label.to_string());
-    }
+    //pub fn consume_value_decr_rc(self) -> q::JSValue {
+    //    self.decrement_ref_count();
+    //    self.consume_value_no_decr_rc()
+    //}
 
-    pub fn clone_value_up_rc(&self) -> q::JSValue {
-        self.increment_ref_count();
-        self.value
+    pub fn consume_value_no_decr_rc(mut self) -> q::JSValue {
+        std::mem::replace(&mut self.value, None).unwrap()
     }
 
     pub fn borrow_value(&self) -> &q::JSValue {
-        &self.value
+        self.value.as_ref().unwrap()
     }
 
     pub fn borrow_value_mut(&mut self) -> &mut q::JSValue {
-        &mut self.value
+        self.value.as_mut().unwrap()
     }
 
     pub fn is_null_or_undefined(&self) -> bool {

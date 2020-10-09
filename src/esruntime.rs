@@ -10,6 +10,9 @@ use libquickjs_sys as q;
 use log::error;
 use std::sync::{Arc, Weak};
 
+use crate::features::fetch::request::FetchRequest;
+
+use crate::features::fetch::FetchResponse;
 use hirofa_utils::task_manager::TaskManager;
 
 lazy_static! {
@@ -17,8 +20,12 @@ lazy_static! {
     static ref HELPER_TASKS: Arc<TaskManager> = Arc::new(TaskManager::new(std::cmp::max(2, num_cpus::get())));
 }
 
+pub type FetchResponseProvider =
+    dyn Fn(&FetchRequest) -> Box<dyn FetchResponse + Send> + Send + Sync + 'static;
+
 pub struct EsRuntimeInner {
     event_queue: Arc<SingleThreadedEventQueue>,
+    pub(crate) fetch_response_provider: Option<Box<FetchResponseProvider>>,
 }
 
 pub struct EsRuntime {
@@ -70,16 +77,29 @@ impl EsRuntimeInner {
 }
 
 impl EsRuntime {
-    pub(crate) fn new(builder: EsRuntimeBuilder) -> Arc<Self> {
+    pub(crate) fn new(mut builder: EsRuntimeBuilder) -> Arc<Self> {
+        let fetch_response_provider =
+            std::mem::replace(&mut builder.opt_fetch_response_provider, None);
+
         let ret = Arc::new(Self {
             inner: Arc::new(EsRuntimeInner {
                 event_queue: SingleThreadedEventQueue::new(),
+                fetch_response_provider,
             }),
+        });
+
+        // init ref in q_js_rt
+        let rt_ref = ret.clone();
+        ret.inner.event_queue.exe_task(move || {
+            QJS_RT.with(|rc| {
+                let m_q_js_rt = &mut *rc.borrow_mut();
+                m_q_js_rt.init_rt_ref(rt_ref);
+            })
         });
 
         // run single job in eventQueue to init thread_local weak<rtref>
 
-        let res = ret.add_to_event_queue_sync(|q_js_rt| features::init(q_js_rt));
+        let res = features::init(ret.clone());
         if res.is_err() {
             panic!("could not init features: {}", res.err().unwrap());
         }
@@ -100,9 +120,10 @@ impl EsRuntime {
         ret.inner.event_queue.exe_task(|| {
             QJS_RT.with(move |qjs_rt_rc| {
                 let q_js_rt = &mut *qjs_rt_rc.borrow_mut();
-                if builder.loader.is_some() {
-                    q_js_rt.module_script_loader = Some(builder.loader.unwrap());
+                if builder.opt_module_script_loader.is_some() {
+                    q_js_rt.module_script_loader = Some(builder.opt_module_script_loader.unwrap());
                 }
+
                 if let Some(limit) = builder.opt_memory_limit_bytes {
                     unsafe {
                         q::JS_SetMemoryLimit(q_js_rt.runtime, limit as _);
@@ -352,7 +373,7 @@ impl EsRuntime {
                 1,
             )?;
 
-            objects::set_property2(q_js_rt, &ns, name.as_str(), &func, 0)?;
+            objects::set_property2(q_js_rt, &ns, name.as_str(), func, 0)?;
 
             Ok(())
         })

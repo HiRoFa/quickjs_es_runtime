@@ -9,18 +9,19 @@ use libquickjs_sys as q;
 pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
     log::trace!("console::init");
 
-    let console_ref = objects::create_object(q_js_rt)?;
+    let mut console_ref = objects::create_object(q_js_rt)?;
+    console_ref.label("console");
 
     let global_ref = quickjs_utils::get_global(q_js_rt);
 
-    objects::set_property(q_js_rt, &global_ref, "console", &console_ref)?;
+    objects::set_property(q_js_rt, &global_ref, "console", console_ref.clone())?;
 
     let log_func_ref = functions::new_native_function(q_js_rt, "log", Some(console_log), 1, false)?;
 
-    objects::set_property(q_js_rt, &console_ref, "log", &log_func_ref)?;
+    objects::set_property(q_js_rt, &console_ref, "log", log_func_ref)?;
 
-    assert_eq!(console_ref.get_ref_count(), 2);
-    assert_eq!(log_func_ref.get_ref_count(), 2);
+    //assert_eq!(console_ref.get_ref_count(), 2);
+    //assert_eq!(log_func_ref.get_ref_count(), 2);
 
     Ok(())
 }
@@ -37,7 +38,7 @@ unsafe extern "C" fn console_log(
 
     let args_vec: Vec<JSValueRef> = arg_slice
         .iter()
-        .map(|raw| JSValueRef::new(*raw))
+        .map(|raw| JSValueRef::new(*raw, "console_log_arg"))
         .collect::<Vec<_>>();
 
     let strings = QuickJsRuntime::do_with(|q_js_rt| {

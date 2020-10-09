@@ -1,6 +1,7 @@
 // store in thread_local
 
 use crate::eserror::EsError;
+use crate::esruntime::EsRuntime;
 use crate::esscript::EsScript;
 use crate::quickjs_utils::{errors, functions, gc, modules, objects, promises};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
@@ -8,6 +9,7 @@ use hirofa_utils::auto_id_map::AutoIdMap;
 use libquickjs_sys as q;
 use std::cell::RefCell;
 use std::ffi::CString;
+use std::sync::{Arc, Weak};
 
 pub type ModuleScriptLoader = dyn Fn(&str, &str) -> Option<EsScript> + Send + Sync + 'static;
 
@@ -22,10 +24,22 @@ pub struct QuickJsRuntime {
     pub(crate) runtime: *mut q::JSRuntime,
     pub(crate) context: *mut q::JSContext,
     pub(crate) module_script_loader: Option<Box<ModuleScriptLoader>>,
+
     object_cache: RefCell<AutoIdMap<JSValueRef>>,
+    es_rt_ref: Option<Weak<EsRuntime>>,
 }
 
 impl QuickJsRuntime {
+    pub(crate) fn init_rt_ref(&mut self, rt_ref: Arc<EsRuntime>) {
+        self.es_rt_ref = Some(Arc::downgrade(&rt_ref));
+    }
+    pub fn get_rt_ref(&self) -> Option<Arc<EsRuntime>> {
+        if let Some(rt_ref) = &self.es_rt_ref {
+            rt_ref.upgrade()
+        } else {
+            None
+        }
+    }
     fn new() -> Self {
         log::trace!("creating new QuickJsRuntime");
         let runtime = unsafe { q::JS_NewRuntime() };
@@ -54,6 +68,7 @@ impl QuickJsRuntime {
             context,
             module_script_loader: None,
             object_cache: RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize)),
+            es_rt_ref: None,
         };
 
         modules::set_module_loader(&q_rt);
@@ -69,7 +84,7 @@ impl QuickJsRuntime {
         arguments: Vec<JSValueRef>,
     ) -> Result<JSValueRef, EsError> {
         let namespace_ref = objects::get_namespace(self, namespace, false)?;
-        functions::invoke_member_function(self, &namespace_ref, func_name, &arguments)
+        functions::invoke_member_function(self, &namespace_ref, func_name, arguments)
     }
 
     pub fn gc(&self) {
@@ -92,9 +107,13 @@ impl QuickJsRuntime {
             )
         };
 
+        log::trace!("after eval, checking error");
+
         // check for error
-        let mut ret = JSValueRef::new(value_raw);
-        ret.label(format!("eval result of {}", script.get_path()).as_str());
+        let ret = JSValueRef::new_no_ref_ct_increment(
+            value_raw,
+            format!("eval result of {}", script.get_path()).as_str(),
+        );
         if ret.is_exception() {
             let ex_opt = self.get_exception();
             if let Some(ex) = ex_opt {
@@ -128,8 +147,10 @@ impl QuickJsRuntime {
         };
 
         // check for error
-        let mut ret = JSValueRef::new(value_raw);
-        ret.label(format!("eval_module result of {}", script.get_path()).as_str());
+        let ret = JSValueRef::new_no_ref_ct_increment(
+            value_raw,
+            format!("eval_module result of {}", script.get_path()).as_str(),
+        );
 
         log::trace!("evalled module yielded a {}", ret.borrow_value().tag);
 

@@ -30,10 +30,13 @@ pub fn gc(q_js_rt: &QuickJsRuntime) {
 }
 
 pub fn new_undefined_ref() -> JSValueRef {
-    JSValueRef::new_no_ref_ct_increment(q::JSValue {
-        u: q::JSValueUnion { int32: 0 },
-        tag: TAG_UNDEFINED,
-    })
+    JSValueRef::new_no_ref_ct_increment(
+        q::JSValue {
+            u: q::JSValueUnion { int32: 0 },
+            tag: TAG_UNDEFINED,
+        },
+        "new_undefined_ref",
+    )
 }
 
 pub fn new_null() -> q::JSValue {
@@ -44,13 +47,12 @@ pub fn new_null() -> q::JSValue {
 }
 
 pub fn new_null_ref() -> JSValueRef {
-    JSValueRef::new_no_ref_ct_increment(new_null())
+    JSValueRef::new_no_ref_ct_increment(new_null(), "new_null_ref")
 }
 
 pub fn get_global(q_js_rt: &QuickJsRuntime) -> JSValueRef {
     let global = unsafe { q::JS_GetGlobalObject(q_js_rt.context) };
-    let mut global_ref = JSValueRef::new_no_ref_ct_increment(global);
-    global_ref.label("global");
+    let global_ref = JSValueRef::new(global, "global");
     global_ref
 }
 
