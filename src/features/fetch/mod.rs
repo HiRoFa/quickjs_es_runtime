@@ -82,7 +82,7 @@ unsafe extern "C" fn fetch_func(
     let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
     let _args_vec: Vec<JSValueRef> = arg_slice
         .iter()
-        .map(|raw| JSValueRef::new(*raw, "fetch_func_arg"))
+        .map(|raw| JSValueRef::new(*raw, false, false, "fetch_func_arg"))
         .collect::<Vec<_>>();
 
     QuickJsRuntime::do_with(|q_js_rt| {

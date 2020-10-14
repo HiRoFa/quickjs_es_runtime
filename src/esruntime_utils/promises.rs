@@ -85,15 +85,17 @@ where
 
     // go async
     EsRuntime::add_helper_task(move || {
-        let res = producer();
+        // in helper thread, produce result
+        let produced_result = producer();
         rti_ref.add_to_event_queue(move |q_js_rt| {
+            // in q_js_rt worker thread, resolve promise
             // retrieve promise
             let prom_ref = RESOLVING_PROMISES.with(|map_rc| {
                 let map = &mut *map_rc.borrow_mut();
                 map.remove(&id)
             });
 
-            match res {
+            match produced_result {
                 Ok(ok_res) => {
                     // map result to JSValueRef
                     let raw_res = mapper(ok_res);
@@ -140,6 +142,7 @@ where
 pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esruntime_utils::promises;
+    use crate::esruntime_utils::promises::RESOLVING_PROMISES;
     use crate::esscript::EsScript;
     use crate::quickjs_utils;
     use crate::quickjs_utils::{functions, objects, primitives};
@@ -148,7 +151,7 @@ pub mod tests {
     use std::time::Duration;
 
     #[test]
-    fn test() {
+    fn test_resolving_prom() {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         let rt_ref = rt.clone();
         rt.add_to_event_queue_sync(move |q_js_rt| {
@@ -176,12 +179,20 @@ pub mod tests {
             .ok()
             .expect("could not create func");
 
+            assert_eq!(1, func_ref.get_ref_count());
+
             // add func to global scope
             let global_ref = quickjs_utils::get_global(q_js_rt);
-            objects::set_property(q_js_rt, &global_ref, "asyncTest", func_ref)
+            let i = global_ref.get_ref_count();
+            objects::set_property(q_js_rt, &global_ref, "asyncTest", func_ref.clone())
                 .ok()
                 .expect("could not set prop");
+            assert_eq!(i, global_ref.get_ref_count());
+            assert_eq!(2, func_ref.get_ref_count());
         });
+        log::trace!("running gc after resolving promise init");
+        //rt.gc_sync();
+
         rt.eval_sync(EsScript::new(
             "test_async.es",
             "console.log('async test');\n
@@ -196,7 +207,9 @@ pub mod tests {
         ))
         .ok()
         .expect("script failed");
+        rt.gc_sync();
         // wait so promise can fullfill
         std::thread::sleep(Duration::from_secs(2));
+        assert!(RESOLVING_PROMISES.with(|rc| { (*rc.borrow()).is_empty() }))
     }
 }

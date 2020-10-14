@@ -42,7 +42,7 @@ pub fn call_function(
         )
     };
 
-    let mut res_ref = JSValueRef::new_no_ref_ct_increment(res, "call_function result");
+    let mut res_ref = JSValueRef::new(res, false, true, "call_function result");
     res_ref.label("functions::call_function res");
 
     if res_ref.is_exception() {
@@ -94,8 +94,10 @@ pub fn invoke_member_function(
         )
     };
 
-    let res_ref = JSValueRef::new_no_ref_ct_increment(
+    let res_ref = JSValueRef::new(
         res_val,
+        false,
+        true,
         format!("functions::invoke_member_function res: {}", function_name).as_str(),
     );
 
@@ -109,7 +111,7 @@ pub fn call_to_string(q_js_rt: &QuickJsRuntime, obj_ref: &JSValueRef) -> Result<
         log::trace!("calling JS_ToString on a {}", obj_ref.borrow_value().tag);
 
         let res = unsafe { q::JS_ToString(q_js_rt.context, *obj_ref.borrow_value()) };
-        let res_ref = JSValueRef::new_no_ref_ct_increment(res, "call_to_string result");
+        let res_ref = JSValueRef::new(res, false, true, "call_to_string result");
 
         log::trace!("called JS_ToString got a {}", res_ref.borrow_value().tag);
 
@@ -169,8 +171,10 @@ pub fn call_constructor(
             qargs.as_mut_ptr(),
         )
     };
-    Ok(JSValueRef::new_no_ref_ct_increment(
+    Ok(JSValueRef::new(
         ret_val,
+        false,
+        true,
         "functions::call_constructor result",
     ))
 }
@@ -202,8 +206,12 @@ pub fn new_native_function(
             magic,
         )
     };
-    let func_ref =
-        JSValueRef::new_no_ref_ct_increment(func_val, "functions::new_native_function result");
+    let func_ref = JSValueRef::new(
+        func_val,
+        false,
+        true,
+        "functions::new_native_function result",
+    );
 
     if !func_ref.is_object() {
         Err(EsError::new_str("Could not create new_native_function"))
@@ -232,8 +240,12 @@ pub fn new_native_function_data(
             data.borrow_value_mut(),
         )
     };
-    let func_ref =
-        JSValueRef::new_no_ref_ct_increment(func_val, "functions::new_native_function_data result");
+    let func_ref = JSValueRef::new(
+        func_val,
+        false,
+        true,
+        "functions::new_native_function_data result",
+    );
 
     if !func_ref.is_object() {
         Err(EsError::new_str("Could not create new_native_function"))
@@ -328,7 +340,7 @@ where
         unsafe { q::JS_NewObjectClass(q_js_rt.context, callback_class_id as i32) };
 
     let class_val_ref =
-        JSValueRef::new_no_ref_ct_increment(class_val, "functions::new_function class_val");
+        JSValueRef::new(class_val, false, true, "functions::new_function class_val");
 
     if class_val_ref.is_exception() {
         return if let Some(e) = q_js_rt.get_exception() {
@@ -364,7 +376,7 @@ pub mod tests {
     use crate::quickjs_utils::functions::{
         call_function, call_to_string, invoke_member_function, new_function,
     };
-    use crate::quickjs_utils::{objects, primitives};
+    use crate::quickjs_utils::{functions, objects, primitives};
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -403,7 +415,7 @@ pub mod tests {
             let func_ref = q_js_rt
                 .eval(EsScript::new(
                     "test_ret_refcount.es",
-                    "this.test = {}; let global = this; (function(a, b){global.test.a = a; return {a: 1};});",
+                    "this.test = {q: {}}; let global = this; (function(a, b){global.test.a = a; return {a: 1};});",
                 ))
                 .ok()
                 .expect("aa");
@@ -423,6 +435,22 @@ pub mod tests {
 
             assert_eq!(2, a.get_ref_count());
             assert_eq!(1, b.get_ref_count());
+
+            let q_ref = q_js_rt.eval(EsScript::new("test_ret_refcount2.es", "test.q;")).ok().expect("get q failed");
+            assert_eq!(2, q_ref.get_ref_count());
+            let _ = call_function(q_js_rt, &func_ref, vec![primitives::from_i32(123), q_ref], None)
+                .ok()
+                .expect("b");
+            let q_ref = q_js_rt.eval(EsScript::new("test_ret_refcount2.es", "test.q;")).ok().expect("get q failed");
+            assert_eq!(2, q_ref.get_ref_count());
+            let _ = call_function(q_js_rt, &func_ref, vec![q_ref, primitives::from_i32(123)], None)
+                .ok()
+                .expect("b");
+            let q_ref = q_js_rt.eval(EsScript::new("test_ret_refcount2.es", "test.q;")).ok().expect("get q failed");
+            assert_eq!(3, q_ref.get_ref_count());
+
+            // cleanup
+            q_js_rt.eval(EsScript::new("cleanup.es", "this.test = null;")).ok().unwrap();
 
             true
         });
@@ -528,6 +556,42 @@ pub mod tests {
         });
         std::thread::sleep(Duration::from_secs(1));
     }
+
+    #[test]
+    fn test_callback_arg_ref_ct() {
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+
+        rt.add_to_event_queue_sync(|q_js_rt| {
+
+            let func_ref = q_js_rt.eval(EsScript::new(
+                "test_callback3.es",
+                "let test_callback_845 = function(cb){let obj = {}; cb(obj);cb(obj);cb(obj);}; test_callback_845;",
+            ))
+                .ok()
+                .expect("script failed");
+
+            let cb_ref = new_function(
+                q_js_rt,
+                "cb",
+                |_this_ref, args| {
+                    log::trace!("native callback invoked");
+                    assert_eq!(args[0].get_ref_count(), 2);
+
+                    Ok(primitives::from_i32(983))
+                },
+                3,
+            )
+            .ok()
+            .expect("could not create function");
+            functions::call_function(q_js_rt, &func_ref, vec![cb_ref], None).ok().expect("test_callback_845 failed");
+        });
+        log::trace!("done with cb");
+        std::thread::sleep(Duration::from_secs(1));
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            q_js_rt.gc();
+        });
+        std::thread::sleep(Duration::from_secs(1));
+    }
 }
 
 unsafe extern "C" fn callback_finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
@@ -562,7 +626,9 @@ unsafe extern "C" fn callback_function(
 ) -> q::JSValue {
     trace!("callback_function called");
 
-    let data_ref = JSValueRef::new_no_ref_ct_increment(*func_data, "callback_function func_data");
+    // todo run multiple times and check refcount not growing for data, this and args
+
+    let data_ref = JSValueRef::new(*func_data, false, false, "callback_function func_data");
     let callback_id = primitives::to_i32(&data_ref)
         .ok()
         .expect("failed to get callback_id");
@@ -576,15 +642,16 @@ unsafe extern "C" fn callback_function(
                 let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
                 let args_vec: Vec<JSValueRef> = arg_slice
                     .iter()
-                    .map(|raw| JSValueRef::new(*raw, "callback_function arg"))
+                    .map(|raw| JSValueRef::new(*raw, false, false, "callback_function arg"))
                     .collect::<Vec<_>>();
 
-                let this_ref = JSValueRef::new(this_val, "callback_function this_val");
+                let this_ref =
+                    JSValueRef::new(this_val, false, false, "callback_function this_val");
 
                 let callback_res: Result<JSValueRef, EsError> = callback(this_ref, args_vec);
 
                 match callback_res {
-                    Ok(res) => *res.borrow_value(),
+                    Ok(res) => res.consume_value_no_decr_rc(),
                     Err(e) => {
                         let message =
                             format!("\n{} at\nnative_code\n{}", e.get_message(), e.get_stack());

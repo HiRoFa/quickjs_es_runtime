@@ -17,13 +17,15 @@ pub fn to_bool(value_ref: &JSValueRef) -> Result<bool, EsError> {
 }
 
 pub fn from_bool(b: bool) -> JSValueRef {
-    JSValueRef::new_no_ref_ct_increment(
+    JSValueRef::new(
         q::JSValue {
             u: q::JSValueUnion {
                 int32: if b { 1 } else { 0 },
             },
             tag: TAG_BOOL,
         },
+        true,
+        true,
         "primitives::from_bool",
     )
 }
@@ -39,11 +41,13 @@ pub fn to_f64(value_ref: &JSValueRef) -> Result<f64, EsError> {
 }
 
 pub fn from_f64(f: f64) -> JSValueRef {
-    JSValueRef::new_no_ref_ct_increment(
+    JSValueRef::new(
         q::JSValue {
             u: q::JSValueUnion { float64: f },
             tag: TAG_FLOAT64,
         },
+        true,
+        true,
         "primitives::from_f64",
     )
 }
@@ -59,11 +63,13 @@ pub fn to_i32(value_ref: &JSValueRef) -> Result<i32, EsError> {
 }
 
 pub fn from_i32(i: i32) -> JSValueRef {
-    JSValueRef::new_no_ref_ct_increment(
+    JSValueRef::new(
         JSVal {
             u: q::JSValueUnion { int32: i },
             tag: TAG_INT,
         },
+        true,
+        true,
         "primitives::from_i32",
     )
 }
@@ -131,7 +137,7 @@ pub fn to_str<'a>(q_js_rt: &QuickJsRuntime, value_ref: &'a JSValueRef) -> Result
 pub fn from_string(q_js_rt: &QuickJsRuntime, s: &str) -> Result<JSValueRef, EsError> {
     let qval =
         unsafe { q::JS_NewStringLen(q_js_rt.context, s.as_ptr() as *const c_char, s.len() as _) };
-    let ret = JSValueRef::new_no_ref_ct_increment(qval, "primitives::from_string qval");
+    let ret = JSValueRef::new(qval, false, true, "primitives::from_string qval");
     if ret.is_exception() {
         return Err(EsError::new_str("Could not create string in runtime"));
     }

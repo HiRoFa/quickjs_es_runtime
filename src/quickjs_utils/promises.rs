@@ -69,19 +69,22 @@ pub fn new_promise(q_js_rt: &QuickJsRuntime) -> Result<PromiseRef, EsError> {
     let resolve_func_val = *promise_resolution_functions.get(0).unwrap();
     let reject_func_val = *promise_resolution_functions.get(1).unwrap();
 
-    let resolve_function_obj_ref = JSValueRef::new_no_ref_ct_increment(
+    let resolve_function_obj_ref = JSValueRef::new(
         resolve_func_val,
+        false,
+        true,
         "promises::new_promise resolve_func_val",
     );
-    let reject_function_obj_ref = JSValueRef::new_no_ref_ct_increment(
+    let reject_function_obj_ref = JSValueRef::new(
         reject_func_val,
+        false,
+        true,
         "promises::new_promise reject_func_val",
     );
     assert!(functions::is_function(q_js_rt, &resolve_function_obj_ref));
     assert!(functions::is_function(q_js_rt, &reject_function_obj_ref));
 
-    let promise_obj_ref =
-        JSValueRef::new_no_ref_ct_increment(prom_val, "promises::new_promise prom_val");
+    let promise_obj_ref = JSValueRef::new(prom_val, false, true, "promises::new_promise prom_val");
 
     assert_eq!(resolve_function_obj_ref.get_ref_count(), 1);
     assert_eq!(reject_function_obj_ref.get_ref_count(), 1);
@@ -150,8 +153,10 @@ unsafe extern "C" fn promise_rejection_tracker(
     if is_handled == 0 {
         log::error!("unhandled promise rejection detected");
         QuickJsRuntime::do_with(|q_js_rt| {
-            let reason_ref = JSValueRef::new_no_ref_ct_increment(
+            let reason_ref = JSValueRef::new(
                 reason,
+                false,
+                false,
                 "promises::promise_rejection_tracker reason",
             );
             let reason_str_res = functions::call_to_string(q_js_rt, &reason_ref);
@@ -189,7 +194,7 @@ pub mod tests {
             match res {
                 Ok(v) => is_promise(q_js_rt, &v)
                     .ok()
-                    .expect("could not get instanceof"),
+                    .expect("could not get instance_of"),
                 Err(e) => {
                     panic!("err: {}", e);
                 }

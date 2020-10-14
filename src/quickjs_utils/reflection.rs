@@ -242,8 +242,12 @@ impl Proxy {
         let class_val: q::JSValue =
             unsafe { q::JS_NewObjectClass(q_js_rt.context, static_class_id as i32) };
 
-        let class_val_ref =
-            JSValueRef::new(class_val, "reflection::Proxy::install_class_prop class_val");
+        let class_val_ref = JSValueRef::new(
+            class_val,
+            false,
+            true,
+            "reflection::Proxy::install_class_prop class_val",
+        );
 
         if class_val_ref.is_exception() {
             return if let Some(e) = q_js_rt.get_exception() {
@@ -301,13 +305,11 @@ pub mod tests {
     use crate::eserror::EsError;
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
-    use crate::esvalue::EsValueFacade;
     use crate::quickjs_utils::reflection::Proxy;
     use crate::quickjs_utils::{functions, primitives};
     use crate::quickjsruntime::QuickJsRuntime;
     use hirofa_utils::auto_id_map::AutoIdMap;
     use log::trace;
-    use std::borrow::BorrowMut;
     use std::cell::RefCell;
     use std::sync::Arc;
     use std::time::Duration;
@@ -459,8 +461,10 @@ pub fn new_instance2(
 
     let class_name = proxy.get_class_name();
 
-    let class_val_ref = JSValueRef::new_no_ref_ct_increment(
+    let class_val_ref = JSValueRef::new(
         class_val,
+        false,
+        true,
         format!("reflection::Proxy; cn={}", class_name).as_str(),
     );
 
@@ -524,7 +528,7 @@ unsafe extern "C" fn constructor(
 
     // this is the function we created earlier (the constructor)
     // so classname = this.name;
-    let this_ref = JSValueRef::new(this_val, "reflection::constructor this_val");
+    let this_ref = JSValueRef::new(this_val, false, false, "reflection::constructor this_val");
     QuickJsRuntime::do_with(|q_js_rt| {
         let name_ref = objects::get_property(q_js_rt, &this_ref, "name")
             .ok()
@@ -542,7 +546,9 @@ unsafe extern "C" fn constructor(
                     let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
                     let args_vec: Vec<JSValueRef> = arg_slice
                         .iter()
-                        .map(|raw| JSValueRef::new(*raw, "reflection::constructor arg"))
+                        .map(|raw| {
+                            JSValueRef::new(*raw, false, false, "reflection::constructor arg")
+                        })
                         .collect::<Vec<_>>();
 
                     let instance_id_res = constructor(args_vec);
@@ -621,8 +627,13 @@ unsafe extern "C" fn proxy_static_get_prop(
     // static proxy class, not an instance
     trace!("proxy_static_get_prop");
 
-    let _obj_ref = JSValueRef::new(obj, "reflection::proxy_static_get_prop obj");
-    let receiver_ref = JSValueRef::new(receiver, "reflection::proxy_static_get_prop receiver");
+    let _obj_ref = JSValueRef::new(obj, false, false, "reflection::proxy_static_get_prop obj");
+    let receiver_ref = JSValueRef::new(
+        receiver,
+        false,
+        false,
+        "reflection::proxy_static_get_prop receiver",
+    );
     QuickJsRuntime::do_with(|q_js_rt| {
         let proxy_name_ref = objects::get_property(q_js_rt, &receiver_ref, "name")
             .ok()
@@ -694,8 +705,13 @@ unsafe extern "C" fn proxy_instance_get_prop(
 ) -> q::JSValue {
     trace!("proxy_instance_get_prop");
 
-    let _obj_ref = JSValueRef::new(obj, "reflection::proxy_instance_get_prop obj");
-    let receiver_ref = JSValueRef::new(receiver, "reflection::proxy_instance_get_prop receiver");
+    let _obj_ref = JSValueRef::new(obj, false, false, "reflection::proxy_instance_get_prop obj");
+    let receiver_ref = JSValueRef::new(
+        receiver,
+        false,
+        false,
+        "reflection::proxy_instance_get_prop receiver",
+    );
 
     QuickJsRuntime::do_with(|q_js_rt| {
         let prop_name = atoms::to_string(q_js_rt, &atom)
@@ -794,11 +810,15 @@ unsafe extern "C" fn proxy_instance_method(
         let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
         let args_vec: Vec<JSValueRef> = arg_slice
             .iter()
-            .map(|raw| JSValueRef::new(*raw, "reflection::proxy_instance_method arg"))
+            .map(|raw| JSValueRef::new(*raw, false, false, "reflection::proxy_instance_method arg"))
             .collect::<Vec<_>>();
 
-        let func_name_ref =
-            JSValueRef::new(*func_data, "reflection::proxy_instance_method func_data");
+        let func_name_ref = JSValueRef::new(
+            *func_data,
+            false,
+            false,
+            "reflection::proxy_instance_method func_data",
+        );
         let func_name = primitives::to_str(q_js_rt, &func_name_ref)
             .ok()
             .expect("could not to_string func_name_ref");
@@ -842,7 +862,12 @@ unsafe extern "C" fn proxy_static_method(
 ) -> q::JSValue {
     trace!("proxy_static_method");
     QuickJsRuntime::do_with(|q_js_rt| {
-        let this_ref = JSValueRef::new(this_val, "reflection::proxy_static_method this_val");
+        let this_ref = JSValueRef::new(
+            this_val,
+            false,
+            false,
+            "reflection::proxy_static_method this_val",
+        );
 
         let proxy_name_ref = objects::get_property(q_js_rt, &this_ref, "name")
             .ok()
@@ -854,11 +879,15 @@ unsafe extern "C" fn proxy_static_method(
         let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
         let args_vec: Vec<JSValueRef> = arg_slice
             .iter()
-            .map(|raw| JSValueRef::new(*raw, "reflection::proxy_static_method arg"))
+            .map(|raw| JSValueRef::new(*raw, false, false, "reflection::proxy_static_method arg"))
             .collect::<Vec<_>>();
 
-        let func_name_ref =
-            JSValueRef::new(*func_data, "reflection::proxy_static_method func_data");
+        let func_name_ref = JSValueRef::new(
+            *func_data,
+            false,
+            false,
+            "reflection::proxy_static_method func_data",
+        );
         let func_name = primitives::to_str(q_js_rt, &func_name_ref)
             .ok()
             .expect("could not to_string func_name_ref");

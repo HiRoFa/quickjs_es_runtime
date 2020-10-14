@@ -59,7 +59,7 @@ pub fn construct_object(
 
 pub fn create_object(q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
     let obj = unsafe { q::JS_NewObject(q_js_rt.context) };
-    let obj_ref = JSValueRef::new_no_ref_ct_increment(obj, "objects::create_object");
+    let obj_ref = JSValueRef::new(obj, false, true, "objects::create_object");
     if obj_ref.is_exception() {
         return Err(EsError::new_str("Could not create object"));
     }
@@ -201,8 +201,10 @@ pub fn get_property(
             c_prop_name.as_ptr(),
         )
     };
-    let prop_ref = JSValueRef::new_no_ref_ct_increment(
+    let prop_ref = JSValueRef::new(
         prop_val,
+        false,
+        true,
         format!("object::get_property result: {}", prop_name).as_str(),
     );
 
@@ -248,8 +250,12 @@ pub fn get_property_names(
         let prop = unsafe { (*properties).offset(index as isize) };
 
         let key_value = unsafe { q::JS_AtomToString(q_js_rt.context, (*prop).atom) };
-        let key_ref =
-            JSValueRef::new_no_ref_ct_increment(key_value, "objects::get_property_names key_value");
+        let key_ref = JSValueRef::new(
+            key_value,
+            false,
+            true,
+            "objects::get_property_names key_value",
+        );
         if key_ref.is_exception() {
             return Err(EsError::new_str("Could not get object property name"));
         }
@@ -310,8 +316,10 @@ where
                 0,
             )
         };
-        let prop_val_ref = JSValueRef::new_no_ref_ct_increment(
+        let prop_val_ref = JSValueRef::new(
             raw_value,
+            false,
+            true,
             "objects::traverseproperty_names raw_value",
         );
         if prop_val_ref.is_exception() {
@@ -319,8 +327,10 @@ where
         }
 
         let key_value = unsafe { q::JS_AtomToString(q_js_rt.context, (*prop).atom) };
-        let key_ref = JSValueRef::new_no_ref_ct_increment(
+        let key_ref = JSValueRef::new(
             key_value,
+            false,
+            true,
             "objects::traverseproperty_names key_value",
         );
         if key_ref.is_exception() {

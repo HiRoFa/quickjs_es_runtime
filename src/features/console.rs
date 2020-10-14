@@ -38,7 +38,7 @@ unsafe extern "C" fn console_log(
 
     let args_vec: Vec<JSValueRef> = arg_slice
         .iter()
-        .map(|raw| JSValueRef::new(*raw, "console_log_arg"))
+        .map(|raw| JSValueRef::new(*raw, false, false, "console_log_arg"))
         .collect::<Vec<_>>();
 
     let strings = QuickJsRuntime::do_with(|q_js_rt| {

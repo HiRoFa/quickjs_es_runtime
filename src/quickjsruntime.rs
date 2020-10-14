@@ -110,8 +110,10 @@ impl QuickJsRuntime {
         log::trace!("after eval, checking error");
 
         // check for error
-        let ret = JSValueRef::new_no_ref_ct_increment(
+        let ret = JSValueRef::new(
             value_raw,
+            false,
+            true,
             format!("eval result of {}", script.get_path()).as_str(),
         );
         if ret.is_exception() {
@@ -147,8 +149,10 @@ impl QuickJsRuntime {
         };
 
         // check for error
-        let ret = JSValueRef::new_no_ref_ct_increment(
+        let ret = JSValueRef::new(
             value_raw,
+            false,
+            true,
             format!("eval_module result of {}", script.get_path()).as_str(),
         );
 

@@ -30,11 +30,13 @@ pub fn gc(q_js_rt: &QuickJsRuntime) {
 }
 
 pub fn new_undefined_ref() -> JSValueRef {
-    JSValueRef::new_no_ref_ct_increment(
+    JSValueRef::new(
         q::JSValue {
             u: q::JSValueUnion { int32: 0 },
             tag: TAG_UNDEFINED,
         },
+        false,
+        false,
         "new_undefined_ref",
     )
 }
@@ -47,12 +49,12 @@ pub fn new_null() -> q::JSValue {
 }
 
 pub fn new_null_ref() -> JSValueRef {
-    JSValueRef::new_no_ref_ct_increment(new_null(), "new_null_ref")
+    JSValueRef::new(new_null(), false, false, "new_null_ref")
 }
 
 pub fn get_global(q_js_rt: &QuickJsRuntime) -> JSValueRef {
     let global = unsafe { q::JS_GetGlobalObject(q_js_rt.context) };
-    let global_ref = JSValueRef::new(global, "global");
+    let global_ref = JSValueRef::new(global, false, true, "global");
     global_ref
 }
 
@@ -65,4 +67,23 @@ pub fn get_constructor(
     let constructor_ref = get_property(q_js_rt, &global_ref, constructor_name)?;
 
     Ok(constructor_ref)
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::esruntime::EsRuntime;
+    use crate::quickjs_utils::get_global;
+    use std::sync::Arc;
+
+    #[test]
+    fn test_global() {
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let _io = rt.add_to_event_queue_sync(|q_js_rt| {
+            let ct = get_global(q_js_rt).get_ref_count();
+            for _ in 0..5 {
+                let global = get_global(q_js_rt);
+                assert_eq!(global.get_ref_count(), ct);
+            }
+        });
+    }
 }

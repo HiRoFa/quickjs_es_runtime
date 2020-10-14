@@ -3,6 +3,7 @@ use libquickjs_sys as q;
 
 pub struct JSValueRef {
     value: Option<q::JSValue>,
+    ref_ct_decr_on_drop: bool,
     label: String,
 }
 
@@ -16,6 +17,8 @@ impl Clone for JSValueRef {
     fn clone(&self) -> Self {
         Self::new(
             self.value.unwrap(),
+            true,
+            true,
             format!("clone of {}", self.label).as_str(),
         )
     }
@@ -32,18 +35,20 @@ impl Drop for JSValueRef {
                     // This transmute is OK since if tag < 0, the union will be a refcount
                     // pointer.
 
-                    if self.get_ref_count() < 0 {
-                        log::error!(
-                            "dropping ref while refcount already 0, which is bad mmkay.. {}",
-                            self.label
-                        );
-                        panic!(
-                            "dropping ref while refcount already 0, which is bad mmkay.. {}",
-                            self.label
-                        );
+                    if self.ref_ct_decr_on_drop {
+                        if self.get_ref_count() <= 0 {
+                            log::error!(
+                                "dropping ref while refcount already 0, which is bad mmkay.. {}",
+                                self.label
+                            );
+                            panic!(
+                                "dropping ref while refcount already 0, which is bad mmkay.. {}",
+                                self.label
+                            );
+                        }
+                        self.decrement_ref_count();
                     }
 
-                    self.decrement_ref_count();
                     if self.get_ref_count() <= 0 {
                         log::trace!("ref count <= 0, calling __JS_FreeValue");
                         q::__JS_FreeValue(q_js_rt.context, value);
@@ -72,15 +77,6 @@ impl<'a> std::fmt::Debug for JSValueRef {
 }
 
 impl JSValueRef {
-    /// create a new OwnedValueRef
-    pub fn new_no_ref_ct_increment(value: q::JSValue, label: &str) -> Self {
-        // todo assert in worker thread
-        Self {
-            value: Some(value),
-            label: label.to_string(),
-        }
-    }
-
     pub(crate) fn increment_ref_count(&self) {
         if self.get_tag() < 0 {
             unsafe {
@@ -105,12 +101,20 @@ impl JSValueRef {
         self.value.as_ref().unwrap().tag
     }
 
-    pub fn new(value: q::JSValue, label: &str) -> Self {
+    pub fn new(
+        value: q::JSValue,
+        ref_ct_incr: bool,
+        ref_ct_decr_on_drop: bool,
+        label: &str,
+    ) -> Self {
         let s = Self {
             value: Some(value),
+            ref_ct_decr_on_drop,
             label: label.to_string(),
         };
-        s.increment_ref_count();
+        if ref_ct_incr {
+            s.increment_ref_count();
+        }
         s
     }
 
