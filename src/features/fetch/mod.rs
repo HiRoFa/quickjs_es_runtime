@@ -2,55 +2,17 @@ use crate::eserror::EsError;
 use crate::esruntime::EsRuntime;
 use crate::esruntime_utils::promises;
 use crate::features::fetch::request::FetchRequest;
+use crate::features::fetch::response::FetchResponse;
 use crate::quickjs_utils;
-use crate::quickjs_utils::{functions, objects, primitives, reflection};
+use crate::quickjs_utils::{functions, objects};
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::JSValueRef;
-use hirofa_utils::auto_id_map::AutoIdMap;
 use libquickjs_sys as q;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 pub mod request;
-
-thread_local! {
-    static RESPONSES : RefCell<AutoIdMap<Box<dyn FetchResponse>>> = RefCell::new(AutoIdMap::new());
-}
-
-pub trait FetchResponse {
-    fn get_http_status(&self) -> u16;
-    fn get_header(&self, name: &str) -> &[&str];
-    fn get_header_names(&self) -> &[&String];
-    fn read(&self) -> Option<Vec<u16>>;
-}
-
-pub const RESPONSE_PROXY_NAME: &str = "Response";
-
-fn init_response_proxy(q_js_rt: &QuickJsRuntime) {
-    reflection::Proxy::new()
-        .name(RESPONSE_PROXY_NAME)
-        // todo native_methods
-        .method("json", |_instance_id, _args| {
-            // todo return a promise which resolves with an object
-            Ok(quickjs_utils::new_null_ref())
-        })
-        .getter_setter(
-            "ok",
-            |_instance_id| Ok(primitives::from_bool(true)),
-            |_instance_id, _val| Ok(()),
-        )
-        .finalizer(|instance_id| {
-            log::trace!("dropping FetchResponse {}", instance_id);
-            RESPONSES.with(|responses_rc| {
-                let responses = &mut *responses_rc.borrow_mut();
-                responses.remove(&instance_id);
-            });
-        })
-        .install(q_js_rt)
-        .ok()
-        .expect("could not install Response proxy");
-}
+pub mod response;
 
 pub(crate) fn init(es_rt: Arc<EsRuntime>) -> Result<(), EsError> {
     es_rt.add_to_event_queue_sync(|q_js_rt| {
@@ -67,7 +29,7 @@ pub(crate) fn init(es_rt: Arc<EsRuntime>) -> Result<(), EsError> {
             func_ref,
         )?;
 
-        init_response_proxy(q_js_rt);
+        response::init_response_proxy(q_js_rt);
 
         Ok(())
     })
@@ -106,20 +68,8 @@ unsafe extern "C" fn fetch_func(
 
                     Ok(result)
                 };
-                let mapper = |p_res: Box<dyn FetchResponse + Send>| {
-                    // the result should be placed in a AutoIdMap, that id should be used as id of the proxy instance
-                    // here we are in the q_js_rt worker thread so we can make a thread_local autoidmap to keep our proxies in
-                    // Result proxy should remove on finalize
-
-                    QuickJsRuntime::do_with(|q_js_rt| {
-                        let instance_id = RESPONSES.with(|responses_rc| {
-                            let responses = &mut *responses_rc.borrow_mut();
-                            responses.insert(p_res)
-                        });
-
-                        reflection::new_instance(RESPONSE_PROXY_NAME, instance_id, q_js_rt)
-                    })
-                };
+                let mapper =
+                    |p_res: Box<dyn FetchResponse + Send>| response::new_response_ref(p_res);
                 let es_rt = &*q_js_rt.get_rt_ref().unwrap();
                 let prom_res = promises::new_resolving_promise(q_js_rt, producer, mapper, es_rt);
                 match prom_res {
@@ -159,7 +109,7 @@ pub mod tests {
             unimplemented!()
         }
 
-        fn read(&self) -> Option<Vec<u16>> {
+        fn read(&self) -> Option<Vec<u8>> {
             unimplemented!()
         }
     }

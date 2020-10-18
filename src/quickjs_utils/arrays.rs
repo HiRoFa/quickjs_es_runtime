@@ -163,9 +163,8 @@ pub fn get_element(
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::EsRuntime;
-    use crate::esscript::EsScript;
     use crate::quickjs_utils::arrays::{create_array, get_element, set_element};
-    use crate::quickjs_utils::{functions, objects};
+    use crate::quickjs_utils::objects;
     use std::sync::Arc;
 
     #[test]

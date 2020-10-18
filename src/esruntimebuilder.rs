@@ -1,8 +1,7 @@
 use crate::esruntime::{EsRuntime, FetchResponseProvider};
 use crate::esscript::EsScript;
 use crate::features::fetch::request::FetchRequest;
-
-use crate::features::fetch::FetchResponse;
+use crate::features::fetch::response::FetchResponse;
 use crate::quickjsruntime::ModuleScriptLoader;
 use std::sync::Arc;
 use std::time::Duration;
