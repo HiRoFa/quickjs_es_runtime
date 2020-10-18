@@ -12,7 +12,7 @@ use std::sync::{Arc, Weak};
 
 use crate::features::fetch::request::FetchRequest;
 
-use crate::features::fetch::FetchResponse;
+use crate::features::fetch::response::FetchResponse;
 use hirofa_utils::task_manager::TaskManager;
 
 lazy_static! {
