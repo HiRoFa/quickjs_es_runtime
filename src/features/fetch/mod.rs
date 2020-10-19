@@ -95,7 +95,9 @@ pub mod tests {
     use std::sync::Arc;
     use std::time::Duration;
 
-    struct TestResponse {}
+    struct TestResponse {
+        txt: Option<String>,
+    }
     impl FetchResponse for TestResponse {
         fn get_http_status(&self) -> u16 {
             unimplemented!()
@@ -109,8 +111,13 @@ pub mod tests {
             unimplemented!()
         }
 
-        fn read(&self) -> Option<Vec<u8>> {
-            unimplemented!()
+        fn read(&mut self) -> Option<Vec<u8>> {
+            if self.txt.is_some() {
+                let s = std::mem::replace(&mut self.txt, None);
+                Some(s.unwrap().into_bytes())
+            } else {
+                None
+            }
         }
     }
 
@@ -119,13 +126,15 @@ pub mod tests {
         let _: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         let rt = EsRuntimeBuilder::new()
             .fetch_response_provider(|_req| {
-                let res = TestResponse {};
+                let res = TestResponse {
+                    txt: Some("test response".to_string()),
+                };
                 Box::new(res)
             })
             .build();
         let res = rt.eval_sync(EsScript::new(
             "test_fetch.es",
-            "let res = fetch('https://httpbin.org/get'); console.log('fetch res was: ' + res); res.then((fetch_resp) => {console.log('fetch response .ok = ' + fetch_resp.ok); fetch_resp = null;}); res = null;",
+            "let res = fetch('https://httpbin.org/get'); console.log('fetch res was: ' + res); res.then((fetch_resp) => {console.log('fetch response .ok = ' + fetch_resp.ok); fetch_resp.text().then((txt) => {console.log('fetch_resp.text() resolved into ' + txt);});}); res = null;",
         ));
         match res {
             Ok(_) => {

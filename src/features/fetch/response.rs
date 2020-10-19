@@ -19,7 +19,7 @@ pub trait FetchResponse {
     fn get_http_status(&self) -> u16;
     fn get_header(&self, name: &str) -> &[&str];
     fn get_header_names(&self) -> &[&String];
-    fn read(&self) -> Option<Vec<u8>>;
+    fn read(&mut self) -> Option<Vec<u8>>;
 }
 
 const RESPONSE_PROXY_NAME: &str = "Response";
@@ -40,7 +40,7 @@ fn response_text(instance_id: &usize, _args: Vec<JSValueRef>) -> Result<JSValueR
         let producer = move || {
             // get response, read till completion, return full str
             let fr_mtx = &*resp_arc;
-            let fr = &*fr_mtx.lock().unwrap();
+            let fr = &mut *fr_mtx.lock().unwrap();
             let mut bytes = vec![];
             while let Some(mut buffer) = fr.read() {
                 bytes.append(&mut buffer);
