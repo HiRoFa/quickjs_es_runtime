@@ -60,7 +60,7 @@ unsafe extern "C" fn fetch_func(
                         .inner
                         .fetch_response_provider
                         .as_ref()
-                        .expect("we realy expected a provider here");
+                        .expect("we really expected a fetch_response_provider here");
 
                     let request = FetchRequest::new("", HashMap::new());
 
@@ -127,7 +127,7 @@ pub mod tests {
         let rt = EsRuntimeBuilder::new()
             .fetch_response_provider(|_req| {
                 let res = TestResponse {
-                    txt: Some("test response".to_string()),
+                    txt: Some("{\"test\": \"response\"}".to_string()),
                 };
                 Box::new(res)
             })
@@ -142,6 +142,18 @@ pub mod tests {
             }
             Err(e) => {
                 panic!("script failed: {}", e);
+            }
+        }
+        let res2 = rt.eval_sync(EsScript::new(
+            "test_fetch2.es",
+            "let res2 = fetch('https://httpbin.org/get'); console.log('fetch res2 was: ' + res2); res2.then((fetch_resp) => {console.log('fetch response .ok = ' + fetch_resp.ok); fetch_resp.json().then((js_obj) => {console.log('fetch_resp.json() resolved into ' + js_obj);}).catch((ex) => {console.log('fetch_resp.caught ' + ex);});;}); res2 = null;",
+        ));
+        match res2 {
+            Ok(_) => {
+                //
+            }
+            Err(e) => {
+                panic!("script2 failed: {}", e);
             }
         }
         std::thread::sleep(Duration::from_secs(2));

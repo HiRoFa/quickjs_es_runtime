@@ -11,7 +11,7 @@ pub fn init(es_rt: Arc<EsRuntime>) -> Result<(), EsError> {
     let es_rt2 = es_rt.clone();
     es_rt.add_to_event_queue_sync(move |q_js_rt| {
         console::init(q_js_rt)?;
-        fetch::init(es_rt2.clone())?;
+        fetch::init(es_rt2)?;
         Ok(())
     })
 }

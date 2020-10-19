@@ -1,7 +1,6 @@
 use crate::eserror::EsError;
 use crate::esruntime_utils::promises::new_resolving_promise;
-use crate::quickjs_utils;
-use crate::quickjs_utils::{primitives, reflection};
+use crate::quickjs_utils::{json, primitives, reflection};
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::JSValueRef;
 use hirofa_utils::auto_id_map::AutoIdMap;
@@ -61,8 +60,48 @@ fn response_text(instance_id: &usize, _args: Vec<JSValueRef>) -> Result<JSValueR
     })
 }
 
-fn response_json(_instance_id: &usize, _args: Vec<JSValueRef>) -> Result<JSValueRef, EsError> {
-    Ok(quickjs_utils::new_null_ref())
+fn response_json(instance_id: &usize, _args: Vec<JSValueRef>) -> Result<JSValueRef, EsError> {
+    QuickJsRuntime::do_with(|q_js_rt| {
+        let es_rt_arc_opt = q_js_rt.get_rt_ref();
+        let es_rt = &*es_rt_arc_opt.unwrap();
+
+        let resp_arc: FetchResponseMapType = RESPONSES.with(move |rrc| {
+            let responses_map = &*rrc.borrow();
+            responses_map
+                .get(&instance_id)
+                .expect("no such response found")
+                .clone()
+        });
+
+        let producer = move || {
+            // get response, read till completion, return full str
+            let fr_mtx = &*resp_arc;
+            let fr = &mut *fr_mtx.lock().unwrap();
+            let mut bytes = vec![];
+            while let Some(mut buffer) = fr.read() {
+                bytes.append(&mut buffer);
+            }
+
+            let res_str = String::from_utf8(bytes);
+            match res_str {
+                Ok(s) => Ok(s),
+                Err(_e) => Err("UTF8Error while reading text".to_string()),
+            }
+        };
+        let mapper = |res: String| {
+            // map string to js_str and then parse
+            QuickJsRuntime::do_with(|q_js_rt| {
+                //
+                let str_ref = primitives::from_string(q_js_rt, res.as_str())?;
+
+                let s = primitives::to_string(q_js_rt, &str_ref)?;
+
+                json::parse(q_js_rt, s.as_str())
+            })
+        };
+
+        new_resolving_promise(q_js_rt, producer, mapper, &es_rt)
+    })
 }
 
 pub(crate) fn init_response_proxy(q_js_rt: &QuickJsRuntime) {

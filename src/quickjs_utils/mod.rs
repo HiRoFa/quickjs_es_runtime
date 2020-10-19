@@ -6,6 +6,7 @@ pub mod bigints;
 pub mod dates;
 pub mod errors;
 pub mod functions;
+pub mod json;
 pub mod modules;
 pub mod objects;
 pub mod primitives;
@@ -54,8 +55,7 @@ pub fn new_null_ref() -> JSValueRef {
 
 pub fn get_global(q_js_rt: &QuickJsRuntime) -> JSValueRef {
     let global = unsafe { q::JS_GetGlobalObject(q_js_rt.context) };
-    let global_ref = JSValueRef::new(global, false, true, "global");
-    global_ref
+    JSValueRef::new(global, false, true, "global")
 }
 
 pub fn get_constructor(
