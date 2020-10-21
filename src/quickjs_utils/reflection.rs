@@ -264,7 +264,7 @@ impl Proxy {
             let _res = q::JS_SetPrototype(
                 q_js_rt.context,
                 *constructor_ref.borrow_value(),
-                class_val_ref.consume_value_no_decr_rc(),
+                class_val_ref.clone_value_incr_rc(),
             );
             /*if res != 0 {
                 return if let Some(err) = q_js_rt.get_exception() {
@@ -558,7 +558,7 @@ unsafe extern "C" fn constructor(
                             let instance_ref_res = new_instance2(proxy, instance_id, q_js_rt);
 
                             match instance_ref_res {
-                                Ok(instance_ref) => instance_ref.consume_value_no_decr_rc(),
+                                Ok(instance_ref) => instance_ref.clone_value_incr_rc(),
                                 Err(e) => q_js_rt.report_ex(
                                     format!(
                                         "could not create proxy instance for {} due to {}",
@@ -674,13 +674,13 @@ unsafe extern "C" fn proxy_static_get_prop(
                     .ok()
                     .expect("set_property 9656738 failed");
 
-                    func_ref.consume_value_no_decr_rc()
+                    func_ref.clone_value_incr_rc()
                 } else if let Some(getter_setter) = proxy.static_getters_setters.get(&prop_name) {
                     // call the getter
                     let getter = &getter_setter.0;
                     let res: Result<JSValueRef, EsError> = getter();
                     match res {
-                        Ok(g_val) => g_val.consume_value_no_decr_rc(),
+                        Ok(g_val) => g_val.clone_value_incr_rc(),
                         Err(e) => {
                             let es = format!("proxy_static_get_prop failed: {}", e);
                             q_js_rt.report_ex(es.as_str())
@@ -750,13 +750,13 @@ unsafe extern "C" fn proxy_instance_get_prop(
                     .ok()
                     .expect("set_property 96385 failed");
 
-                func_ref.consume_value_no_decr_rc()
+                func_ref.clone_value_incr_rc()
             } else if let Some(getter_setter) = proxy.getters_setters.get(&prop_name) {
                 // call the getter
                 let getter = &getter_setter.0;
                 let res: Result<JSValueRef, EsError> = getter(info.0);
                 match res {
-                    Ok(g_val) => g_val.consume_value_no_decr_rc(),
+                    Ok(g_val) => g_val.clone_value_incr_rc(),
                     Err(e) => {
                         let err = format!("proxy_instance_get_prop failed: {}", e);
                         q_js_rt.report_ex(err.as_str())
@@ -833,7 +833,7 @@ unsafe extern "C" fn proxy_instance_method(
                 let m_res: Result<JSValueRef, EsError> = method(&proxy_instance_info.0, args_vec);
 
                 match m_res {
-                    Ok(m_res_ref) => m_res_ref.consume_value_no_decr_rc(),
+                    Ok(m_res_ref) => m_res_ref.clone_value_incr_rc(),
                     Err(e) => {
                         let msg = format!("proxy_instance_method failed: {}", e.get_message());
                         let err =
@@ -900,7 +900,7 @@ unsafe extern "C" fn proxy_static_method(
             if let Some(method) = proxy.static_methods.get(func_name) {
                 let m_res: Result<JSValueRef, EsError> = method(args_vec);
                 match m_res {
-                    Ok(m_res_ref) => m_res_ref.consume_value_no_decr_rc(),
+                    Ok(m_res_ref) => m_res_ref.clone_value_incr_rc(),
                     Err(e) => {
                         let err = format!("proxy_static_method failed: {}", e);
                         q_js_rt.report_ex(err.as_str())

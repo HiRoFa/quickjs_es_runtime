@@ -73,7 +73,7 @@ unsafe extern "C" fn fetch_func(
                 let es_rt = &*q_js_rt.get_rt_ref().unwrap();
                 let prom_res = promises::new_resolving_promise(q_js_rt, producer, mapper, es_rt);
                 match prom_res {
-                    Ok(prom_ref) => prom_ref.consume_value_no_decr_rc(),
+                    Ok(prom_ref) => prom_ref.clone_value_incr_rc(),
                     Err(e) => q_js_rt.report_ex(e.get_message()),
                 }
             } else {

@@ -133,8 +133,10 @@ impl JSValueRef {
         }
     }
 
-    pub fn consume_value_no_decr_rc(mut self) -> q::JSValue {
-        std::mem::replace(&mut self.value, None).unwrap()
+    /// borrow the value but first increment the refcount, this is usefull for when the value is returned or passed to functions
+    pub fn clone_value_incr_rc(&self) -> q::JSValue {
+        self.increment_ref_count();
+        self.value.unwrap()
     }
 
     pub fn borrow_value(&self) -> &q::JSValue {

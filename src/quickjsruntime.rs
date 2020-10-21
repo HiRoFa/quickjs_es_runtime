@@ -10,7 +10,6 @@ use libquickjs_sys as q;
 use std::cell::RefCell;
 use std::ffi::CString;
 use std::panic;
-use std::panic::catch_unwind;
 use std::sync::{Arc, Weak};
 
 pub type ModuleScriptLoader = dyn Fn(&str, &str) -> Option<EsScript> + Send + Sync + 'static;

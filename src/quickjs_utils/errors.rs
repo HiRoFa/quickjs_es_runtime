@@ -77,7 +77,7 @@ pub fn is_error(q_js_rt: &QuickJsRuntime, obj_ref: &JSValueRef) -> bool {
 
 pub fn throw(q_js_rt: &QuickJsRuntime, error: JSValueRef) -> q::JSValue {
     assert!(is_error(q_js_rt, &error));
-    unsafe { q::JS_Throw(q_js_rt.context, error.clone().consume_value_no_decr_rc()) };
+    unsafe { q::JS_Throw(q_js_rt.context, error.clone_value_incr_rc()) };
     q::JSValue {
         u: q::JSValueUnion { int32: 0 },
         tag: TAG_EXCEPTION,

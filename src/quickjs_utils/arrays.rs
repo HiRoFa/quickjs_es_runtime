@@ -112,7 +112,7 @@ pub fn set_element(
             q_js_rt.context,
             *array_ref.borrow_value(),
             index,
-            entry_value_ref.consume_value_no_decr_rc(),
+            entry_value_ref.clone_value_incr_rc(),
             q::JS_PROP_C_W_E as i32,
         )
     };

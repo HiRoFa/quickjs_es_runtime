@@ -111,7 +111,7 @@ pub fn set_property2(
             q_js_rt.context,
             *obj_ref.borrow_value(),
             ckey.as_ptr(),
-            prop_ref.consume_value_no_decr_rc(),
+            prop_ref.clone_value_incr_rc(),
             flags,
         )
     };

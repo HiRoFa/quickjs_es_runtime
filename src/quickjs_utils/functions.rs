@@ -660,7 +660,7 @@ unsafe extern "C" fn callback_function(
                 let callback_res: Result<JSValueRef, EsError> = callback(this_ref, args_vec);
 
                 match callback_res {
-                    Ok(res) => res.consume_value_no_decr_rc(),
+                    Ok(res) => res.clone_value_incr_rc(),
                     Err(e) => {
                         let message =
                             format!("\n{} at\nnative_code\n{}", e.get_message(), e.get_stack());
