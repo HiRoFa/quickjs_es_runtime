@@ -157,7 +157,7 @@ pub fn define_getter_setter(
         q::JS_DefinePropertyGetSet(
             q_js_rt.context,
             *obj_ref.borrow_value(),
-            prop_atom,
+            prop_atom.get_atom(),
             *getter_func_ref.borrow_value(),
             *setter_func_ref.borrow_value(),
             0,
@@ -320,7 +320,7 @@ where
             raw_value,
             false,
             true,
-            "objects::traverseproperty_names raw_value",
+            "objects::traverse_properties raw_value",
         );
         if prop_val_ref.is_exception() {
             return Err(EsError::new_str("Could not get object property"));
@@ -331,7 +331,7 @@ where
             key_value,
             false,
             true,
-            "objects::traverseproperty_names key_value",
+            "objects::traverse_properties key_value",
         );
         if key_ref.is_exception() {
             return Err(EsError::new_str("Could not get object property name"));

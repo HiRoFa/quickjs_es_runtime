@@ -123,7 +123,8 @@ pub mod tests {
 
     #[test]
     fn test_fetch() {
-        let _: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let main_rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+
         let rt = EsRuntimeBuilder::new()
             .fetch_response_provider(|_req| {
                 let res = TestResponse {
@@ -162,6 +163,10 @@ pub mod tests {
         rt.eval_sync(EsScript::new("test_fetch2.es", "1+1;"))
             .ok()
             .expect("foo");
+
+        rt.gc_sync();
+        main_rt.gc_sync();
+        drop(rt);
         std::thread::sleep(Duration::from_secs(2));
     }
 }

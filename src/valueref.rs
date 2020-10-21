@@ -7,6 +7,9 @@ pub struct JSValueRef {
     label: String,
 }
 
+// todo
+// use q::JSFreeValue and q::JSDupvalue for rc manipulation
+
 impl JSValueRef {
     pub(crate) fn label(&mut self, label: &str) {
         self.label = label.to_string()
@@ -130,11 +133,6 @@ impl JSValueRef {
         }
     }
 
-    //pub fn consume_value_decr_rc(self) -> q::JSValue {
-    //    self.decrement_ref_count();
-    //    self.consume_value_no_decr_rc()
-    //}
-
     pub fn consume_value_no_decr_rc(mut self) -> q::JSValue {
         std::mem::replace(&mut self.value, None).unwrap()
     }
@@ -155,18 +153,6 @@ impl JSValueRef {
     pub fn is_undefined(&self) -> bool {
         self.borrow_value().tag == TAG_UNDEFINED
     }
-
-    /// Get the inner JSValue without freeing in drop.
-    ///
-    /// Unsafe because the caller is responsible for freeing the value.
-    //unsafe fn into_inner(mut self) -> q::JSValue {
-    //let v = self.value;
-    //self.value = q::JSValue {
-    //u: q::JSValueUnion { int32: 0 },
-    //tag: TAG_NULL,
-    //};
-    //v
-    //}
 
     /// return true if the wrapped value represents a JS null value
     pub fn is_null(&self) -> bool {

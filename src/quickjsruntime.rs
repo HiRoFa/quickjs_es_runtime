@@ -9,6 +9,8 @@ use hirofa_utils::auto_id_map::AutoIdMap;
 use libquickjs_sys as q;
 use std::cell::RefCell;
 use std::ffi::CString;
+use std::panic;
+use std::panic::catch_unwind;
 use std::sync::{Arc, Weak};
 
 pub type ModuleScriptLoader = dyn Fn(&str, &str) -> Option<EsScript> + Send + Sync + 'static;
@@ -242,10 +244,15 @@ impl QuickJsRuntime {
 
 impl Drop for QuickJsRuntime {
     fn drop(&mut self) {
-        unsafe {
-            q::JS_FreeContext(self.context);
-            q::JS_FreeRuntime(self.runtime);
-        }
+        log::trace!("before JS_FreeContext");
+        unsafe { q::JS_FreeContext(self.context) };
+
+        log::trace!("before JS_FreeRuntime");
+        unsafe { q::JS_FreeRuntime(self.runtime) };
+
+        log::error!("error while free runtime");
+
+        log::trace!("after drop QuickJsRuntime");
     }
 }
 

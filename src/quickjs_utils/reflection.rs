@@ -641,7 +641,7 @@ unsafe extern "C" fn proxy_static_get_prop(
         let proxy_name = primitives::to_str(q_js_rt, &proxy_name_ref).ok().unwrap();
         trace!("proxy_static_get_prop: {}", proxy_name);
 
-        let prop_name = atoms::to_string(q_js_rt, &atom)
+        let prop_name = atoms::to_string2(q_js_rt, &atom)
             .ok()
             .expect("could not get name");
         trace!("proxy_static_get_prop: prop: {}", prop_name);
@@ -714,7 +714,7 @@ unsafe extern "C" fn proxy_instance_get_prop(
     );
 
     QuickJsRuntime::do_with(|q_js_rt| {
-        let prop_name = atoms::to_string(q_js_rt, &atom)
+        let prop_name = atoms::to_string2(q_js_rt, &atom)
             .ok()
             .expect("could not get name");
         trace!("proxy_instance_get_prop: {}", prop_name);

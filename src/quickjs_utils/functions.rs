@@ -77,7 +77,7 @@ pub fn invoke_member_function(
 ) -> Result<JSValueRef, EsError> {
     let arg_count = arguments.len() as i32;
 
-    let atm = atoms::from_string(q_js_rt, function_name)?;
+    let atom_ref = atoms::from_string(q_js_rt, function_name)?;
 
     let mut qargs = arguments
         .iter()
@@ -88,7 +88,7 @@ pub fn invoke_member_function(
         q::JS_Invoke(
             q_js_rt.context,
             *obj_ref.borrow_value(),
-            atm,
+            atom_ref.get_atom(),
             arg_count,
             qargs.as_mut_ptr(),
         )
@@ -406,6 +406,9 @@ pub mod tests {
             assert!(res.is_i32());
             assert_eq!(primitives::to_i32(&res).ok().expect("wtf?"), (12 * 14));
         });
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            q_js_rt.gc();
+        });
     }
 
     #[test]
@@ -455,6 +458,9 @@ pub mod tests {
             true
         });
         assert!(io);
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            q_js_rt.gc();
+        });
     }
 
     #[test]
@@ -476,6 +482,9 @@ pub mod tests {
             true
         });
         assert!(io);
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            q_js_rt.gc();
+        });
     }
 
     #[test]
