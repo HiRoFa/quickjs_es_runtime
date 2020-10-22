@@ -8,6 +8,46 @@ use log::trace;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::os::raw::{c_char, c_void};
+use crate::esscript::EsScript;
+
+/// parse a function body and its arg_names into a JSValueRef which is a Function
+/// # Example
+/// ```rust
+/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_es_runtime::quickjs_utils::functions::{parse_function, call_function};
+/// use quickjs_es_runtime::quickjs_utils::primitives;
+/// let rt = EsRuntimeBuilder::new().build();
+/// rt.add_to_event_queue_sync(|q_js_rt| {
+///     let func = parse_function(q_js_rt, false, "my_func", "console.log('running my_func'); return(a * b);", vec!["a", "b"]).ok().unwrap();
+///     let a = primitives::from_i32(7);
+///     let b = primitives::from_i32(9);
+///     let res = call_function(q_js_rt, &func, vec![a, b], None).ok().unwrap();
+///     let res_i32 = primitives::to_i32(&res).ok().unwrap();
+///     assert_eq!(res_i32, 63);
+/// });
+/// ```
+pub fn parse_function(q_js_rt: &QuickJsRuntime,async_fn: bool, name: &str, body: &str, arg_names: Vec<&str>) -> Result<JSValueRef, EsError> {
+
+    // todo validate argNames
+    // todo validate body
+
+    let as_pfx = if async_fn { "async " } else { "" };
+    let args_str = arg_names.join(", ");
+    let src = format!(
+        "({}function {}({}) {{\n{}\n}});",
+        as_pfx, name, args_str, body
+    );
+
+    let file_name = format!("compile_func_{}.es", name);
+
+    let ret = q_js_rt.eval(EsScript::new(&file_name, &src))?;
+
+    assert!(is_function(q_js_rt, &ret));
+
+    Ok(ret)
+
+}
+
 
 #[allow(dead_code)]
 pub fn call_function(
