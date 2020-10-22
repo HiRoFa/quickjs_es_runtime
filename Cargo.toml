@@ -14,10 +14,11 @@ categories = ["development-tools"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-#quick-js = "0.3.3"
-libquickjs-sys = {git="https://github.com/theduke/quickjs-rs#ff6e5"}
+
+libquickjs-sys = {git="https://github.com/HiRoFa/quickjs-rs"}
+#libquickjs-sys = {path="../quickjs-rs/libquickjs-sys"}
 lazy_static = "1.4.0"
-hirofa_utils = {git="https://github.com/HiRoFa/utils?1"}
+hirofa_utils = {git="https://github.com/HiRoFa/utils"}
 log = "0.4.11"
 simple-logging = "2.0.2"
 thread-id = "3.3.0"

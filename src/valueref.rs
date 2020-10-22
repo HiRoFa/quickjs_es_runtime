@@ -133,7 +133,7 @@ impl JSValueRef {
         }
     }
 
-    /// borrow the value but first increment the refcount, this is usefull for when the value is returned or passed to functions
+    /// borrow the value but first increment the refcount, this is useful for when the value is returned or passed to functions
     pub fn clone_value_incr_rc(&self) -> q::JSValue {
         self.increment_ref_count();
         self.value.unwrap()
