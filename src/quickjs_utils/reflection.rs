@@ -129,10 +129,10 @@ impl Default for quickjs_utils::reflection::Proxy {
     }
 }
 
-pub fn get_proxy(class_name: &str) -> Arc<Proxy> {
+pub fn get_proxy(class_name: &str) -> Option<Arc<Proxy>> {
     PROXY_REGISTRY.with(|rc| {
         let registry = &*rc.borrow();
-        registry.get(class_name).expect("No such Proxy").clone()
+        registry.get(class_name).cloned()
     })
 }
 
