@@ -1,5 +1,7 @@
 use crate::eserror::EsError;
 use crate::esruntime::{EsRuntime, EsRuntimeInner};
+use crate::esruntime_utils::promises::new_resolving_promise;
+use crate::quickjs_utils;
 use crate::quickjs_utils::{arrays, dates, functions, new_null_ref, promises};
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::*;
@@ -492,6 +494,64 @@ impl EsValueConvertible for HashMap<String, EsValueFacade> {
 
     fn get_object(&self) -> &HashMap<String, EsValueFacade> {
         self
+    }
+}
+
+pub type EsPromiseResolver = Box<dyn Fn() -> Result<EsValueFacade, String> + Send + Sync + 'static>;
+
+/// can be used to create a new Promise which is resolved with the resolver function
+/// # Example
+/// ```rust
+/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_es_runtime::esvalue::{EsPromise, EsValueConvertible};
+/// use std::time::Duration;
+/// use quickjs_es_runtime::esscript::EsScript;
+/// use log::LevelFilter;
+///
+/// let rt = EsRuntimeBuilder::new().build();
+/// rt.set_function(vec!["my", "comp"], "create_prom", |_args| {
+///     Ok(EsPromise::new(|| {
+///         std::thread::sleep(Duration::from_secs(1));
+///         Ok(9463.to_es_value_facade())
+///     }).to_es_value_facade())
+/// });
+/// rt.eval_sync(EsScript::new("test_prom.es", "let p765 = my.comp.create_prom(); p765.then((p_res) => {console.log('got ' + p_res)});")).ok().expect("script failed");
+/// std::thread::sleep(Duration::from_secs(2));
+/// ```
+pub struct EsPromise {
+    resolver: Arc<EsPromiseResolver>,
+}
+
+impl EsPromise {
+    pub fn new<R>(resolver: R) -> Self
+    where
+        R: Fn() -> Result<EsValueFacade, String> + Send + Sync + 'static,
+    {
+        Self {
+            resolver: Arc::new(Box::new(resolver)),
+        }
+    }
+}
+
+impl EsValueConvertible for EsPromise {
+    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+        log::trace!("EsPromise::to_js_value");
+        // create resolving promise
+
+        let resolver = self.resolver.clone();
+
+        if let Some(es_rt) = q_js_rt.get_rt_ref() {
+            let producer = move || {
+                // run resolver
+                log::trace!("running EsPromise resolver");
+                resolver()
+            };
+            let mapper =
+                |val: EsValueFacade| QuickJsRuntime::do_with(|q_js_rt| val.to_js_value(q_js_rt));
+            new_resolving_promise(q_js_rt, producer, mapper, &es_rt)
+        } else {
+            Ok(quickjs_utils::new_null_ref())
+        }
     }
 }
 
