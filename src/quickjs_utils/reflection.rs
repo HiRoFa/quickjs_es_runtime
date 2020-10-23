@@ -2,7 +2,7 @@ use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions::new_native_function;
 use crate::quickjs_utils::primitives::from_string;
-use crate::quickjs_utils::{atoms, errors, functions, get_global, objects, primitives};
+use crate::quickjs_utils::{atoms, errors, functions, objects, primitives};
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
@@ -14,7 +14,9 @@ use std::os::raw::{c_char, c_void};
 pub type ProxyConstructor = dyn Fn(Vec<JSValueRef>) -> Result<usize, EsError> + 'static;
 pub type ProxyFinalizer = dyn Fn(usize) + 'static;
 pub type ProxyMethod = dyn Fn(&usize, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static;
+pub type ProxyNativeMethod = q::JSCFunction;
 pub type ProxyStaticMethod = dyn Fn(Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static;
+pub type ProxyStaticNativeMethod = q::JSCFunction;
 pub type ProxyStaticGetter = dyn Fn() -> Result<JSValueRef, EsError> + 'static;
 pub type ProxyStaticSetter = dyn Fn(JSValueRef) -> Result<(), EsError> + 'static;
 pub type ProxyGetter = dyn Fn(usize) -> Result<JSValueRef, EsError> + 'static;
@@ -109,10 +111,13 @@ thread_local! {
 
 pub struct Proxy {
     name: Option<String>,
+    namespace: Option<Vec<String>>,
     constructor: Option<Box<ProxyConstructor>>,
     finalizer: Option<Box<ProxyFinalizer>>,
     methods: HashMap<String, Box<ProxyMethod>>,
+    native_methods: HashMap<String, ProxyNativeMethod>,
     static_methods: HashMap<String, Box<ProxyStaticMethod>>,
+    static_native_methods: HashMap<String, ProxyStaticNativeMethod>,
     static_getters_setters: HashMap<String, (Box<ProxyStaticGetter>, Box<ProxyStaticSetter>)>,
     getters_setters: HashMap<String, (Box<ProxyGetter>, Box<ProxySetter>)>,
 }
@@ -128,10 +133,13 @@ impl Proxy {
     pub fn new() -> Self {
         Proxy {
             name: None,
+            namespace: None,
             constructor: None,
             finalizer: None,
             methods: Default::default(),
+            native_methods: Default::default(),
             static_methods: Default::default(),
+            static_native_methods: Default::default(),
             static_getters_setters: Default::default(),
             getters_setters: Default::default(),
         }
@@ -141,11 +149,20 @@ impl Proxy {
         self.name = Some(name.to_string());
         self
     }
-    pub fn get_class_name(&self) -> &str {
-        if let Some(n) = self.name.as_ref() {
+    pub fn namespace(mut self, namespace: Vec<&str>) -> Self {
+        self.namespace = Some(namespace.iter().map(|s| s.to_string()).collect());
+        self
+    }
+    pub fn get_class_name(&self) -> String {
+        let cn = if let Some(n) = self.name.as_ref() {
             n.as_str()
         } else {
             "__nameless_class__"
+        };
+        if self.namespace.is_some() {
+            format!("{}.{}", self.namespace.as_ref().unwrap().join("."), cn)
+        } else {
+            cn.to_string()
         }
     }
     #[allow(dead_code)]
@@ -175,6 +192,11 @@ impl Proxy {
         self
     }
 
+    pub fn native_method(mut self, name: &str, method: ProxyNativeMethod) -> Self {
+        self.native_methods.insert(name.to_string(), method);
+        self
+    }
+
     #[allow(dead_code)]
     pub fn static_method<M>(mut self, name: &str, method: M) -> Self
     where
@@ -182,6 +204,14 @@ impl Proxy {
     {
         self.static_methods
             .insert(name.to_string(), Box::new(method));
+        self
+    }
+
+    pub fn static_native_method<M>(mut self, name: &str, method: ProxyStaticNativeMethod) -> Self
+    where
+        M: Fn(Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
+    {
+        self.static_native_methods.insert(name.to_string(), method);
         self
     }
     #[allow(dead_code)]
@@ -223,7 +253,7 @@ impl Proxy {
         let proxy = self;
         PROXY_REGISTRY.with(move |rc| {
             let reg_map = &mut *rc.borrow_mut();
-            reg_map.insert(proxy.name.as_ref().unwrap().clone(), proxy);
+            reg_map.insert(proxy.get_class_name(), proxy);
         });
     }
     fn install_class_prop(&self, q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
@@ -275,20 +305,28 @@ impl Proxy {
             }*/
         }
 
-        // todo impl namespace here
-
         objects::set_property2(
             q_js_rt,
             &constructor_ref,
             "name",
-            primitives::from_string(q_js_rt, self.get_class_name())?,
+            primitives::from_string(q_js_rt, &self.get_class_name())?,
             0,
         )?;
 
-        let global_ref = get_global(q_js_rt);
+        // todo impl namespace here
+        let ns = if let Some(namespace) = &self.namespace {
+            objects::get_namespace(
+                q_js_rt,
+                namespace.iter().map(|s| s.as_str()).collect(),
+                true,
+            )?
+        } else {
+            quickjs_utils::get_global(q_js_rt)
+        };
+
         objects::set_property2(
             q_js_rt,
-            &global_ref,
+            &ns,
             self.name.as_ref().unwrap().as_str(),
             constructor_ref,
             0,
@@ -486,7 +524,7 @@ pub fn new_instance2(
         let mappings = &mut *im_rc.borrow_mut();
         assert!(!mappings.contains_key(&instance_id));
 
-        let mut bx = Box::new((instance_id, proxy.get_class_name().to_string()));
+        let mut bx = Box::new((instance_id, proxy.get_class_name()));
 
         let ibp: &mut (usize, String) = &mut *bx;
         let info_ptr = ibp as *mut _ as *mut c_void;
@@ -675,6 +713,31 @@ unsafe extern "C" fn proxy_static_get_prop(
                     .expect("set_property 9656738 failed");
 
                     func_ref.clone_value_incr_rc()
+                } else if let Some(native_static_method) =
+                    proxy.static_native_methods.get(&prop_name)
+                {
+                    trace!("found static native method for {}", prop_name);
+
+                    let func_ref = functions::new_native_function(
+                        q_js_rt,
+                        &prop_name,
+                        *native_static_method,
+                        1,
+                        false,
+                    )
+                    .ok()
+                    .expect("could not create func");
+
+                    objects::set_property(
+                        q_js_rt,
+                        &receiver_ref,
+                        prop_name.as_str(),
+                        func_ref.clone(),
+                    )
+                    .ok()
+                    .expect("set_property 36099 failed");
+
+                    func_ref.clone_value_incr_rc()
                 } else if let Some(getter_setter) = proxy.static_getters_setters.get(&prop_name) {
                     // call the getter
                     let getter = &getter_setter.0;
@@ -730,7 +793,6 @@ unsafe extern "C" fn proxy_instance_get_prop(
             let registry = &*pr_rc.borrow();
             let proxy = registry.get(class_name).unwrap();
             if proxy.methods.contains_key(&prop_name) {
-                // todo, don't just return new val, add to receiver as prop
                 trace!("found method for {}", prop_name);
 
                 let function_data_ref = from_string(q_js_rt, prop_name.as_str())
@@ -749,6 +811,19 @@ unsafe extern "C" fn proxy_instance_get_prop(
                 objects::set_property(q_js_rt, &receiver_ref, prop_name.as_str(), func_ref.clone())
                     .ok()
                     .expect("set_property 96385 failed");
+
+                func_ref.clone_value_incr_rc()
+            } else if let Some(native_method) = proxy.native_methods.get(&prop_name) {
+                trace!("found native method for {}", prop_name);
+
+                let func_ref =
+                    functions::new_native_function(q_js_rt, &prop_name, *native_method, 1, false)
+                        .ok()
+                        .expect("could not create func");
+
+                objects::set_property(q_js_rt, &receiver_ref, prop_name.as_str(), func_ref.clone())
+                    .ok()
+                    .expect("set_property 49671 failed");
 
                 func_ref.clone_value_incr_rc()
             } else if let Some(getter_setter) = proxy.getters_setters.get(&prop_name) {
