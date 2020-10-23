@@ -10,6 +10,7 @@ use log::trace;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::os::raw::{c_char, c_void};
+use std::sync::Arc;
 
 pub type ProxyConstructor = dyn Fn(Vec<JSValueRef>) -> Result<usize, EsError> + 'static;
 pub type ProxyFinalizer = dyn Fn(usize) + 'static;
@@ -28,7 +29,7 @@ static SCNAME: &str = "ProxyStaticClass\0";
 thread_local! {
     static INSTANCE_ID_MAPPINGS: RefCell<HashMap<usize, Box<(usize, String)>>> = RefCell::new(HashMap::new());
 
-    static PROXY_REGISTRY: RefCell<HashMap<String, Proxy>> = RefCell::new(HashMap::new());
+    static PROXY_REGISTRY: RefCell<HashMap<String, Arc<Proxy>>> = RefCell::new(HashMap::new());
 
     static PROXY_STATIC_EXOTIC: RefCell<q::JSClassExoticMethods> = RefCell::new(q::JSClassExoticMethods {
         get_own_property: None,
@@ -126,6 +127,13 @@ impl Default for quickjs_utils::reflection::Proxy {
     fn default() -> Self {
         Self::new()
     }
+}
+
+pub fn get_proxy(class_name: &str) -> Arc<Proxy> {
+    PROXY_REGISTRY.with(|rc| {
+        let registry = &*rc.borrow();
+        registry.get(class_name).expect("No such Proxy").clone()
+    })
 }
 
 impl Proxy {
@@ -253,7 +261,7 @@ impl Proxy {
         let proxy = self;
         PROXY_REGISTRY.with(move |rc| {
             let reg_map = &mut *rc.borrow_mut();
-            reg_map.insert(proxy.get_class_name(), proxy);
+            reg_map.insert(proxy.get_class_name(), Arc::new(proxy));
         });
     }
     fn install_class_prop(&self, q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
