@@ -69,6 +69,16 @@ pub fn get_constructor(
     Ok(constructor_ref)
 }
 
+/// # Safety
+/// be safe
+pub unsafe fn parse_args(argc: ::std::os::raw::c_int, argv: *mut q::JSValue) -> Vec<JSValueRef> {
+    let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
+    arg_slice
+        .iter()
+        .map(|raw| JSValueRef::new(*raw, false, false, "quickjs_utils::parse_args"))
+        .collect::<Vec<_>>()
+}
+
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::EsRuntime;

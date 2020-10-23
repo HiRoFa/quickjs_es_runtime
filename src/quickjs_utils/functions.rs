@@ -1,5 +1,6 @@
 use crate::eserror::EsError;
-use crate::quickjs_utils::{atoms, errors, objects, primitives};
+use crate::esscript::EsScript;
+use crate::quickjs_utils::{atoms, errors, objects, parse_args, primitives};
 use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::valueref::JSValueRef;
 use hirofa_utils::auto_id_map::AutoIdMap;
@@ -8,7 +9,6 @@ use log::trace;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::os::raw::{c_char, c_void};
-use crate::esscript::EsScript;
 
 /// parse a function body and its arg_names into a JSValueRef which is a Function
 /// # Example
@@ -26,8 +26,13 @@ use crate::esscript::EsScript;
 ///     assert_eq!(res_i32, 63);
 /// });
 /// ```
-pub fn parse_function(q_js_rt: &QuickJsRuntime,async_fn: bool, name: &str, body: &str, arg_names: Vec<&str>) -> Result<JSValueRef, EsError> {
-
+pub fn parse_function(
+    q_js_rt: &QuickJsRuntime,
+    async_fn: bool,
+    name: &str,
+    body: &str,
+    arg_names: Vec<&str>,
+) -> Result<JSValueRef, EsError> {
     // todo validate argNames
     // todo validate body
 
@@ -45,9 +50,7 @@ pub fn parse_function(q_js_rt: &QuickJsRuntime,async_fn: bool, name: &str, body:
     assert!(is_function(q_js_rt, &ret));
 
     Ok(ret)
-
 }
-
 
 #[allow(dead_code)]
 pub fn call_function(
@@ -688,11 +691,7 @@ unsafe extern "C" fn callback_function(
         let registry = &*registry_rc.borrow();
         if let Some(callback) = registry.get(&(callback_id as usize)) {
             QuickJsRuntime::do_with(|q_js_rt| {
-                let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
-                let args_vec: Vec<JSValueRef> = arg_slice
-                    .iter()
-                    .map(|raw| JSValueRef::new(*raw, false, false, "callback_function arg"))
-                    .collect::<Vec<_>>();
+                let args_vec = parse_args(argc, argv);
 
                 let this_ref =
                     JSValueRef::new(this_val, false, false, "callback_function this_val");

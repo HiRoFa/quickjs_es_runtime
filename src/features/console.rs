@@ -1,9 +1,8 @@
 use crate::eserror::EsError;
 use crate::quickjs_utils;
-use crate::quickjs_utils::functions;
 use crate::quickjs_utils::objects;
+use crate::quickjs_utils::{functions, parse_args};
 use crate::quickjsruntime::QuickJsRuntime;
-use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 
 pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
@@ -34,12 +33,7 @@ unsafe extern "C" fn console_log(
 ) -> q::JSValue {
     log::trace!("> console.log");
 
-    let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
-
-    let args_vec: Vec<JSValueRef> = arg_slice
-        .iter()
-        .map(|raw| JSValueRef::new(*raw, false, false, "console_log_arg"))
-        .collect::<Vec<_>>();
+    let args_vec = parse_args(argc, argv);
 
     let strings = QuickJsRuntime::do_with(|q_js_rt| {
         args_vec

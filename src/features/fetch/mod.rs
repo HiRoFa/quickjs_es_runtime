@@ -4,9 +4,8 @@ use crate::esruntime_utils::promises;
 use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
 use crate::quickjs_utils;
-use crate::quickjs_utils::{functions, objects};
+use crate::quickjs_utils::{functions, objects, parse_args};
 use crate::quickjsruntime::QuickJsRuntime;
-use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -41,11 +40,7 @@ unsafe extern "C" fn fetch_func(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
-    let _args_vec: Vec<JSValueRef> = arg_slice
-        .iter()
-        .map(|raw| JSValueRef::new(*raw, false, false, "fetch_func_arg"))
-        .collect::<Vec<_>>();
+    let _args_vec = parse_args(argc, argv);
 
     QuickJsRuntime::do_with(|q_js_rt| {
         if let Some(rt_ref) = q_js_rt.get_rt_ref() {

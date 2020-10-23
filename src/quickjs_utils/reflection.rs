@@ -2,7 +2,7 @@ use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions::new_native_function;
 use crate::quickjs_utils::primitives::from_string;
-use crate::quickjs_utils::{atoms, errors, functions, objects, primitives};
+use crate::quickjs_utils::{atoms, errors, functions, objects, parse_args, primitives};
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
@@ -589,13 +589,7 @@ unsafe extern "C" fn constructor(
                 if let Some(constructor) = &proxy.constructor {
                     // construct
 
-                    let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
-                    let args_vec: Vec<JSValueRef> = arg_slice
-                        .iter()
-                        .map(|raw| {
-                            JSValueRef::new(*raw, false, false, "reflection::constructor arg")
-                        })
-                        .collect::<Vec<_>>();
+                    let args_vec = parse_args(argc, argv);
 
                     let instance_id_res = constructor(args_vec);
 
@@ -890,11 +884,7 @@ unsafe extern "C" fn proxy_instance_method(
 
         let proxy_instance_info: &(usize, String) = get_proxy_instance_info(&this_val);
 
-        let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
-        let args_vec: Vec<JSValueRef> = arg_slice
-            .iter()
-            .map(|raw| JSValueRef::new(*raw, false, false, "reflection::proxy_instance_method arg"))
-            .collect::<Vec<_>>();
+        let args_vec = parse_args(argc, argv);
 
         let func_name_ref = JSValueRef::new(
             *func_data,
@@ -959,11 +949,7 @@ unsafe extern "C" fn proxy_static_method(
             .ok()
             .expect("could not to_string classname");
 
-        let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
-        let args_vec: Vec<JSValueRef> = arg_slice
-            .iter()
-            .map(|raw| JSValueRef::new(*raw, false, false, "reflection::proxy_static_method arg"))
-            .collect::<Vec<_>>();
+        let args_vec = parse_args(argc, argv);
 
         let func_name_ref = JSValueRef::new(
             *func_data,
