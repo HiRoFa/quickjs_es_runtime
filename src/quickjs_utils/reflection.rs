@@ -12,16 +12,19 @@ use std::collections::HashMap;
 use std::os::raw::{c_char, c_void};
 use std::sync::Arc;
 
-pub type ProxyConstructor = dyn Fn(Vec<JSValueRef>) -> Result<usize, EsError> + 'static;
+pub type ProxyConstructor =
+    dyn Fn(&QuickJsRuntime, Vec<JSValueRef>) -> Result<usize, EsError> + 'static;
 pub type ProxyFinalizer = dyn Fn(usize) + 'static;
-pub type ProxyMethod = dyn Fn(&usize, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static;
+pub type ProxyMethod =
+    dyn Fn(&QuickJsRuntime, &usize, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static;
 pub type ProxyNativeMethod = q::JSCFunction;
-pub type ProxyStaticMethod = dyn Fn(Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static;
+pub type ProxyStaticMethod =
+    dyn Fn(&QuickJsRuntime, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static;
 pub type ProxyStaticNativeMethod = q::JSCFunction;
-pub type ProxyStaticGetter = dyn Fn() -> Result<JSValueRef, EsError> + 'static;
-pub type ProxyStaticSetter = dyn Fn(JSValueRef) -> Result<(), EsError> + 'static;
-pub type ProxyGetter = dyn Fn(usize) -> Result<JSValueRef, EsError> + 'static;
-pub type ProxySetter = dyn Fn(usize, JSValueRef) -> Result<(), EsError> + 'static;
+pub type ProxyStaticGetter = dyn Fn(&QuickJsRuntime) -> Result<JSValueRef, EsError> + 'static;
+pub type ProxyStaticSetter = dyn Fn(&QuickJsRuntime, JSValueRef) -> Result<(), EsError> + 'static;
+pub type ProxyGetter = dyn Fn(&QuickJsRuntime, usize) -> Result<JSValueRef, EsError> + 'static;
+pub type ProxySetter = dyn Fn(&QuickJsRuntime, usize, JSValueRef) -> Result<(), EsError> + 'static;
 
 static CNAME: &str = "ProxyInstanceClass\0";
 static SCNAME: &str = "ProxyStaticClass\0";
@@ -176,7 +179,7 @@ impl Proxy {
     #[allow(dead_code)]
     pub fn constructor<C>(mut self, constructor: C) -> Self
     where
-        C: Fn(Vec<JSValueRef>) -> Result<usize, EsError> + 'static,
+        C: Fn(&QuickJsRuntime, Vec<JSValueRef>) -> Result<usize, EsError> + 'static,
     {
         self.constructor = Some(Box::new(constructor));
         self
@@ -194,7 +197,7 @@ impl Proxy {
     #[allow(dead_code)]
     pub fn method<M>(mut self, name: &str, method: M) -> Self
     where
-        M: Fn(&usize, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
+        M: Fn(&QuickJsRuntime, &usize, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
     {
         self.methods.insert(name.to_string(), Box::new(method));
         self
@@ -208,7 +211,7 @@ impl Proxy {
     #[allow(dead_code)]
     pub fn static_method<M>(mut self, name: &str, method: M) -> Self
     where
-        M: Fn(Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
+        M: Fn(&QuickJsRuntime, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
     {
         self.static_methods
             .insert(name.to_string(), Box::new(method));
@@ -217,7 +220,7 @@ impl Proxy {
 
     pub fn static_native_method<M>(mut self, name: &str, method: ProxyStaticNativeMethod) -> Self
     where
-        M: Fn(Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
+        M: Fn(&QuickJsRuntime, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
     {
         self.static_native_methods.insert(name.to_string(), method);
         self
@@ -225,8 +228,8 @@ impl Proxy {
     #[allow(dead_code)]
     pub fn static_getter_setter<G, S>(mut self, name: &str, getter: G, setter: S) -> Self
     where
-        G: Fn() -> Result<JSValueRef, EsError> + 'static,
-        S: Fn(JSValueRef) -> Result<(), EsError> + 'static,
+        G: Fn(&QuickJsRuntime) -> Result<JSValueRef, EsError> + 'static,
+        S: Fn(&QuickJsRuntime, JSValueRef) -> Result<(), EsError> + 'static,
     {
         self.static_getters_setters
             .insert(name.to_string(), (Box::new(getter), Box::new(setter)));
@@ -236,8 +239,8 @@ impl Proxy {
     #[allow(dead_code)]
     pub fn getter_setter<G, S>(mut self, name: &str, getter: G, setter: S) -> Self
     where
-        G: Fn(usize) -> Result<JSValueRef, EsError> + 'static,
-        S: Fn(usize, JSValueRef) -> Result<(), EsError> + 'static,
+        G: Fn(&QuickJsRuntime, usize) -> Result<JSValueRef, EsError> + 'static,
+        S: Fn(&QuickJsRuntime, usize, JSValueRef) -> Result<(), EsError> + 'static,
     {
         self.getters_setters
             .insert(name.to_string(), (Box::new(getter), Box::new(setter)));
@@ -372,29 +375,33 @@ pub mod tests {
         rt.add_to_event_queue_sync(|q_js_rt| {
             let res = Proxy::new()
                 .name("TestClass1")
-                .constructor(|_args| {
+                .constructor(|_q_js_rt, _args| {
                     let id = TEST_INSTANCES.with(|rc| {
                         let map = &mut *rc.borrow_mut();
                         map.insert("hi".to_string())
                     });
                     Ok(id)
                 })
-                .method("doIt", |_obj_id, _args| Ok(primitives::from_i32(531)))
-                .method("doIt2", |_obj_id, _args| Err(EsError::new_str("aaargh")))
+                .method("doIt", |_q_js_rt, _obj_id, _args| {
+                    Ok(primitives::from_i32(531))
+                })
+                .method("doIt2", |_q_js_rt, _obj_id, _args| {
+                    Err(EsError::new_str("aaargh"))
+                })
                 .getter_setter(
                     "gVar",
-                    |_id| Ok(primitives::from_i32(147)),
-                    |_id, _val| Ok(()),
+                    |_q_js_rt, _id| Ok(primitives::from_i32(147)),
+                    |_q_js_rt, _id, _val| Ok(()),
                 )
-                .static_method("sDoIt", |_args| Ok(primitives::from_i32(9876)))
-                .static_method("sDoIt2", |_args| Ok(primitives::from_i32(140)))
+                .static_method("sDoIt", |_q_js_rt, _args| Ok(primitives::from_i32(9876)))
+                .static_method("sDoIt2", |_q_js_rt, _args| Ok(primitives::from_i32(140)))
                 .static_getter_setter(
                     "someThing",
-                    || {
+                    |_q_js_rt| {
                         trace!("static getter called, returning 754");
                         Ok(primitives::from_i32(754))
                     },
-                    |val| {
+                    |_q_js_rt, val| {
                         QuickJsRuntime::do_with(|q_js_rt| {
                             trace!(
                                 "static setter called, set to {}",
@@ -591,7 +598,7 @@ unsafe extern "C" fn constructor(
 
                     let args_vec = parse_args(argc, argv);
 
-                    let instance_id_res = constructor(args_vec);
+                    let instance_id_res = constructor(q_js_rt, args_vec);
 
                     match instance_id_res {
                         Ok(instance_id) => {
@@ -743,7 +750,7 @@ unsafe extern "C" fn proxy_static_get_prop(
                 } else if let Some(getter_setter) = proxy.static_getters_setters.get(&prop_name) {
                     // call the getter
                     let getter = &getter_setter.0;
-                    let res: Result<JSValueRef, EsError> = getter();
+                    let res: Result<JSValueRef, EsError> = getter(q_js_rt);
                     match res {
                         Ok(g_val) => g_val.clone_value_incr_rc(),
                         Err(e) => {
@@ -831,7 +838,7 @@ unsafe extern "C" fn proxy_instance_get_prop(
             } else if let Some(getter_setter) = proxy.getters_setters.get(&prop_name) {
                 // call the getter
                 let getter = &getter_setter.0;
-                let res: Result<JSValueRef, EsError> = getter(info.0);
+                let res: Result<JSValueRef, EsError> = getter(q_js_rt, info.0);
                 match res {
                     Ok(g_val) => g_val.clone_value_incr_rc(),
                     Err(e) => {
@@ -903,7 +910,8 @@ unsafe extern "C" fn proxy_instance_method(
             let proxy = registry.get(proxy_instance_info.1.as_str()).unwrap();
             if let Some(method) = proxy.methods.get(func_name) {
                 // todo report ex
-                let m_res: Result<JSValueRef, EsError> = method(&proxy_instance_info.0, args_vec);
+                let m_res: Result<JSValueRef, EsError> =
+                    method(q_js_rt, &proxy_instance_info.0, args_vec);
 
                 match m_res {
                     Ok(m_res_ref) => m_res_ref.clone_value_incr_rc(),
@@ -967,7 +975,7 @@ unsafe extern "C" fn proxy_static_method(
             let registry = &*registry_rc.borrow();
             let proxy = registry.get(proxy_name).unwrap();
             if let Some(method) = proxy.static_methods.get(func_name) {
-                let m_res: Result<JSValueRef, EsError> = method(args_vec);
+                let m_res: Result<JSValueRef, EsError> = method(q_js_rt, args_vec);
                 match m_res {
                     Ok(m_res_ref) => m_res_ref.clone_value_incr_rc(),
                     Err(e) => {

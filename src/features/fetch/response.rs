@@ -23,7 +23,11 @@ pub trait FetchResponse {
 
 const RESPONSE_PROXY_NAME: &str = "Response";
 
-fn response_text(instance_id: &usize, _args: Vec<JSValueRef>) -> Result<JSValueRef, EsError> {
+fn response_text(
+    _q_js_rt: &QuickJsRuntime,
+    instance_id: &usize,
+    _args: Vec<JSValueRef>,
+) -> Result<JSValueRef, EsError> {
     QuickJsRuntime::do_with(|q_js_rt| {
         let es_rt_arc_opt = q_js_rt.get_rt_ref();
         let es_rt = &*es_rt_arc_opt.unwrap();
@@ -60,7 +64,11 @@ fn response_text(instance_id: &usize, _args: Vec<JSValueRef>) -> Result<JSValueR
     })
 }
 
-fn response_json(instance_id: &usize, _args: Vec<JSValueRef>) -> Result<JSValueRef, EsError> {
+fn response_json(
+    _q_js_rt: &QuickJsRuntime,
+    instance_id: &usize,
+    _args: Vec<JSValueRef>,
+) -> Result<JSValueRef, EsError> {
     QuickJsRuntime::do_with(|q_js_rt| {
         let es_rt_arc_opt = q_js_rt.get_rt_ref();
         let es_rt = &*es_rt_arc_opt.unwrap();
@@ -113,20 +121,20 @@ pub(crate) fn init_response_proxy(q_js_rt: &QuickJsRuntime) {
         .getter_setter(
             "headers",
             //todo Headers proxy obj
-            |_instance_id| Ok(primitives::from_bool(true)),
-            |_instance_id, _val| Ok(()),
+            |_q_js_rt, _instance_id| Ok(primitives::from_bool(true)),
+            |_q_js_rt, _instance_id, _val| Ok(()),
         )
         .getter_setter(
             "ok",
             //todo
-            |_instance_id| Ok(primitives::from_bool(true)),
-            |_instance_id, _val| Ok(()),
+            |_q_js_rt, _instance_id| Ok(primitives::from_bool(true)),
+            |_q_js_rt, _instance_id, _val| Ok(()),
         )
         .getter_setter(
             "status",
             // todo
-            |_instance_id| Ok(primitives::from_i32(200)),
-            |_instance_id, _val| Ok(()),
+            |_q_js_rt, _instance_id| Ok(primitives::from_i32(200)),
+            |_q_js_rt, _instance_id, _val| Ok(()),
         )
         .finalizer(|instance_id| {
             log::trace!("dropping FetchResponse {}", instance_id);
