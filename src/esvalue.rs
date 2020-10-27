@@ -719,6 +719,11 @@ impl EsValueFacade {
         self.convertible.is_object()
     }
 
+    /// check if the value is a Promise
+    pub fn is_promise(&self) -> bool {
+        self.convertible.is_promise()
+    }
+
     /// check if the value is an array
     pub fn is_array(&self) -> bool {
         self.convertible.is_array()
