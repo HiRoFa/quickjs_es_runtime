@@ -229,6 +229,43 @@ impl EsRuntime {
         })
     }
 
+    /// call a function in the engine asynchronously
+    /// # example
+    /// ```rust
+    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_es_runtime::esscript::EsScript;
+    /// use quickjs_es_runtime::esvalue::EsValueConvertible;
+    /// let rt = EsRuntimeBuilder::new().build();
+    /// let script = EsScript::new("my_file.es", "this.com = {my: {methodA: function(a, b){return a*b;}}};");
+    /// rt.eval_sync(script).ok().expect("script failed");
+    /// rt.call_function(vec!["com", "my"], "methodA", vec![7.to_es_value_facade(), 5.to_es_value_facade()]);
+    /// ```
+    pub fn call_function(
+        &self,
+        namespace: Vec<&'static str>,
+        func_name: &str,
+        arguments: Vec<EsValueFacade>,
+    ) {
+        let func_name_string = func_name.to_string();
+
+        self.add_to_event_queue(move |q_js_rt| {
+            let q_args = arguments
+                .iter()
+                .map(|arg| {
+                    arg.to_js_value(q_js_rt)
+                        .ok()
+                        .expect("arg conversion failed")
+                })
+                .collect::<Vec<_>>();
+
+            let res = q_js_rt.call_function(namespace, func_name_string.as_str(), q_args);
+            match res {
+                Ok(_val_ref) => log::trace!("call_function async job completed"),
+                Err(e) => (log::error!("call_function async job failed: {}", e)),
+            }
+        })
+    }
+
     /// evaluate a module, you need if you want to compile a script that contains static imports
     /// e.g.
     /// ```javascript
