@@ -687,6 +687,11 @@ impl EsValueFacade {
         self.convertible.get_bool()
     }
 
+    /// get the array value
+    pub fn get_array(&self) -> &Vec<EsValueFacade> {
+        self.convertible.get_array()
+    }
+
     /// check if the value is a String
     pub fn is_string(&self) -> bool {
         self.convertible.is_str()
