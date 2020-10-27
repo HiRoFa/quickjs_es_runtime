@@ -23,8 +23,8 @@ pub type ProxyStaticMethod =
 pub type ProxyStaticNativeMethod = q::JSCFunction;
 pub type ProxyStaticGetter = dyn Fn(&QuickJsRuntime) -> Result<JSValueRef, EsError> + 'static;
 pub type ProxyStaticSetter = dyn Fn(&QuickJsRuntime, JSValueRef) -> Result<(), EsError> + 'static;
-pub type ProxyGetter = dyn Fn(&QuickJsRuntime, usize) -> Result<JSValueRef, EsError> + 'static;
-pub type ProxySetter = dyn Fn(&QuickJsRuntime, usize, JSValueRef) -> Result<(), EsError> + 'static;
+pub type ProxyGetter = dyn Fn(&QuickJsRuntime, &usize) -> Result<JSValueRef, EsError> + 'static;
+pub type ProxySetter = dyn Fn(&QuickJsRuntime, &usize, JSValueRef) -> Result<(), EsError> + 'static;
 
 static CNAME: &str = "ProxyInstanceClass\0";
 static SCNAME: &str = "ProxyStaticClass\0";
@@ -239,8 +239,8 @@ impl Proxy {
     #[allow(dead_code)]
     pub fn getter_setter<G, S>(mut self, name: &str, getter: G, setter: S) -> Self
     where
-        G: Fn(&QuickJsRuntime, usize) -> Result<JSValueRef, EsError> + 'static,
-        S: Fn(&QuickJsRuntime, usize, JSValueRef) -> Result<(), EsError> + 'static,
+        G: Fn(&QuickJsRuntime, &usize) -> Result<JSValueRef, EsError> + 'static,
+        S: Fn(&QuickJsRuntime, &usize, JSValueRef) -> Result<(), EsError> + 'static,
     {
         self.getters_setters
             .insert(name.to_string(), (Box::new(getter), Box::new(setter)));
@@ -838,7 +838,7 @@ unsafe extern "C" fn proxy_instance_get_prop(
             } else if let Some(getter_setter) = proxy.getters_setters.get(&prop_name) {
                 // call the getter
                 let getter = &getter_setter.0;
-                let res: Result<JSValueRef, EsError> = getter(q_js_rt, info.0);
+                let res: Result<JSValueRef, EsError> = getter(q_js_rt, &info.0);
                 match res {
                     Ok(g_val) => g_val.clone_value_incr_rc(),
                     Err(e) => {
