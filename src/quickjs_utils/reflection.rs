@@ -218,10 +218,7 @@ impl Proxy {
         self
     }
 
-    pub fn static_native_method<M>(mut self, name: &str, method: ProxyStaticNativeMethod) -> Self
-    where
-        M: Fn(&QuickJsRuntime, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
-    {
+    pub fn static_native_method(mut self, name: &str, method: ProxyStaticNativeMethod) -> Self {
         self.static_native_methods.insert(name.to_string(), method);
         self
     }
