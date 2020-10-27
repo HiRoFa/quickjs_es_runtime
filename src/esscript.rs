@@ -17,3 +17,12 @@ impl EsScript {
         self.script_code.as_str()
     }
 }
+
+impl Clone for EsScript {
+    fn clone(&self) -> Self {
+        Self {
+            absolute_path: self.get_path().to_string(),
+            script_code: self.get_code().to_string(),
+        }
+    }
+}
