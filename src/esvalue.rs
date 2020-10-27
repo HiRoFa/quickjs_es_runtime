@@ -611,7 +611,14 @@ impl EsValueFacade {
 
             // Object.
             TAG_OBJECT => {
-                if arrays::is_array(q_js_rt, value_ref) {
+                if promises::is_promise(q_js_rt, value_ref) {
+                    let cached_obj_id = q_js_rt.cache_object(value_ref.clone());
+                    Ok(CachedJSPromise {
+                        cached_obj_id,
+                        es_rt_inner: Arc::downgrade(rti_ref),
+                    }
+                    .to_es_value_facade())
+                } else if arrays::is_array(q_js_rt, value_ref) {
                     Self::from_jsval_array(q_js_rt, value_ref, rti_ref)
                 } else if functions::is_function(q_js_rt, value_ref) {
                     let cached_obj_id = q_js_rt.cache_object(value_ref.clone());
@@ -748,5 +755,47 @@ impl EsValueFacade {
         timeout: Duration,
     ) -> Result<Result<EsValueFacade, EsValueFacade>, RecvTimeoutError> {
         self.convertible.await_promise_blocking(timeout)
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::esruntime::tests::TEST_ESRT;
+    use crate::esruntime::EsRuntime;
+    use crate::esscript::EsScript;
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    #[test]
+    fn test_promise() {
+        let rt: Arc<EsRuntime> = TEST_ESRT.clone();
+        let res = rt.eval_sync(EsScript::new(
+            "test_promise.es",
+            "(new Promise(function(resolve, reject){resolve(537);}));",
+        ));
+        match res {
+            Ok(esvf) => {
+                assert!(esvf.is_promise());
+                let res = esvf.await_promise_blocking(Duration::from_secs(1));
+                match res {
+                    Ok(r) => {
+                        match r {
+                            Ok(v) => {
+                                // promise resolved to v
+                                assert!(v.is_i32());
+                                assert_eq!(v.get_i32(), 537);
+                            }
+                            Err(e) => {
+                                panic!("{}", e.get_str());
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        panic!("{}", e);
+                    }
+                }
+            }
+            Err(e) => panic!("{}", e),
+        }
     }
 }

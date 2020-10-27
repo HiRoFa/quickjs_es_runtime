@@ -7,8 +7,10 @@ use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 
 #[allow(dead_code)]
-pub fn is_promise(q_js_rt: &QuickJsRuntime, obj_ref: &JSValueRef) -> Result<bool, EsError> {
+pub fn is_promise(q_js_rt: &QuickJsRuntime, obj_ref: &JSValueRef) -> bool {
     is_instance_of_by_name(q_js_rt, obj_ref, "Promise")
+        .ok()
+        .expect("could not check instance_of")
 }
 
 pub struct PromiseRef {
@@ -113,7 +115,7 @@ pub fn add_promise_reactions(
     catch_func_obj_ref_opt: Option<JSValueRef>,
     finally_func_obj_ref_opt: Option<JSValueRef>,
 ) -> Result<(), EsError> {
-    assert!(is_promise(q_js_rt, promise_obj_ref)?);
+    assert!(is_promise(q_js_rt, promise_obj_ref));
 
     if let Some(then_func_obj_ref) = then_func_obj_ref_opt {
         functions::invoke_member_function(
@@ -192,9 +194,7 @@ pub mod tests {
                 "(new Promise((res, rej) => {}));",
             ));
             match res {
-                Ok(v) => is_promise(q_js_rt, &v)
-                    .ok()
-                    .expect("could not get instance_of"),
+                Ok(v) => is_promise(q_js_rt, &v),
                 Err(e) => {
                     panic!("err: {}", e);
                 }
