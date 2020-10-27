@@ -72,7 +72,6 @@ pub trait EsValueConvertible {
     }
     fn await_promise_blocking(
         &self,
-        _es_rt: &EsRuntime,
         _timeout: Duration,
     ) -> Result<Result<EsValueFacade, EsValueFacade>, RecvTimeoutError> {
         panic!("i am not a promise");
@@ -163,63 +162,66 @@ impl EsValueConvertible for CachedJSPromise {
 
     fn await_promise_blocking(
         &self,
-        es_rt: &EsRuntime,
         timeout: Duration,
     ) -> Result<Result<EsValueFacade, EsValueFacade>, RecvTimeoutError> {
         let (tx, rx) = channel();
-        let rti_ref = es_rt.inner.clone();
         let cached_obj_id = self.cached_obj_id;
-        es_rt.add_to_event_queue_sync(move |q_js_rt| {
-            q_js_rt.with_cached_obj(cached_obj_id, move |prom_obj_ref| {
-                QuickJsRuntime::do_with(move |q_js_rt| {
-                    let cb_ref = functions::new_function(
-                        q_js_rt,
-                        "promise_block_result_transmitter",
-                        move |_this_ref, mut args| {
-                            // these clones are needed because create_func requires a Fn and not a FnOnce
-                            // in practice however the Fn is called only once
-                            let rti_ref2 = rti_ref.clone();
-                            let tx = tx.clone();
+        if let Some(es_rti) = self.es_rt_inner.upgrade() {
+            let rti_ref = es_rti.clone();
+            es_rti.add_to_event_queue_sync(move |q_js_rt| {
+                q_js_rt.with_cached_obj(cached_obj_id, move |prom_obj_ref| {
+                    QuickJsRuntime::do_with(move |q_js_rt| {
+                        let cb_ref = functions::new_function(
+                            q_js_rt,
+                            "promise_block_result_transmitter",
+                            move |_this_ref, mut args| {
+                                // these clones are needed because create_func requires a Fn and not a FnOnce
+                                // in practice however the Fn is called only once
+                                let rti_ref2 = rti_ref.clone();
+                                let tx = tx.clone();
 
-                            QuickJsRuntime::do_with(move |q_js_rt| {
-                                let prom_res = args.remove(0);
-                                let prom_res_esvf =
-                                    EsValueFacade::from_jsval(q_js_rt, &prom_res, &rti_ref2);
-                                let send_res = tx.send(prom_res_esvf);
-                                match send_res {
-                                    Ok(_) => {
-                                        log::trace!("sent prom_res_esvf ok");
+                                QuickJsRuntime::do_with(move |q_js_rt| {
+                                    let prom_res = args.remove(0);
+                                    let prom_res_esvf =
+                                        EsValueFacade::from_jsval(q_js_rt, &prom_res, &rti_ref2);
+                                    let send_res = tx.send(prom_res_esvf);
+                                    match send_res {
+                                        Ok(_) => {
+                                            log::trace!("sent prom_res_esvf ok");
+                                        }
+                                        Err(e) => {
+                                            log::error!("send prom_res_esvf failed: {}", e);
+                                        }
                                     }
-                                    Err(e) => {
-                                        log::error!("send prom_res_esvf failed: {}", e);
-                                    }
-                                }
-                                Ok(new_null_ref())
-                            })
-                        },
-                        1,
-                    )
-                    .ok()
-                    .expect("could not create func");
+                                    Ok(new_null_ref())
+                                })
+                            },
+                            1,
+                        )
+                        .ok()
+                        .expect("could not create func");
 
-                    promises::add_promise_reactions(
-                        q_js_rt,
-                        prom_obj_ref,
-                        Some(cb_ref),
-                        None,
-                        None,
-                    )
-                    .ok()
-                    .expect("could not create promise reactions");
-                })
+                        promises::add_promise_reactions(
+                            q_js_rt,
+                            prom_obj_ref,
+                            Some(cb_ref),
+                            None,
+                            None,
+                        )
+                        .ok()
+                        .expect("could not create promise reactions");
+                    })
+                });
             });
-        });
-        let res = rx.recv_timeout(timeout)?;
-        match res {
-            Ok(v) => Ok(Ok(v)),
-            Err(e) => Ok(Err(
-                format!("Error getting result from channel: {}", e).to_es_value_facade()
-            )),
+            let res = rx.recv_timeout(timeout)?;
+            match res {
+                Ok(v) => Ok(Ok(v)),
+                Err(e) => Ok(Err(
+                    format!("Error getting result from channel: {}", e).to_es_value_facade()
+                )),
+            }
+        } else {
+            Ok(Err("rti dropped".to_string().to_es_value_facade()))
         }
     }
 
@@ -738,9 +740,8 @@ impl EsValueFacade {
     }
     pub fn await_promise_blocking(
         &self,
-        es_rt: &EsRuntime,
         timeout: Duration,
     ) -> Result<Result<EsValueFacade, EsValueFacade>, RecvTimeoutError> {
-        self.convertible.await_promise_blocking(es_rt, timeout)
+        self.convertible.await_promise_blocking(timeout)
     }
 }
