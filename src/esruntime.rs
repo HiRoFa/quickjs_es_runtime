@@ -229,6 +229,10 @@ impl EsRuntime {
         })
     }
 
+    pub fn clone_inner(&self) -> Arc<EsRuntimeInner> {
+        self.inner.clone()
+    }
+
     /// call a function in the engine asynchronously
     /// # example
     /// ```rust
