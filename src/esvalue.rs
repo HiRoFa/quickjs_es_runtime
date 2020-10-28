@@ -566,7 +566,7 @@ impl EsValueFacade {
         self.convertible.to_js_value(q_js_rt)
     }
 
-    pub(crate) fn from_jsval(
+    pub fn from_jsval(
         q_js_rt: &QuickJsRuntime,
         value_ref: &JSValueRef,
         rti_ref: &Arc<EsRuntimeInner>,
