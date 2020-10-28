@@ -3,15 +3,15 @@ use crate::esruntime_utils::promises::new_resolving_promise;
 use crate::quickjs_utils::{json, primitives, reflection};
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::JSValueRef;
-use hirofa_utils::auto_id_map::AutoIdMap;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 type FetchResponseType = Box<dyn FetchResponse + Send>;
 type FetchResponseMapType = Arc<Mutex<FetchResponseType>>;
 
 thread_local! {
-    static RESPONSES : RefCell<AutoIdMap<FetchResponseMapType>> = RefCell::new(AutoIdMap::new());
+    static RESPONSES : RefCell<HashMap<usize, FetchResponseMapType>> = RefCell::new(HashMap::new());
 }
 
 pub trait FetchResponse {
@@ -152,11 +152,13 @@ pub(crate) fn new_response_ref(
     fetch_response: Box<dyn FetchResponse + Send>,
 ) -> Result<JSValueRef, EsError> {
     QuickJsRuntime::do_with(|q_js_rt| {
-        let instance_id = RESPONSES.with(|responses_rc| {
+        let res = reflection::new_instance(RESPONSE_PROXY_NAME, q_js_rt)?;
+
+        RESPONSES.with(|responses_rc| {
             let responses = &mut *responses_rc.borrow_mut();
-            responses.insert(Arc::new(Mutex::new(fetch_response)))
+            responses.insert(res.0, Arc::new(Mutex::new(fetch_response)))
         });
 
-        reflection::new_instance(RESPONSE_PROXY_NAME, instance_id, q_js_rt)
+        Ok(res.1)
     })
 }

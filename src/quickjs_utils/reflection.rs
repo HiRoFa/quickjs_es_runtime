@@ -7,13 +7,14 @@ use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 use log::trace;
+use rand::{thread_rng, Rng};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::os::raw::{c_char, c_void};
 use std::sync::Arc;
 
 pub type ProxyConstructor =
-    dyn Fn(&QuickJsRuntime, Vec<JSValueRef>) -> Result<usize, EsError> + 'static;
+    dyn Fn(&QuickJsRuntime, usize, Vec<JSValueRef>) -> Result<(), EsError> + 'static;
 pub type ProxyFinalizer = dyn Fn(usize) + 'static;
 pub type ProxyMethod =
     dyn Fn(&QuickJsRuntime, &usize, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static;
@@ -30,6 +31,7 @@ static CNAME: &str = "ProxyInstanceClass\0";
 static SCNAME: &str = "ProxyStaticClass\0";
 
 thread_local! {
+
     static INSTANCE_ID_MAPPINGS: RefCell<HashMap<usize, Box<(usize, String)>>> = RefCell::new(HashMap::new());
 
     static PROXY_REGISTRY: RefCell<HashMap<String, Arc<Proxy>>> = RefCell::new(HashMap::new());
@@ -113,6 +115,26 @@ thread_local! {
     };
 }
 
+const MAX_INSTANCE_NUM: usize = u32::MAX as usize;
+
+fn next_id() -> usize {
+    INSTANCE_ID_MAPPINGS.with(|rc| {
+        let mappings = &*rc.borrow();
+        if mappings.len() == MAX_INSTANCE_NUM {
+            panic!("too many instances");
+        }
+        let mut rng = thread_rng();
+        let mut r: usize = rng.gen();
+        while mappings.contains_key(&r) {
+            if r == usize::MAX {
+                r = 0;
+            }
+            r += 1;
+        }
+        r
+    })
+}
+
 pub struct Proxy {
     name: Option<String>,
     namespace: Option<Vec<String>>,
@@ -179,7 +201,7 @@ impl Proxy {
     #[allow(dead_code)]
     pub fn constructor<C>(mut self, constructor: C) -> Self
     where
-        C: Fn(&QuickJsRuntime, Vec<JSValueRef>) -> Result<usize, EsError> + 'static,
+        C: Fn(&QuickJsRuntime, usize, Vec<JSValueRef>) -> Result<(), EsError> + 'static,
     {
         self.constructor = Some(Box::new(constructor));
         self
@@ -354,14 +376,14 @@ pub mod tests {
     use crate::quickjs_utils::reflection::Proxy;
     use crate::quickjs_utils::{functions, primitives};
     use crate::quickjsruntime::QuickJsRuntime;
-    use hirofa_utils::auto_id_map::AutoIdMap;
     use log::trace;
     use std::cell::RefCell;
+    use std::collections::HashMap;
     use std::sync::Arc;
     use std::time::Duration;
 
     thread_local! {
-        static TEST_INSTANCES: RefCell<AutoIdMap<String>> = RefCell::new(AutoIdMap::new())
+        static TEST_INSTANCES: RefCell<HashMap<usize, String>> = RefCell::new(HashMap::new())
     }
 
     #[test]
@@ -372,12 +394,12 @@ pub mod tests {
         rt.add_to_event_queue_sync(|q_js_rt| {
             let res = Proxy::new()
                 .name("TestClass1")
-                .constructor(|_q_js_rt, _args| {
-                    let id = TEST_INSTANCES.with(|rc| {
+                .constructor(|_q_js_rt, id, _args| {
+                    TEST_INSTANCES.with(|rc| {
                         let map = &mut *rc.borrow_mut();
-                        map.insert("hi".to_string())
+                        map.insert(id, "hi".to_string())
                     });
-                    Ok(id)
+                    Ok(())
                 })
                 .method("doIt", |_q_js_rt, _obj_id, _args| {
                     Ok(primitives::from_i32(531))
@@ -501,6 +523,14 @@ pub mod tests {
 
 pub fn new_instance2(
     proxy: &Proxy,
+    q_js_rt: &QuickJsRuntime,
+) -> Result<(usize, JSValueRef), EsError> {
+    let instance_id = next_id();
+    Ok((instance_id, new_instance3(proxy, instance_id, q_js_rt)?))
+}
+
+pub(crate) fn new_instance3(
+    proxy: &Proxy,
     instance_id: usize,
     q_js_rt: &QuickJsRuntime,
 ) -> Result<JSValueRef, EsError> {
@@ -550,17 +580,17 @@ pub fn new_instance2(
 
 pub fn new_instance(
     class_name: &str,
-    instance_id: usize,
     q_js_rt: &QuickJsRuntime,
-) -> Result<JSValueRef, EsError> {
+) -> Result<(usize, JSValueRef), EsError> {
     // todo
 
     PROXY_REGISTRY.with(|registry_rc| {
         let registry = &*registry_rc.borrow();
+
         if let Some(proxy) = registry.get(class_name) {
             // construct
 
-            new_instance2(proxy, instance_id, q_js_rt)
+            new_instance2(proxy, q_js_rt)
         } else {
             Err(EsError::new_str("no such proxy"))
         }
@@ -594,12 +624,12 @@ unsafe extern "C" fn constructor(
                     // construct
 
                     let args_vec = parse_args(argc, argv);
+                    let instance_id = next_id();
+                    let constructor_res = constructor(q_js_rt, instance_id, args_vec);
 
-                    let instance_id_res = constructor(q_js_rt, args_vec);
-
-                    match instance_id_res {
-                        Ok(instance_id) => {
-                            let instance_ref_res = new_instance2(proxy, instance_id, q_js_rt);
+                    match constructor_res {
+                        Ok(()) => {
+                            let instance_ref_res = new_instance3(proxy, instance_id, q_js_rt);
 
                             match instance_ref_res {
                                 Ok(instance_ref) => instance_ref.clone_value_incr_rc(),
