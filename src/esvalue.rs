@@ -562,7 +562,7 @@ pub struct EsValueFacade {
 }
 
 impl EsValueFacade {
-    pub(crate) fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+    pub fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         self.convertible.to_js_value(q_js_rt)
     }
 
