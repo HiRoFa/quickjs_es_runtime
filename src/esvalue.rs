@@ -701,6 +701,11 @@ impl EsValueFacade {
         self.convertible.get_array()
     }
 
+    /// get the object value
+    pub fn get_object(&self) -> &HashMap<String, EsValueFacade> {
+        self.convertible.get_object()
+    }
+
     /// check if the value is a String
     pub fn is_string(&self) -> bool {
         self.convertible.is_str()
