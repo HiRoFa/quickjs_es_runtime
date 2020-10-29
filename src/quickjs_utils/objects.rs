@@ -338,7 +338,7 @@ where
         }
 
         let key_str = crate::quickjs_utils::primitives::to_string(q_js_rt, &key_ref)?;
-        let r = visitor(key_str.as_str(), key_ref)?;
+        let r = visitor(key_str.as_str(), prop_val_ref)?;
 
         map.insert(key_str, r);
     }
