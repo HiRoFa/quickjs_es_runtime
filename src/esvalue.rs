@@ -6,6 +6,7 @@ use crate::quickjs_utils::{arrays, dates, functions, new_null_ref, promises};
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::*;
 use std::collections::HashMap;
+use std::fmt::{Debug, Error, Formatter};
 use std::rc::Rc;
 use std::sync::mpsc::{channel, RecvTimeoutError};
 use std::sync::{Arc, Weak};
@@ -760,6 +761,30 @@ impl EsValueFacade {
         timeout: Duration,
     ) -> Result<Result<EsValueFacade, EsValueFacade>, RecvTimeoutError> {
         self.convertible.await_promise_blocking(timeout)
+    }
+}
+
+impl Debug for EsValueFacade {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        if self.is_string() {
+            f.write_str(self.get_str())
+        } else if self.is_i32() {
+            f.write_str(format!("{}", self.get_i32()).as_str())
+        } else if self.is_f64() {
+            f.write_str(format!("{}", self.get_f64()).as_str())
+        } else if self.is_boolean() {
+            f.write_str(format!("{}", self.get_boolean()).as_str())
+        } else if self.is_promise() {
+            f.write_str("[Promise]")
+        } else if self.is_function() {
+            f.write_str("[Function]")
+        } else if self.is_object() {
+            f.write_str("[Object]")
+        } else if self.is_array() {
+            f.write_str("[Array]")
+        } else {
+            f.write_str("[Unknown]")
+        }
     }
 }
 
