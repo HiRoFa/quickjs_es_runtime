@@ -172,26 +172,90 @@ impl EsValueConvertible for CachedJSPromise {
             es_rti.add_to_event_queue_sync(move |q_js_rt| {
                 q_js_rt.with_cached_obj(cached_obj_id, move |prom_obj_ref| {
                     QuickJsRuntime::do_with(move |q_js_rt| {
-                        let cb_ref = functions::new_function(
+                        let rti_ref2 = rti_ref.clone();
+                        let tx2 = tx.clone();
+                        let then_func_ref = functions::new_function(
                             q_js_rt,
-                            "promise_block_result_transmitter",
-                            move |_this_ref, mut args| {
+                            "promise_then_result_transmitter",
+                            move |_this_ref, args| {
                                 // these clones are needed because create_func requires a Fn and not a FnOnce
                                 // in practice however the Fn is called only once
-                                let rti_ref2 = rti_ref.clone();
-                                let tx = tx.clone();
+                                let rti_ref2 = rti_ref2.clone();
+                                let tx3 = tx2.clone();
 
                                 QuickJsRuntime::do_with(move |q_js_rt| {
-                                    let prom_res = args.remove(0);
-                                    let prom_res_esvf =
-                                        EsValueFacade::from_jsval(q_js_rt, &prom_res, &rti_ref2);
-                                    let send_res = tx.send(prom_res_esvf);
-                                    match send_res {
-                                        Ok(_) => {
-                                            log::trace!("sent prom_res_esvf ok");
+                                    let prom_res = &args[0];
+                                    let prom_res_esvf_res =
+                                        EsValueFacade::from_jsval(q_js_rt, prom_res, &rti_ref2);
+
+                                    match prom_res_esvf_res {
+                                        Ok(prom_res_esvf) => {
+                                            let send_res = tx3.send(Ok(prom_res_esvf));
+                                            match send_res {
+                                                Ok(_) => {
+                                                    log::trace!("sent prom_res_esvf ok");
+                                                }
+                                                Err(e) => {
+                                                    log::error!("send prom_res_esvf failed: {}", e);
+                                                }
+                                            }
                                         }
                                         Err(e) => {
-                                            log::error!("send prom_res_esvf failed: {}", e);
+                                            log::error!(
+                                                "could not convert promise result to esvf {}",
+                                                e
+                                            );
+                                            panic!(
+                                                "could not convert promise result to esvf {}",
+                                                e
+                                            );
+                                        }
+                                    }
+
+                                    Ok(new_null_ref())
+                                })
+                            },
+                            1,
+                        )
+                        .ok()
+                        .expect("could not create func");
+
+                        let rti_ref2 = rti_ref.clone();
+                        let tx2 = tx.clone();
+                        let catch_func_ref = functions::new_function(
+                            q_js_rt,
+                            "promise_catch_result_transmitter",
+                            move |_this_ref, args| {
+                                // these clones are needed because create_func requires a Fn and not a FnOnce
+                                // in practice however the Fn is called only once
+                                let rti_ref2 = rti_ref2.clone();
+                                let tx3 = tx2.clone();
+
+                                QuickJsRuntime::do_with(move |q_js_rt| {
+                                    let prom_res = &args[0];
+                                    let prom_res_esvf_res =
+                                        EsValueFacade::from_jsval(q_js_rt, prom_res, &rti_ref2);
+                                    match prom_res_esvf_res {
+                                        Ok(prom_res_esvf) => {
+                                            let send_res = tx3.send(Err(prom_res_esvf));
+                                            match send_res {
+                                                Ok(_) => {
+                                                    log::trace!("sent prom_res_esvf ok");
+                                                }
+                                                Err(e) => {
+                                                    log::error!("send prom_res_esvf failed: {}", e);
+                                                }
+                                            }
+                                        }
+                                        Err(e) => {
+                                            log::error!(
+                                                "could not convert promise result to esvf {}",
+                                                e
+                                            );
+                                            panic!(
+                                                "could not convert promise result to esvf {}",
+                                                e
+                                            );
                                         }
                                     }
                                     Ok(new_null_ref())
@@ -205,8 +269,8 @@ impl EsValueConvertible for CachedJSPromise {
                         promises::add_promise_reactions(
                             q_js_rt,
                             prom_obj_ref,
-                            Some(cb_ref),
-                            None,
+                            Some(then_func_ref),
+                            Some(catch_func_ref),
                             None,
                         )
                         .ok()
@@ -214,13 +278,7 @@ impl EsValueConvertible for CachedJSPromise {
                     })
                 });
             });
-            let res = rx.recv_timeout(timeout)?;
-            match res {
-                Ok(v) => Ok(Ok(v)),
-                Err(e) => Ok(Err(
-                    format!("Error getting result from channel: {}", e).to_es_value_facade()
-                )),
-            }
+            Ok(rx.recv_timeout(timeout)?)
         } else {
             Ok(Err("rti dropped".to_string().to_es_value_facade()))
         }
