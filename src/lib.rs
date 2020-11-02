@@ -9,7 +9,7 @@ pub mod esruntime_utils;
 pub mod esruntimebuilder;
 pub mod esscript;
 pub mod esvalue;
-mod features;
+pub mod features;
 pub mod quickjs_utils;
 pub mod quickjsruntime;
 pub mod valueref;
