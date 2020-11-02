@@ -4,7 +4,7 @@ use crate::esruntime_utils::promises;
 use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
 use crate::quickjs_utils;
-use crate::quickjs_utils::{functions, objects, parse_args};
+use crate::quickjs_utils::{functions, objects, parse_args, primitives};
 use crate::quickjsruntime::QuickJsRuntime;
 use libquickjs_sys as q;
 use std::collections::HashMap;
@@ -40,9 +40,20 @@ unsafe extern "C" fn fetch_func(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    let _args_vec = parse_args(argc, argv);
+    let args_vec = parse_args(argc, argv);
 
     QuickJsRuntime::do_with(|q_js_rt| {
+        if args_vec.is_empty() {
+            return q_js_rt.report_ex("need at least a url arg");
+        }
+
+        let url_arg = &args_vec[0];
+        if !url_arg.is_string() {
+            return q_js_rt.report_ex("url argument needs to be a string");
+        }
+
+        let url = primitives::to_string(q_js_rt, &url_arg).ok().unwrap();
+
         if let Some(rt_ref) = q_js_rt.get_rt_ref() {
             if rt_ref.inner.fetch_response_provider.is_some() {
                 let producer = move || {
@@ -57,7 +68,7 @@ unsafe extern "C" fn fetch_func(
                         .as_ref()
                         .expect("we really expected a fetch_response_provider here");
 
-                    let request = FetchRequest::new("", HashMap::new());
+                    let request = FetchRequest::new(url.as_str(), HashMap::new());
 
                     let result: Box<dyn FetchResponse + Send> = provider(&request);
 
