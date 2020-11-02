@@ -98,7 +98,7 @@ pub mod tests {
             unimplemented!()
         }
 
-        fn get_header(&self, _name: &str) -> &[&str] {
+        fn get_header(&self, _name: &str) -> Option<&str> {
             unimplemented!()
         }
 

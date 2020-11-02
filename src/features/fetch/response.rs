@@ -16,7 +16,7 @@ thread_local! {
 
 pub trait FetchResponse {
     fn get_http_status(&self) -> u16;
-    fn get_header(&self, name: &str) -> &[&str];
+    fn get_header(&self, name: &str) -> Option<&str>;
     fn get_header_names(&self) -> &[&String];
     fn read(&mut self) -> Option<Vec<u8>>;
 }
