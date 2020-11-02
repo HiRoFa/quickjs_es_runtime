@@ -99,11 +99,8 @@ fn response_json(
             // map string to js_str and then parse
             QuickJsRuntime::do_with(|q_js_rt| {
                 //
-                let str_ref = primitives::from_string(q_js_rt, res.as_str())?;
-
-                let s = primitives::to_string(q_js_rt, &str_ref)?;
-
-                json::parse(q_js_rt, s.as_str())
+                log::trace!("fetch::response::json parsing: {}", res);
+                json::parse(q_js_rt, res.as_str())
             })
         };
 
