@@ -102,10 +102,6 @@ pub mod tests {
             unimplemented!()
         }
 
-        fn get_header_names(&self) -> &[&String] {
-            unimplemented!()
-        }
-
         fn read(&mut self) -> Option<Vec<u8>> {
             if self.txt.is_some() {
                 let s = std::mem::replace(&mut self.txt, None);
