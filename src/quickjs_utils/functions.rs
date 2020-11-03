@@ -150,6 +150,21 @@ pub fn invoke_member_function(
 pub fn call_to_string(q_js_rt: &QuickJsRuntime, obj_ref: &JSValueRef) -> Result<String, EsError> {
     if obj_ref.is_string() {
         crate::quickjs_utils::primitives::to_string(q_js_rt, obj_ref)
+    } else if obj_ref.is_null() {
+        Ok("null".to_string())
+    } else if obj_ref.is_undefined() {
+        Ok("undefined".to_string())
+    } else if obj_ref.is_i32() {
+        let i = primitives::to_i32(obj_ref).ok().expect("could not get i32");
+        Ok(i.to_string())
+    } else if obj_ref.is_f64() {
+        let i = primitives::to_f64(obj_ref).ok().expect("could not get f64");
+        Ok(i.to_string())
+    } else if obj_ref.is_bool() {
+        let i = primitives::to_bool(obj_ref)
+            .ok()
+            .expect("could not get bool");
+        Ok(i.to_string())
     } else {
         log::trace!("calling JS_ToString on a {}", obj_ref.borrow_value().tag);
 
