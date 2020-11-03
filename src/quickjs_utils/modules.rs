@@ -77,7 +77,12 @@ unsafe extern "C" fn js_module_normalize(
                 }
                 Err(e) => {
                     log::error!("module {} failed: {}", name_str, e);
-                    //QuickJsRuntime::do_with(|q_js_rt| q_js_rt.report_ex(e.get_message()));
+                    QuickJsRuntime::do_with(|q_js_rt| {
+                        q_js_rt.report_ex(
+                            format!("Module eval failed for {}\ncaused by {}", name_str, e)
+                                .as_str(),
+                        )
+                    });
                 }
             }
         } else {
@@ -85,6 +90,9 @@ unsafe extern "C" fn js_module_normalize(
         }
     } else {
         trace!("no module found for {} at {}", name_str, base_str);
+        QuickJsRuntime::do_with(|q_js_rt| {
+            let _ = q_js_rt.report_ex(format!("Module {} was not found", name_str).as_str());
+        });
     }
 
     let c_absolute_path_res = CString::new(absolute_path.as_str());
@@ -144,6 +152,47 @@ pub mod tests {
                 panic!("parse module failed: {}", res.err().unwrap())
             }
             res.ok().expect("parse module failed");
+        });
+
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            let res = q_js_rt.eval_module(EsScript::new(
+                "test2.mes",
+                "import {name} from 'test1.mes';\n\nconsole.log('imported name: ' + name);",
+            ));
+
+            if res.is_err() {
+                panic!("parse module2 failed: {}", res.err().unwrap())
+            }
+
+            res.ok().expect("parse module2 failed");
+        });
+
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            let res = q_js_rt.eval_module(EsScript::new(
+                "test3.mes",
+                "import {name} from 'notfound.mes';\n\nconsole.log('imported name: ' + name);",
+            ));
+
+            assert!(res.is_err());
+            assert!(res
+                .err()
+                .unwrap()
+                .get_message()
+                .contains("Module notfound.mes was not found"));
+        });
+
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            let res = q_js_rt.eval_module(EsScript::new(
+                "test4.mes",
+                "import {name} from 'invalid.mes';\n\nconsole.log('imported name: ' + name);",
+            ));
+
+            assert!(res.is_err());
+            assert!(res
+                .err()
+                .unwrap()
+                .get_message()
+                .contains("Module eval failed for invalid.mes"));
         });
 
         rt.add_to_event_queue_sync(|q_js_rt| {

@@ -454,8 +454,10 @@ pub mod tests {
             .gc_interval(Duration::from_secs(1))
             .max_stack_size(1024*16)
             .module_script_loader(|_rel, name| {
-                if name.eq("invalid.mes") {
+                if name.eq("notfound.mes") {
                     None
+                } else if name.eq("invalid.mes") {
+                    Some(EsScript::new(name, "I am the great cornholio! thou'gh shalt&s not p4arse mie!"))
                 } else {
                     Some(EsScript::new(name, "export const foo = 'bar';\nexport const mltpl = function(a, b){return a*b;}; globalThis;"))
                 }
