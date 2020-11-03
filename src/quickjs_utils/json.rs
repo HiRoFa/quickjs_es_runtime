@@ -62,14 +62,14 @@ pub fn parse(q_js_rt: &QuickJsRuntime, input: &str) -> Result<JSValueRef, EsErro
 /// rt.add_to_event_queue_sync(|q_js_rt| {
 ///     let obj_ref = objects::create_object(q_js_rt).ok().unwrap();
 ///     objects::set_property(q_js_rt, &obj_ref, "a", primitives::from_i32(741)).ok().unwrap();
-///     let str_ref = json::stringify(q_js_rt, obj_ref, None).ok().unwrap();
+///     let str_ref = json::stringify(q_js_rt, &obj_ref, None).ok().unwrap();
 ///     let str_str = primitives::to_string(q_js_rt, &str_ref).ok().unwrap();
 ///     assert_eq!("{\"a\":741}", str_str);
 /// });
 /// ```
 pub fn stringify(
     q_js_rt: &QuickJsRuntime,
-    input: JSValueRef,
+    input: &JSValueRef,
     opt_space: Option<JSValueRef>,
 ) -> Result<JSValueRef, EsError> {
     //pub fn JS_JSONStringify(
@@ -130,7 +130,7 @@ pub mod tests {
             )
             .ok()
             .unwrap();
-            let str_res = json::stringify(q_js_rt, obj, None).ok().unwrap();
+            let str_res = json::stringify(q_js_rt, &obj, None).ok().unwrap();
             assert_eq!(str_res.get_ref_count(), 1);
             let json = primitives::to_string(q_js_rt, &str_res).ok().unwrap();
             assert_eq!(json.as_str(), "{\"a\":532,\"b\":true,\"c\":\"abc\"}");
