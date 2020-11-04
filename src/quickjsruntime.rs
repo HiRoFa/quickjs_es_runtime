@@ -125,6 +125,11 @@ impl QuickJsRuntime {
                 Err(EsError::new_str("eval failed and could not get exception"))
             }
         } else {
+            // this sucks (kills some async stuff and performance) but prevents stack overflows when doing stuff with promises which are not referenced after eval
+            // (pending jobs should be taken care of in separate job on event queue which is always added)
+            // i'm not quite sure why that happens yet
+            // p.s. same in eval_module
+
             while self.has_pending_jobs() {
                 self.run_pending_job()?;
             }
