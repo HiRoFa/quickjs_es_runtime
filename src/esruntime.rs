@@ -447,6 +447,7 @@ pub mod tests {
 
     fn init() -> Arc<EsRuntime> {
         log::trace!("TEST_ESRT::init");
+
         simple_logging::log_to_file("esruntime.log", LevelFilter::max())
             .ok()
             .expect("could not init logger");
