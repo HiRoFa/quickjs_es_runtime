@@ -525,6 +525,32 @@ pub mod tests {
     }
 
     #[test]
+    fn test_eval_await() {
+        let rt: Arc<EsRuntime> = TEST_ESRT.clone();
+        let res = rt.eval_sync(EsScript::new(
+            "test_async.es",
+            "{let f = async function(){let p = new Promise((resolve, reject) => {resolve(12345);}); const p2 = await p; return p2}; f()};",
+        ));
+
+        match res {
+            Ok(esvf) => {
+                assert!(esvf.is_promise());
+                let res = esvf
+                    .await_promise_blocking(Duration::from_secs(1))
+                    .ok()
+                    .expect("prom timed out")
+                    .ok()
+                    .expect("prom failed");
+                assert!(res.is_i32());
+                assert_eq!(res.get_i32(), 12345);
+            }
+            Err(e) => {
+                panic!("eval failed: {}", e);
+            }
+        }
+    }
+
+    #[test]
     fn test_promise() {
         let rt: Arc<EsRuntime> = TEST_ESRT.clone();
 
