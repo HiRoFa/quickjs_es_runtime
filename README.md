@@ -17,6 +17,10 @@ I learned a lot from their code and reused some of their concepts.
 
 # What is it?
 
+A basic sandbox for quickly getting started with embedding a javascript engine in your rust project.
+
+A more feature-rich variant can be found in [ESsesLib-q](https://github.com/HiRoFa/ESsesLib-q).
+
 This lib serves two main goals:
 
 ## 1. Provide simple utils for working with quickjs (these are located in the quickjs_utils mod)
@@ -39,6 +43,7 @@ This lib serves two main goals:
 * Create promises which execute async in JS
 * Eval modules ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.eval_module_sync))
 * Load modules (dynamic and static) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntimebuilder/struct.EsRuntimeBuilder.html#method.module_script_loader))
+* fetch api [#2](https://github.com/HiRoFa/quickjs_es_runtime/issues/2)
 
 ## Rust-Script interoperability
 
@@ -52,7 +57,6 @@ This lib serves two main goals:
 
 * import native Modules (e.g. dynamic loading of rust functions)
 * setImmediate / setTimeout [#3](https://github.com/HiRoFa/quickjs_es_runtime/issues/3), [#4](https://github.com/HiRoFa/quickjs_es_runtime/issues/4)
-* fetch api [#2](https://github.com/HiRoFa/quickjs_es_runtime/issues/2)
 * EventTarget
 * WebAssembly
 * Macro / IFDef support
