@@ -29,37 +29,30 @@ impl Clone for JSValueRef {
 
 impl Drop for JSValueRef {
     fn drop(&mut self) {
-        QuickJsRuntime::do_with(|q_js_rt| unsafe {
-            log::debug!("dropping OwnedValueRef, before free: {}", self.label);
+        log::debug!("dropping OwnedValueRef, before free: {}", self.label);
 
-            if let Some(value) = self.value {
-                // All tags < 0 are garbage collected and need to be freed.
-                if value.tag < 0 {
-                    // This transmute is OK since if tag < 0, the union will be a refcount
-                    // pointer.
+        if let Some(value) = self.value {
+            // All tags < 0 are garbage collected and need to be freed.
+            if value.tag < 0 {
+                // This transmute is OK since if tag < 0, the union will be a refcount
+                // pointer.
 
-                    if self.ref_ct_decr_on_drop {
-                        if self.get_ref_count() <= 0 {
-                            log::error!(
-                                "dropping ref while refcount already 0, which is bad mmkay.. {}",
-                                self.label
-                            );
-                            panic!(
-                                "dropping ref while refcount already 0, which is bad mmkay.. {}",
-                                self.label
-                            );
-                        }
-                        self.decrement_ref_count();
-                    }
-
+                if self.ref_ct_decr_on_drop {
                     if self.get_ref_count() <= 0 {
-                        log::trace!("ref count <= 0, calling __JS_FreeValue");
-                        q::__JS_FreeValue(q_js_rt.context, value);
+                        log::error!(
+                            "dropping ref while refcount already 0, which is bad mmkay.. {}",
+                            self.label
+                        );
+                        panic!(
+                            "dropping ref while refcount already 0, which is bad mmkay.. {}",
+                            self.label
+                        );
                     }
+                    self.decrement_ref_count();
                 }
             }
-            log::trace!("dropping OwnedValueRef, after free");
-        })
+        }
+        log::trace!("dropping OwnedValueRef, after free");
     }
 }
 
@@ -82,21 +75,17 @@ impl<'a> std::fmt::Debug for JSValueRef {
 impl JSValueRef {
     pub(crate) fn increment_ref_count(&self) {
         if self.get_tag() < 0 {
-            unsafe {
-                let ptr = self.value.as_ref().unwrap().u.ptr;
-                let p = ptr as *mut q::JSRefCountHeader;
-                (*p).ref_count += 1;
-            }
+            QuickJsRuntime::do_with(|q_js_rt| {
+                libquickjs_sys::JS_DupValue(q_js_rt.context, *self.borrow_value())
+            });
         }
     }
 
     pub(crate) fn decrement_ref_count(&self) {
         if self.get_tag() < 0 {
-            unsafe {
-                let ptr = self.value.as_ref().unwrap().u.ptr;
-                let p = ptr as *mut q::JSRefCountHeader;
-                (*p).ref_count -= 1;
-            }
+            QuickJsRuntime::do_with(|q_js_rt| {
+                libquickjs_sys::JS_FreeValue(q_js_rt.context, *self.borrow_value())
+            });
         }
     }
 
