@@ -2,7 +2,7 @@ use crate::quickjsruntime::QuickJsRuntime;
 use libquickjs_sys as q;
 
 pub struct JSValueRef {
-    value: Option<q::JSValue>,
+    value: q::JSValue,
     ref_ct_decr_on_drop: bool,
     label: String,
 }
@@ -19,7 +19,7 @@ impl JSValueRef {
 impl Clone for JSValueRef {
     fn clone(&self) -> Self {
         Self::new(
-            self.value.unwrap(),
+            self.value,
             true,
             true,
             format!("clone of {}", self.label).as_str(),
@@ -31,25 +31,23 @@ impl Drop for JSValueRef {
     fn drop(&mut self) {
         log::debug!("dropping OwnedValueRef, before free: {}", self.label);
 
-        if let Some(value) = self.value {
-            // All tags < 0 are garbage collected and need to be freed.
-            if value.tag < 0 {
-                // This transmute is OK since if tag < 0, the union will be a refcount
-                // pointer.
+        // All tags < 0 are garbage collected and need to be freed.
+        if self.value.tag < 0 {
+            // This transmute is OK since if tag < 0, the union will be a refcount
+            // pointer.
 
-                if self.ref_ct_decr_on_drop {
-                    if self.get_ref_count() <= 0 {
-                        log::error!(
-                            "dropping ref while refcount already 0, which is bad mmkay.. {}",
-                            self.label
-                        );
-                        panic!(
-                            "dropping ref while refcount already 0, which is bad mmkay.. {}",
-                            self.label
-                        );
-                    }
-                    self.decrement_ref_count();
+            if self.ref_ct_decr_on_drop {
+                if self.get_ref_count() <= 0 {
+                    log::error!(
+                        "dropping ref while refcount already 0, which is bad mmkay.. {}",
+                        self.label
+                    );
+                    panic!(
+                        "dropping ref while refcount already 0, which is bad mmkay.. {}",
+                        self.label
+                    );
                 }
+                self.decrement_ref_count();
             }
         }
         log::trace!("dropping OwnedValueRef, after free");
@@ -58,7 +56,7 @@ impl Drop for JSValueRef {
 
 impl<'a> std::fmt::Debug for JSValueRef {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self.value.as_ref().unwrap().tag {
+        match self.value.tag {
             TAG_EXCEPTION => write!(f, "Exception(?)"),
             TAG_NULL => write!(f, "NULL"),
             TAG_UNDEFINED => write!(f, "UNDEFINED"),
@@ -75,7 +73,7 @@ impl<'a> std::fmt::Debug for JSValueRef {
 impl JSValueRef {
     pub(crate) fn increment_ref_count(&self) {
         if self.get_tag() < 0 {
-            QuickJsRuntime::do_with(|q_js_rt| {
+            QuickJsRuntime::do_with(|q_js_rt| unsafe {
                 libquickjs_sys::JS_DupValue(q_js_rt.context, *self.borrow_value())
             });
         }
@@ -83,14 +81,14 @@ impl JSValueRef {
 
     pub(crate) fn decrement_ref_count(&self) {
         if self.get_tag() < 0 {
-            QuickJsRuntime::do_with(|q_js_rt| {
+            QuickJsRuntime::do_with(|q_js_rt| unsafe {
                 libquickjs_sys::JS_FreeValue(q_js_rt.context, *self.borrow_value())
             });
         }
     }
 
     pub fn get_tag(&self) -> i64 {
-        self.value.as_ref().unwrap().tag
+        self.value.tag
     }
 
     pub fn new(
@@ -100,7 +98,7 @@ impl JSValueRef {
         label: &str,
     ) -> Self {
         let s = Self {
-            value: Some(value),
+            value,
             ref_ct_decr_on_drop,
             label: label.to_string(),
         };
@@ -114,7 +112,7 @@ impl JSValueRef {
         if self.get_tag() < 0 {
             // This transmute is OK since if tag < 0, the union will be a refcount
             // pointer.
-            let ptr = unsafe { self.value.as_ref().unwrap().u.ptr as *mut q::JSRefCountHeader };
+            let ptr = unsafe { self.value.u.ptr as *mut q::JSRefCountHeader };
             let pref: &mut q::JSRefCountHeader = &mut unsafe { *ptr };
             pref.ref_count
         } else {
@@ -125,15 +123,15 @@ impl JSValueRef {
     /// borrow the value but first increment the refcount, this is useful for when the value is returned or passed to functions
     pub fn clone_value_incr_rc(&self) -> q::JSValue {
         self.increment_ref_count();
-        self.value.unwrap()
+        self.value
     }
 
     pub fn borrow_value(&self) -> &q::JSValue {
-        self.value.as_ref().unwrap()
+        &self.value
     }
 
     pub fn borrow_value_mut(&mut self) -> &mut q::JSValue {
-        self.value.as_mut().unwrap()
+        &mut self.value
     }
 
     pub fn is_null_or_undefined(&self) -> bool {
@@ -142,21 +140,23 @@ impl JSValueRef {
 
     /// return true if the wrapped value represents a JS null value
     pub fn is_undefined(&self) -> bool {
-        self.borrow_value().tag == TAG_UNDEFINED
+        unsafe { q::JS_IsUndefined(self.value) }
     }
 
     /// return true if the wrapped value represents a JS null value
     pub fn is_null(&self) -> bool {
-        self.borrow_value().tag == TAG_NULL
+        unsafe { q::JS_IsNull(self.value) }
     }
 
     /// return true if the wrapped value represents a JS boolean value
     pub fn is_bool(&self) -> bool {
-        self.borrow_value().tag == TAG_BOOL
+        unsafe { q::JS_IsBool(self.value) }
     }
 
     /// return true if the wrapped value represents a JS INT value
     pub fn is_i32(&self) -> bool {
+        // todo figure out diff between i32/f64/Number
+        // unsafe { q::JS_IsNumber(self.borrow_value()) }
         self.borrow_value().tag == TAG_INT
     }
 
@@ -166,22 +166,23 @@ impl JSValueRef {
     }
 
     pub fn is_big_int(&self) -> bool {
+        // unsafe { q::JS_IsBigInt(ctx, self.borrow_value()) }
         self.borrow_value().tag == TAG_BIG_INT
     }
 
     /// return true if the wrapped value represents a JS Esception value
     pub fn is_exception(&self) -> bool {
-        self.borrow_value().tag == TAG_EXCEPTION
+        unsafe { q::JS_IsException(self.value) }
     }
 
     /// return true if the wrapped value represents a JS Object value
     pub fn is_object(&self) -> bool {
-        self.borrow_value().tag == TAG_OBJECT
+        unsafe { q::JS_IsObject(self.value) }
     }
 
     /// return true if the wrapped value represents a JS String value
     pub fn is_string(&self) -> bool {
-        self.borrow_value().tag == TAG_STRING
+        unsafe { q::JS_IsString(self.value) }
     }
 }
 
