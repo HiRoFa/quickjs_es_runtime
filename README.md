@@ -1,27 +1,16 @@
 # quickjs_es_runtime
 
-Same goals as https://github.com/HiRoFa/es_runtime but with using quickjs
+quickjs_es_runtime is a library for quickly getting started with embedding a javascript engine in your rust project.
 
-so 
-* slower js
+quickjs_es_runtime focuses purely on making quickjs usable. 
 
-but
- 
-* smaller footprint 
-* much faster compilation
+Other projects:
+* A more feature-rich runtime can be found in [ESsesLib-q](https://github.com/HiRoFa/ESsesLib-q).
+* There is also a commandline client: [ESsesCmd-q](https://github.com/HiRoFa/ESsesCmd-q).
+* And last but not least there is GreenCopper which aspires to be a full fledged application platform: [Green-Copper-q](https://github.com/HiRoFa/Green-Copper-q).
+* (they all end with -q because I started out with variants of these projects based on SpiderMonkey)
 
-For some of my projects those are a big plus!
-
-A big thanks goes out to the people at https://github.com/theduke/quickjs-rs for making the bindings to quickjs!
-I learned a lot from their code and reused some of their concepts.
-
-# What is it?
-
-A basic sandbox for quickly getting started with embedding a javascript engine in your rust project.
-
-A more feature-rich variant can be found in [ESsesLib-q](https://github.com/HiRoFa/ESsesLib-q).
-
-This lib serves two main goals:
+# This lib serves two main goals:
 
 ## 1. Provide simple utils for working with quickjs (these are located in the quickjs_utils mod)
 * The QuickJSRuntime struct, this is to be used from a single thread 
@@ -61,6 +50,23 @@ This lib serves two main goals:
 * WebAssembly
 * Macro / IFDef support
 * Pre processing (for e.g. typescript)
+
+# goals
+
+Same goals as https://github.com/HiRoFa/es_runtime but with using quickjs
+
+so 
+* slower js
+
+but
+ 
+* smaller footprint 
+* much faster compilation
+
+For some of my projects those are a big plus!
+
+A big thanks goes out to the people at https://github.com/theduke/quickjs-rs for making the bindings to quickjs!
+I learned a lot from their code and reused some of their concepts.
 
 # examples
 
