@@ -1,36 +1,3 @@
-// todo be able to read/write bytecode
-
-// flags
-// pub const JS_WRITE_OBJ_BYTECODE: u32 = 1;
-// pub const JS_READ_OBJ_BYTECODE: u32 = 1;
-
-// extern "C" {
-//     pub fn JS_WriteObject(
-//         ctx: *mut JSContext,
-//         psize: *mut size_t,
-//         obj: JSValue,
-//         flags: ::std::os::raw::c_int,
-//     ) -> *mut u8;
-// }
-// extern "C" {
-//     pub fn JS_WriteObject2(
-//         ctx: *mut JSContext,
-//         psize: *mut size_t,
-//         obj: JSValue,
-//         flags: ::std::os::raw::c_int,
-//         psab_tab: *mut *mut *mut u8,
-//         psab_tab_len: *mut size_t,
-//     ) -> *mut u8;
-// }
-// extern "C" {
-//     pub fn JS_ReadObject(
-//         ctx: *mut JSContext,
-//         buf: *const u8,
-//         buf_len: size_t,
-//         flags: ::std::os::raw::c_int,
-//     ) -> JSValue;
-// }
-
 use crate::eserror::EsError;
 use crate::esscript::EsScript;
 use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
@@ -95,7 +62,7 @@ pub fn compile(q_js_rt: &QuickJsRuntime, script: EsScript) -> Result<JSValueRef,
     }
 }
 
-/// run a compiled function
+/// run a compiled function, see compile for an example
 pub fn run_compiled_function(
     q_js_rt: &QuickJsRuntime,
     compiled_func: &JSValueRef,
@@ -114,5 +81,69 @@ pub fn run_compiled_function(
         }
     } else {
         Ok(val_ref)
+    }
+}
+
+/// write a function to bytecode
+/// # Example
+/// ```rust
+/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_es_runtime::esscript::EsScript;
+/// use quickjs_es_runtime::quickjs_utils::primitives;
+/// use quickjs_es_runtime::quickjs_utils::compile::{compile, run_compiled_function, to_bytecode, from_bytecode};
+/// let rt = EsRuntimeBuilder::new().build();
+/// rt.add_to_event_queue_sync(|q_js_rt| {
+///     let func_res = compile(q_js_rt, EsScript::new("test_func.es", "let a = 7; let b = 5; a * b;"));
+///     let func = func_res.ok().expect("func compile failed");
+///     let bytecode: Vec<u8> = to_bytecode(q_js_rt, &func);
+///     drop(func);
+///     assert!(!bytecode.is_empty());
+///     let func2_res = from_bytecode(q_js_rt, bytecode);
+///     let func2 = func2_res.ok().expect("could not read bytecode");
+///     let run_res = run_compiled_function(q_js_rt, &func2);
+///     let res = run_res.ok().expect("run_compiled_function failed");
+///     let i_res = primitives::to_i32(&res);
+///     let i = i_res.ok().expect("could not convert to i32");
+///     assert_eq!(i, 7*5);
+/// });
+/// ```
+pub fn to_bytecode(q_js_rt: &QuickJsRuntime, compiled_func: &JSValueRef) -> Vec<u8> {
+    assert!(compiled_func.is_compiled_function());
+
+    let mut len: u64 = 0;
+    let slice_u8 = unsafe {
+        q::JS_WriteObject(
+            q_js_rt.context,
+            &mut len,
+            *compiled_func.borrow_value(),
+            q::JS_WRITE_OBJ_BYTECODE as i32,
+        )
+    };
+
+    let slice = unsafe { std::slice::from_raw_parts(slice_u8, len as usize) };
+
+    slice.to_vec()
+}
+
+/// read a compiled function from bytecode, see to_bytecode for an example
+pub fn from_bytecode(q_js_rt: &QuickJsRuntime, bytecode: Vec<u8>) -> Result<JSValueRef, EsError> {
+    assert!(!bytecode.is_empty());
+    let len: u64 = bytecode.len() as u64;
+    let buf = bytecode.as_ptr();
+    let raw =
+        unsafe { q::JS_ReadObject(q_js_rt.context, buf, len, q::JS_READ_OBJ_BYTECODE as i32) };
+
+    let func_ref = JSValueRef::new(raw, true, true, "from_bytecode result");
+    if func_ref.is_exception() {
+        let ex_opt = q_js_rt.get_exception();
+        if let Some(ex) = ex_opt {
+            Err(ex)
+        } else {
+            Err(EsError::new_str(
+                "from_bytecode failed and could not get exception",
+            ))
+        }
+    } else {
+        Ok(func_ref)
     }
 }
