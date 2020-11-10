@@ -78,6 +78,7 @@ impl QuickJsRuntime {
         q_rt
     }
 
+    /// call a function by namespace and name
     pub fn call_function(
         &self,
         namespace: Vec<&str>,
@@ -88,10 +89,12 @@ impl QuickJsRuntime {
         functions::invoke_member_function(self, &namespace_ref, func_name, arguments)
     }
 
+    /// run the garbage collector
     pub fn gc(&self) {
         gc(self);
     }
 
+    /// evaluate a script
     pub fn eval(&self, script: EsScript) -> Result<JSValueRef, EsError> {
         let filename_c = make_cstring(script.get_path())?;
         let code_c = make_cstring(script.get_code())?;
@@ -138,6 +141,7 @@ impl QuickJsRuntime {
         }
     }
 
+    /// evaluate a Module
     pub fn eval_module(&self, script: EsScript) -> Result<JSValueRef, EsError> {
         log::debug!("q_js_rt.eval_module file {}", script.get_path());
 

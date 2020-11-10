@@ -3,6 +3,7 @@ use crate::quickjsruntime::QuickJsRuntime;
 pub mod arrays;
 pub mod atoms;
 pub mod bigints;
+pub mod compile;
 pub mod dates;
 pub mod errors;
 pub mod functions;

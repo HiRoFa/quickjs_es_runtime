@@ -160,6 +160,11 @@ impl JSValueRef {
         self.borrow_value().tag == TAG_INT
     }
 
+    /// return true if the wrapped value represents a compiled function
+    pub fn is_compiled_function(&self) -> bool {
+        self.borrow_value().tag == TAG_FUNCTION_BYTECODE
+    }
+
     /// return true if the wrapped value represents a JS F64 value
     pub fn is_f64(&self) -> bool {
         self.borrow_value().tag == TAG_FLOAT64
@@ -188,6 +193,7 @@ impl JSValueRef {
 
 pub(crate) const TAG_BIG_INT: i64 = -10;
 pub(crate) const TAG_STRING: i64 = -7;
+pub(crate) const TAG_FUNCTION_BYTECODE: i64 = -2;
 pub(crate) const TAG_OBJECT: i64 = -1;
 pub(crate) const TAG_INT: i64 = 0;
 pub(crate) const TAG_BOOL: i64 = 1;
