@@ -31,14 +31,13 @@ pub fn parse(q_js_rt: &QuickJsRuntime, input: &str) -> Result<JSValueRef, EsErro
 
     let s = CString::new(input).ok().unwrap();
     let f_n = CString::new("JSON.parse").ok().unwrap();
-    let val = unsafe {
-        q::JS_ParseJSON(
-            q_js_rt.context,
-            s.as_ptr(),
-            input.len() as u64,
-            f_n.as_ptr(),
-        )
-    };
+
+    #[cfg(target_pointer_width = "64")]
+    let len = input.len() as u64;
+    #[cfg(target_pointer_width = "32")]
+    let len = input.len() as u32;
+
+    let val = unsafe { q::JS_ParseJSON(q_js_rt.context, s.as_ptr(), len, f_n.as_ptr()) };
 
     let ret = JSValueRef::new(val, false, true, "json::parse result");
 

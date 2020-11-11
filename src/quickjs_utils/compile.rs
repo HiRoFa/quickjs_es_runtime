@@ -111,66 +111,33 @@ pub fn to_bytecode(q_js_rt: &QuickJsRuntime, compiled_func: &JSValueRef) -> Vec<
     assert!(compiled_func.is_compiled_function());
 
     #[cfg(target_pointer_width = "64")]
-    {
-        let mut len: u64 = 0;
-        let slice_u8 = unsafe {
-            q::JS_WriteObject(
-                q_js_rt.context,
-                &mut len,
-                *compiled_func.borrow_value(),
-                q::JS_WRITE_OBJ_BYTECODE as i32,
-            )
-        };
-
-        let slice = unsafe { std::slice::from_raw_parts(slice_u8, len as usize) };
-
-        slice.to_vec()
-    }
+    let mut len: u64 = 0;
     #[cfg(target_pointer_width = "32")]
-    {
-        let mut len: u32 = 0;
-        let slice_u8 = unsafe {
-            q::JS_WriteObject(
-                q_js_rt.context,
-                &mut len,
-                *compiled_func.borrow_value(),
-                q::JS_WRITE_OBJ_BYTECODE as i32,
-            )
-        };
+    let mut len: u32 = 0;
 
-        let slice = unsafe { std::slice::from_raw_parts(slice_u8, len as usize) };
+    let slice_u8 = unsafe {
+        q::JS_WriteObject(
+            q_js_rt.context,
+            &mut len,
+            *compiled_func.borrow_value(),
+            q::JS_WRITE_OBJ_BYTECODE as i32,
+        )
+    };
 
-        slice.to_vec()
-    }
+    let slice = unsafe { std::slice::from_raw_parts(slice_u8, len as usize) };
+
+    slice.to_vec()
 }
 
 /// read a compiled function from bytecode, see to_bytecode for an example
 pub fn from_bytecode(q_js_rt: &QuickJsRuntime, bytecode: Vec<u8>) -> Result<JSValueRef, EsError> {
     assert!(!bytecode.is_empty());
-    #[cfg(target_pointer_width = "64")]
     {
+        #[cfg(target_pointer_width = "64")]
         let len = bytecode.len() as u64;
-        let buf = bytecode.as_ptr();
-        let raw =
-            unsafe { q::JS_ReadObject(q_js_rt.context, buf, len, q::JS_READ_OBJ_BYTECODE as i32) };
-
-        let func_ref = JSValueRef::new(raw, true, true, "from_bytecode result");
-        if func_ref.is_exception() {
-            let ex_opt = q_js_rt.get_exception();
-            if let Some(ex) = ex_opt {
-                Err(ex)
-            } else {
-                Err(EsError::new_str(
-                    "from_bytecode failed and could not get exception",
-                ))
-            }
-        } else {
-            Ok(func_ref)
-        }
-    }
-    #[cfg(target_pointer_width = "32")]
-    {
+        #[cfg(target_pointer_width = "32")]
         let len = bytecode.len() as u32;
+
         let buf = bytecode.as_ptr();
         let raw =
             unsafe { q::JS_ReadObject(q_js_rt.context, buf, len, q::JS_READ_OBJ_BYTECODE as i32) };
