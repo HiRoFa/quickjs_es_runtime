@@ -33,6 +33,7 @@ Other projects:
 * Eval modules ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.eval_module_sync))
 * Load modules (dynamic and static) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntimebuilder/struct.EsRuntimeBuilder.html#method.module_script_loader))
 * fetch api [#2](https://github.com/HiRoFa/quickjs_es_runtime/issues/2)
+* setImmediate [#3](https://github.com/HiRoFa/quickjs_es_runtime/issues/3)
 
 ## Rust-Script interoperability
 
@@ -45,7 +46,7 @@ Other projects:
 ## Future / Todo
 
 * import native Modules (e.g. dynamic loading of rust functions)
-* setImmediate / setTimeout [#3](https://github.com/HiRoFa/quickjs_es_runtime/issues/3), [#4](https://github.com/HiRoFa/quickjs_es_runtime/issues/4)
+* setTimeout [#4](https://github.com/HiRoFa/quickjs_es_runtime/issues/4)
 * EventTarget
 * WebAssembly
 * Macro / IFDef support
