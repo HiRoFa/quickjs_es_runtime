@@ -42,6 +42,12 @@ pub fn to_string2(q_js_rt: &QuickJsRuntime, atom: &q::JSAtom) -> Result<String, 
 
 pub fn from_string(q_js_rt: &QuickJsRuntime, string: &str) -> Result<JSAtomRef, EsError> {
     let s = CString::new(string).ok().unwrap();
-    let atom = unsafe { q::JS_NewAtomLen(q_js_rt.context, s.as_ptr(), string.len() as u64) };
+
+    #[cfg(target_pointer_width = "64")]
+    let len = string.len() as u64;
+    #[cfg(target_pointer_width = "32")]
+    let len = string.len() as u32;
+
+    let atom = unsafe { q::JS_NewAtomLen(q_js_rt.context, s.as_ptr(), len) };
     Ok(JSAtomRef::new(atom))
 }
