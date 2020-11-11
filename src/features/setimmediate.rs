@@ -4,7 +4,7 @@ use crate::quickjs_utils::{functions, get_global, objects, parse_args};
 use crate::quickjsruntime::QuickJsRuntime;
 use libquickjs_sys as q;
 
-/// provides the setImmediate methods to the runtime
+/// provides the setImmediate methods for the runtime
 /// # Example
 /// ```rust
 /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;

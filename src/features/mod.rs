@@ -2,9 +2,9 @@ use crate::eserror::EsError;
 use crate::esruntime::EsRuntime;
 use std::sync::Arc;
 
-mod console;
+pub mod console;
 pub mod fetch;
-mod setimmediate;
+pub mod setimmediate;
 
 pub fn init(es_rt: Arc<EsRuntime>) -> Result<(), EsError> {
     log::trace!("features::init");
