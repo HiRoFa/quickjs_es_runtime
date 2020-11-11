@@ -42,6 +42,15 @@ impl EsRuntimeInner {
         self._add_job_run_task();
     }
 
+    pub(crate) fn add_to_event_queue_from_worker<C>(&self, consumer: C)
+    where
+        C: FnOnce(&QuickJsRuntime) + 'static,
+    {
+        self.event_queue
+            .add_task_from_worker(|| QuickJsRuntime::do_with(consumer));
+        self._add_job_run_task();
+    }
+
     pub fn add_to_event_queue_sync<C, R>(&self, consumer: C) -> R
     where
         C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,

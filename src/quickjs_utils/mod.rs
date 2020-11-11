@@ -76,7 +76,7 @@ pub unsafe fn parse_args(argc: ::std::os::raw::c_int, argv: *mut q::JSValue) -> 
     let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
     arg_slice
         .iter()
-        .map(|raw| JSValueRef::new(*raw, false, false, "quickjs_utils::parse_args"))
+        .map(|raw| JSValueRef::new(*raw, true, true, "quickjs_utils::parse_args"))
         .collect::<Vec<_>>()
 }
 

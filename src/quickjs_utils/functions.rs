@@ -642,7 +642,7 @@ pub mod tests {
                 "cb",
                 |_this_ref, args| {
                     log::trace!("native callback invoked");
-                    assert_eq!(args[0].get_ref_count(), 2);
+                    assert_eq!(args[0].get_ref_count(), 3);
 
                     Ok(primitives::from_i32(983))
                 },
