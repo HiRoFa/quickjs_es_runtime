@@ -24,7 +24,7 @@ pub type FetchResponseProvider =
     dyn Fn(&FetchRequest) -> Box<dyn FetchResponse + Send> + Send + Sync + 'static;
 
 pub struct EsRuntimeInner {
-    event_queue: Arc<SingleThreadedEventQueue>,
+    pub(crate) event_queue: Arc<SingleThreadedEventQueue>,
     pub(crate) fetch_response_provider: Option<Box<FetchResponseProvider>>,
 }
 
