@@ -289,7 +289,11 @@ impl Proxy {
     fn install_class_prop(&self, q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
         // this creates a constructor function, adds it to the global scope and then makes an instance of the satic_proxy_class its prototype so we can add static_getters_setters and static_methods
 
+        log::trace!("reflection::Proxy::install_class_prop / 1");
+
         let static_class_id = PROXY_STATIC_CLASS_ID.with(|rc| *rc.borrow());
+
+        log::trace!("reflection::Proxy::install_class_prop / 2");
 
         let constructor_ref = new_native_function(
             q_js_rt,
@@ -299,8 +303,12 @@ impl Proxy {
             true,
         )?;
 
+        log::trace!("reflection::Proxy::install_class_prop / 3");
+
         let class_val: q::JSValue =
             unsafe { q::JS_NewObjectClass(q_js_rt.context, static_class_id as i32) };
+
+        log::trace!("reflection::Proxy::install_class_prop / 4");
 
         let class_val_ref = JSValueRef::new(
             class_val,
@@ -308,6 +316,8 @@ impl Proxy {
             true,
             "reflection::Proxy::install_class_prop class_val",
         );
+
+        log::trace!("reflection::Proxy::install_class_prop / 5");
 
         if class_val_ref.is_exception() {
             return if let Some(e) = q_js_rt.get_exception() {
@@ -319,6 +329,8 @@ impl Proxy {
                 )))
             };
         }
+
+        log::trace!("reflection::Proxy::install_class_prop / 6");
 
         unsafe {
             let _res = q::JS_SetPrototype(
@@ -335,6 +347,8 @@ impl Proxy {
             }*/
         }
 
+        log::trace!("reflection::Proxy::install_class_prop / 7");
+
         objects::set_property2(
             q_js_rt,
             &constructor_ref,
@@ -342,6 +356,8 @@ impl Proxy {
             primitives::from_string(q_js_rt, &self.get_class_name())?,
             0,
         )?;
+
+        log::trace!("reflection::Proxy::install_class_prop / 8");
 
         // todo impl namespace here
         let ns = if let Some(namespace) = &self.namespace {
@@ -354,6 +370,8 @@ impl Proxy {
             quickjs_utils::get_global(q_js_rt)
         };
 
+        log::trace!("reflection::Proxy::install_class_prop / 9");
+
         objects::set_property2(
             q_js_rt,
             &ns,
@@ -361,6 +379,8 @@ impl Proxy {
             constructor_ref,
             0,
         )?;
+
+        log::trace!("reflection::Proxy::install_class_prop / 10");
 
         log::trace!("install_class_prop done");
 
