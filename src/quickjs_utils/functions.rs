@@ -248,11 +248,15 @@ pub fn new_native_function(
     let cname = make_cstring(name)?;
     let magic = 1;
 
+    log::trace!("functions::new_native_function / 1");
+
     let cproto = if is_constructor {
         q::JSCFunctionEnum_JS_CFUNC_constructor
     } else {
         q::JSCFunctionEnum_JS_CFUNC_generic
     };
+
+    log::trace!("functions::new_native_function / 2");
 
     let func_val = unsafe {
         q::JS_NewCFunction2(
@@ -264,12 +268,17 @@ pub fn new_native_function(
             magic as c_int,
         )
     };
+
+    log::trace!("functions::new_native_function / 3");
+
     let func_ref = JSValueRef::new(
         func_val,
         false,
         true,
         "functions::new_native_function result",
     );
+
+    log::trace!("functions::new_native_function / 4");
 
     if !func_ref.is_object() {
         Err(EsError::new_str("Could not create new_native_function"))
