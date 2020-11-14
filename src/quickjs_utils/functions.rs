@@ -245,6 +245,8 @@ pub fn new_native_function(
     arg_count: i32,
     is_constructor: bool,
 ) -> Result<JSValueRef, EsError> {
+    log::trace!("functions::new_native_function / 0 : {}", name);
+
     let cname = make_cstring(name)?;
     let magic = 1;
 
