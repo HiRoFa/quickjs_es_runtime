@@ -8,7 +8,7 @@ use libquickjs_sys as q;
 use log::trace;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::os::raw::{c_char, c_void};
+use std::os::raw::{c_char, c_int, c_void};
 
 /// parse a function body and its arg_names into a JSValueRef which is a Function
 /// # Example
@@ -259,9 +259,9 @@ pub fn new_native_function(
             q_js_rt.context,
             func,
             cname.as_ptr(),
-            arg_count as i32,
+            arg_count as c_int,
             cproto,
-            magic,
+            magic as c_int,
         )
     };
     let func_ref = JSValueRef::new(
@@ -293,7 +293,7 @@ pub fn new_native_function_data(
             q_js_rt.context,
             func,
             magic,
-            arg_count as i32,
+            arg_count as c_int,
             data_len,
             data.borrow_value_mut(),
         )
