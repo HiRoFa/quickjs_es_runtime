@@ -242,7 +242,7 @@ pub fn new_native_function(
     q_js_rt: &QuickJsRuntime,
     name: &str,
     func: q::JSCFunction,
-    arg_count: u32,
+    arg_count: i32,
     is_constructor: bool,
 ) -> Result<JSValueRef, EsError> {
     let cname = make_cstring(name)?;
@@ -291,7 +291,7 @@ pub fn new_native_function(
 pub fn new_native_function_data(
     q_js_rt: &QuickJsRuntime,
     func: q::JSCFunctionData,
-    arg_count: u32,
+    arg_count: i32,
     mut data: JSValueRef,
 ) -> Result<JSValueRef, EsError> {
     let magic = 1;
