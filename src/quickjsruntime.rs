@@ -28,6 +28,7 @@ pub struct QuickJsRuntime {
 
     object_cache: RefCell<AutoIdMap<JSValueRef>>,
     es_rt_ref: Option<Weak<EsRuntime>>,
+    id: String,
 }
 
 impl QuickJsRuntime {
@@ -64,12 +65,15 @@ impl QuickJsRuntime {
             panic!("ContextCreationFailed");
         }
 
+        let id = format!("q_{}", thread_id::get());
+
         let q_rt = Self {
             runtime,
             context,
             module_script_loader: None,
             object_cache: RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize)),
             es_rt_ref: None,
+            id,
         };
 
         modules::set_module_loader(&q_rt);
@@ -247,6 +251,10 @@ impl QuickJsRuntime {
         let cache_map = &*self.object_cache.borrow();
         let opt = cache_map.get(&(id as usize));
         consumer(opt.expect("no such obj in cache"))
+    }
+
+    pub fn get_id(&self) -> &str {
+        self.id.as_str()
     }
 }
 
