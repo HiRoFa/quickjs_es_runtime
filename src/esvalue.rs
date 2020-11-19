@@ -1,5 +1,5 @@
 use crate::eserror::EsError;
-use crate::esruntime::{EsRuntime, EsRuntimeInner};
+use crate::esruntime::EsRuntime;
 use crate::esruntime_utils::promises::new_resolving_promise;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{arrays, dates, functions, new_null_ref, promises};
@@ -118,12 +118,12 @@ impl EsValueConvertible for EsUndefinedValue {
 // placeholder for promises that were passed from the script engine to rust
 struct CachedJSPromise {
     cached_obj_id: i32,
-    es_rt_inner: Weak<EsRuntimeInner>,
+    es_rt: Weak<EsRuntime>,
 }
 
 impl Drop for CachedJSPromise {
     fn drop(&mut self) {
-        if let Some(rt_arc) = self.es_rt_inner.upgrade() {
+        if let Some(rt_arc) = self.es_rt.upgrade() {
             let cached_obj_id = self.cached_obj_id;
 
             rt_arc.add_to_event_queue(move |q_js_rt| {
@@ -136,12 +136,12 @@ impl Drop for CachedJSPromise {
 // placeholder for functions that were passed from the script engine to rust
 struct CachedJSFunction {
     cached_obj_id: i32,
-    es_rt_inner: Weak<EsRuntimeInner>,
+    es_rt: Weak<EsRuntime>,
 }
 
 impl Drop for CachedJSFunction {
     fn drop(&mut self) {
-        if let Some(rt_arc) = self.es_rt_inner.upgrade() {
+        if let Some(rt_arc) = self.es_rt.upgrade() {
             let cached_obj_id = self.cached_obj_id;
 
             rt_arc.add_to_event_queue(move |q_js_rt| {
@@ -167,12 +167,10 @@ impl EsValueConvertible for CachedJSPromise {
     ) -> Result<Result<EsValueFacade, EsValueFacade>, RecvTimeoutError> {
         let (tx, rx) = channel();
         let cached_obj_id = self.cached_obj_id;
-        if let Some(es_rti) = self.es_rt_inner.upgrade() {
-            let rti_ref = es_rti.clone();
+        if let Some(es_rti) = self.es_rt.upgrade() {
             es_rti.add_to_event_queue_sync(move |q_js_rt| {
                 q_js_rt.with_cached_obj(cached_obj_id, move |prom_obj_ref| {
                     QuickJsRuntime::do_with(move |q_js_rt| {
-                        let rti_ref2 = rti_ref.clone();
                         let tx2 = tx.clone();
                         let then_func_ref = functions::new_function(
                             q_js_rt,
@@ -180,13 +178,12 @@ impl EsValueConvertible for CachedJSPromise {
                             move |_this_ref, args| {
                                 // these clones are needed because create_func requires a Fn and not a FnOnce
                                 // in practice however the Fn is called only once
-                                let rti_ref2 = rti_ref2.clone();
                                 let tx3 = tx2.clone();
 
                                 QuickJsRuntime::do_with(move |q_js_rt| {
                                     let prom_res = &args[0];
                                     let prom_res_esvf_res =
-                                        EsValueFacade::from_jsval(q_js_rt, prom_res, &rti_ref2);
+                                        EsValueFacade::from_jsval(q_js_rt, prom_res);
 
                                     match prom_res_esvf_res {
                                         Ok(prom_res_esvf) => {
@@ -220,7 +217,6 @@ impl EsValueConvertible for CachedJSPromise {
                         .ok()
                         .expect("could not create func");
 
-                        let rti_ref2 = rti_ref.clone();
                         let tx2 = tx.clone();
                         let catch_func_ref = functions::new_function(
                             q_js_rt,
@@ -228,13 +224,12 @@ impl EsValueConvertible for CachedJSPromise {
                             move |_this_ref, args| {
                                 // these clones are needed because create_func requires a Fn and not a FnOnce
                                 // in practice however the Fn is called only once
-                                let rti_ref2 = rti_ref2.clone();
                                 let tx3 = tx2.clone();
 
                                 QuickJsRuntime::do_with(move |q_js_rt| {
                                     let prom_res = &args[0];
                                     let prom_res_esvf_res =
-                                        EsValueFacade::from_jsval(q_js_rt, prom_res, &rti_ref2);
+                                        EsValueFacade::from_jsval(q_js_rt, prom_res);
                                     match prom_res_esvf_res {
                                         Ok(prom_res_esvf) => {
                                             let send_res = tx3.send(Err(prom_res_esvf));
@@ -292,20 +287,16 @@ impl EsValueConvertible for CachedJSPromise {
         finally: Option<Box<dyn Fn() + Send + 'static>>,
     ) -> Result<(), EsError> {
         let cached_obj_id = self.cached_obj_id;
-        let rti_ref = es_rt.inner.clone();
         es_rt.add_to_event_queue(move |q_js_rt| {
             q_js_rt.with_cached_obj(cached_obj_id, move |prom_ref| {
                 let then_ref = if let Some(then_fn) = then {
-                    let rti_ref = rti_ref.clone();
                     let then_fn_rc = Rc::new(then_fn);
                     let then_fn_raw = move |_this_ref, mut args_ref: Vec<JSValueRef>| {
-                        let rti_ref = rti_ref.clone();
                         let then_fn_rc = then_fn_rc.clone();
                         let val_ref = args_ref.remove(0);
 
                         QuickJsRuntime::do_with(move |q_js_rt| {
-                            let rti_ref = rti_ref.clone();
-                            let val_esvf = EsValueFacade::from_jsval(q_js_rt, &val_ref, &rti_ref)
+                            let val_esvf = EsValueFacade::from_jsval(q_js_rt, &val_ref)
                                 .ok()
                                 .expect("could not convert val to esvf");
 
@@ -322,15 +313,12 @@ impl EsValueConvertible for CachedJSPromise {
                 };
 
                 let catch_ref = if let Some(catch_fn) = catch {
-                    let rti_ref = rti_ref.clone();
                     let catch_fn_rc = Rc::new(catch_fn);
                     let catch_fn_raw = move |_this_ref, mut args_ref: Vec<JSValueRef>| {
-                        let rti_ref = rti_ref.clone();
                         let val_ref = args_ref.remove(0);
                         let catch_fn_rc = catch_fn_rc.clone();
                         QuickJsRuntime::do_with(move |q_js_rt| {
-                            let rti_ref = rti_ref.clone();
-                            let val_esvf = EsValueFacade::from_jsval(q_js_rt, &val_ref, &rti_ref)
+                            let val_esvf = EsValueFacade::from_jsval(q_js_rt, &val_ref)
                                 .ok()
                                 .expect("could not convert val to esvf");
 
@@ -380,8 +368,7 @@ impl EsValueConvertible for CachedJSFunction {
 
     fn invoke_function_sync(&self, args: Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> {
         let cached_obj_id = self.cached_obj_id;
-        if let Some(rt_arc) = self.es_rt_inner.upgrade() {
-            let rt_arc2 = rt_arc.clone();
+        if let Some(rt_arc) = self.es_rt.upgrade() {
             rt_arc.add_to_event_queue_sync(move |q_js_rt| {
                 q_js_rt.with_cached_obj(cached_obj_id, move |obj_ref| {
                     let mut ref_args = vec![];
@@ -393,7 +380,7 @@ impl EsValueConvertible for CachedJSFunction {
                         q_js_rt, obj_ref, ref_args, None,
                     );
                     match res {
-                        Ok(r) => EsValueFacade::from_jsval(q_js_rt, &r, &rt_arc2),
+                        Ok(r) => EsValueFacade::from_jsval(q_js_rt, &r),
                         Err(e) => {
                             log::error!("invoke_func_sync failed: {}", e);
                             Err(e)
@@ -408,7 +395,7 @@ impl EsValueConvertible for CachedJSFunction {
 
     fn invoke_function(&self, args: Vec<EsValueFacade>) -> Result<(), EsError> {
         let cached_obj_id = self.cached_obj_id;
-        if let Some(rt_arc) = self.es_rt_inner.upgrade() {
+        if let Some(rt_arc) = self.es_rt.upgrade() {
             rt_arc.add_to_event_queue(move |q_js_rt| {
                 q_js_rt.with_cached_obj(cached_obj_id, move |obj_ref| {
                     let mut ref_args = vec![];
@@ -625,11 +612,7 @@ impl EsValueFacade {
         self.convertible.to_js_value(q_js_rt)
     }
 
-    pub fn from_jsval(
-        q_js_rt: &QuickJsRuntime,
-        value_ref: &JSValueRef,
-        rti_ref: &Arc<EsRuntimeInner>,
-    ) -> Result<Self, EsError> {
+    pub fn from_jsval(q_js_rt: &QuickJsRuntime, value_ref: &JSValueRef) -> Result<Self, EsError> {
         log::trace!("EsValueFacade::from_jsval: tag:{}", value_ref.get_tag());
 
         let r = value_ref.borrow_value();
@@ -674,22 +657,22 @@ impl EsValueFacade {
                     let cached_obj_id = q_js_rt.cache_object(value_ref.clone());
                     Ok(CachedJSPromise {
                         cached_obj_id,
-                        es_rt_inner: Arc::downgrade(rti_ref),
+                        es_rt: Arc::downgrade(&q_js_rt.get_rt_ref().unwrap()),
                     }
                     .to_es_value_facade())
                 } else if arrays::is_array(q_js_rt, value_ref) {
-                    Self::from_jsval_array(q_js_rt, value_ref, rti_ref)
+                    Self::from_jsval_array(q_js_rt, value_ref)
                 } else if functions::is_function(q_js_rt, value_ref) {
                     let cached_obj_id = q_js_rt.cache_object(value_ref.clone());
                     let cached_func = CachedJSFunction {
                         cached_obj_id,
-                        es_rt_inner: Arc::downgrade(rti_ref),
+                        es_rt: Arc::downgrade(&q_js_rt.get_rt_ref().unwrap()),
                     };
                     Ok(cached_func.to_es_value_facade())
                 } else if dates::is_date(q_js_rt, value_ref)? {
                     Err(EsError::new_str("dates are currently not supported"))
                 } else {
-                    Self::from_jsval_object(q_js_rt, value_ref, rti_ref)
+                    Self::from_jsval_object(q_js_rt, value_ref)
                 }
             }
             // BigInt
@@ -704,7 +687,6 @@ impl EsValueFacade {
     fn from_jsval_array(
         q_js_rt: &QuickJsRuntime,
         value_ref: &JSValueRef,
-        rti_ref: &Arc<EsRuntimeInner>,
     ) -> Result<EsValueFacade, EsError> {
         assert!(value_ref.is_object());
 
@@ -714,7 +696,7 @@ impl EsValueFacade {
         for index in 0..len {
             let element_ref = crate::quickjs_utils::arrays::get_element(q_js_rt, value_ref, index)?;
 
-            let element_value = EsValueFacade::from_jsval(q_js_rt, &element_ref, rti_ref)?;
+            let element_value = EsValueFacade::from_jsval(q_js_rt, &element_ref)?;
 
             values.push(element_value);
         }
@@ -725,13 +707,12 @@ impl EsValueFacade {
     fn from_jsval_object(
         q_js_rt: &QuickJsRuntime,
         obj_ref: &JSValueRef,
-        rti_ref: &Arc<EsRuntimeInner>,
     ) -> Result<EsValueFacade, EsError> {
         assert!(obj_ref.is_object());
 
         let map =
             crate::quickjs_utils::objects::traverse_properties(q_js_rt, obj_ref, |_key, val| {
-                EsValueFacade::from_jsval(q_js_rt, &val, rti_ref)
+                EsValueFacade::from_jsval(q_js_rt, &val)
             })?;
         Ok(map.to_es_value_facade())
     }

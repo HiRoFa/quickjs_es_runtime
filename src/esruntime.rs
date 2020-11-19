@@ -180,11 +180,10 @@ impl EsRuntime {
     /// assert_eq!(res.get_i32(), 27);
     /// ```
     pub fn eval_sync(&self, script: EsScript) -> Result<EsValueFacade, EsError> {
-        let inner_arc = self.inner.clone();
         self.add_to_event_queue_sync(move |qjs_rt| {
             let res = qjs_rt.eval(script);
             match res {
-                Ok(val_ref) => EsValueFacade::from_jsval(qjs_rt, &val_ref, &inner_arc),
+                Ok(val_ref) => EsValueFacade::from_jsval(qjs_rt, &val_ref),
                 Err(e) => Err(e),
             }
         })
@@ -219,7 +218,6 @@ impl EsRuntime {
         arguments: Vec<EsValueFacade>,
     ) -> Result<EsValueFacade, EsError> {
         let func_name_string = func_name.to_string();
-        let inner_arc = self.inner.clone();
         self.add_to_event_queue_sync(move |q_js_rt| {
             let q_args = arguments
                 .iter()
@@ -232,7 +230,7 @@ impl EsRuntime {
 
             let res = q_js_rt.call_function(namespace, func_name_string.as_str(), q_args);
             match res {
-                Ok(val_ref) => EsValueFacade::from_jsval(q_js_rt, &val_ref, &inner_arc),
+                Ok(val_ref) => EsValueFacade::from_jsval(q_js_rt, &val_ref),
                 Err(e) => Err(e),
             }
         })
@@ -317,11 +315,10 @@ impl EsRuntime {
 
     /// evaluate a module and return result synchronously
     pub fn eval_module_sync(&self, script: EsScript) -> Result<EsValueFacade, EsError> {
-        let inner_arc = self.inner.clone();
         self.add_to_event_queue_sync(move |qjs_rt| {
             let res = qjs_rt.eval_module(script);
             match res {
-                Ok(val_ref) => EsValueFacade::from_jsval(qjs_rt, &val_ref, &inner_arc),
+                Ok(val_ref) => EsValueFacade::from_jsval(qjs_rt, &val_ref),
                 Err(e) => Err(e),
             }
         })
@@ -393,7 +390,6 @@ impl EsRuntime {
     where
         F: Fn(Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> + Send + 'static,
     {
-        let rti_ref = self.inner.clone();
         let name = name.to_string();
         self.add_to_event_queue_sync(move |q_js_rt| {
             let ns = objects::get_namespace(q_js_rt, namespace, true)?;
@@ -405,11 +401,7 @@ impl EsRuntime {
                         let mut args_facades = vec![];
 
                         for arg_ref in args {
-                            args_facades.push(EsValueFacade::from_jsval(
-                                q_js_rt,
-                                &arg_ref,
-                                &rti_ref.clone(),
-                            )?);
+                            args_facades.push(EsValueFacade::from_jsval(q_js_rt, &arg_ref)?);
                         }
 
                         let res = function(args_facades);
