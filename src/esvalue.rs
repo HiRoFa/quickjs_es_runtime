@@ -92,10 +92,16 @@ pub trait EsValueConvertible {
     fn get_object(&self) -> &HashMap<String, EsValueFacade> {
         panic!("i am not an object");
     }
+    fn get_object_mut(&mut self) -> &mut HashMap<String, EsValueFacade> {
+        panic!("i am not an object");
+    }
     fn is_array(&self) -> bool {
         false
     }
     fn get_array(&self) -> &Vec<EsValueFacade> {
+        panic!("i am not an array");
+    }
+    fn get_array_mut(&mut self) -> &mut Vec<EsValueFacade> {
         panic!("i am not an array");
     }
 }
@@ -508,6 +514,9 @@ impl EsValueConvertible for Vec<EsValueFacade> {
     fn get_array(&self) -> &Vec<EsValueFacade> {
         self
     }
+    fn get_array_mut(&mut self) -> &mut Vec<EsValueFacade> {
+        self
+    }
 }
 
 impl EsValueConvertible for HashMap<String, EsValueFacade> {
@@ -541,6 +550,9 @@ impl EsValueConvertible for HashMap<String, EsValueFacade> {
     }
 
     fn get_object(&self) -> &HashMap<String, EsValueFacade> {
+        self
+    }
+    fn get_object_mut(&mut self) -> &mut HashMap<String, EsValueFacade> {
         self
     }
 }
@@ -746,9 +758,17 @@ impl EsValueFacade {
         self.convertible.get_array()
     }
 
+    pub fn get_array_mut(&mut self) -> &mut Vec<EsValueFacade> {
+        self.convertible.get_array_mut()
+    }
+
     /// get the object value
     pub fn get_object(&self) -> &HashMap<String, EsValueFacade> {
         self.convertible.get_object()
+    }
+
+    pub fn get_object_mut(&mut self) -> &mut HashMap<String, EsValueFacade> {
+        self.convertible.get_object_mut()
     }
 
     /// check if the value is a String
