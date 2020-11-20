@@ -16,7 +16,7 @@ pub type PromiseReactionType =
     Option<Box<dyn Fn(EsValueFacade) -> Result<EsValueFacade, EsError> + Send + 'static>>;
 
 pub trait EsValueConvertible {
-    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError>;
+    fn to_js_value(&mut self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError>;
 
     fn to_es_value_facade(self) -> EsValueFacade
     where
@@ -104,13 +104,13 @@ pub struct EsUndefinedValue {}
 pub struct EsNullValue {}
 
 impl EsValueConvertible for EsNullValue {
-    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+    fn to_js_value(&mut self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::new_null_ref())
     }
 }
 
 impl EsValueConvertible for EsUndefinedValue {
-    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+    fn to_js_value(&mut self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::new_undefined_ref())
     }
 }
@@ -152,7 +152,7 @@ impl Drop for CachedJSFunction {
 }
 
 impl EsValueConvertible for CachedJSPromise {
-    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+    fn to_js_value(&mut self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         let cloned_ref = q_js_rt.with_cached_obj(self.cached_obj_id, |obj_ref| obj_ref.clone());
         Ok(cloned_ref)
     }
@@ -357,7 +357,7 @@ impl EsValueConvertible for CachedJSPromise {
 }
 
 impl EsValueConvertible for CachedJSFunction {
-    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+    fn to_js_value(&mut self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         let cloned_ref = q_js_rt.with_cached_obj(self.cached_obj_id, |obj_ref| obj_ref.clone());
         Ok(cloned_ref)
     }
@@ -366,13 +366,13 @@ impl EsValueConvertible for CachedJSFunction {
         true
     }
 
-    fn invoke_function_sync(&self, args: Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> {
+    fn invoke_function_sync(&self, mut args: Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> {
         let cached_obj_id = self.cached_obj_id;
         if let Some(rt_arc) = self.es_rt.upgrade() {
             rt_arc.add_to_event_queue_sync(move |q_js_rt| {
                 q_js_rt.with_cached_obj(cached_obj_id, move |obj_ref| {
                     let mut ref_args = vec![];
-                    for arg in args {
+                    for arg in args.iter_mut() {
                         ref_args.push(arg.to_js_value(q_js_rt)?);
                     }
 
@@ -393,13 +393,13 @@ impl EsValueConvertible for CachedJSFunction {
         }
     }
 
-    fn invoke_function(&self, args: Vec<EsValueFacade>) -> Result<(), EsError> {
+    fn invoke_function(&self, mut args: Vec<EsValueFacade>) -> Result<(), EsError> {
         let cached_obj_id = self.cached_obj_id;
         if let Some(rt_arc) = self.es_rt.upgrade() {
             rt_arc.add_to_event_queue(move |q_js_rt| {
                 q_js_rt.with_cached_obj(cached_obj_id, move |obj_ref| {
                     let mut ref_args = vec![];
-                    for arg in args {
+                    for arg in args.iter_mut() {
                         ref_args.push(
                             arg.to_js_value(q_js_rt)
                                 .ok()
@@ -428,7 +428,7 @@ impl EsValueConvertible for CachedJSFunction {
 }
 
 impl EsValueConvertible for String {
-    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+    fn to_js_value(&mut self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         crate::quickjs_utils::primitives::from_string(q_js_rt, self.as_str())
     }
 
@@ -442,7 +442,7 @@ impl EsValueConvertible for String {
 }
 
 impl EsValueConvertible for i32 {
-    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+    fn to_js_value(&mut self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::primitives::from_i32(*self))
     }
 
@@ -456,7 +456,7 @@ impl EsValueConvertible for i32 {
 }
 
 impl EsValueConvertible for bool {
-    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+    fn to_js_value(&mut self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::primitives::from_bool(*self))
     }
 
@@ -470,7 +470,7 @@ impl EsValueConvertible for bool {
 }
 
 impl EsValueConvertible for f64 {
-    fn to_js_value(&self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+    fn to_js_value(&mut self, _q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::primitives::from_f64(*self))
     }
     fn is_f64(&self) -> bool {
@@ -483,7 +483,7 @@ impl EsValueConvertible for f64 {
 }
 
 impl EsValueConvertible for Vec<EsValueFacade> {
-    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+    fn to_js_value(&mut self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         // create the array
 
         let arr = crate::quickjs_utils::arrays::create_array(q_js_rt)
@@ -492,7 +492,7 @@ impl EsValueConvertible for Vec<EsValueFacade> {
 
         // add items
         for index in 0..self.len() {
-            let item = self.get(index).unwrap();
+            let item = self.get_mut(index).unwrap();
 
             let item_val_ref = item.to_js_value(q_js_rt)?;
 
@@ -511,7 +511,7 @@ impl EsValueConvertible for Vec<EsValueFacade> {
 }
 
 impl EsValueConvertible for HashMap<String, EsValueFacade> {
-    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+    fn to_js_value(&mut self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         // create new obj
         let obj_ref = crate::quickjs_utils::objects::create_object(q_js_rt)
             .ok()
@@ -545,7 +545,7 @@ impl EsValueConvertible for HashMap<String, EsValueFacade> {
     }
 }
 
-pub type EsPromiseResolver = Box<dyn Fn() -> Result<EsValueFacade, String> + Send + Sync + 'static>;
+pub type EsPromiseResolver = Box<dyn FnOnce() -> Result<EsValueFacade, String> + Send + 'static>;
 
 /// can be used to create a new Promise which is resolved with the resolver function
 /// # Example
@@ -567,26 +567,30 @@ pub type EsPromiseResolver = Box<dyn Fn() -> Result<EsValueFacade, String> + Sen
 /// std::thread::sleep(Duration::from_secs(2));
 /// ```
 pub struct EsPromise {
-    resolver: Arc<EsPromiseResolver>,
+    // todo is box really needed?
+    resolver: Option<EsPromiseResolver>,
 }
 
 impl EsPromise {
     pub fn new<R>(resolver: R) -> Self
     where
-        R: Fn() -> Result<EsValueFacade, String> + Send + Sync + 'static,
+        R: FnOnce() -> Result<EsValueFacade, String> + Send + 'static,
     {
         Self {
-            resolver: Arc::new(Box::new(resolver)),
+            resolver: Some(Box::new(resolver)),
         }
     }
 }
 
 impl EsValueConvertible for EsPromise {
-    fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+    fn to_js_value(&mut self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         log::trace!("EsPromise::to_js_value");
         // create resolving promise
 
-        let resolver = self.resolver.clone();
+        let resolver = self
+            .resolver
+            .take()
+            .expect("EsPromises was already converted to JSValue");
 
         if let Some(es_rt) = q_js_rt.get_rt_ref() {
             let producer = move || {
@@ -594,8 +598,9 @@ impl EsValueConvertible for EsPromise {
                 log::trace!("running EsPromise resolver");
                 resolver()
             };
-            let mapper =
-                |val: EsValueFacade| QuickJsRuntime::do_with(|q_js_rt| val.to_js_value(q_js_rt));
+            let mapper = |mut val: EsValueFacade| {
+                QuickJsRuntime::do_with(|q_js_rt| val.to_js_value(q_js_rt))
+            };
             new_resolving_promise(q_js_rt, producer, mapper, &es_rt)
         } else {
             Ok(quickjs_utils::new_null_ref())
@@ -608,7 +613,7 @@ pub struct EsValueFacade {
 }
 
 impl EsValueFacade {
-    pub fn to_js_value(&self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
+    pub fn to_js_value(&mut self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         self.convertible.to_js_value(q_js_rt)
     }
 

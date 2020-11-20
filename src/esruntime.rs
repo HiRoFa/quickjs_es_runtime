@@ -215,12 +215,12 @@ impl EsRuntime {
         &self,
         namespace: Vec<&'static str>,
         func_name: &str,
-        arguments: Vec<EsValueFacade>,
+        mut arguments: Vec<EsValueFacade>,
     ) -> Result<EsValueFacade, EsError> {
         let func_name_string = func_name.to_string();
         self.add_to_event_queue_sync(move |q_js_rt| {
             let q_args = arguments
-                .iter()
+                .iter_mut()
                 .map(|arg| {
                     arg.to_js_value(q_js_rt)
                         .ok()
@@ -255,13 +255,13 @@ impl EsRuntime {
         &self,
         namespace: Vec<&'static str>,
         func_name: &str,
-        arguments: Vec<EsValueFacade>,
+        mut arguments: Vec<EsValueFacade>,
     ) {
         let func_name_string = func_name.to_string();
 
         self.add_to_event_queue(move |q_js_rt| {
             let q_args = arguments
-                .iter()
+                .iter_mut()
                 .map(|arg| {
                     arg.to_js_value(q_js_rt)
                         .ok()
@@ -407,7 +407,7 @@ impl EsRuntime {
                         let res = function(args_facades);
 
                         match res {
-                            Ok(val_esvf) => val_esvf.to_js_value(q_js_rt),
+                            Ok(mut val_esvf) => val_esvf.to_js_value(q_js_rt),
                             Err(e) => Err(e),
                         }
                     })
