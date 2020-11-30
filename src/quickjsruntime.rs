@@ -236,10 +236,13 @@ impl QuickJsRuntime {
 
     pub fn cache_object(&self, obj: JSValueRef) -> i32 {
         let cache_map = &mut *self.object_cache.borrow_mut();
-        cache_map.insert(obj) as i32
+        let id = cache_map.insert(obj) as i32;
+        log::trace!("cache_object: id={}, thread={}", id, thread_id::get());
+        id
     }
 
     pub fn consume_cached_obj(&self, id: i32) -> JSValueRef {
+        log::trace!("consume_cached_obj: id={}, thread={}", id, thread_id::get());
         let cache_map = &mut *self.object_cache.borrow_mut();
         cache_map.remove(&(id as usize))
     }
@@ -248,6 +251,7 @@ impl QuickJsRuntime {
     where
         C: FnOnce(&JSValueRef) -> R,
     {
+        log::trace!("with_cached_obj: id={}, thread={}", id, thread_id::get());
         let cache_map = &*self.object_cache.borrow();
         let opt = cache_map.get(&(id as usize));
         consumer(opt.expect("no such obj in cache"))
