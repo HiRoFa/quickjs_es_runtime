@@ -1,7 +1,5 @@
 use crate::eserror::EsError;
 use crate::esruntime::EsRuntime;
-use crate::esruntime_utils::promises::new_resolving_promise;
-use crate::quickjs_utils;
 use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjs_utils::{arrays, dates, functions, new_null_ref, promises};
 use crate::quickjsruntime::QuickJsRuntime;
@@ -69,6 +67,15 @@ pub trait EsValueConvertible {
         panic!("i am not a function");
     }
     fn invoke_function(&self, _args: Vec<EsValueFacade>) -> Result<(), EsError> {
+        panic!("i am not a function");
+    }
+    fn invoke_function_batch_sync(
+        &self,
+        _args: Vec<Vec<EsValueFacade>>,
+    ) -> Vec<Result<EsValueFacade, EsError>> {
+        panic!("i am not a function");
+    }
+    fn invoke_function_batch(&self, _args: Vec<Vec<EsValueFacade>>) -> Result<(), EsError> {
         panic!("i am not a function");
     }
     fn is_promise(&self) -> bool {
@@ -434,6 +441,78 @@ impl EsValueConvertible for CachedJSFunction {
             Err(EsError::new_str("rt was dropped"))
         }
     }
+
+    fn invoke_function_batch_sync(
+        &self,
+        batch_args: Vec<Vec<EsValueFacade>>,
+    ) -> Vec<Result<EsValueFacade, EsError>> {
+        let cached_obj_id = self.cached_obj_id;
+        if let Some(rt_arc) = self.es_rt.upgrade() {
+            rt_arc.add_to_event_queue_sync(move |q_js_rt| {
+                q_js_rt.with_cached_obj(cached_obj_id, move |obj_ref| {
+                    let mut res_vec: Vec<Result<EsValueFacade, EsError>> = vec![];
+                    for mut args in batch_args {
+                        let mut ref_args = vec![];
+                        for arg in args.iter_mut() {
+                            ref_args
+                                .push(arg.to_js_value(q_js_rt).ok().expect("to_js_value failed"));
+                        }
+
+                        let res = crate::quickjs_utils::functions::call_function(
+                            q_js_rt, obj_ref, ref_args, None,
+                        );
+                        match res {
+                            Ok(r) => {
+                                res_vec.push(EsValueFacade::from_jsval(q_js_rt, &r));
+                            }
+                            Err(e) => {
+                                log::error!("invoke_func_sync failed: {}", e);
+                                res_vec.push(Err(e));
+                            }
+                        }
+                    }
+                    res_vec
+                })
+            })
+        } else {
+            vec![Err(EsError::new_str("rt was dropped"))]
+        }
+    }
+
+    fn invoke_function_batch(&self, batch_args: Vec<Vec<EsValueFacade>>) -> Result<(), EsError> {
+        let cached_obj_id = self.cached_obj_id;
+        if let Some(rt_arc) = self.es_rt.upgrade() {
+            rt_arc.add_to_event_queue(move |q_js_rt| {
+                q_js_rt.with_cached_obj(cached_obj_id, move |obj_ref| {
+                    for mut args in batch_args {
+                        let mut ref_args = vec![];
+                        for arg in args.iter_mut() {
+                            ref_args.push(
+                                arg.to_js_value(q_js_rt)
+                                    .ok()
+                                    .expect("could not convert arg"),
+                            );
+                        }
+
+                        let res = crate::quickjs_utils::functions::call_function(
+                            q_js_rt, obj_ref, ref_args, None,
+                        );
+                        match res {
+                            Ok(_) => {
+                                log::trace!("async func ok");
+                            }
+                            Err(e) => {
+                                log::error!("async func failed: {}", e);
+                            }
+                        }
+                    }
+                })
+            });
+            Ok(())
+        } else {
+            Err(EsError::new_str("rt was dropped"))
+        }
+    }
 }
 
 impl EsValueConvertible for String {
@@ -607,7 +686,12 @@ impl EsPromiseResolvableHandle {
                                 .to_js_value(q_js_rt)
                                 .ok()
                                 .expect("could not convert to JSValue");
-                            p_ref.resolve(q_js_rt, js_val);
+                            match p_ref.resolve(q_js_rt, js_val) {
+                                Err(e) => {
+                                    log::error!("resolve failed: {}", e);
+                                }
+                                _ => {}
+                            }
                         });
                     })
                 }
@@ -631,7 +715,12 @@ impl EsPromiseResolvableHandle {
                                 .to_js_value(q_js_rt)
                                 .ok()
                                 .expect("could not convert to JSValue");
-                            p_ref.reject(q_js_rt, js_val);
+                            match p_ref.reject(q_js_rt, js_val) {
+                                Err(e) => {
+                                    log::error!("reject failed: {}", e);
+                                }
+                                _ => {}
+                            }
                         });
                     })
                 }
@@ -651,10 +740,10 @@ impl EsPromiseResolvableHandle {
 
                 if let Some(resolution) = inner.resolution.take() {
                     match resolution {
-                        Ok(mut val) => {
+                        Ok(val) => {
                             self.resolve(val);
                         }
-                        Err(mut val) => {
+                        Err(val) => {
                             self.reject(val);
                         }
                     }
@@ -776,7 +865,7 @@ impl EsValueConvertible for EsPromise {
             map.insert(prom_ref)
         });
         let es_rt = q_js_rt.get_rt_ref().expect("rt was dropped");
-        self.handle.set_info(&es_rt, id);
+        self.handle.set_info(&es_rt, id)?;
 
         Ok(ret)
     }
@@ -981,6 +1070,15 @@ impl EsValueFacade {
     }
     pub fn invoke_function(&self, arguments: Vec<EsValueFacade>) -> Result<(), EsError> {
         self.convertible.invoke_function(arguments)
+    }
+    pub fn invoke_function_batch_sync(
+        &self,
+        arguments: Vec<Vec<EsValueFacade>>,
+    ) -> Vec<Result<EsValueFacade, EsError>> {
+        self.convertible.invoke_function_batch_sync(arguments)
+    }
+    pub fn invoke_function_batch(&self, arguments: Vec<Vec<EsValueFacade>>) -> Result<(), EsError> {
+        self.convertible.invoke_function_batch(arguments)
     }
     pub fn await_promise_blocking(
         &self,
