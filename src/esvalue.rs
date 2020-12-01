@@ -2,14 +2,17 @@ use crate::eserror::EsError;
 use crate::esruntime::EsRuntime;
 use crate::esruntime_utils::promises::new_resolving_promise;
 use crate::quickjs_utils;
+use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjs_utils::{arrays, dates, functions, new_null_ref, promises};
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::*;
+use hirofa_utils::auto_id_map::AutoIdMap;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
 use std::rc::Rc;
 use std::sync::mpsc::{channel, RecvTimeoutError};
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
 pub type PromiseReactionType =
@@ -559,6 +562,126 @@ impl EsValueConvertible for HashMap<String, EsValueFacade> {
 
 pub type EsPromiseResolver = Box<dyn FnOnce() -> Result<EsValueFacade, String> + Send + 'static>;
 
+thread_local! {
+    static ESPROMISE_REFS: RefCell<AutoIdMap<PromiseRef>> = RefCell::new(AutoIdMap::new());
+}
+
+struct EsPromiseResolvableHandleInner {
+    js_info: Option<(Weak<EsRuntime>, usize)>,
+    resolution: Option<Result<EsValueFacade, EsValueFacade>>,
+}
+
+pub struct EsPromiseResolvableHandle {
+    inner: Mutex<EsPromiseResolvableHandleInner>,
+}
+
+impl EsPromiseResolvableHandle {
+    fn new() -> Self {
+        Self {
+            inner: Mutex::new(EsPromiseResolvableHandleInner {
+                js_info: None,
+                resolution: None,
+            }),
+        }
+    }
+
+    fn with_inner<C, R>(&self, consumer: C) -> R
+    where
+        C: FnOnce(&mut EsPromiseResolvableHandleInner) -> R,
+    {
+        let mut lck = self.inner.lock().unwrap();
+        consumer(&mut *lck)
+    }
+
+    pub fn resolve(&self, mut value: EsValueFacade) {
+        self.with_inner(|inner| {
+            if let Some(info) = &inner.js_info {
+                // resolve
+                let id = info.1;
+                if let Some(es_rt) = info.0.upgrade() {
+                    es_rt.add_to_event_queue(move |q_js_rt| {
+                        ESPROMISE_REFS.with(move |rc| {
+                            let map = &*rc.borrow();
+                            let p_ref = map.get(&id).expect("no such promise");
+                            let js_val = value
+                                .to_js_value(q_js_rt)
+                                .ok()
+                                .expect("could not convert to JSValue");
+                            p_ref.resolve(q_js_rt, js_val);
+                        });
+                    })
+                }
+            } else {
+                // resolve later when converted to JSValue
+                inner.resolution = Some(Ok(value));
+            }
+        })
+    }
+    pub fn reject(&self, mut value: EsValueFacade) {
+        self.with_inner(|inner| {
+            if let Some(info) = &inner.js_info {
+                // resolve
+                let id = info.1;
+                if let Some(es_rt) = info.0.upgrade() {
+                    es_rt.add_to_event_queue(move |q_js_rt| {
+                        ESPROMISE_REFS.with(move |rc| {
+                            let map = &*rc.borrow();
+                            let p_ref = map.get(&id).expect("no such promise");
+                            let js_val = value
+                                .to_js_value(q_js_rt)
+                                .ok()
+                                .expect("could not convert to JSValue");
+                            p_ref.reject(q_js_rt, js_val);
+                        });
+                    })
+                }
+            } else {
+                // resolve later when converted to JSValue
+                inner.resolution = Some(Err(value));
+            }
+        })
+    }
+    fn set_info(&self, es_rt: &Arc<EsRuntime>, id: usize) -> Result<(), EsError> {
+        self.with_inner(|inner| {
+            if inner.js_info.is_some() {
+                Err(EsError::new_str("info was already set"))
+            } else {
+                // set info
+                inner.js_info = Some((Arc::downgrade(es_rt), id));
+
+                if let Some(resolution) = inner.resolution.take() {
+                    match resolution {
+                        Ok(mut val) => {
+                            self.resolve(val);
+                        }
+                        Err(mut val) => {
+                            self.reject(val);
+                        }
+                    }
+                }
+
+                Ok(())
+            }
+        })
+    }
+}
+
+impl Drop for EsPromiseResolvableHandleInner {
+    fn drop(&mut self) {
+        if let Some(info) = &self.js_info {
+            let id = info.1;
+            if let Some(es_rt) = info.0.upgrade() {
+                es_rt.add_to_event_queue(move |_q_js_rt| {
+                    ESPROMISE_REFS.with(move |rc| {
+                        let map = &mut *rc.borrow_mut();
+                        map.remove(&id);
+                    });
+                })
+            }
+        }
+    }
+}
+
 /// can be used to create a new Promise which is resolved with the resolver function
 /// # Example
 /// ```rust
@@ -579,8 +702,7 @@ pub type EsPromiseResolver = Box<dyn FnOnce() -> Result<EsValueFacade, String> +
 /// std::thread::sleep(Duration::from_secs(2));
 /// ```
 pub struct EsPromise {
-    // todo is box really needed?
-    resolver: Option<EsPromiseResolver>,
+    handle: Arc<EsPromiseResolvableHandle>,
 }
 
 impl EsPromise {
@@ -588,35 +710,75 @@ impl EsPromise {
     where
         R: FnOnce() -> Result<EsValueFacade, String> + Send + 'static,
     {
+        let ret = Self::new_unresolving();
+
+        let handle = ret.get_handle();
+        EsRuntime::add_helper_task(move || {
+            let val = resolver();
+            match val {
+                Ok(v) => {
+                    handle.resolve(v);
+                }
+                Err(e) => {
+                    handle.reject(e.to_es_value_facade());
+                }
+            }
+        });
+
+        ret
+    }
+    /// create a new Promise which will be resolved later
+    /// this achieved by creating a Handle which is wrapped in an Arc and thus may be passed to another thread
+    /// # Example
+    /// ```rust
+    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_es_runtime::esscript::EsScript;
+    /// use std::time::Duration;
+    /// use quickjs_es_runtime::esvalue::{EsPromise, EsValueConvertible};
+    /// let rt = EsRuntimeBuilder::new().build();
+    /// // prep a function which reacts to a promise
+    /// rt.eval_sync(EsScript::new("new_unresolving.es", "this.new_unresolving = function(prom){prom.then((res) => {console.log('promise resolved to %s', res);});};")).ok().expect("script failed");
+    /// // prep a EsPromise object
+    /// let prom = EsPromise::new_unresolving();
+    /// // get the handle
+    /// let prom_handle = prom.get_handle();
+    /// // call the function with the promise as arg
+    /// rt.call_function(vec![], "new_unresolving", vec![prom.to_es_value_facade()]);
+    /// // start a new thread which resolves the handler after x seconds
+    /// std::thread::spawn(move || {
+    ///     std::thread::sleep(Duration::from_secs(3));
+    ///     prom_handle.resolve("hello there".to_string().to_es_value_facade());
+    /// });
+    /// // wait a few secs to see the log output
+    /// std::thread::sleep(Duration::from_secs(5));
+    /// ```
+    ///
+    pub fn new_unresolving() -> Self {
         Self {
-            resolver: Some(Box::new(resolver)),
+            handle: Arc::new(EsPromiseResolvableHandle::new()),
         }
+    }
+    /// get the handle which can be used to resolve a promise
+    pub fn get_handle(&self) -> Arc<EsPromiseResolvableHandle> {
+        self.handle.clone()
     }
 }
 
 impl EsValueConvertible for EsPromise {
     fn to_js_value(&mut self, q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
         log::trace!("EsPromise::to_js_value");
-        // create resolving promise
 
-        let resolver = self
-            .resolver
-            .take()
-            .expect("EsPromises was already converted to JSValue");
+        let prom_ref = promises::new_promise(q_js_rt)?;
 
-        if let Some(es_rt) = q_js_rt.get_rt_ref() {
-            let producer = move || {
-                // run resolver
-                log::trace!("running EsPromise resolver");
-                resolver()
-            };
-            let mapper = |mut val: EsValueFacade| {
-                QuickJsRuntime::do_with(|q_js_rt| val.to_js_value(q_js_rt))
-            };
-            new_resolving_promise(q_js_rt, producer, mapper, &es_rt)
-        } else {
-            Ok(quickjs_utils::new_null_ref())
-        }
+        let ret = prom_ref.get_promise_obj_ref();
+        let id = ESPROMISE_REFS.with(move |rc| {
+            let map = &mut *rc.borrow_mut();
+            map.insert(prom_ref)
+        });
+        let es_rt = q_js_rt.get_rt_ref().expect("rt was dropped");
+        self.handle.set_info(&es_rt, id);
+
+        Ok(ret)
     }
 }
 
