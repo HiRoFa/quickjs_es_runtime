@@ -244,6 +244,8 @@ impl Drop for QuickJsContext {
 pub mod tests {
     use crate::esruntimebuilder::EsRuntimeBuilder;
     use crate::esscript::EsScript;
+    use crate::quickjs_utils;
+    use crate::quickjs_utils::{functions, get_global, objects};
 
     #[test]
     fn test_multi_ctx() {
@@ -294,10 +296,44 @@ pub mod tests {
             q_js_rt.gc();
         });
         rt.add_to_event_queue_mut_sync(|q_js_rt| {
-            q_js_rt
+            let c_ctx = q_js_rt
                 .create_context("c")
                 .ok()
                 .expect("could not create context c");
+            let func = functions::new_function(
+                c_ctx.context,
+                "test",
+                |_this, _args| Ok(quickjs_utils::new_null_ref()),
+                1,
+            )
+            .ok()
+            .unwrap();
+            let global = get_global(c_ctx.context);
+            objects::set_property(c_ctx.context, &global, "test_func", func);
+            q_js_rt.gc();
+        });
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            q_js_rt.gc();
+            let ctx_a = q_js_rt.get_context("a");
+            let v = ctx_a
+                .eval(EsScript::new("a2.es", "this.a;"))
+                .ok()
+                .expect("script failed");
+            assert!(v.is_i32());
+            q_js_rt.gc();
+        });
+        rt.add_to_event_queue_mut_sync(|q_js_rt| {
+            q_js_rt.drop_context("c");
+        });
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            q_js_rt.gc();
+            let ctx_a = q_js_rt.get_context("a");
+            let v = ctx_a
+                .eval(EsScript::new("a2.es", "this.a;"))
+                .ok()
+                .expect("script failed");
+            assert!(v.is_i32());
+            q_js_rt.gc();
         });
     }
 }

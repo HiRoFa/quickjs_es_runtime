@@ -47,6 +47,10 @@ impl QuickJsRuntime {
         hooks.push(Box::new(hook));
         Ok(())
     }
+    // todo, this needs to be static, create a context, then borrowmut and add it (do not borrow mut while instantiating context)
+    // so actually needs to be called in a plain job to inner.TaskManager and not by add_to_esEventquueue
+    // EsRuntime should have a util to do that
+    // EsRuntime should have extra methods like eval_sync_ctx(ctx: &str, script: &EsScript) etc
     pub fn create_context(&mut self, id: &str) -> Result<&QuickJsContext, EsError> {
         assert!(!self.has_context(id));
         {
