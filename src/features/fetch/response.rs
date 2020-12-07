@@ -1,8 +1,11 @@
 use crate::eserror::EsError;
 use crate::esruntime_utils::promises::new_resolving_promise;
-use crate::quickjs_utils::{json, primitives, reflection};
+use crate::quickjs_utils::{json, primitives};
+use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
+use crate::reflection;
 use crate::valueref::JSValueRef;
+use libquickjs_sys as q;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -23,11 +26,12 @@ pub trait FetchResponse {
 const RESPONSE_PROXY_NAME: &str = "Response";
 
 fn response_text(
-    _q_js_rt: &QuickJsRuntime,
+    context: *mut q::JSContext,
     instance_id: &usize,
     _args: Vec<JSValueRef>,
 ) -> Result<JSValueRef, EsError> {
     QuickJsRuntime::do_with(|q_js_rt| {
+        let q_ctx = q_js_rt.get_quickjs_context(context);
         let es_rt_arc_opt = q_js_rt.get_rt_ref();
         let es_rt = &*es_rt_arc_opt.unwrap();
 
@@ -54,21 +58,22 @@ fn response_text(
                 Err(_e) => Err("UTF8Error while reading text".to_string()),
             }
         };
-        let mapper = |res: String| {
+        let mapper = |q_ctx: &QuickJsContext, res: String| {
             // map string to js_str
-            QuickJsRuntime::do_with(|q_js_rt| primitives::from_string(q_js_rt, res.as_str()))
+            primitives::from_string(q_ctx.context, res.as_str())
         };
 
-        new_resolving_promise(q_js_rt, producer, mapper, &es_rt)
+        new_resolving_promise(q_ctx, producer, mapper, &es_rt)
     })
 }
 
 fn response_json(
-    _q_js_rt: &QuickJsRuntime,
+    context: *mut q::JSContext,
     instance_id: &usize,
     _args: Vec<JSValueRef>,
 ) -> Result<JSValueRef, EsError> {
     QuickJsRuntime::do_with(|q_js_rt| {
+        let q_ctx = q_js_rt.get_quickjs_context(context);
         let es_rt_arc_opt = q_js_rt.get_rt_ref();
         let es_rt = &*es_rt_arc_opt.unwrap();
 
@@ -95,20 +100,18 @@ fn response_json(
                 Err(_e) => Err("UTF8Error while reading text".to_string()),
             }
         };
-        let mapper = |res: String| {
+        let mapper = |q_ctx: &QuickJsContext, res: String| {
             // map string to js_str and then parse
-            QuickJsRuntime::do_with(|q_js_rt| {
-                //
-                log::trace!("fetch::response::json parsing: {}", res);
-                json::parse(q_js_rt, res.as_str())
-            })
+
+            log::trace!("fetch::response::json parsing: {}", res);
+            json::parse(q_ctx.context, res.as_str())
         };
 
-        new_resolving_promise(q_js_rt, producer, mapper, &es_rt)
+        new_resolving_promise(q_ctx, producer, mapper, &es_rt)
     })
 }
 
-pub(crate) fn init_response_proxy(q_js_rt: &QuickJsRuntime) {
+pub(crate) fn init_response_proxy(q_ctx: &QuickJsContext) -> Result<(), EsError> {
     reflection::Proxy::new()
         .name(RESPONSE_PROXY_NAME)
         // todo native_methods
@@ -132,29 +135,26 @@ pub(crate) fn init_response_proxy(q_js_rt: &QuickJsRuntime) {
             |_q_js_rt, _instance_id| Ok(primitives::from_i32(200)),
             |_q_js_rt, _instance_id, _val| Ok(()),
         )
-        .finalizer(|instance_id| {
+        .finalizer(|_context, instance_id| {
             log::trace!("dropping FetchResponse {}", instance_id);
             RESPONSES.with(|responses_rc| {
                 let responses = &mut *responses_rc.borrow_mut();
                 responses.remove(&instance_id);
             });
         })
-        .install(q_js_rt)
-        .ok()
-        .expect("could not install Response proxy");
+        .install(q_ctx)
 }
 
 pub(crate) fn new_response_ref(
+    q_ctx: &QuickJsContext,
     fetch_response: Box<dyn FetchResponse + Send>,
 ) -> Result<JSValueRef, EsError> {
-    QuickJsRuntime::do_with(|q_js_rt| {
-        let res = reflection::new_instance(RESPONSE_PROXY_NAME, q_js_rt)?;
+    let res = reflection::new_instance(RESPONSE_PROXY_NAME, q_ctx)?;
 
-        RESPONSES.with(|responses_rc| {
-            let responses = &mut *responses_rc.borrow_mut();
-            responses.insert(res.0, Arc::new(Mutex::new(fetch_response)))
-        });
+    RESPONSES.with(|responses_rc| {
+        let responses = &mut *responses_rc.borrow_mut();
+        responses.insert(res.0, Arc::new(Mutex::new(fetch_response)))
+    });
 
-        Ok(res.1)
-    })
+    Ok(res.1)
 }

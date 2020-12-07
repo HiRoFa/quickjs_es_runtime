@@ -1,24 +1,26 @@
 use crate::eserror::EsError;
 use crate::quickjs_utils;
-use crate::quickjs_utils::reflection::Proxy;
 use crate::quickjs_utils::{functions, parse_args};
 use crate::quickjsruntime::QuickJsRuntime;
+use crate::reflection::Proxy;
 use libquickjs_sys as q;
 use std::str::FromStr;
 
 pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
     log::trace!("console::init");
 
-    Proxy::new()
-        .name("console")
-        .static_native_method("log", Some(console_log))
-        .static_native_method("trace", Some(console_trace))
-        .static_native_method("info", Some(console_info))
-        .static_native_method("warn", Some(console_warn))
-        .static_native_method("error", Some(console_error))
-        //.static_native_method("assert", Some(console_assert)) // todo
-        .static_native_method("debug", Some(console_debug))
-        .install(q_js_rt)
+    q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| {
+        Proxy::new()
+            .name("console")
+            .static_native_method("log", Some(console_log))
+            .static_native_method("trace", Some(console_trace))
+            .static_native_method("info", Some(console_info))
+            .static_native_method("warn", Some(console_warn))
+            .static_native_method("error", Some(console_error))
+            //.static_native_method("assert", Some(console_assert)) // todo
+            .static_native_method("debug", Some(console_debug))
+            .install(q_ctx)
+    })
 }
 
 fn parse_field_value(field: &str, value: &str) -> String {
@@ -134,30 +136,32 @@ fn parse_line2(args: Vec<String>) -> String {
     output
 }
 
-unsafe fn parse_args_as_strings(argc: ::std::os::raw::c_int, argv: *mut q::JSValue) -> Vec<String> {
-    let args_vec = parse_args(argc, argv);
+unsafe fn parse_args_as_strings(
+    context: *mut q::JSContext,
+    argc: ::std::os::raw::c_int,
+    argv: *mut q::JSValue,
+) -> Vec<String> {
+    let args_vec = parse_args(context, argc, argv);
 
-    QuickJsRuntime::do_with(|q_js_rt| {
-        args_vec
-            .iter()
-            .map(|arg| {
-                functions::call_to_string(q_js_rt, arg)
-                    .ok()
-                    .expect("could not convert arg to string")
-            })
-            .collect::<Vec<String>>()
-    })
+    args_vec
+        .iter()
+        .map(|arg| {
+            functions::call_to_string(context, arg)
+                .ok()
+                .expect("could not convert arg to string")
+        })
+        .collect::<Vec<String>>()
 }
 
 unsafe extern "C" fn console_log(
-    _ctx: *mut q::JSContext,
+    ctx: *mut q::JSContext,
     _this_val: q::JSValue,
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
     log::trace!("> console.log");
 
-    let args = parse_args_as_strings(argc, argv);
+    let args = parse_args_as_strings(ctx, argc, argv);
 
     log::info!("{}", parse_line2(args));
 
@@ -165,14 +169,14 @@ unsafe extern "C" fn console_log(
 }
 
 unsafe extern "C" fn console_trace(
-    _ctx: *mut q::JSContext,
+    ctx: *mut q::JSContext,
     _this_val: q::JSValue,
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
     log::trace!("> console.log");
 
-    let args = parse_args_as_strings(argc, argv);
+    let args = parse_args_as_strings(ctx, argc, argv);
 
     log::trace!("{}", parse_line2(args));
 
@@ -180,14 +184,14 @@ unsafe extern "C" fn console_trace(
 }
 
 unsafe extern "C" fn console_debug(
-    _ctx: *mut q::JSContext,
+    ctx: *mut q::JSContext,
     _this_val: q::JSValue,
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
     log::trace!("> console.log");
 
-    let args = parse_args_as_strings(argc, argv);
+    let args = parse_args_as_strings(ctx, argc, argv);
 
     log::debug!("{}", parse_line2(args));
 
@@ -195,14 +199,14 @@ unsafe extern "C" fn console_debug(
 }
 
 unsafe extern "C" fn console_info(
-    _ctx: *mut q::JSContext,
+    ctx: *mut q::JSContext,
     _this_val: q::JSValue,
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
     log::trace!("> console.log");
 
-    let args = parse_args_as_strings(argc, argv);
+    let args = parse_args_as_strings(ctx, argc, argv);
 
     log::info!("{}", parse_line2(args));
 
@@ -210,14 +214,14 @@ unsafe extern "C" fn console_info(
 }
 
 unsafe extern "C" fn console_warn(
-    _ctx: *mut q::JSContext,
+    ctx: *mut q::JSContext,
     _this_val: q::JSValue,
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
     log::trace!("> console.log");
 
-    let args = parse_args_as_strings(argc, argv);
+    let args = parse_args_as_strings(ctx, argc, argv);
 
     log::warn!("{}", parse_line2(args));
 
@@ -225,14 +229,14 @@ unsafe extern "C" fn console_warn(
 }
 
 unsafe extern "C" fn console_error(
-    _ctx: *mut q::JSContext,
+    ctx: *mut q::JSContext,
     _this_val: q::JSValue,
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
     log::trace!("> console.log");
 
-    let args = parse_args_as_strings(argc, argv);
+    let args = parse_args_as_strings(ctx, argc, argv);
 
     log::error!("{}", parse_line2(args));
 

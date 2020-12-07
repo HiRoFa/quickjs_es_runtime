@@ -5,6 +5,7 @@ use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, objects, parse_args, primitives};
+use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use libquickjs_sys as q;
 use std::collections::HashMap;
@@ -15,44 +16,45 @@ pub mod response;
 
 pub(crate) fn init(es_rt: Arc<EsRuntime>) -> Result<(), EsError> {
     es_rt.add_to_event_queue_sync(|q_js_rt| {
-        log::trace!("fetch::init");
+        q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| {
+            log::trace!("fetch::init");
 
-        // init the fetch method
+            // init the fetch method
 
-        let func_ref =
-            functions::new_native_function(q_js_rt, "fetch", Some(fetch_func), 1, false)?;
-        objects::set_property(
-            q_js_rt,
-            &quickjs_utils::get_global(q_js_rt),
-            "fetch",
-            func_ref,
-        )?;
+            let func_ref =
+                functions::new_native_function(q_ctx.context, "fetch", Some(fetch_func), 1, false)?;
+            objects::set_property(
+                q_ctx.context,
+                &quickjs_utils::get_global(q_ctx.context),
+                "fetch",
+                func_ref,
+            )?;
 
-        response::init_response_proxy(q_js_rt);
-
-        Ok(())
+            response::init_response_proxy(q_ctx)
+        })
     })
 }
 
 unsafe extern "C" fn fetch_func(
-    _ctx: *mut q::JSContext,
+    ctx: *mut q::JSContext,
     _this_val: q::JSValue,
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    let args_vec = parse_args(argc, argv);
+    let args_vec = parse_args(ctx, argc, argv);
 
     QuickJsRuntime::do_with(|q_js_rt| {
+        let q_ctx = q_js_rt.get_quickjs_context(ctx);
         if args_vec.is_empty() {
-            return q_js_rt.report_ex("need at least a url arg");
+            return q_ctx.report_ex("need at least a url arg");
         }
 
         let url_arg = &args_vec[0];
         if !url_arg.is_string() {
-            return q_js_rt.report_ex("url argument needs to be a string");
+            return q_ctx.report_ex("url argument needs to be a string");
         }
 
-        let url = primitives::to_string(q_js_rt, &url_arg).ok().unwrap();
+        let url = primitives::to_string(ctx, &url_arg).ok().unwrap();
 
         if let Some(rt_ref) = q_js_rt.get_rt_ref() {
             if rt_ref.inner.fetch_response_provider.is_some() {
@@ -74,19 +76,21 @@ unsafe extern "C" fn fetch_func(
 
                     Ok(result)
                 };
-                let mapper =
-                    |p_res: Box<dyn FetchResponse + Send>| response::new_response_ref(p_res);
+                let mapper = |q_ctx: &QuickJsContext, p_res: Box<dyn FetchResponse + Send>| {
+                    response::new_response_ref(q_ctx, p_res)
+                };
                 let es_rt = &*q_js_rt.get_rt_ref().unwrap();
-                let prom_res = promises::new_resolving_promise(q_js_rt, producer, mapper, es_rt);
+
+                let prom_res = promises::new_resolving_promise(q_ctx, producer, mapper, es_rt);
                 match prom_res {
                     Ok(prom_ref) => prom_ref.clone_value_incr_rc(),
-                    Err(e) => q_js_rt.report_ex(e.get_message()),
+                    Err(e) => q_ctx.report_ex(e.get_message()),
                 }
             } else {
-                q_js_rt.report_ex("No fetch response provider present in this runtime")
+                q_ctx.report_ex("No fetch response provider present in this runtime")
             }
         } else {
-            q_js_rt.report_ex("Runtime was dropped")
+            q_ctx.report_ex("Runtime was dropped")
         }
     })
 }

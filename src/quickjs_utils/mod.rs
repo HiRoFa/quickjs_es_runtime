@@ -12,7 +12,6 @@ pub mod modules;
 pub mod objects;
 pub mod primitives;
 pub mod promises;
-pub mod reflection;
 pub mod typedarrays;
 
 use crate::eserror::EsError;
@@ -32,13 +31,11 @@ pub fn gc(q_js_rt: &QuickJsRuntime) {
 }
 
 pub fn new_undefined_ref() -> JSValueRef {
-    JSValueRef::new(
+    JSValueRef::new_no_context(
         q::JSValue {
             u: q::JSValueUnion { int32: 0 },
             tag: TAG_UNDEFINED,
         },
-        false,
-        false,
         "new_undefined_ref",
     )
 }
@@ -51,32 +48,36 @@ pub fn new_null() -> q::JSValue {
 }
 
 pub fn new_null_ref() -> JSValueRef {
-    JSValueRef::new(new_null(), false, false, "new_null_ref")
+    JSValueRef::new_no_context(new_null(), "new_null_ref")
 }
 
-pub fn get_global(q_js_rt: &QuickJsRuntime) -> JSValueRef {
-    let global = unsafe { q::JS_GetGlobalObject(q_js_rt.context) };
-    JSValueRef::new(global, false, true, "global")
+pub fn get_global(context: *mut q::JSContext) -> JSValueRef {
+    let global = unsafe { q::JS_GetGlobalObject(context) };
+    JSValueRef::new(context, global, false, true, "global")
 }
 
 pub fn get_constructor(
-    q_js_rt: &QuickJsRuntime,
+    context: *mut q::JSContext,
     constructor_name: &str,
 ) -> Result<JSValueRef, EsError> {
-    let global_ref = get_global(q_js_rt);
+    let global_ref = get_global(context);
 
-    let constructor_ref = get_property(q_js_rt, &global_ref, constructor_name)?;
+    let constructor_ref = get_property(context, &global_ref, constructor_name)?;
 
     Ok(constructor_ref)
 }
 
 /// # Safety
 /// be safe
-pub unsafe fn parse_args(argc: ::std::os::raw::c_int, argv: *mut q::JSValue) -> Vec<JSValueRef> {
+pub unsafe fn parse_args(
+    context: *mut q::JSContext,
+    argc: ::std::os::raw::c_int,
+    argv: *mut q::JSValue,
+) -> Vec<JSValueRef> {
     let arg_slice = std::slice::from_raw_parts(argv, argc as usize);
     arg_slice
         .iter()
-        .map(|raw| JSValueRef::new(*raw, true, true, "quickjs_utils::parse_args"))
+        .map(|raw| JSValueRef::new(context, *raw, true, true, "quickjs_utils::parse_args"))
         .collect::<Vec<_>>()
 }
 
@@ -90,9 +91,11 @@ pub mod tests {
     fn test_global() {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         let _io = rt.add_to_event_queue_sync(|q_js_rt| {
-            let ct = get_global(q_js_rt).get_ref_count();
+            let q_ctx = q_js_rt.get_main_context();
+            let context = q_ctx.context;
+            let ct = get_global(context).get_ref_count();
             for _ in 0..5 {
-                let global = get_global(q_js_rt);
+                let global = get_global(context);
                 assert_eq!(global.get_ref_count(), ct);
             }
         });

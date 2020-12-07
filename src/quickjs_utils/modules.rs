@@ -1,4 +1,5 @@
 use crate::esscript::EsScript;
+use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use libquickjs_sys as q;
 use log::trace;
@@ -7,6 +8,7 @@ use std::collections::HashSet;
 use std::ffi::{CStr, CString};
 
 thread_local! {
+    // todo refactor to per ctx / use lookup method
     static LOADED_MODULE_REGISTRY: RefCell<HashSet<String>> = RefCell::new(HashSet::new());
 }
 
@@ -23,7 +25,7 @@ pub fn set_module_loader(q_js_rt: &QuickJsRuntime) {
 }
 
 unsafe extern "C" fn js_module_normalize(
-    _ctx: *mut q::JSContext,
+    ctx: *mut q::JSContext,
     module_base_name: *const ::std::os::raw::c_char,
     module_name: *const ::std::os::raw::c_char,
     _opaque: *mut ::std::os::raw::c_void,
@@ -46,8 +48,10 @@ unsafe extern "C" fn js_module_normalize(
     );
 
     let script_opt: Option<EsScript> = QuickJsRuntime::do_with(|q_js_rt| {
+        let q_ctx = q_js_rt.get_quickjs_context(ctx);
+
         if let Some(loader) = &q_js_rt.module_script_loader {
-            loader(base_str, name_str)
+            loader(q_ctx, base_str, name_str)
         } else {
             None
         }
@@ -57,6 +61,7 @@ unsafe extern "C" fn js_module_normalize(
 
     if let Some(script) = script_opt {
         absolute_path = script.get_path().to_string();
+        // todo, refactor this to per ctx, or drop entirely?
         let needs_init = LOADED_MODULE_REGISTRY.with(|registry_rc| {
             let registry = &*registry_rc.borrow();
             !registry.contains(&absolute_path)
@@ -65,7 +70,7 @@ unsafe extern "C" fn js_module_normalize(
             trace!("module {} not loaded, initializing", name_str);
 
             // init module here
-            let eval_res = QuickJsRuntime::do_with(|q_js_rt| q_js_rt.eval_module(script));
+            let eval_res = QuickJsContext::eval_module_ctx(ctx, script);
             match eval_res {
                 Ok(_) => {
                     // add to registry
@@ -77,12 +82,11 @@ unsafe extern "C" fn js_module_normalize(
                 }
                 Err(e) => {
                     log::error!("module {} failed: {}", name_str, e);
-                    QuickJsRuntime::do_with(|q_js_rt| {
-                        q_js_rt.report_ex(
-                            format!("Module eval failed for {}\ncaused by {}", name_str, e)
-                                .as_str(),
-                        )
-                    });
+                    // todo report_ex_ctx
+                    QuickJsContext::report_ex_ctx(
+                        ctx,
+                        format!("Module eval failed for {}\ncaused by {}", name_str, e).as_str(),
+                    );
                 }
             }
         } else {
@@ -90,9 +94,8 @@ unsafe extern "C" fn js_module_normalize(
         }
     } else {
         trace!("no module found for {} at {}", name_str, base_str);
-        QuickJsRuntime::do_with(|q_js_rt| {
-            let _ = q_js_rt.report_ex(format!("Module {} was not found", name_str).as_str());
-        });
+
+        QuickJsContext::report_ex_ctx(ctx, format!("Module {} was not found", name_str).as_str());
     }
 
     let c_absolute_path_res = CString::new(absolute_path.as_str());
@@ -143,7 +146,8 @@ pub mod tests {
 
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
-            let res = q_js_rt.eval_module(EsScript::new(
+            let q_ctx = q_js_rt.get_main_context();
+            let res = q_ctx.eval_module(EsScript::new(
                 "test1.mes",
                 "export const name = 'foobar';\nconsole.log('evalling module');",
             ));
@@ -155,7 +159,8 @@ pub mod tests {
         });
 
         rt.add_to_event_queue_sync(|q_js_rt| {
-            let res = q_js_rt.eval_module(EsScript::new(
+            let q_ctx = q_js_rt.get_main_context();
+            let res = q_ctx.eval_module(EsScript::new(
                 "test2.mes",
                 "import {name} from 'test1.mes';\n\nconsole.log('imported name: ' + name);",
             ));
@@ -168,7 +173,8 @@ pub mod tests {
         });
 
         rt.add_to_event_queue_sync(|q_js_rt| {
-            let res = q_js_rt.eval_module(EsScript::new(
+            let q_ctx = q_js_rt.get_main_context();
+            let res = q_ctx.eval_module(EsScript::new(
                 "test3.mes",
                 "import {name} from 'notfound.mes';\n\nconsole.log('imported name: ' + name);",
             ));
@@ -182,7 +188,8 @@ pub mod tests {
         });
 
         rt.add_to_event_queue_sync(|q_js_rt| {
-            let res = q_js_rt.eval_module(EsScript::new(
+            let q_ctx = q_js_rt.get_main_context();
+            let res = q_ctx.eval_module(EsScript::new(
                 "test4.mes",
                 "import {name} from 'invalid.mes';\n\nconsole.log('imported name: ' + name);",
             ));
@@ -196,7 +203,8 @@ pub mod tests {
         });
 
         rt.add_to_event_queue_sync(|q_js_rt| {
-            let res = q_js_rt.eval_module(EsScript::new(
+            let q_ctx = q_js_rt.get_main_context();
+            let res = q_ctx.eval_module(EsScript::new(
                 "test2.mes",
                 "import {name} from 'test1.mes';\n\nconsole.log('imported name: ' + name);",
             ));

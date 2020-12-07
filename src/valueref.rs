@@ -1,7 +1,8 @@
-use crate::quickjsruntime::QuickJsRuntime;
 use libquickjs_sys as q;
+use std::ptr::null_mut;
 
 pub struct JSValueRef {
+    pub(crate) context: *mut q::JSContext,
     value: q::JSValue,
     ref_ct_decr_on_drop: bool,
     label: String,
@@ -19,6 +20,7 @@ impl JSValueRef {
 impl Clone for JSValueRef {
     fn clone(&self) -> Self {
         Self::new(
+            self.context,
             self.value,
             true,
             true,
@@ -73,17 +75,13 @@ impl<'a> std::fmt::Debug for JSValueRef {
 impl JSValueRef {
     pub(crate) fn increment_ref_count(&self) {
         if self.get_tag() < 0 {
-            QuickJsRuntime::do_with(|q_js_rt| unsafe {
-                libquickjs_sys::JS_DupValue(q_js_rt.context, *self.borrow_value())
-            });
+            unsafe { libquickjs_sys::JS_DupValue(self.context, *self.borrow_value()) }
         }
     }
 
     pub(crate) fn decrement_ref_count(&self) {
         if self.get_tag() < 0 {
-            QuickJsRuntime::do_with(|q_js_rt| unsafe {
-                libquickjs_sys::JS_FreeValue(q_js_rt.context, *self.borrow_value())
-            });
+            unsafe { libquickjs_sys::JS_FreeValue(self.context, *self.borrow_value()) }
         }
     }
 
@@ -91,13 +89,24 @@ impl JSValueRef {
         self.value.tag
     }
 
+    pub fn new_no_context(value: q::JSValue, label: &str) -> Self {
+        Self {
+            context: null_mut(),
+            value,
+            ref_ct_decr_on_drop: false,
+            label: label.to_string(),
+        }
+    }
+
     pub fn new(
+        context: *mut q::JSContext,
         value: q::JSValue,
         ref_ct_incr: bool,
         ref_ct_decr_on_drop: bool,
         label: &str,
     ) -> Self {
         let s = Self {
+            context,
             value,
             ref_ct_decr_on_drop,
             label: label.to_string(),

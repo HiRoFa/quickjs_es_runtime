@@ -2,6 +2,7 @@ use crate::esruntime::{EsRuntime, FetchResponseProvider};
 use crate::esscript::EsScript;
 use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
+use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::ModuleScriptLoader;
 use std::sync::Arc;
 use std::time::Duration;
@@ -46,12 +47,14 @@ impl EsRuntimeBuilder {
     /// # Example
     /// ```rust
     /// use quickjs_es_runtime::esscript::EsScript;
-    ///     use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// fn load_module(base: &str, name: &str) -> Option<EsScript> {
+    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_es_runtime::quickjscontext::QuickJsContext;
+    /// fn load_module(_q_ctx: &QuickJsContext, base: &str, name: &str) -> Option<EsScript> {
     ///     // you should load your modules from files here
     ///     // please note that you need to return the name as absolute_path in the returned script struct
     ///     // return None if module is not found
-    ///     Some(EsScript::new(name, "export const foo = 12;"))
+    ///     use quickjs_es_runtime::quickjscontext::QuickJsContext;
+    /// Some(EsScript::new(name, "export const foo = 12;"))
     /// }
     /// fn main(){
     ///     let rt = EsRuntimeBuilder::new()
@@ -61,7 +64,7 @@ impl EsRuntimeBuilder {
     /// ```
     pub fn module_script_loader<M>(mut self, loader: M) -> Self
     where
-        M: Fn(&str, &str) -> Option<EsScript> + Send + Sync + 'static,
+        M: Fn(&QuickJsContext, &str, &str) -> Option<EsScript> + Send + Sync + 'static,
     {
         self.opt_module_script_loader = Some(Box::new(loader));
         self

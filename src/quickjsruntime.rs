@@ -3,16 +3,17 @@
 use crate::eserror::EsError;
 use crate::esruntime::EsRuntime;
 use crate::esscript::EsScript;
-use crate::quickjs_utils::{errors, functions, gc, modules, objects, promises};
-use crate::valueref::{JSValueRef, TAG_EXCEPTION};
-use hirofa_utils::auto_id_map::AutoIdMap;
+use crate::quickjs_utils::{gc, modules, promises};
+use crate::quickjscontext::QuickJsContext;
 use libquickjs_sys as q;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::ffi::CString;
 use std::panic;
 use std::sync::{Arc, Weak};
 
-pub type ModuleScriptLoader = dyn Fn(&str, &str) -> Option<EsScript> + Send + Sync + 'static;
+pub type ModuleScriptLoader =
+    dyn Fn(&QuickJsContext, &str, &str) -> Option<EsScript> + Send + Sync + 'static;
 
 thread_local! {
    /// the thread-local QuickJsRuntime
@@ -23,17 +24,64 @@ thread_local! {
 
 pub struct QuickJsRuntime {
     pub(crate) runtime: *mut q::JSRuntime,
-    pub(crate) context: *mut q::JSContext,
-    pub(crate) module_script_loader: Option<Box<ModuleScriptLoader>>,
-
-    object_cache: RefCell<AutoIdMap<JSValueRef>>,
+    contexts: HashMap<String, QuickJsContext>,
     es_rt_ref: Option<Weak<EsRuntime>>,
     id: String,
+    context_init_hooks:
+        RefCell<Vec<Box<dyn Fn(&QuickJsRuntime, &QuickJsContext) -> Result<(), EsError>>>>,
+    pub(crate) module_script_loader: Option<Box<ModuleScriptLoader>>,
 }
 
 impl QuickJsRuntime {
+    pub fn add_context_init_hook<H>(&self, hook: H) -> Result<(), EsError>
+    where
+        H: Fn(&QuickJsRuntime, &QuickJsContext) -> Result<(), EsError> + 'static,
+    {
+        // todo, for each context run hook
+
+        for ctx in self.contexts.values() {
+            hook(self, ctx)?;
+        }
+
+        let hooks = &mut *self.context_init_hooks.borrow_mut();
+        hooks.push(Box::new(hook));
+        Ok(())
+    }
+    pub fn create_context(&mut self, id: &str) -> Result<&QuickJsContext, EsError> {
+        assert!(!self.has_context(id));
+        {
+            let ctx = QuickJsContext::new(id.to_string(), self);
+
+            let hooks = &*self.context_init_hooks.borrow();
+            for hook in hooks {
+                hook(self, &ctx)?;
+            }
+
+            self.contexts.insert(id.to_string(), ctx);
+        }
+
+        Ok(self.get_context(id))
+    }
+    pub fn drop_context(&mut self, id: &str) {
+        assert!(self.has_context(id));
+        self.gc();
+        self.contexts.remove(id);
+    }
+    pub fn get_context(&self, id: &str) -> &QuickJsContext {
+        self.contexts.get(id).expect("no such context")
+    }
+    pub fn opt_context(&self, id: &str) -> Option<&QuickJsContext> {
+        self.contexts.get(id)
+    }
+    pub fn has_context(&self, id: &str) -> bool {
+        self.contexts.contains_key(id)
+    }
     pub(crate) fn init_rt_ref(&mut self, rt_ref: Arc<EsRuntime>) {
         self.es_rt_ref = Some(Arc::downgrade(&rt_ref));
+    }
+    pub fn get_quickjs_context(&self, context: *mut q::JSContext) -> &QuickJsContext {
+        let id = QuickJsContext::get_id(context);
+        self.get_context(id)
     }
     pub fn get_rt_ref(&self) -> Option<Arc<EsRuntime>> {
         if let Some(rt_ref) = &self.es_rt_ref {
@@ -57,136 +105,36 @@ impl QuickJsRuntime {
         //}
         //}
 
-        let context = unsafe { q::JS_NewContext(runtime) };
-        if context.is_null() {
-            unsafe {
-                q::JS_FreeRuntime(runtime);
-            }
-            panic!("ContextCreationFailed");
-        }
-
         let id = format!("q_{}", thread_id::get());
 
-        let q_rt = Self {
+        let mut q_rt = Self {
             runtime,
-            context,
-            module_script_loader: None,
-            object_cache: RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize)),
+            contexts: Default::default(),
+
             es_rt_ref: None,
             id,
+            context_init_hooks: RefCell::new(vec![]),
+            module_script_loader: None,
         };
 
         modules::set_module_loader(&q_rt);
         promises::init_promise_rejection_tracker(&q_rt);
 
+        q_rt.create_context("__main__")
+            .ok()
+            .expect("could not init main context");
+
         q_rt
     }
 
-    /// call a function by namespace and name
-    pub fn call_function(
-        &self,
-        namespace: Vec<&str>,
-        func_name: &str,
-        arguments: Vec<JSValueRef>,
-    ) -> Result<JSValueRef, EsError> {
-        let namespace_ref = objects::get_namespace(self, namespace, false)?;
-        functions::invoke_member_function(self, &namespace_ref, func_name, arguments)
+    pub fn get_main_context(&self) -> &QuickJsContext {
+        // todo store this somewhere so we don't need a lookup in the map every time
+        self.get_context("__main__")
     }
 
     /// run the garbage collector
     pub fn gc(&self) {
         gc(self);
-    }
-
-    /// evaluate a script
-    pub fn eval(&self, script: EsScript) -> Result<JSValueRef, EsError> {
-        let filename_c = make_cstring(script.get_path())?;
-        let code_c = make_cstring(script.get_code())?;
-
-        log::debug!("q_js_rt.eval file {}", script.get_path());
-
-        let value_raw = unsafe {
-            q::JS_Eval(
-                self.context,
-                code_c.as_ptr(),
-                script.get_code().len() as _,
-                filename_c.as_ptr(),
-                q::JS_EVAL_TYPE_GLOBAL as i32,
-            )
-        };
-
-        log::trace!("after eval, checking error");
-
-        // check for error
-        let ret = JSValueRef::new(
-            value_raw,
-            false,
-            true,
-            format!("eval result of {}", script.get_path()).as_str(),
-        );
-        if ret.is_exception() {
-            let ex_opt = self.get_exception();
-            if let Some(ex) = ex_opt {
-                Err(ex)
-            } else {
-                Err(EsError::new_str("eval failed and could not get exception"))
-            }
-        } else {
-            // this sucks (kills some async stuff and performance) but prevents stack overflows when doing stuff with promises which are not referenced after eval
-            // (pending jobs should be taken care of in separate job on event queue which is always added)
-            // i'm not quite sure why that happens yet
-            // p.s. same in eval_module
-
-            while self.has_pending_jobs() {
-                self.run_pending_job()?;
-            }
-
-            Ok(ret)
-        }
-    }
-
-    /// evaluate a Module
-    pub fn eval_module(&self, script: EsScript) -> Result<JSValueRef, EsError> {
-        log::debug!("q_js_rt.eval_module file {}", script.get_path());
-
-        let filename_c = make_cstring(script.get_path())?;
-        let code_c = make_cstring(script.get_code())?;
-
-        let value_raw = unsafe {
-            q::JS_Eval(
-                self.context,
-                code_c.as_ptr(),
-                script.get_code().len() as _,
-                filename_c.as_ptr(),
-                q::JS_EVAL_TYPE_MODULE as i32,
-            )
-        };
-
-        // check for error
-        let ret = JSValueRef::new(
-            value_raw,
-            false,
-            true,
-            format!("eval_module result of {}", script.get_path()).as_str(),
-        );
-
-        log::trace!("evalled module yielded a {}", ret.borrow_value().tag);
-
-        if ret.is_exception() {
-            let ex_opt = self.get_exception();
-            if let Some(ex) = ex_opt {
-                Err(ex)
-            } else {
-                Err(EsError::new_str(
-                    "eval_module failed and could not get exception",
-                ))
-            }
-        } else {
-            while self.has_pending_jobs() {
-                self.run_pending_job()?;
-            }
-            Ok(ret)
-        }
     }
 
     pub fn do_with<C, R>(task: C) -> R
@@ -199,19 +147,14 @@ impl QuickJsRuntime {
         })
     }
 
-    /// throw an internal error to quickjs and create a new ex obj
-    pub fn report_ex(&self, err: &str) -> q::JSValue {
-        let c_err = CString::new(err);
-        unsafe { q::JS_ThrowInternalError(self.context, c_err.as_ref().ok().unwrap().as_ptr()) };
-        q::JSValue {
-            u: q::JSValueUnion { int32: 0 },
-            tag: TAG_EXCEPTION,
-        }
-    }
-
-    /// Get the last exception from the runtime, and if present, convert it to a EsError.
-    pub fn get_exception(&self) -> Option<EsError> {
-        errors::get_exception(self)
+    pub fn do_with_mut<C, R>(task: C) -> R
+    where
+        C: FnOnce(&mut QuickJsRuntime) -> R,
+    {
+        QJS_RT.with(|qjs_rc| {
+            let qjs_rt = &mut *qjs_rc.borrow_mut();
+            task(qjs_rt)
+        })
     }
 
     pub fn has_pending_jobs(&self) -> bool {
@@ -220,41 +163,17 @@ impl QuickJsRuntime {
     }
 
     pub fn run_pending_job(&self) -> Result<(), EsError> {
+        let mut ctx: *mut q::JSContext = std::ptr::null_mut();
         let flag = unsafe {
-            let wrapper_mut = self as *const Self as *mut Self;
-            let ctx_mut = &mut (*wrapper_mut).context;
-            q::JS_ExecutePendingJob(self.runtime, ctx_mut)
+            // ctx is a return arg here
+            q::JS_ExecutePendingJob(self.runtime, &mut ctx)
         };
         if flag < 0 {
-            let e = self
-                .get_exception()
+            let e = QuickJsContext::get_exception(ctx)
                 .unwrap_or_else(|| EsError::new_str("Unknown exception while running pending job"));
             return Err(e);
         }
         Ok(())
-    }
-
-    pub fn cache_object(&self, obj: JSValueRef) -> i32 {
-        let cache_map = &mut *self.object_cache.borrow_mut();
-        let id = cache_map.insert(obj) as i32;
-        log::trace!("cache_object: id={}, thread={}", id, thread_id::get());
-        id
-    }
-
-    pub fn consume_cached_obj(&self, id: i32) -> JSValueRef {
-        log::trace!("consume_cached_obj: id={}, thread={}", id, thread_id::get());
-        let cache_map = &mut *self.object_cache.borrow_mut();
-        cache_map.remove(&(id as usize))
-    }
-
-    pub fn with_cached_obj<C, R>(&self, id: i32, consumer: C) -> R
-    where
-        C: FnOnce(&JSValueRef) -> R,
-    {
-        log::trace!("with_cached_obj: id={}, thread={}", id, thread_id::get());
-        let cache_map = &*self.object_cache.borrow();
-        let opt = cache_map.get(&(id as usize));
-        consumer(opt.expect("no such obj in cache"))
     }
 
     pub fn get_id(&self) -> &str {
@@ -264,14 +183,11 @@ impl QuickJsRuntime {
 
 impl Drop for QuickJsRuntime {
     fn drop(&mut self) {
-        log::trace!("before JS_FreeContext");
-        unsafe { q::JS_FreeContext(self.context) };
-
         log::trace!("before JS_FreeRuntime");
+
+        self.gc();
+
         unsafe { q::JS_FreeRuntime(self.runtime) };
-
-        log::error!("error while free runtime");
-
         log::trace!("after drop QuickJsRuntime");
     }
 }
@@ -298,7 +214,8 @@ pub mod tests {
         log::info!("> test_rt");
 
         let rt = QuickJsRuntime::new();
-        rt.eval(EsScript::new("test.es", "1+1;"))
+        rt.get_main_context()
+            .eval(EsScript::new("test.es", "1+1;"))
             .ok()
             .expect("could not eval");
 

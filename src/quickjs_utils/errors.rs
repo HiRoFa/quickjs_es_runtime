@@ -1,13 +1,13 @@
 use crate::eserror::EsError;
 use crate::quickjs_utils::{objects, primitives};
-use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use libquickjs_sys as q;
 
 /// Get the last exception from the runtime, and if present, convert it to an EsError.
-pub fn get_exception(q_js_rt: &QuickJsRuntime) -> Option<EsError> {
-    let exception_val = unsafe { q::JS_GetException(q_js_rt.context) };
-    let mut exception_ref = JSValueRef::new(exception_val, false, true, "errors::get_exception");
+pub fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
+    let exception_val = unsafe { q::JS_GetException(context) };
+    let mut exception_ref =
+        JSValueRef::new(context, exception_val, false, true, "errors::get_exception");
     exception_ref.label("get_exception value obj");
 
     if exception_ref.is_null() {
@@ -16,18 +16,18 @@ pub fn get_exception(q_js_rt: &QuickJsRuntime) -> Option<EsError> {
         let err = if exception_ref.is_exception() {
             EsError::new_str("Could not get exception from runtime")
         } else if exception_ref.is_object() {
-            let name_ref = objects::get_property(q_js_rt, &exception_ref, "name")
+            let name_ref = objects::get_property(context, &exception_ref, "name")
                 .ok()
                 .unwrap();
-            let name_string = primitives::to_string(q_js_rt, &name_ref).ok().unwrap();
-            let message_ref = objects::get_property(q_js_rt, &exception_ref, "message")
+            let name_string = primitives::to_string(context, &name_ref).ok().unwrap();
+            let message_ref = objects::get_property(context, &exception_ref, "message")
                 .ok()
                 .unwrap();
-            let message_string = primitives::to_string(q_js_rt, &message_ref).ok().unwrap();
-            let stack_ref = objects::get_property(q_js_rt, &exception_ref, "stack")
+            let message_string = primitives::to_string(context, &message_ref).ok().unwrap();
+            let stack_ref = objects::get_property(context, &exception_ref, "stack")
                 .ok()
                 .unwrap();
-            let stack_string = primitives::to_string(q_js_rt, &stack_ref).ok().unwrap();
+            let stack_string = primitives::to_string(context, &stack_ref).ok().unwrap();
 
             EsError::new(name_string, message_string, stack_string)
         } else {
@@ -38,46 +38,52 @@ pub fn get_exception(q_js_rt: &QuickJsRuntime) -> Option<EsError> {
 }
 
 pub fn new_error(
-    q_js_rt: &QuickJsRuntime,
+    context: *mut q::JSContext,
     name: &str,
     message: &str,
     stack: &str,
 ) -> Result<JSValueRef, EsError> {
-    let obj = unsafe { q::JS_NewError(q_js_rt.context) };
-    let obj_ref = JSValueRef::new(obj, false, true, format!("new_error {}", name).as_str());
+    let obj = unsafe { q::JS_NewError(context) };
+    let obj_ref = JSValueRef::new(
+        context,
+        obj,
+        false,
+        true,
+        format!("new_error {}", name).as_str(),
+    );
     objects::set_property(
-        q_js_rt,
+        context,
         &obj_ref,
         "message",
-        primitives::from_string(q_js_rt, message)?,
+        primitives::from_string(context, message)?,
     )?;
     objects::set_property(
-        q_js_rt,
+        context,
         &obj_ref,
         "name",
-        primitives::from_string(q_js_rt, name)?,
+        primitives::from_string(context, name)?,
     )?;
     objects::set_property(
-        q_js_rt,
+        context,
         &obj_ref,
         "stack",
-        primitives::from_string(q_js_rt, stack)?,
+        primitives::from_string(context, stack)?,
     )?;
     Ok(obj_ref)
 }
 
-pub fn is_error(q_js_rt: &QuickJsRuntime, obj_ref: &JSValueRef) -> bool {
+pub fn is_error(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
     if obj_ref.is_object() {
-        let res = unsafe { q::JS_IsError(q_js_rt.context, *obj_ref.borrow_value()) };
+        let res = unsafe { q::JS_IsError(context, *obj_ref.borrow_value()) };
         res != 0
     } else {
         false
     }
 }
 
-pub fn throw(q_js_rt: &QuickJsRuntime, error: JSValueRef) -> q::JSValue {
-    assert!(is_error(q_js_rt, &error));
-    unsafe { q::JS_Throw(q_js_rt.context, error.clone_value_incr_rc()) };
+pub fn throw(context: *mut q::JSContext, error: JSValueRef) -> q::JSValue {
+    assert!(is_error(context, &error));
+    unsafe { q::JS_Throw(context, error.clone_value_incr_rc()) };
     q::JSValue {
         u: q::JSValueUnion { int32: 0 },
         tag: TAG_EXCEPTION,
@@ -127,16 +133,21 @@ pub mod tests {
 
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
-            let func_ref = q_js_rt
+            let q_ctx = q_js_rt.get_main_context();
+            let func_ref = q_ctx
                 .eval(EsScript::new(
                     "test_ex2.es",
                     "(function t(){\nconsole.log('running f');\nthrow Error('poof');\n});",
                 ))
                 .ok()
                 .expect("script failed");
-            assert!(functions::is_function(q_js_rt, &func_ref));
-            let res =
-                functions::call_function(q_js_rt, &func_ref, vec![primitives::from_i32(12)], None);
+            assert!(functions::is_function(q_ctx.context, &func_ref));
+            let res = functions::call_function(
+                q_ctx.context,
+                &func_ref,
+                vec![primitives::from_i32(12)],
+                None,
+            );
             match res {
                 Ok(_) => {}
                 Err(e) => {

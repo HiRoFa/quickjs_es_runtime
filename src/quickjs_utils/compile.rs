@@ -1,6 +1,7 @@
 use crate::eserror::EsError;
 use crate::esscript::EsScript;
-use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
+use crate::quickjscontext::QuickJsContext;
+use crate::quickjsruntime::make_cstring;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 
@@ -14,16 +15,17 @@ use libquickjs_sys as q;
 /// use quickjs_es_runtime::quickjs_utils::compile::{compile, run_compiled_function};
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
-///     let func_res = compile(q_js_rt, EsScript::new("test_func.es", "let a = 7; let b = 5; a * b;"));
+///     let q_ctx = q_js_rt.get_main_context();
+///     let func_res = compile(q_ctx.context, EsScript::new("test_func.es", "let a = 7; let b = 5; a * b;"));
 ///     let func = func_res.ok().expect("func compile failed");
-///     let run_res = run_compiled_function(q_js_rt, &func);
+///     let run_res = run_compiled_function(q_ctx.context, &func);
 ///     let res = run_res.ok().expect("run_compiled_function failed");
 ///     let i_res = primitives::to_i32(&res);
 ///     let i = i_res.ok().expect("could not convert to i32");
 ///     assert_eq!(i, 7*5);
 /// });
 /// ```
-pub fn compile(q_js_rt: &QuickJsRuntime, script: EsScript) -> Result<JSValueRef, EsError> {
+pub fn compile(context: *mut q::JSContext, script: EsScript) -> Result<JSValueRef, EsError> {
     let filename_c = make_cstring(script.get_path())?;
     let code_c = make_cstring(script.get_code())?;
 
@@ -31,7 +33,7 @@ pub fn compile(q_js_rt: &QuickJsRuntime, script: EsScript) -> Result<JSValueRef,
 
     let value_raw = unsafe {
         q::JS_Eval(
-            q_js_rt.context,
+            context,
             code_c.as_ptr(),
             script.get_code().len() as _,
             filename_c.as_ptr(),
@@ -43,13 +45,14 @@ pub fn compile(q_js_rt: &QuickJsRuntime, script: EsScript) -> Result<JSValueRef,
 
     // check for error
     let ret = JSValueRef::new(
+        context,
         value_raw,
         true,
         true,
         format!("eval result of {}", script.get_path()).as_str(),
     );
     if ret.is_exception() {
-        let ex_opt = q_js_rt.get_exception();
+        let ex_opt = QuickJsContext::get_exception(context);
         if let Some(ex) = ex_opt {
             Err(ex)
         } else {
@@ -64,14 +67,14 @@ pub fn compile(q_js_rt: &QuickJsRuntime, script: EsScript) -> Result<JSValueRef,
 
 /// run a compiled function, see compile for an example
 pub fn run_compiled_function(
-    q_js_rt: &QuickJsRuntime,
+    context: *mut q::JSContext,
     compiled_func: &JSValueRef,
 ) -> Result<JSValueRef, EsError> {
     assert!(compiled_func.is_compiled_function());
-    let val = unsafe { q::JS_EvalFunction(q_js_rt.context, *compiled_func.borrow_value()) };
-    let val_ref = JSValueRef::new(val, false, true, "run_compiled_function result");
+    let val = unsafe { q::JS_EvalFunction(context, *compiled_func.borrow_value()) };
+    let val_ref = JSValueRef::new(context, val, false, true, "run_compiled_function result");
     if val_ref.is_exception() {
-        let ex_opt = q_js_rt.get_exception();
+        let ex_opt = QuickJsContext::get_exception(context);
         if let Some(ex) = ex_opt {
             Err(ex)
         } else {
@@ -93,21 +96,22 @@ pub fn run_compiled_function(
 /// use quickjs_es_runtime::quickjs_utils::compile::{compile, run_compiled_function, to_bytecode, from_bytecode};
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
-///     let func_res = compile(q_js_rt, EsScript::new("test_func.es", "let a = 7; let b = 5; a * b;"));
+///     let q_ctx = q_js_rt.get_main_context();
+///     let func_res = compile(q_ctx.context, EsScript::new("test_func.es", "let a = 7; let b = 5; a * b;"));
 ///     let func = func_res.ok().expect("func compile failed");
-///     let bytecode: Vec<u8> = to_bytecode(q_js_rt, &func);
+///     let bytecode: Vec<u8> = to_bytecode(q_ctx.context, &func);
 ///     drop(func);
 ///     assert!(!bytecode.is_empty());
-///     let func2_res = from_bytecode(q_js_rt, bytecode);
+///     let func2_res = from_bytecode(q_ctx.context, bytecode);
 ///     let func2 = func2_res.ok().expect("could not read bytecode");
-///     let run_res = run_compiled_function(q_js_rt, &func2);
+///     let run_res = run_compiled_function(q_ctx.context, &func2);
 ///     let res = run_res.ok().expect("run_compiled_function failed");
 ///     let i_res = primitives::to_i32(&res);
 ///     let i = i_res.ok().expect("could not convert to i32");
 ///     assert_eq!(i, 7*5);
 /// });
 /// ```
-pub fn to_bytecode(q_js_rt: &QuickJsRuntime, compiled_func: &JSValueRef) -> Vec<u8> {
+pub fn to_bytecode(context: *mut q::JSContext, compiled_func: &JSValueRef) -> Vec<u8> {
     assert!(compiled_func.is_compiled_function());
 
     #[cfg(target_pointer_width = "64")]
@@ -117,7 +121,7 @@ pub fn to_bytecode(q_js_rt: &QuickJsRuntime, compiled_func: &JSValueRef) -> Vec<
 
     let slice_u8 = unsafe {
         q::JS_WriteObject(
-            q_js_rt.context,
+            context,
             &mut len,
             *compiled_func.borrow_value(),
             q::JS_WRITE_OBJ_BYTECODE as i32,
@@ -130,7 +134,7 @@ pub fn to_bytecode(q_js_rt: &QuickJsRuntime, compiled_func: &JSValueRef) -> Vec<
 }
 
 /// read a compiled function from bytecode, see to_bytecode for an example
-pub fn from_bytecode(q_js_rt: &QuickJsRuntime, bytecode: Vec<u8>) -> Result<JSValueRef, EsError> {
+pub fn from_bytecode(context: *mut q::JSContext, bytecode: Vec<u8>) -> Result<JSValueRef, EsError> {
     assert!(!bytecode.is_empty());
     {
         #[cfg(target_pointer_width = "64")]
@@ -139,12 +143,11 @@ pub fn from_bytecode(q_js_rt: &QuickJsRuntime, bytecode: Vec<u8>) -> Result<JSVa
         let len = bytecode.len() as u32;
 
         let buf = bytecode.as_ptr();
-        let raw =
-            unsafe { q::JS_ReadObject(q_js_rt.context, buf, len, q::JS_READ_OBJ_BYTECODE as i32) };
+        let raw = unsafe { q::JS_ReadObject(context, buf, len, q::JS_READ_OBJ_BYTECODE as i32) };
 
-        let func_ref = JSValueRef::new(raw, true, true, "from_bytecode result");
+        let func_ref = JSValueRef::new(context, raw, true, true, "from_bytecode result");
         if func_ref.is_exception() {
-            let ex_opt = q_js_rt.get_exception();
+            let ex_opt = QuickJsContext::get_exception(context);
             if let Some(ex) = ex_opt {
                 Err(ex)
             } else {

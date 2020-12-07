@@ -1,6 +1,6 @@
 use crate::eserror::EsError;
 use crate::quickjs_utils;
-use crate::quickjsruntime::QuickJsRuntime;
+use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 use std::ffi::CString;
@@ -13,15 +13,22 @@ use std::ffi::CString;
 /// ```rust
 /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
 /// use quickjs_es_runtime::quickjs_utils::{json, objects, primitives};
+/// use quickjs_es_runtime::quickjs_utils::json::parse;
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
-///     let obj_ref = json::parse(q_js_rt, "{\"a\": 165}").ok().unwrap();
-///     let a_ref = objects::get_property(q_js_rt, &obj_ref, "a").ok().unwrap();
+///     let q_ctx = q_js_rt.get_main_context();
+///     let parse_res = json::parse(q_ctx.context, "{\"aaa\": 165}");
+///     if parse_res.is_err() {
+///         panic!("could not parse: {}", parse_res.err().unwrap());
+///     }
+///     let obj_ref = parse_res.ok().unwrap();
+///     let a_ref = objects::get_property(q_ctx.context, &obj_ref, "aaa").ok().unwrap();
 ///     let i = primitives::to_i32(&a_ref).ok().unwrap();
 ///     assert_eq!(165, i);
 /// });
+/// rt.gc_sync();
 /// ```
-pub fn parse(q_js_rt: &QuickJsRuntime, input: &str) -> Result<JSValueRef, EsError> {
+pub fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRef, EsError> {
     //pub fn JS_ParseJSON(
     //         ctx: *mut JSContext,
     //         buf: *const ::std::os::raw::c_char,
@@ -37,12 +44,12 @@ pub fn parse(q_js_rt: &QuickJsRuntime, input: &str) -> Result<JSValueRef, EsErro
     #[cfg(target_pointer_width = "32")]
     let len = input.len() as u32;
 
-    let val = unsafe { q::JS_ParseJSON(q_js_rt.context, s.as_ptr(), len, f_n.as_ptr()) };
+    let val = unsafe { q::JS_ParseJSON(context, s.as_ptr(), len, f_n.as_ptr()) };
 
-    let ret = JSValueRef::new(val, false, true, "json::parse result");
+    let ret = JSValueRef::new(context, val, false, true, "json::parse result");
 
     if ret.is_exception() {
-        if let Some(ex) = q_js_rt.get_exception() {
+        if let Some(ex) = QuickJsContext::get_exception(context) {
             Err(ex)
         } else {
             Err(EsError::new_str("unknown error while parsing json"))
@@ -59,15 +66,17 @@ pub fn parse(q_js_rt: &QuickJsRuntime, input: &str) -> Result<JSValueRef, EsErro
 /// use quickjs_es_runtime::quickjs_utils::{json, objects, primitives};
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
-///     let obj_ref = objects::create_object(q_js_rt).ok().unwrap();
-///     objects::set_property(q_js_rt, &obj_ref, "a", primitives::from_i32(741)).ok().unwrap();
-///     let str_ref = json::stringify(q_js_rt, &obj_ref, None).ok().unwrap();
-///     let str_str = primitives::to_string(q_js_rt, &str_ref).ok().unwrap();
+///     let q_ctx = q_js_rt.get_main_context();
+///     let obj_ref = objects::create_object(q_ctx.context).ok().unwrap();
+///     objects::set_property(q_ctx.context, &obj_ref, "a", primitives::from_i32(741)).ok().unwrap();
+///     let str_ref = json::stringify(q_ctx.context, &obj_ref, None).ok().unwrap();
+///     let str_str = primitives::to_string(q_ctx.context, &str_ref).ok().unwrap();
 ///     assert_eq!("{\"a\":741}", str_str);
 /// });
+/// rt.gc_sync();
 /// ```
 pub fn stringify(
-    q_js_rt: &QuickJsRuntime,
+    context: *mut q::JSContext,
     input: &JSValueRef,
     opt_space: Option<JSValueRef>,
 ) -> Result<JSValueRef, EsError> {
@@ -85,16 +94,16 @@ pub fn stringify(
 
     let val = unsafe {
         q::JS_JSONStringify(
-            q_js_rt.context,
+            context,
             *input.borrow_value(),
             quickjs_utils::new_null(),
             *space_ref.borrow_value(),
         )
     };
-    let ret = JSValueRef::new(val, false, true, "json::stringify result");
+    let ret = JSValueRef::new(context, val, false, true, "json::stringify result");
 
     if ret.is_exception() {
-        if let Some(ex) = q_js_rt.get_exception() {
+        if let Some(ex) = QuickJsContext::get_exception(context) {
             Err(ex)
         } else {
             Err(EsError::new_str("unknown error in json::stringify"))
@@ -114,33 +123,38 @@ pub mod tests {
     fn test_json() {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
-            let obj = objects::create_object(q_js_rt).ok().unwrap();
-            objects::set_property(q_js_rt, &obj, "a", primitives::from_i32(532))
+            let q_ctx = q_js_rt.get_main_context();
+            let obj = objects::create_object(q_ctx.context).ok().unwrap();
+            objects::set_property(q_ctx.context, &obj, "a", primitives::from_i32(532))
                 .ok()
                 .unwrap();
-            objects::set_property(q_js_rt, &obj, "b", primitives::from_bool(true))
+            objects::set_property(q_ctx.context, &obj, "b", primitives::from_bool(true))
                 .ok()
                 .unwrap();
             objects::set_property(
-                q_js_rt,
+                q_ctx.context,
                 &obj,
                 "c",
-                primitives::from_string(q_js_rt, "abc").ok().unwrap(),
+                primitives::from_string(q_ctx.context, "abc").ok().unwrap(),
             )
             .ok()
             .unwrap();
-            let str_res = json::stringify(q_js_rt, &obj, None).ok().unwrap();
+            let str_res = json::stringify(q_ctx.context, &obj, None).ok().unwrap();
             assert_eq!(str_res.get_ref_count(), 1);
-            let json = primitives::to_string(q_js_rt, &str_res).ok().unwrap();
+            let json = primitives::to_string(q_ctx.context, &str_res).ok().unwrap();
             assert_eq!(json.as_str(), "{\"a\":532,\"b\":true,\"c\":\"abc\"}");
 
-            let obj2 = json::parse(q_js_rt, json.as_str()).ok().unwrap();
+            let obj2 = json::parse(q_ctx.context, json.as_str()).ok().unwrap();
 
             assert_eq!(
                 532,
-                primitives::to_i32(&objects::get_property(q_js_rt, &obj2, "a").ok().unwrap())
-                    .ok()
-                    .unwrap()
+                primitives::to_i32(
+                    &objects::get_property(q_ctx.context, &obj2, "a")
+                        .ok()
+                        .unwrap()
+                )
+                .ok()
+                .unwrap()
             );
         });
     }

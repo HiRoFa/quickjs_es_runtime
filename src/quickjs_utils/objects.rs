@@ -1,29 +1,30 @@
 use crate::droppable_value::DroppableValue;
 use crate::eserror::EsError;
 use crate::quickjs_utils::{atoms, functions, get_constructor, get_global};
-use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
+use crate::quickjscontext::QuickJsContext;
+use crate::quickjsruntime::make_cstring;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 use std::collections::HashMap;
 
 pub fn get_namespace(
-    q_js_rt: &QuickJsRuntime,
+    context: *mut q::JSContext,
     namespace: Vec<&str>,
     create_if_absent: bool,
 ) -> Result<JSValueRef, EsError> {
     log::trace!("objects::get_namespace({})", namespace.join("."));
 
-    let mut obj = get_global(q_js_rt);
+    let mut obj = get_global(context);
     for p_name in namespace {
         log::trace!("objects::get_namespace -> {}", p_name);
-        let mut sub = get_property(q_js_rt, &obj, p_name)?;
+        let mut sub = get_property(context, &obj, p_name)?;
         if sub.is_null_or_undefined() {
             log::trace!("objects::get_namespace -> is null");
             if create_if_absent {
                 log::trace!("objects::get_namespace -> is null, creating");
                 // create
-                sub = create_object(q_js_rt)?;
-                set_property2(q_js_rt, &obj, p_name, sub.clone(), 0)?;
+                sub = create_object(context)?;
+                set_property2(context, &obj, p_name, sub.clone(), 0)?;
             } else {
                 log::trace!("objects::get_namespace -> is null -> err");
                 return Err(EsError::new_string(format!(
@@ -42,7 +43,7 @@ pub fn get_namespace(
 
 #[allow(dead_code)]
 pub fn construct_object(
-    _q_js_rt: &QuickJsRuntime,
+    _context: *mut q::JSContext,
     _constructor_ref: &JSValueRef,
 ) -> Result<JSValueRef, EsError> {
     /*
@@ -57,22 +58,22 @@ pub fn construct_object(
     unimplemented!();
 }
 
-pub fn create_object(q_js_rt: &QuickJsRuntime) -> Result<JSValueRef, EsError> {
-    let obj = unsafe { q::JS_NewObject(q_js_rt.context) };
-    let obj_ref = JSValueRef::new(obj, false, true, "objects::create_object");
+pub fn create_object(context: *mut q::JSContext) -> Result<JSValueRef, EsError> {
+    let obj = unsafe { q::JS_NewObject(context) };
+    let obj_ref = JSValueRef::new(context, obj, false, true, "objects::create_object");
     if obj_ref.is_exception() {
         return Err(EsError::new_str("Could not create object"));
     }
     Ok(obj_ref)
 }
 pub fn set_property(
-    q_js_rt: &QuickJsRuntime,
+    context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     prop_name: &str,
     prop_ref: JSValueRef,
 ) -> Result<(), EsError> {
     set_property2(
-        q_js_rt,
+        context,
         obj_ref,
         prop_name,
         prop_ref,
@@ -81,7 +82,7 @@ pub fn set_property(
 }
 
 pub fn set_property2(
-    q_js_rt: &QuickJsRuntime,
+    context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     prop_name: &str,
     prop_ref: JSValueRef,
@@ -108,7 +109,7 @@ pub fn set_property2(
 
     let ret = unsafe {
         q::JS_DefinePropertyValueStr(
-            q_js_rt.context,
+            context,
             *obj_ref.borrow_value(),
             ckey.as_ptr(),
             prop_ref.clone_value_incr_rc(),
@@ -125,7 +126,7 @@ pub fn set_property2(
 
 #[allow(dead_code)]
 pub fn define_getter_setter(
-    q_js_rt: &QuickJsRuntime,
+    context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     prop_name: &str,
     getter_func_ref: &JSValueRef,
@@ -144,18 +145,18 @@ pub fn define_getter_setter(
 
     log::trace!("objects::define_getter_setter 1");
 
-    assert!(functions::is_function(q_js_rt, &getter_func_ref));
+    assert!(functions::is_function(context, &getter_func_ref));
     log::trace!("objects::define_getter_setter 2");
-    assert!(functions::is_function(q_js_rt, &setter_func_ref));
+    assert!(functions::is_function(context, &setter_func_ref));
     log::trace!("objects::define_getter_setter 3");
 
-    let prop_atom = atoms::from_string(q_js_rt, prop_name)?;
+    let prop_atom = atoms::from_string(context, prop_name)?;
 
     log::trace!("objects::define_getter_setter 4");
 
     let res = unsafe {
         q::JS_DefinePropertyGetSet(
-            q_js_rt.context,
+            context,
             *obj_ref.borrow_value(),
             prop_atom.get_atom(),
             *getter_func_ref.borrow_value(),
@@ -167,7 +168,7 @@ pub fn define_getter_setter(
     log::trace!("objects::define_getter_setter 5 {}", res);
 
     if res != 0 {
-        if let Some(err) = q_js_rt.get_exception() {
+        if let Some(err) = QuickJsContext::get_exception(context) {
             Err(err)
         } else {
             Err(EsError::new_str(
@@ -180,7 +181,7 @@ pub fn define_getter_setter(
 }
 
 pub fn get_property(
-    q_js_rt: &QuickJsRuntime,
+    context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     prop_name: &str,
 ) -> Result<JSValueRef, EsError> {
@@ -194,14 +195,10 @@ pub fn get_property(
 
     log::trace!("objects::get_property {}", prop_name);
 
-    let prop_val = unsafe {
-        q::JS_GetPropertyStr(
-            q_js_rt.context,
-            *obj_ref.borrow_value(),
-            c_prop_name.as_ptr(),
-        )
-    };
+    let prop_val =
+        unsafe { q::JS_GetPropertyStr(context, *obj_ref.borrow_value(), c_prop_name.as_ptr()) };
     let prop_ref = JSValueRef::new(
+        context,
         prop_val,
         false,
         true,
@@ -213,7 +210,7 @@ pub fn get_property(
 
 #[allow(dead_code)]
 pub fn get_property_names(
-    q_js_rt: &QuickJsRuntime,
+    context: *mut q::JSContext,
     obj_ref: &JSValueRef,
 ) -> Result<Vec<String>, EsError> {
     let mut properties: *mut q::JSPropertyEnum = std::ptr::null_mut();
@@ -222,7 +219,7 @@ pub fn get_property_names(
     let flags = (q::JS_GPN_STRING_MASK | q::JS_GPN_SYMBOL_MASK | q::JS_GPN_ENUM_ONLY) as i32;
     let ret = unsafe {
         q::JS_GetOwnPropertyNames(
-            q_js_rt.context,
+            context,
             &mut properties,
             &mut count,
             *obj_ref.borrow_value(),
@@ -237,11 +234,11 @@ pub fn get_property_names(
         for index in 0..count {
             let prop = unsafe { properties.offset(index as isize) };
             unsafe {
-                q::JS_FreeAtom(q_js_rt.context, (*prop).atom);
+                q::JS_FreeAtom(context, (*prop).atom);
             }
         }
         unsafe {
-            q::js_free(q_js_rt.context, properties as *mut std::ffi::c_void);
+            q::js_free(context, properties as *mut std::ffi::c_void);
         }
     });
 
@@ -249,8 +246,9 @@ pub fn get_property_names(
     for index in 0..count {
         let prop = unsafe { (*properties).offset(index as isize) };
 
-        let key_value = unsafe { q::JS_AtomToString(q_js_rt.context, (*prop).atom) };
+        let key_value = unsafe { q::JS_AtomToString(context, (*prop).atom) };
         let key_ref = JSValueRef::new(
+            context,
             key_value,
             false,
             true,
@@ -260,14 +258,14 @@ pub fn get_property_names(
             return Err(EsError::new_str("Could not get object property name"));
         }
 
-        let key_str = crate::quickjs_utils::primitives::to_string(q_js_rt, &key_ref)?;
+        let key_str = crate::quickjs_utils::primitives::to_string(context, &key_ref)?;
         res.push(key_str);
     }
     Ok(res)
 }
 
 pub fn traverse_properties<V, R>(
-    q_js_rt: &QuickJsRuntime,
+    context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     visitor: V,
 ) -> Result<HashMap<String, R>, EsError>
@@ -280,7 +278,7 @@ where
     let flags = (q::JS_GPN_STRING_MASK | q::JS_GPN_SYMBOL_MASK | q::JS_GPN_ENUM_ONLY) as i32;
     let ret = unsafe {
         q::JS_GetOwnPropertyNames(
-            q_js_rt.context,
+            context,
             &mut properties,
             &mut count,
             *obj_ref.borrow_value(),
@@ -295,11 +293,11 @@ where
         for index in 0..count {
             let prop = unsafe { properties.offset(index as isize) };
             unsafe {
-                q::JS_FreeAtom(q_js_rt.context, (*prop).atom);
+                q::JS_FreeAtom(context, (*prop).atom);
             }
         }
         unsafe {
-            q::js_free(q_js_rt.context, properties as *mut std::ffi::c_void);
+            q::js_free(context, properties as *mut std::ffi::c_void);
         }
     });
 
@@ -309,7 +307,7 @@ where
         let prop = unsafe { (*properties).offset(index as isize) };
         let raw_value = unsafe {
             q::JS_GetPropertyInternal(
-                q_js_rt.context,
+                context,
                 *obj_ref.borrow_value(),
                 (*prop).atom,
                 *obj_ref.borrow_value(),
@@ -317,6 +315,7 @@ where
             )
         };
         let prop_val_ref = JSValueRef::new(
+            context,
             raw_value,
             false,
             true,
@@ -326,8 +325,9 @@ where
             return Err(EsError::new_str("Could not get object property"));
         }
 
-        let key_value = unsafe { q::JS_AtomToString(q_js_rt.context, (*prop).atom) };
+        let key_value = unsafe { q::JS_AtomToString(context, (*prop).atom) };
         let key_ref = JSValueRef::new(
+            context,
             key_value,
             false,
             true,
@@ -337,7 +337,7 @@ where
             return Err(EsError::new_str("Could not get object property name"));
         }
 
-        let key_str = crate::quickjs_utils::primitives::to_string(q_js_rt, &key_ref)?;
+        let key_str = crate::quickjs_utils::primitives::to_string(context, &key_ref)?;
         let r = visitor(key_str.as_str(), prop_val_ref)?;
 
         map.insert(key_str, r);
@@ -347,7 +347,7 @@ where
 }
 
 pub fn is_instance_of(
-    q_js_rt: &QuickJsRuntime,
+    context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     constructor_ref: JSValueRef,
 ) -> bool {
@@ -356,7 +356,7 @@ pub fn is_instance_of(
     }
     unsafe {
         q::JS_IsInstanceOf(
-            q_js_rt.context,
+            context,
             *obj_ref.borrow_value(),
             *constructor_ref.borrow_value(),
         ) > 0
@@ -364,7 +364,7 @@ pub fn is_instance_of(
 }
 
 pub fn is_instance_of_by_name(
-    q_js_rt: &QuickJsRuntime,
+    context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     constructor_name: &str,
 ) -> Result<bool, EsError> {
@@ -372,12 +372,12 @@ pub fn is_instance_of_by_name(
         return Ok(false);
     }
 
-    let constructor_ref = get_constructor(q_js_rt, constructor_name)?;
+    let constructor_ref = get_constructor(context, constructor_name)?;
     if !constructor_ref.is_object() {
         return Ok(false);
     }
 
-    Ok(is_instance_of(q_js_rt, obj_ref, constructor_ref))
+    Ok(is_instance_of(context, obj_ref, constructor_ref))
 }
 
 #[cfg(test)]
@@ -395,26 +395,28 @@ pub mod tests {
     fn test_get_refs() {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
-            let obj = create_object(q_js_rt).ok().expect("a");
-            let prop_ref = create_object(q_js_rt).ok().expect("b");
-            let prop2_ref = create_object(q_js_rt).ok().expect("c");
+            let q_ctx = q_js_rt.get_main_context();
+            let context = q_ctx.context;
+            let obj = create_object(context).ok().expect("a");
+            let prop_ref = create_object(context).ok().expect("b");
+            let prop2_ref = create_object(context).ok().expect("c");
             assert_eq!(obj.get_ref_count(), 1);
             assert_eq!(prop_ref.get_ref_count(), 1);
-            set_property(q_js_rt, &obj, "a", prop_ref.clone())
+            set_property(q_ctx.context, &obj, "a", prop_ref.clone())
                 .ok()
                 .expect("d");
             assert_eq!(prop_ref.get_ref_count(), 2);
-            set_property(q_js_rt, &obj, "b", prop_ref.clone())
+            set_property(q_ctx.context, &obj, "b", prop_ref.clone())
                 .ok()
                 .expect("e");
             assert_eq!(prop_ref.get_ref_count(), 3);
-            set_property(q_js_rt, &obj, "b", prop2_ref.clone())
+            set_property(q_ctx.context, &obj, "b", prop2_ref.clone())
                 .ok()
                 .expect("f");
             assert_eq!(prop_ref.get_ref_count(), 2);
             assert_eq!(prop2_ref.get_ref_count(), 2);
 
-            let p3 = get_property(q_js_rt, &obj, "b").ok().expect("g");
+            let p3 = get_property(q_ctx.context, &obj, "b").ok().expect("g");
             assert_eq!(p3.get_ref_count(), 3);
             assert_eq!(prop2_ref.get_ref_count(), 3);
 
@@ -433,22 +435,26 @@ pub mod tests {
 
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
-            let obj_a = create_object(q_js_rt).ok().unwrap();
-            let obj_b = create_object(q_js_rt).ok().unwrap();
-            set_property(q_js_rt, &obj_a, "b", obj_b).ok().unwrap();
+            let q_ctx = q_js_rt.get_main_context();
 
-            let b1 = get_property(q_js_rt, &obj_a, "b").ok().unwrap();
-            set_property(q_js_rt, &b1, "i", primitives::from_i32(123))
+            let obj_a = create_object(q_ctx.context).ok().unwrap();
+            let obj_b = create_object(q_ctx.context).ok().unwrap();
+            set_property(q_ctx.context, &obj_a, "b", obj_b)
+                .ok()
+                .unwrap();
+
+            let b1 = get_property(q_ctx.context, &obj_a, "b").ok().unwrap();
+            set_property(q_ctx.context, &b1, "i", primitives::from_i32(123))
                 .ok()
                 .unwrap();
             drop(b1);
             q_js_rt.gc();
-            let b2 = get_property(q_js_rt, &obj_a, "b").ok().unwrap();
-            let i_ref = get_property(q_js_rt, &b2, "i").ok().unwrap();
+            let b2 = get_property(q_ctx.context, &obj_a, "b").ok().unwrap();
+            let i_ref = get_property(q_ctx.context, &b2, "i").ok().unwrap();
             let i = to_i32(&i_ref).ok().unwrap();
             drop(i_ref);
             q_js_rt.gc();
-            let i_ref2 = get_property(q_js_rt, &b2, "i").ok().unwrap();
+            let i_ref2 = get_property(q_ctx.context, &b2, "i").ok().unwrap();
             let i2 = to_i32(&i_ref2).ok().unwrap();
 
             assert_eq!(i, 123);
@@ -464,11 +470,13 @@ pub mod tests {
 
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
-            let obj_ref = q_js_rt
+            let q_ctx = q_js_rt.get_main_context();
+
+            let obj_ref = q_ctx
                 .eval(EsScript::new("test_propnames.es", "({one: 1, two: 2});"))
                 .ok()
                 .expect("could not get test obj");
-            let prop_names = get_property_names(q_js_rt, &obj_ref)
+            let prop_names = get_property_names(q_ctx.context, &obj_ref)
                 .ok()
                 .expect("could not get prop names");
 
@@ -489,22 +497,24 @@ pub mod tests {
 
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
-            let obj_ref = create_object(q_js_rt).ok().unwrap();
+            let q_ctx = q_js_rt.get_main_context();
+
+            let obj_ref = create_object(q_ctx.context).ok().unwrap();
 
             assert_eq!(obj_ref.get_ref_count(), 1);
 
-            let global_ref = get_global(q_js_rt);
-            set_property(q_js_rt, &global_ref, "test_obj", obj_ref.clone())
+            let global_ref = get_global(q_ctx.context);
+            set_property(q_ctx.context, &global_ref, "test_obj", obj_ref.clone())
                 .ok()
                 .expect("could not set property 1");
 
             assert_eq!(obj_ref.get_ref_count(), 2);
 
             let prop_ref = from_i32(123);
-            let obj_ref = get_property(q_js_rt, &global_ref, "test_obj")
+            let obj_ref = get_property(q_ctx.context, &global_ref, "test_obj")
                 .ok()
                 .expect("could not get test_obj");
-            set_property(q_js_rt, &obj_ref, "test_prop", prop_ref)
+            set_property(q_ctx.context, &obj_ref, "test_prop", prop_ref)
                 .ok()
                 .expect("could not set property 2");
 
@@ -512,13 +522,13 @@ pub mod tests {
 
             q_js_rt.gc();
 
-            let a = q_js_rt
+            let a = q_ctx
                 .eval(EsScript::new("test_set_prop.es", "(test_obj);"))
                 .ok()
                 .unwrap()
                 .is_object();
             assert!(a);
-            let b = q_js_rt
+            let b = q_ctx
                 .eval(EsScript::new("test_set_prop.es", "(test_obj.test_prop);"))
                 .ok()
                 .unwrap()

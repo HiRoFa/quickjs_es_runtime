@@ -11,5 +11,7 @@ pub mod esscript;
 pub mod esvalue;
 pub mod features;
 pub mod quickjs_utils;
+pub mod quickjscontext;
 pub mod quickjsruntime;
+pub mod reflection;
 pub mod valueref;

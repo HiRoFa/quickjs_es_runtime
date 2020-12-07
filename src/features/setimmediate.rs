@@ -18,39 +18,53 @@ use libquickjs_sys as q;
 pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
     log::trace!("setimmediate::init");
 
-    let set_immediate_func =
-        functions::new_native_function(q_js_rt, "setImmediate", Some(set_immediate), 1, false)?;
+    q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| {
+        let set_immediate_func = functions::new_native_function(
+            q_ctx.context,
+            "setImmediate",
+            Some(set_immediate),
+            1,
+            false,
+        )?;
 
-    let global = get_global(q_js_rt);
+        let global = get_global(q_ctx.context);
 
-    objects::set_property2(q_js_rt, &global, "setImmediate", set_immediate_func, 0)?;
-
+        objects::set_property2(
+            q_ctx.context,
+            &global,
+            "setImmediate",
+            set_immediate_func,
+            0,
+        )?;
+        Ok(())
+    })?;
     Ok(())
 }
 
 unsafe extern "C" fn set_immediate(
-    _ctx: *mut q::JSContext,
+    context: *mut q::JSContext,
     _this_val: q::JSValue,
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
     log::trace!("> set_immediate");
 
-    let mut args = parse_args(argc, argv);
+    let mut args = parse_args(context, argc, argv);
 
     QuickJsRuntime::do_with(move |q_js_rt| {
+        let q_ctx = q_js_rt.get_quickjs_context(context);
         if args.is_empty() {
-            return q_js_rt.report_ex("setImmediate requires at least one argument");
+            return q_ctx.report_ex("setImmediate requires at least one argument");
         }
-        if !functions::is_function(q_js_rt, &args[0]) {
-            return q_js_rt.report_ex("setImmediate requires a functions as first arg");
+        if !functions::is_function(context, &args[0]) {
+            return q_ctx.report_ex("setImmediate requires a functions as first arg");
         }
 
         if let Some(rt) = q_js_rt.get_rt_ref() {
-            rt.inner.add_to_event_queue_from_worker(move |q_js_rt| {
+            rt.inner.add_to_event_queue_from_worker(move |_q_js_rt| {
                 let func = args.remove(0);
 
-                match functions::call_function(q_js_rt, &func, args, None) {
+                match functions::call_function(context, &func, args, None) {
                     Ok(_) => {}
                     Err(e) => {
                         log::error!("setImmediate failed: {}", e);

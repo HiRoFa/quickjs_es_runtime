@@ -62,6 +62,17 @@ impl EsRuntimeInner {
         self._add_job_run_task();
         res
     }
+    pub fn add_to_event_queue_mut_sync<C, R>(&self, consumer: C) -> R
+    where
+        C: FnOnce(&mut QuickJsRuntime) -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        let res = self
+            .event_queue
+            .exe_task(|| QuickJsRuntime::do_with_mut(consumer));
+        self._add_job_run_task();
+        res
+    }
 
     fn _add_job_run_task(&self) {
         log::trace!("EsRuntime._add_job_run_task!");
@@ -160,8 +171,9 @@ impl EsRuntime {
 
     /// Evaluate a script asynchronously
     pub fn eval(&self, script: EsScript) {
-        self.add_to_event_queue(|qjs_rt| {
-            let res = qjs_rt.eval(script);
+        self.add_to_event_queue(|q_js_rt| {
+            let q_ctx = q_js_rt.get_main_context();
+            let res = q_ctx.eval(script);
             match res {
                 Ok(_) => {}
                 Err(e) => log::error!("error in async eval {}", e),
@@ -180,10 +192,11 @@ impl EsRuntime {
     /// assert_eq!(res.get_i32(), 27);
     /// ```
     pub fn eval_sync(&self, script: EsScript) -> Result<EsValueFacade, EsError> {
-        self.add_to_event_queue_sync(move |qjs_rt| {
-            let res = qjs_rt.eval(script);
+        self.add_to_event_queue_sync(move |q_js_rt| {
+            let q_ctx = q_js_rt.get_main_context();
+            let res = q_ctx.eval(script);
             match res {
-                Ok(val_ref) => EsValueFacade::from_jsval(qjs_rt, &val_ref),
+                Ok(val_ref) => EsValueFacade::from_jsval(q_ctx, &val_ref),
                 Err(e) => Err(e),
             }
         })
@@ -219,18 +232,15 @@ impl EsRuntime {
     ) -> Result<EsValueFacade, EsError> {
         let func_name_string = func_name.to_string();
         self.add_to_event_queue_sync(move |q_js_rt| {
+            let q_ctx = q_js_rt.get_main_context();
             let q_args = arguments
                 .iter_mut()
-                .map(|arg| {
-                    arg.to_js_value(q_js_rt)
-                        .ok()
-                        .expect("arg conversion failed")
-                })
+                .map(|arg| arg.to_js_value(q_ctx).ok().expect("arg conversion failed"))
                 .collect::<Vec<_>>();
 
-            let res = q_js_rt.call_function(namespace, func_name_string.as_str(), q_args);
+            let res = q_ctx.call_function(namespace, func_name_string.as_str(), q_args);
             match res {
-                Ok(val_ref) => EsValueFacade::from_jsval(q_js_rt, &val_ref),
+                Ok(val_ref) => EsValueFacade::from_jsval(q_ctx, &val_ref),
                 Err(e) => Err(e),
             }
         })
@@ -260,16 +270,13 @@ impl EsRuntime {
         let func_name_string = func_name.to_string();
 
         self.add_to_event_queue(move |q_js_rt| {
+            let q_ctx = q_js_rt.get_main_context();
             let q_args = arguments
                 .iter_mut()
-                .map(|arg| {
-                    arg.to_js_value(q_js_rt)
-                        .ok()
-                        .expect("arg conversion failed")
-                })
+                .map(|arg| arg.to_js_value(q_ctx).ok().expect("arg conversion failed"))
                 .collect::<Vec<_>>();
 
-            let res = q_js_rt.call_function(namespace, func_name_string.as_str(), q_args);
+            let res = q_ctx.call_function(namespace, func_name_string.as_str(), q_args);
             match res {
                 Ok(_val_ref) => log::trace!("call_function async job completed"),
                 Err(e) => (log::error!("call_function async job failed: {}", e)),
@@ -291,7 +298,7 @@ impl EsRuntime {
     /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
     /// use quickjs_es_runtime::esscript::EsScript;
     /// use quickjs_es_runtime::esvalue::EsValueConvertible;
-    /// let rt = EsRuntimeBuilder::new().module_script_loader(|relative_file_path, name| {
+    /// let rt = EsRuntimeBuilder::new().module_script_loader(|q_ctx, relative_file_path, name| {
     ///     // here you should analyze the relative_file_path, this is the absolute path of the script which contains the import statement
     ///     // if this is e.g. '/opt/files/my_module.mes' and the name is 'other_module.mes' then you should return
     ///     // EsScript object with '/opt/files/other_module.mes' as absolute path
@@ -304,8 +311,9 @@ impl EsRuntime {
     /// rt.eval_module(script);
     /// ```
     pub fn eval_module(&self, script: EsScript) {
-        self.add_to_event_queue(|qjs_rt| {
-            let res = qjs_rt.eval_module(script);
+        self.add_to_event_queue(|q_js_rt| {
+            let q_ctx = q_js_rt.get_main_context();
+            let res = q_ctx.eval_module(script);
             match res {
                 Ok(_) => {}
                 Err(e) => log::error!("error in async eval {}", e),
@@ -315,10 +323,11 @@ impl EsRuntime {
 
     /// evaluate a module and return result synchronously
     pub fn eval_module_sync(&self, script: EsScript) -> Result<EsValueFacade, EsError> {
-        self.add_to_event_queue_sync(move |qjs_rt| {
-            let res = qjs_rt.eval_module(script);
+        self.add_to_event_queue_sync(move |q_js_rt| {
+            let q_ctx = q_js_rt.get_main_context();
+            let res = q_ctx.eval_module(script);
             match res {
-                Ok(val_ref) => EsValueFacade::from_jsval(qjs_rt, &val_ref),
+                Ok(val_ref) => EsValueFacade::from_jsval(q_ctx, &val_ref),
                 Err(e) => Err(e),
             }
         })
@@ -351,8 +360,9 @@ impl EsRuntime {
     /// use quickjs_es_runtime::quickjs_utils::primitives;
     /// let rt = EsRuntimeBuilder::new().build();
     /// let res = rt.add_to_event_queue_sync(|q_js_rt| {
+    ///     let q_ctx = q_js_rt.get_main_context();
     ///     // here you are in the worker thread and you can use the quickjs_utils
-    ///     let val_ref = q_js_rt.eval(EsScript::new("test.es", "(11 * 6);")).ok().expect("script failed");
+    ///     let val_ref = q_ctx.eval(EsScript::new("test.es", "(11 * 6);")).ok().expect("script failed");
     ///     primitives::to_i32(&val_ref).ok().expect("could not get i32")
     /// });
     /// assert_eq!(res, 66);
@@ -363,6 +373,14 @@ impl EsRuntime {
         R: Send + 'static,
     {
         self.inner.add_to_event_queue_sync(consumer)
+    }
+
+    pub fn add_to_event_queue_mut_sync<C, R>(&self, consumer: C) -> R
+    where
+        C: FnOnce(&mut QuickJsRuntime) -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        self.inner.add_to_event_queue_mut_sync(consumer)
     }
 
     /// this adds a rust function to JavaScript
@@ -392,22 +410,24 @@ impl EsRuntime {
     {
         let name = name.to_string();
         self.add_to_event_queue_sync(move |q_js_rt| {
-            let ns = objects::get_namespace(q_js_rt, namespace, true)?;
+            let q_ctx = q_js_rt.get_main_context();
+            let ns = objects::get_namespace(q_ctx.context, namespace, true)?;
             let func = functions::new_function(
-                q_js_rt,
+                q_ctx.context,
                 name.as_str(),
                 move |_this_ref, args| {
                     QuickJsRuntime::do_with(|q_js_rt| {
+                        let q_ctx = q_js_rt.get_main_context();
                         let mut args_facades = vec![];
 
                         for arg_ref in args {
-                            args_facades.push(EsValueFacade::from_jsval(q_js_rt, &arg_ref)?);
+                            args_facades.push(EsValueFacade::from_jsval(q_ctx, &arg_ref)?);
                         }
 
                         let res = function(args_facades);
 
                         match res {
-                            Ok(mut val_esvf) => val_esvf.to_js_value(q_js_rt),
+                            Ok(mut val_esvf) => val_esvf.to_js_value(q_ctx),
                             Err(e) => Err(e),
                         }
                     })
@@ -415,7 +435,7 @@ impl EsRuntime {
                 1,
             )?;
 
-            objects::set_property2(q_js_rt, &ns, name.as_str(), func, 0)?;
+            objects::set_property2(q_ctx.context, &ns, name.as_str(), func, 0)?;
 
             Ok(())
         })
@@ -455,7 +475,7 @@ pub mod tests {
         EsRuntime::builder()
             .gc_interval(Duration::from_secs(1))
             .max_stack_size(1024*16)
-            .module_script_loader(|_rel, name| {
+            .module_script_loader(|_q_ctx, _rel, name| {
                 if name.eq("notfound.mes") {
                     None
                 } else if name.eq("invalid.mes") {

@@ -3,7 +3,7 @@ use crate::esruntime::EsRuntime;
 use crate::quickjs_utils::primitives;
 use crate::quickjs_utils::promises::new_promise;
 use crate::quickjs_utils::promises::PromiseRef;
-use crate::quickjsruntime::QuickJsRuntime;
+use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
 use hirofa_utils::auto_id_map::AutoIdMap;
 use std::cell::RefCell;
@@ -27,15 +27,16 @@ thread_local! {
 /// let rt = EsRuntimeBuilder::new().build();
 /// let rt_ref = rt.clone();
 /// rt.add_to_event_queue_sync(move |q_js_rt| {
-///
+///     let q_ctx = q_js_rt.get_main_context();
 ///      // create rust function, please note that using new_native_function_data will be the faster option
-///      let func_ref = functions::new_function(q_js_rt, "asyncTest", move |_this_ref, _args| {
+///      let func_ref = functions::new_function(q_ctx.context, "asyncTest", move |_this_ref, _args| {
 ///           let rt_ref = rt_ref.clone();
 ///           QuickJsRuntime::do_with(move |q_js_rt| {
-///               let prom = promises::new_resolving_promise(q_js_rt, ||{
+///               let q_ctx = q_js_rt.get_main_context();
+///               let prom = promises::new_resolving_promise(q_ctx, ||{
 ///                   std::thread::sleep(Duration::from_secs(1));
 ///                   Ok(135)
-///               }, |res|{
+///               }, |_ctx, res|{
 ///                   Ok(primitives::from_i32(res))
 ///               }, &rt_ref);
 ///               prom
@@ -43,8 +44,8 @@ thread_local! {
 ///      }, 1).ok().expect("could not create func");
 ///
 ///      // add func to global scope
-///      let global_ref = quickjs_utils::get_global(q_js_rt);
-///      objects::set_property(q_js_rt, &global_ref, "asyncTest", func_ref).ok()
+///      let global_ref = quickjs_utils::get_global(q_ctx.context);
+///      objects::set_property(q_ctx.context, &global_ref, "asyncTest", func_ref).ok()
 ///             .expect("could not set prop");;
 ///            
 /// });
@@ -61,7 +62,7 @@ thread_local! {
 /// std::thread::sleep(Duration::from_secs(2));
 /// ```
 pub fn new_resolving_promise<P, R, M>(
-    q_js_rt: &QuickJsRuntime,
+    q_ctx: &QuickJsContext,
     producer: P,
     mapper: M,
     es_rt: &EsRuntime,
@@ -69,10 +70,10 @@ pub fn new_resolving_promise<P, R, M>(
 where
     R: Send + 'static,
     P: FnOnce() -> Result<R, String> + Send + 'static,
-    M: FnOnce(R) -> Result<JSValueRef, EsError> + Send + 'static,
+    M: FnOnce(&QuickJsContext, R) -> Result<JSValueRef, EsError> + Send + 'static,
 {
     // create promise
-    let promise_ref = new_promise(q_js_rt)?;
+    let promise_ref = new_promise(q_ctx.context)?;
     let return_ref = promise_ref.get_promise_obj_ref();
 
     // add to map and keep id
@@ -83,11 +84,13 @@ where
 
     let rti_ref = es_rt.inner.clone();
 
+    let ctx_id = q_ctx.id.clone();
     // go async
     EsRuntime::add_helper_task(move || {
         // in helper thread, produce result
         let produced_result = producer();
         rti_ref.add_to_event_queue(move |q_js_rt| {
+            let q_ctx = q_js_rt.get_context(ctx_id.as_str());
             // in q_js_rt worker thread, resolve promise
             // retrieve promise
             let prom_ref = RESOLVING_PROMISES.with(|map_rc| {
@@ -98,23 +101,23 @@ where
             match produced_result {
                 Ok(ok_res) => {
                     // map result to JSValueRef
-                    let raw_res = mapper(ok_res);
+                    let raw_res = mapper(q_ctx, ok_res);
 
                     // resolve or reject promise
                     match raw_res {
                         Ok(val_ref) => {
                             prom_ref
-                                .resolve(q_js_rt, val_ref)
+                                .resolve(q_ctx.context, val_ref)
                                 .ok()
                                 .expect("prom resolution failed");
                         }
                         Err(err) => {
                             // todo use error:new_error(err.get_message)
-                            let err_ref = primitives::from_string(q_js_rt, err.get_message())
+                            let err_ref = primitives::from_string(q_ctx.context, err.get_message())
                                 .ok()
                                 .expect("could not create str");
                             prom_ref
-                                .reject(q_js_rt, err_ref)
+                                .reject(q_ctx.context, err_ref)
                                 .ok()
                                 .expect("prom rejection failed");
                         }
@@ -122,11 +125,11 @@ where
                 }
                 Err(err) => {
                     // todo use error:new_error(err)
-                    let err_ref = primitives::from_string(q_js_rt, err.as_str())
+                    let err_ref = primitives::from_string(q_ctx.context, err.as_str())
                         .ok()
                         .expect("could not create str");
                     prom_ref
-                        .reject(q_js_rt, err_ref)
+                        .reject(q_ctx.context, err_ref)
                         .ok()
                         .expect("prom rejection failed");
                 }
@@ -156,19 +159,21 @@ pub mod tests {
         let rt_ref = rt.clone();
         rt.add_to_event_queue_sync(move |q_js_rt| {
             // create rust function, please note that using new_native_function_data will be the faster option
+            let q_ctx = q_js_rt.get_main_context();
             let func_ref = functions::new_function(
-                q_js_rt,
+                q_ctx.context,
                 "asyncTest",
                 move |_this_ref, _args| {
                     let rt_ref = rt_ref.clone();
                     QuickJsRuntime::do_with(move |q_js_rt| {
+                        let q_ctx = q_js_rt.get_main_context();
                         let prom = promises::new_resolving_promise(
-                            q_js_rt,
+                            q_ctx,
                             || {
                                 std::thread::sleep(Duration::from_secs(1));
                                 Ok(135)
                             },
-                            |res| Ok(primitives::from_i32(res)),
+                            |_q_ctx, res| Ok(primitives::from_i32(res)),
                             &rt_ref,
                         );
                         prom
@@ -182,9 +187,9 @@ pub mod tests {
             assert_eq!(1, func_ref.get_ref_count());
 
             // add func to global scope
-            let global_ref = quickjs_utils::get_global(q_js_rt);
+            let global_ref = quickjs_utils::get_global(q_ctx.context);
             let i = global_ref.get_ref_count();
-            objects::set_property(q_js_rt, &global_ref, "asyncTest", func_ref.clone())
+            objects::set_property(q_ctx.context, &global_ref, "asyncTest", func_ref.clone())
                 .ok()
                 .expect("could not set prop");
             assert_eq!(i, global_ref.get_ref_count());
