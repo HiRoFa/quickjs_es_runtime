@@ -67,7 +67,7 @@ pub fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Result<u3
 ///     arrays::set_element(q_ctx.context, &arr_ref, 0, val0);
 ///     arrays::set_element(q_ctx.context, &arr_ref, 1, val1);
 ///     // call the function
-///     let result_ref = functions::invoke_member_function(q_ctx.context, &quickjs_utils::get_global(q_ctx.context), "create_array_func", vec![arr_ref]).ok().expect("could not invoke function");
+///     let result_ref = functions::invoke_member_function(q_ctx.context, &quickjs_utils::get_global_q(q_ctx), "create_array_func", vec![arr_ref]).ok().expect("could not invoke function");
 ///     let len = primitives::to_i32(&result_ref).ok().unwrap();
 ///     assert_eq!(len, 2);
 /// });

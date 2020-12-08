@@ -44,7 +44,7 @@ thread_local! {
 ///      }, 1).ok().expect("could not create func");
 ///
 ///      // add func to global scope
-///      let global_ref = quickjs_utils::get_global(q_ctx.context);
+///      let global_ref = quickjs_utils::get_global_q(q_ctx);
 ///      objects::set_property(q_ctx.context, &global_ref, "asyncTest", &func_ref).ok()
 ///             .expect("could not set prop");;
 ///            
