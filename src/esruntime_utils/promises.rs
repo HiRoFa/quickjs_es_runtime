@@ -187,7 +187,7 @@ pub mod tests {
             assert_eq!(1, func_ref.get_ref_count());
 
             // add func to global scope
-            let global_ref = quickjs_utils::get_global(q_ctx.context);
+            let global_ref = quickjs_utils::get_global_q(q_ctx);
             let i = global_ref.get_ref_count();
             objects::set_property(q_ctx.context, &global_ref, "asyncTest", &func_ref)
                 .ok()

@@ -64,7 +64,7 @@ impl QuickJsContext {
         func_name: &str,
         arguments: Vec<JSValueRef>,
     ) -> Result<JSValueRef, EsError> {
-        let namespace_ref = objects::get_namespace(self.context, namespace, false)?;
+        let namespace_ref = unsafe { objects::get_namespace(self.context, namespace, false) }?;
         functions::invoke_member_function(self.context, &namespace_ref, func_name, arguments)
     }
     /// evaluate a script
@@ -254,7 +254,7 @@ pub mod tests {
     use crate::esruntimebuilder::EsRuntimeBuilder;
     use crate::esscript::EsScript;
     use crate::quickjs_utils;
-    use crate::quickjs_utils::{functions, get_global, objects};
+    use crate::quickjs_utils::{functions, get_global_q, objects};
 
     #[test]
     fn test_multi_ctx() {
@@ -311,7 +311,7 @@ pub mod tests {
             )
             .ok()
             .unwrap();
-            let global = get_global(c_ctx.context);
+            let global = get_global_q(c_ctx);
             objects::set_property(c_ctx.context, &global, "test_func", &func)
                 .ok()
                 .expect("could not set prop");

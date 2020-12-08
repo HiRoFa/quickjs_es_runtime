@@ -49,7 +49,7 @@ pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
             false,
         )?;
 
-        let global = get_global(q_ctx.context);
+        let global = unsafe { get_global(q_ctx.context) };
 
         objects::set_property2(q_ctx.context, &global, "setTimeout", &set_timeout_func, 0)?;
         objects::set_property2(q_ctx.context, &global, "setInterval", &set_interval_func, 0)?;

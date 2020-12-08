@@ -16,6 +16,7 @@ pub mod typedarrays;
 
 use crate::eserror::EsError;
 use crate::quickjs_utils::objects::get_property;
+use crate::quickjscontext::QuickJsContext;
 use crate::valueref::{JSValueRef, TAG_NULL, TAG_UNDEFINED};
 use libquickjs_sys as q;
 
@@ -51,12 +52,16 @@ pub fn new_null_ref() -> JSValueRef {
     JSValueRef::new_no_context(new_null(), "new_null_ref")
 }
 
-pub fn get_global(context: *mut q::JSContext) -> JSValueRef {
-    let global = unsafe { q::JS_GetGlobalObject(context) };
+pub fn get_global_q(context: &QuickJsContext) -> JSValueRef {
+    unsafe { get_global(context.context) }
+}
+
+pub unsafe fn get_global(context: *mut q::JSContext) -> JSValueRef {
+    let global = q::JS_GetGlobalObject(context);
     JSValueRef::new(context, global, false, true, "global")
 }
 
-pub fn get_constructor(
+pub unsafe fn get_constructor(
     context: *mut q::JSContext,
     constructor_name: &str,
 ) -> Result<JSValueRef, EsError> {
@@ -84,7 +89,7 @@ pub unsafe fn parse_args(
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::EsRuntime;
-    use crate::quickjs_utils::get_global;
+    use crate::quickjs_utils::get_global_q;
     use std::sync::Arc;
 
     #[test]
@@ -92,10 +97,10 @@ pub mod tests {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         let _io = rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
-            let context = q_ctx.context;
-            let ct = get_global(context).get_ref_count();
+
+            let ct = get_global_q(q_ctx).get_ref_count();
             for _ in 0..5 {
-                let global = get_global(context);
+                let global = get_global_q(q_ctx);
                 assert_eq!(global.get_ref_count(), ct);
             }
         });

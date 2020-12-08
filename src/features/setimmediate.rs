@@ -1,6 +1,6 @@
 use crate::eserror::EsError;
 use crate::quickjs_utils;
-use crate::quickjs_utils::{functions, get_global, objects, parse_args};
+use crate::quickjs_utils::{functions, get_global_q, objects, parse_args};
 use crate::quickjsruntime::QuickJsRuntime;
 use libquickjs_sys as q;
 
@@ -27,7 +27,7 @@ pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
             false,
         )?;
 
-        let global = get_global(q_ctx.context);
+        let global = get_global_q(q_ctx);
 
         objects::set_property2(
             q_ctx.context,

@@ -170,8 +170,8 @@ pub mod tests {
     };
     use crate::quickjs_utils::primitives;
 
-    #[test]
-    fn test_compile() {
+    //#[test]
+    fn _test_compile() {
         let rt = EsRuntimeBuilder::new().build();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
@@ -193,8 +193,8 @@ pub mod tests {
         });
     }
 
-    #[test]
-    fn test_bytecode() {
+    //#[test]
+    fn _test_bytecode() {
         let rt = EsRuntimeBuilder::new().build();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();

@@ -247,7 +247,7 @@ impl EsRuntime {
             let q_ctx = q_js_rt.get_main_context();
             let q_args = arguments
                 .iter_mut()
-                .map(|arg| arg.to_js_value(q_ctx).ok().expect("arg conversion failed"))
+                .map(|arg| arg.as_js_value(q_ctx).ok().expect("arg conversion failed"))
                 .collect::<Vec<_>>();
 
             let res = q_ctx.call_function(namespace, func_name_string.as_str(), q_args);
@@ -285,7 +285,7 @@ impl EsRuntime {
             let q_ctx = q_js_rt.get_main_context();
             let q_args = arguments
                 .iter_mut()
-                .map(|arg| arg.to_js_value(q_ctx).ok().expect("arg conversion failed"))
+                .map(|arg| arg.as_js_value(q_ctx).ok().expect("arg conversion failed"))
                 .collect::<Vec<_>>();
 
             let res = q_ctx.call_function(namespace, func_name_string.as_str(), q_args);
@@ -415,7 +415,7 @@ impl EsRuntime {
         let name = name.to_string();
         self.add_to_event_queue_sync(move |q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
-            let ns = objects::get_namespace(q_ctx.context, namespace, true)?;
+            let ns = objects::get_namespace_q(q_ctx, namespace, true)?;
             let func = functions::new_function(
                 q_ctx.context,
                 name.as_str(),
@@ -431,7 +431,7 @@ impl EsRuntime {
                         let res = function(args_facades);
 
                         match res {
-                            Ok(mut val_esvf) => val_esvf.to_js_value(q_ctx),
+                            Ok(mut val_esvf) => val_esvf.as_js_value(q_ctx),
                             Err(e) => Err(e),
                         }
                     })

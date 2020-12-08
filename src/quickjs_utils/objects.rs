@@ -7,7 +7,15 @@ use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 use std::collections::HashMap;
 
-pub fn get_namespace(
+pub fn get_namespace_q(
+    context: &QuickJsContext,
+    namespace: Vec<&str>,
+    create_if_absent: bool,
+) -> Result<JSValueRef, EsError> {
+    unsafe { get_namespace(context.context, namespace, create_if_absent) }
+}
+
+pub unsafe fn get_namespace(
     context: *mut q::JSContext,
     namespace: Vec<&str>,
     create_if_absent: bool,
@@ -363,7 +371,15 @@ pub fn is_instance_of(
     }
 }
 
-pub fn is_instance_of_by_name(
+pub fn is_instance_of_by_name_q(
+    context: &QuickJsContext,
+    obj_ref: &JSValueRef,
+    constructor_name: &str,
+) -> Result<bool, EsError> {
+    unsafe { is_instance_of_by_name(context.context, obj_ref, constructor_name) }
+}
+
+pub unsafe fn is_instance_of_by_name(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     constructor_name: &str,
@@ -388,7 +404,7 @@ pub mod tests {
         create_object, get_property, get_property_names, set_property,
     };
     use crate::quickjs_utils::primitives::{from_i32, to_i32};
-    use crate::quickjs_utils::{get_global, primitives};
+    use crate::quickjs_utils::{get_global_q, primitives};
     use std::sync::Arc;
 
     #[test]
@@ -503,7 +519,7 @@ pub mod tests {
 
             assert_eq!(obj_ref.get_ref_count(), 1);
 
-            let global_ref = get_global(q_ctx.context);
+            let global_ref = get_global_q(q_ctx);
             set_property(q_ctx.context, &global_ref, "test_obj", &obj_ref)
                 .ok()
                 .expect("could not set property 1");

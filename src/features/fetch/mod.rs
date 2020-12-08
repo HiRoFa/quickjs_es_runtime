@@ -23,12 +23,14 @@ pub(crate) fn init(es_rt: Arc<EsRuntime>) -> Result<(), EsError> {
 
             let func_ref =
                 functions::new_native_function(q_ctx.context, "fetch", Some(fetch_func), 1, false)?;
-            objects::set_property(
-                q_ctx.context,
-                &quickjs_utils::get_global(q_ctx.context),
-                "fetch",
-                &func_ref,
-            )?;
+            unsafe {
+                objects::set_property(
+                    q_ctx.context,
+                    &quickjs_utils::get_global(q_ctx.context),
+                    "fetch",
+                    &func_ref,
+                )
+            }?;
 
             response::init_response_proxy(q_ctx)
         })

@@ -18,7 +18,7 @@ pub type PromiseReactionType =
     Option<Box<dyn Fn(EsValueFacade) -> Result<EsValueFacade, EsError> + Send + 'static>>;
 
 pub trait EsValueConvertible {
-    fn to_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError>;
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError>;
 
     fn to_es_value_facade(self) -> EsValueFacade
     where
@@ -121,13 +121,13 @@ pub struct EsUndefinedValue {}
 pub struct EsNullValue {}
 
 impl EsValueConvertible for EsNullValue {
-    fn to_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::new_null_ref())
     }
 }
 
 impl EsValueConvertible for EsUndefinedValue {
-    fn to_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::new_undefined_ref())
     }
 }
@@ -173,7 +173,7 @@ impl Drop for CachedJSFunction {
 }
 
 impl EsValueConvertible for CachedJSPromise {
-    fn to_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         let cloned_ref = q_ctx.with_cached_obj(self.cached_obj_id, |obj_ref| obj_ref.clone());
         Ok(cloned_ref)
     }
@@ -280,8 +280,8 @@ impl EsValueConvertible for CachedJSPromise {
                     .ok()
                     .expect("could not create func");
 
-                    promises::add_promise_reactions(
-                        q_ctx.context,
+                    promises::add_promise_reactions_q(
+                        q_ctx,
                         prom_obj_ref,
                         Some(then_func_ref),
                         Some(catch_func_ref),
@@ -373,15 +373,9 @@ impl EsValueConvertible for CachedJSPromise {
                     None
                 };
 
-                promises::add_promise_reactions(
-                    q_ctx.context,
-                    prom_ref,
-                    then_ref,
-                    catch_ref,
-                    finally_ref,
-                )
-                .ok()
-                .expect("could not add reactions")
+                promises::add_promise_reactions_q(q_ctx, prom_ref, then_ref, catch_ref, finally_ref)
+                    .ok()
+                    .expect("could not add reactions")
             });
         });
         Ok(())
@@ -389,7 +383,7 @@ impl EsValueConvertible for CachedJSPromise {
 }
 
 impl EsValueConvertible for CachedJSFunction {
-    fn to_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         let cloned_ref = q_ctx.with_cached_obj(self.cached_obj_id, |obj_ref| obj_ref.clone());
         Ok(cloned_ref)
     }
@@ -407,7 +401,7 @@ impl EsValueConvertible for CachedJSFunction {
                 q_ctx.with_cached_obj(cached_obj_id, move |obj_ref| {
                     let mut ref_args = vec![];
                     for arg in args.iter_mut() {
-                        ref_args.push(arg.to_js_value(q_ctx)?);
+                        ref_args.push(arg.as_js_value(q_ctx)?);
                     }
 
                     let res = crate::quickjs_utils::functions::call_function(
@@ -440,7 +434,7 @@ impl EsValueConvertible for CachedJSFunction {
                     let context = obj_ref.context;
                     let mut ref_args = vec![];
                     for arg in args.iter_mut() {
-                        ref_args.push(arg.to_js_value(q_ctx).ok().expect("could not convert arg"));
+                        ref_args.push(arg.as_js_value(q_ctx).ok().expect("could not convert arg"));
                     }
 
                     let res = crate::quickjs_utils::functions::call_function(
@@ -476,7 +470,7 @@ impl EsValueConvertible for CachedJSFunction {
                     for mut args in batch_args {
                         let mut ref_args = vec![];
                         for arg in args.iter_mut() {
-                            ref_args.push(arg.to_js_value(q_ctx).ok().expect("to_js_value failed"));
+                            ref_args.push(arg.as_js_value(q_ctx).ok().expect("to_js_value failed"));
                         }
 
                         let res = crate::quickjs_utils::functions::call_function(
@@ -514,7 +508,7 @@ impl EsValueConvertible for CachedJSFunction {
                         let mut ref_args = vec![];
                         for arg in args.iter_mut() {
                             ref_args
-                                .push(arg.to_js_value(q_ctx).ok().expect("could not convert arg"));
+                                .push(arg.as_js_value(q_ctx).ok().expect("could not convert arg"));
                         }
 
                         let res = crate::quickjs_utils::functions::call_function(
@@ -542,7 +536,7 @@ impl EsValueConvertible for CachedJSFunction {
 }
 
 impl EsValueConvertible for String {
-    fn to_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         crate::quickjs_utils::primitives::from_string(q_ctx.context, self.as_str())
     }
 
@@ -556,7 +550,7 @@ impl EsValueConvertible for String {
 }
 
 impl EsValueConvertible for i32 {
-    fn to_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::primitives::from_i32(*self))
     }
 
@@ -570,7 +564,7 @@ impl EsValueConvertible for i32 {
 }
 
 impl EsValueConvertible for bool {
-    fn to_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::primitives::from_bool(*self))
     }
 
@@ -584,7 +578,7 @@ impl EsValueConvertible for bool {
 }
 
 impl EsValueConvertible for f64 {
-    fn to_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::primitives::from_f64(*self))
     }
     fn is_f64(&self) -> bool {
@@ -597,7 +591,7 @@ impl EsValueConvertible for f64 {
 }
 
 impl EsValueConvertible for Vec<EsValueFacade> {
-    fn to_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         // create the array
 
         let arr = crate::quickjs_utils::arrays::create_array(q_ctx.context)
@@ -608,7 +602,7 @@ impl EsValueConvertible for Vec<EsValueFacade> {
         for index in 0..self.len() {
             let item = self.get_mut(index).unwrap();
 
-            let item_val_ref = item.to_js_value(q_ctx)?;
+            let item_val_ref = item.as_js_value(q_ctx)?;
 
             crate::quickjs_utils::arrays::set_element(
                 q_ctx.context,
@@ -633,7 +627,7 @@ impl EsValueConvertible for Vec<EsValueFacade> {
 }
 
 impl EsValueConvertible for HashMap<String, EsValueFacade> {
-    fn to_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         // create new obj
         let obj_ref = crate::quickjs_utils::objects::create_object(q_ctx.context)
             .ok()
@@ -645,7 +639,7 @@ impl EsValueConvertible for HashMap<String, EsValueFacade> {
 
             // set prop in obj
 
-            let property_value_ref = prop_esvf.to_js_value(q_ctx)?;
+            let property_value_ref = prop_esvf.as_js_value(q_ctx)?;
 
             crate::quickjs_utils::objects::set_property(
                 q_ctx.context,
@@ -723,14 +717,12 @@ impl EsPromiseResolvableHandle {
                             let p_ref = map.get(&id).expect("no such promise");
 
                             let js_val = value
-                                .to_js_value(q_ctx)
+                                .as_js_value(q_ctx)
                                 .ok()
                                 .expect("could not convert to JSValue");
-                            match p_ref.resolve(q_ctx.context, js_val) {
-                                Err(e) => {
-                                    log::error!("resolve failed: {}", e);
-                                }
-                                _ => {}
+                            let resolve_res = p_ref.resolve(q_ctx.context, js_val);
+                            if resolve_res.is_err() {
+                                log::error!("resolve failed: {}", resolve_res.err().unwrap());
                             }
                         });
                     })
@@ -754,14 +746,12 @@ impl EsPromiseResolvableHandle {
                             let map = &*rc.borrow();
                             let p_ref = map.get(&id).expect("no such promise");
                             let js_val = value
-                                .to_js_value(q_ctx)
+                                .as_js_value(q_ctx)
                                 .ok()
                                 .expect("could not convert to JSValue");
-                            match p_ref.reject(q_ctx.context, js_val) {
-                                Err(e) => {
-                                    log::error!("reject failed: {}", e);
-                                }
-                                _ => {}
+                            let reject_res = p_ref.reject(q_ctx.context, js_val);
+                            if reject_res.is_err() {
+                                log::error!("reject failed: {}", reject_res.err().unwrap());
                             }
                         });
                     })
@@ -900,7 +890,7 @@ impl EsPromise {
 }
 
 impl EsValueConvertible for EsPromise {
-    fn to_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         log::trace!("EsPromise::to_js_value");
 
         let prom_ref = promises::new_promise(q_ctx.context)?;
@@ -923,8 +913,8 @@ pub struct EsValueFacade {
 }
 
 impl EsValueFacade {
-    pub fn to_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
-        self.convertible.to_js_value(q_ctx)
+    pub fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+        self.convertible.as_js_value(q_ctx)
     }
 
     pub fn from_jsval(q_ctx: &QuickJsContext, value_ref: &JSValueRef) -> Result<Self, EsError> {
@@ -968,7 +958,7 @@ impl EsValueFacade {
 
             // Object.
             TAG_OBJECT => {
-                if promises::is_promise(q_ctx.context, value_ref) {
+                if promises::is_promise_q(q_ctx, value_ref) {
                     let es_rt = QuickJsRuntime::do_with(|q_js_rt| q_js_rt.get_rt_ref().unwrap());
                     let cached_obj_id = q_ctx.cache_object(value_ref.clone());
                     Ok(CachedJSPromise {
@@ -988,7 +978,7 @@ impl EsValueFacade {
                         es_rt: Arc::downgrade(&es_rt),
                     };
                     Ok(cached_func.to_es_value_facade())
-                } else if dates::is_date(q_ctx.context, value_ref)? {
+                } else if dates::is_date_q(q_ctx, value_ref)? {
                     Err(EsError::new_str("dates are currently not supported"))
                 } else {
                     Self::from_jsval_object(q_ctx, value_ref)

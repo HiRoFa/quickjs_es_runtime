@@ -22,13 +22,15 @@ thread_local! {
 
 }
 
+pub type ContextInitHooks =
+    Vec<Box<dyn Fn(&QuickJsRuntime, &QuickJsContext) -> Result<(), EsError>>>;
+
 pub struct QuickJsRuntime {
     pub(crate) runtime: *mut q::JSRuntime,
     contexts: HashMap<String, QuickJsContext>,
     es_rt_ref: Option<Weak<EsRuntime>>,
     id: String,
-    context_init_hooks:
-        RefCell<Vec<Box<dyn Fn(&QuickJsRuntime, &QuickJsContext) -> Result<(), EsError>>>>,
+    context_init_hooks: RefCell<ContextInitHooks>,
     pub(crate) module_script_loader: Option<Box<ModuleScriptLoader>>,
 }
 

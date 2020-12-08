@@ -2,12 +2,17 @@ use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions;
 use crate::quickjs_utils::objects::is_instance_of_by_name;
+use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 
+pub fn is_promise_q(context: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
+    unsafe { is_promise(context.context, obj_ref) }
+}
+
 #[allow(dead_code)]
-pub fn is_promise(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
+pub unsafe fn is_promise(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
     is_instance_of_by_name(context, obj_ref, "Promise")
         .ok()
         .expect("could not check instance_of")
@@ -116,8 +121,26 @@ pub(crate) fn init_promise_rejection_tracker(q_js_rt: &QuickJsRuntime) {
     }
 }
 
+pub fn add_promise_reactions_q(
+    context: &QuickJsContext,
+    promise_obj_ref: &JSValueRef,
+    then_func_obj_ref_opt: Option<JSValueRef>,
+    catch_func_obj_ref_opt: Option<JSValueRef>,
+    finally_func_obj_ref_opt: Option<JSValueRef>,
+) -> Result<(), EsError> {
+    unsafe {
+        add_promise_reactions(
+            context.context,
+            promise_obj_ref,
+            then_func_obj_ref_opt,
+            catch_func_obj_ref_opt,
+            finally_func_obj_ref_opt,
+        )
+    }
+}
+
 #[allow(dead_code)]
-pub fn add_promise_reactions(
+pub unsafe fn add_promise_reactions(
     context: *mut q::JSContext,
     promise_obj_ref: &JSValueRef,
     then_func_obj_ref_opt: Option<JSValueRef>,
@@ -187,7 +210,7 @@ unsafe extern "C" fn promise_rejection_tracker(
 pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
-    use crate::quickjs_utils::promises::{add_promise_reactions, is_promise, new_promise};
+    use crate::quickjs_utils::promises::{add_promise_reactions_q, is_promise_q, new_promise};
     use crate::quickjs_utils::{functions, new_null_ref, primitives};
     use std::sync::Arc;
     use std::time::Duration;
@@ -207,11 +230,11 @@ pub mod tests {
                 Ok(v) => {
                     log::info!("checking if instance_of prom");
 
-                    is_promise(q_ctx.context, &v)
-                        && is_promise(q_ctx.context, &v)
-                        && is_promise(q_ctx.context, &v)
-                        && is_promise(q_ctx.context, &v)
-                        && is_promise(q_ctx.context, &v)
+                    is_promise_q(q_ctx, &v)
+                        && is_promise_q(q_ctx, &v)
+                        && is_promise_q(q_ctx, &v)
+                        && is_promise_q(q_ctx, &v)
+                        && is_promise_q(q_ctx, &v)
                 }
                 Err(e) => {
                     log::error!("err testing instance_of prom: {}", e);
@@ -336,15 +359,9 @@ pub mod tests {
             .ok()
             .expect("could not create cb");
 
-            add_promise_reactions(
-                q_ctx.context,
-                &prom_ref,
-                Some(then_cb),
-                None,
-                Some(finally_cb),
-            )
-            .ok()
-            .expect("could not add promise reactions");
+            add_promise_reactions_q(q_ctx, &prom_ref, Some(then_cb), None, Some(finally_cb))
+                .ok()
+                .expect("could not add promise reactions");
         });
         std::thread::sleep(Duration::from_secs(1));
 

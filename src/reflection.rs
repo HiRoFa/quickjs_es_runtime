@@ -359,13 +359,9 @@ impl Proxy {
 
         // todo impl namespace here
         let ns = if let Some(namespace) = &self.namespace {
-            objects::get_namespace(
-                q_ctx.context,
-                namespace.iter().map(|s| s.as_str()).collect(),
-                true,
-            )?
+            objects::get_namespace_q(q_ctx, namespace.iter().map(|s| s.as_str()).collect(), true)?
         } else {
-            quickjs_utils::get_global(q_ctx.context)
+            quickjs_utils::get_global_q(q_ctx)
         };
 
         log::trace!("reflection::Proxy::install_class_prop / 9");
