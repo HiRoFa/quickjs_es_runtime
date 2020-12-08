@@ -79,7 +79,7 @@ thread_local! {
             })
         })
     };
-    static PROXY_STATIC_CLASS_ID: RefCell<u32> = {
+    pub static PROXY_STATIC_CLASS_ID: RefCell<u32> = {
         let mut c_id: u32 = 0;
         let class_id: u32 = unsafe { q::JS_NewClassID(&mut c_id) };
         log::trace!("got static class id {}", class_id);
@@ -95,7 +95,7 @@ thread_local! {
 
         RefCell::new(class_id)
     };
-    static PROXY_INSTANCE_CLASS_ID: RefCell<u32> = {
+    pub static PROXY_INSTANCE_CLASS_ID: RefCell<u32> = {
         let mut c_id: u32 = 0;
         let class_id: u32 = unsafe { q::JS_NewClassID(&mut c_id) };
         log::trace!("got class id {}", class_id);
@@ -311,6 +311,8 @@ impl Proxy {
             "reflection::Proxy::install_class_prop class_val",
         );
 
+        assert_eq!(1, class_val_ref.get_ref_count());
+
         log::trace!("reflection::Proxy::install_class_prop / 5");
 
         if class_val_ref.is_exception() {
@@ -327,19 +329,21 @@ impl Proxy {
         log::trace!("reflection::Proxy::install_class_prop / 6");
 
         unsafe {
-            let _res = q::JS_SetPrototype(
+            let res = q::JS_SetPrototype(
                 q_ctx.context,
                 *constructor_ref.borrow_value(),
-                class_val_ref.clone_value_incr_rc(),
+                *class_val_ref.borrow_value(),
             );
-            /*if res != 0 {
-                return if let Some(err) = q_js_rt.get_exception() {
+            if res < 0 {
+                return if let Some(err) = QuickJsContext::get_exception(q_ctx.context) {
                     Err(err)
                 } else {
                     Err(EsError::new_str("could not set class proto"))
                 };
-            }*/
+            }
         }
+
+        assert_eq!(2, class_val_ref.get_ref_count());
 
         log::trace!("reflection::Proxy::install_class_prop / 7");
 
@@ -347,7 +351,7 @@ impl Proxy {
             q_ctx.context,
             &constructor_ref,
             "name",
-            primitives::from_string(q_ctx.context, &self.get_class_name())?,
+            &primitives::from_string(q_ctx.context, &self.get_class_name())?,
             0,
         )?;
 
@@ -370,7 +374,7 @@ impl Proxy {
             q_ctx.context,
             &ns,
             self.name.as_ref().unwrap().as_str(),
-            constructor_ref,
+            &constructor_ref,
             0,
         )?;
 
@@ -626,7 +630,7 @@ unsafe extern "C" fn proxy_static_get_prop(
                 .ok()
                 .expect("could not create func");
 
-                objects::set_property(context, &receiver_ref, prop_name.as_str(), func_ref.clone())
+                objects::set_property(context, &receiver_ref, prop_name.as_str(), &func_ref)
                     .ok()
                     .expect("set_property 9656738 failed");
 
@@ -644,7 +648,7 @@ unsafe extern "C" fn proxy_static_get_prop(
                 .ok()
                 .expect("could not create func");
 
-                objects::set_property(context, &receiver_ref, prop_name.as_str(), func_ref.clone())
+                objects::set_property(context, &receiver_ref, prop_name.as_str(), &func_ref)
                     .ok()
                     .expect("set_property 36099 failed");
 
@@ -725,7 +729,7 @@ unsafe extern "C" fn proxy_instance_get_prop(
             .ok()
             .expect("could not create func");
 
-            objects::set_property(context, &receiver_ref, prop_name.as_str(), func_ref.clone())
+            objects::set_property(context, &receiver_ref, prop_name.as_str(), &func_ref)
                 .ok()
                 .expect("set_property 96385 failed"); // todo report ex
 
@@ -738,7 +742,7 @@ unsafe extern "C" fn proxy_instance_get_prop(
                     .ok()
                     .expect("could not create func"); // tyodo report ex
 
-            objects::set_property(context, &receiver_ref, prop_name.as_str(), func_ref.clone())
+            objects::set_property(context, &receiver_ref, prop_name.as_str(), &func_ref)
                 .ok()
                 .expect("set_property 49671 failed"); // todo report ex
 

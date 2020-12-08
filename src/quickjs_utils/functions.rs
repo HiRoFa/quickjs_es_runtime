@@ -13,14 +13,22 @@ use std::os::raw::{c_char, c_int, c_void};
 
 /// parse a function body and its arg_names into a JSValueRef which is a Function
 /// # Example
-/// ```rust
+/// ```dontrun
 /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
 /// use quickjs_es_runtime::quickjs_utils::functions::{parse_function, call_function};
 /// use quickjs_es_runtime::quickjs_utils::primitives;
+/// use quickjs_es_runtime::eserror::EsError;
+/// use quickjs_es_runtime::valueref::JSValueRef;
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
-///     let func = parse_function(q_ctx.context, false, "my_func", "console.log('running my_func'); return(a * b);", vec!["a", "b"]).ok().unwrap();
+///     let func_res = parse_function(q_ctx.context, false, "my_func", "console.log('running my_func'); return(a * b);", vec!["a", "b"]);
+///     let func = match func_res {
+///         Ok(func) => func,
+///         Err(e) => {
+///             panic!("could not get func: {}", e);
+///         }
+///     };
 ///     let a = primitives::from_i32(7);
 ///     let b = primitives::from_i32(9);
 ///     let res = call_function(q_ctx.context, &func, vec![a, b], None).ok().unwrap();
@@ -441,7 +449,7 @@ where
         ids.insert(bx);
     });
 
-    objects::set_property2(context, &func_ref, "_cb_fin_marker_", class_val_ref, 0)
+    objects::set_property2(context, &func_ref, "_cb_fin_marker_", &class_val_ref, 0)
         .ok()
         .expect("could not set cb marker");
 
@@ -482,6 +490,7 @@ pub mod tests {
             .expect("func failed");
 
             q_js_rt.gc();
+            log::info!("invoke_res = {}", res.get_tag());
 
             assert!(res.is_i32());
             assert_eq!(primitives::to_i32(&res).ok().expect("wtf?"), (12 * 14));
@@ -583,7 +592,7 @@ pub mod tests {
                 None,
             );
             if res.is_err() {
-                panic!("test_call failed: {}");
+                panic!("test_call failed: {}", res.err().unwrap());
             }
             let res_val = res.ok().unwrap();
 
@@ -651,7 +660,7 @@ pub mod tests {
                 let q_ctx = q_js_rt.get_main_context();
 
             let func_ref = q_ctx.eval(EsScript::new(
-                "test_callback3.es",
+                "test_callback845.es",
                 "let test_callback_845 = function(cb){let obj = {}; cb(obj);cb(obj);cb(obj);}; test_callback_845;",
             ))
                 .ok()
@@ -670,7 +679,13 @@ pub mod tests {
             )
             .ok()
             .expect("could not create function");
-            functions::call_function(q_ctx.context, &func_ref, vec![cb_ref], None).ok().expect("test_callback_845 failed");
+            log::debug!("calling js func test_callback_845");
+            let res = functions::call_function(q_ctx.context, &func_ref, vec![cb_ref], None);
+            if res.is_err() {
+                let e = format!("test_callback_845 failed: {}", res.err().unwrap());
+                log::error!("{}", e);
+                panic!("{}", e);
+            }
         });
         log::trace!("done with cb");
         std::thread::sleep(Duration::from_secs(1));
@@ -690,11 +705,11 @@ unsafe extern "C" fn callback_finalizer(_rt: *mut q::JSRuntime, val: q::JSValue)
 
     trace!("callback_finalizer called, id={}", callback_id);
 
-    CALLBACK_IDS.with(|rc| {
+    let _res = CALLBACK_IDS.try_with(|rc| {
         let ids = &mut *rc.borrow_mut();
         ids.remove(&callback_id);
     });
-    CALLBACK_REGISTRY.with(|rc| {
+    let _res = CALLBACK_REGISTRY.try_with(|rc| {
         let registry = &mut *rc.borrow_mut();
 
         let rid = callback_id as usize;

@@ -27,7 +27,7 @@ pub(crate) fn init(es_rt: Arc<EsRuntime>) -> Result<(), EsError> {
                 q_ctx.context,
                 &quickjs_utils::get_global(q_ctx.context),
                 "fetch",
-                func_ref,
+                &func_ref,
             )?;
 
             response::init_response_proxy(q_ctx)
@@ -170,9 +170,13 @@ pub mod tests {
             .ok()
             .expect("foo");
 
+        log::trace!("test_fetch rt.gc");
         rt.gc_sync();
+        log::trace!("test_fetch main_rt.gc");
         main_rt.gc_sync();
+        log::trace!("test_fetch drop rt");
         drop(rt);
+        log::trace!("test_fetch sleep");
         std::thread::sleep(Duration::from_secs(2));
     }
 }

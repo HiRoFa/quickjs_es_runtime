@@ -651,7 +651,7 @@ impl EsValueConvertible for HashMap<String, EsValueFacade> {
                 q_ctx.context,
                 &obj_ref,
                 prop_name.as_str(),
-                property_value_ref,
+                &property_value_ref,
             )?;
         }
 

@@ -55,19 +55,19 @@ pub fn new_error(
         context,
         &obj_ref,
         "message",
-        primitives::from_string(context, message)?,
+        &primitives::from_string(context, message)?,
     )?;
     objects::set_property(
         context,
         &obj_ref,
         "name",
-        primitives::from_string(context, name)?,
+        &primitives::from_string(context, name)?,
     )?;
     objects::set_property(
         context,
         &obj_ref,
         "stack",
-        primitives::from_string(context, stack)?,
+        &primitives::from_string(context, stack)?,
     )?;
     Ok(obj_ref)
 }

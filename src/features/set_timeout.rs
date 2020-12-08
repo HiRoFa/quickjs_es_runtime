@@ -51,20 +51,20 @@ pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
 
         let global = get_global(q_ctx.context);
 
-        objects::set_property2(q_ctx.context, &global, "setTimeout", set_timeout_func, 0)?;
-        objects::set_property2(q_ctx.context, &global, "setInterval", set_interval_func, 0)?;
+        objects::set_property2(q_ctx.context, &global, "setTimeout", &set_timeout_func, 0)?;
+        objects::set_property2(q_ctx.context, &global, "setInterval", &set_interval_func, 0)?;
         objects::set_property2(
             q_ctx.context,
             &global,
             "clearTimeout",
-            clear_timeout_func,
+            &clear_timeout_func,
             0,
         )?;
         objects::set_property2(
             q_ctx.context,
             &global,
             "clearInterval",
-            clear_interval_func,
+            &clear_interval_func,
             0,
         )?;
         Ok(())

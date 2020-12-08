@@ -1,6 +1,7 @@
 use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, parse_args};
+use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::reflection::Proxy;
 use libquickjs_sys as q;
@@ -9,18 +10,20 @@ use std::str::FromStr;
 pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
     log::trace!("console::init");
 
-    q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| {
-        Proxy::new()
-            .name("console")
-            .static_native_method("log", Some(console_log))
-            .static_native_method("trace", Some(console_trace))
-            .static_native_method("info", Some(console_info))
-            .static_native_method("warn", Some(console_warn))
-            .static_native_method("error", Some(console_error))
-            //.static_native_method("assert", Some(console_assert)) // todo
-            .static_native_method("debug", Some(console_debug))
-            .install(q_ctx)
-    })
+    q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| init_ctx(q_ctx))
+}
+
+pub(crate) fn init_ctx(q_ctx: &QuickJsContext) -> Result<(), EsError> {
+    Proxy::new()
+        .name("console")
+        .static_native_method("log", Some(console_log))
+        .static_native_method("trace", Some(console_trace))
+        .static_native_method("info", Some(console_info))
+        .static_native_method("warn", Some(console_warn))
+        .static_native_method("error", Some(console_error))
+        //.static_native_method("assert", Some(console_assert)) // todo
+        .static_native_method("debug", Some(console_debug))
+        .install(q_ctx)
 }
 
 fn parse_field_value(field: &str, value: &str) -> String {

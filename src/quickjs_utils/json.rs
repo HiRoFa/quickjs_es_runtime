@@ -10,7 +10,7 @@ use std::ffi::CString;
 /// so {a: 1} and {'a': 1} will both fail
 /// {"a": 1} will parse ok
 /// # Example
-/// ```rust
+/// ```dontrun
 /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
 /// use quickjs_es_runtime::quickjs_utils::{json, objects, primitives};
 /// use quickjs_es_runtime::quickjs_utils::json::parse;
@@ -68,7 +68,7 @@ pub fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRef, EsEr
 /// rt.add_to_event_queue_sync(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     let obj_ref = objects::create_object(q_ctx.context).ok().unwrap();
-///     objects::set_property(q_ctx.context, &obj_ref, "a", primitives::from_i32(741)).ok().unwrap();
+///     objects::set_property(q_ctx.context, &obj_ref, "a", &primitives::from_i32(741)).ok().unwrap();
 ///     let str_ref = json::stringify(q_ctx.context, &obj_ref, None).ok().unwrap();
 ///     let str_str = primitives::to_string(q_ctx.context, &str_ref).ok().unwrap();
 ///     assert_eq!("{\"a\":741}", str_str);
@@ -124,18 +124,19 @@ pub mod tests {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
+
             let obj = objects::create_object(q_ctx.context).ok().unwrap();
-            objects::set_property(q_ctx.context, &obj, "a", primitives::from_i32(532))
+            objects::set_property(q_ctx.context, &obj, "a", &primitives::from_i32(532))
                 .ok()
                 .unwrap();
-            objects::set_property(q_ctx.context, &obj, "b", primitives::from_bool(true))
+            objects::set_property(q_ctx.context, &obj, "b", &primitives::from_bool(true))
                 .ok()
                 .unwrap();
             objects::set_property(
                 q_ctx.context,
                 &obj,
                 "c",
-                primitives::from_string(q_ctx.context, "abc").ok().unwrap(),
+                &primitives::from_string(q_ctx.context, "abc").ok().unwrap(),
             )
             .ok()
             .unwrap();

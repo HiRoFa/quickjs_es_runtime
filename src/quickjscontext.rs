@@ -229,14 +229,23 @@ impl QuickJsContext {
 
 impl Drop for QuickJsContext {
     fn drop(&mut self) {
-        // free ctx
         log::trace!("before JS_FreeContext");
 
         {
             let cache_map = &mut *self.object_cache.borrow_mut();
             cache_map.remove_values(|_v| true);
         }
+        {
+            let proxies = &mut *self.proxy_registry.borrow_mut();
+            proxies.clear();
+        }
+        {
+            let id_mappings = &mut *self.instance_id_mappings.borrow_mut();
+            id_mappings.clear();
+        }
+
         unsafe { q::JS_FreeContext(self.context) };
+        log::trace!("after JS_FreeContext");
     }
 }
 
@@ -250,16 +259,9 @@ pub mod tests {
     #[test]
     fn test_multi_ctx() {
         let rt = EsRuntimeBuilder::new().build();
-        rt.add_to_event_queue_mut_sync(|q_js_rt| {
-            q_js_rt
-                .create_context("a")
-                .ok()
-                .expect("could not create ctx a");
-            q_js_rt
-                .create_context("b")
-                .ok()
-                .expect("could not create ctx b");
-        });
+        rt.create_context("a").ok().expect("could not create ctx a");
+        rt.create_context("b").ok().expect("could not create ctx b");
+
         rt.add_to_event_queue_sync(|q_js_rt| {
             let ctx_a = q_js_rt.get_context("a");
             let ctx_b = q_js_rt.get_context("b");
@@ -282,9 +284,8 @@ pub mod tests {
                 .expect("script failed");
             assert!(v2.is_null_or_undefined());
         });
-        rt.add_to_event_queue_mut_sync(|q_js_rt| {
-            q_js_rt.drop_context("b");
-        });
+        rt.drop_context("b");
+
         rt.add_to_event_queue_sync(|q_js_rt| {
             q_js_rt.gc();
             let ctx_a = q_js_rt.get_context("a");
@@ -295,11 +296,13 @@ pub mod tests {
             assert!(v.is_i32());
             q_js_rt.gc();
         });
-        rt.add_to_event_queue_mut_sync(|q_js_rt| {
-            let c_ctx = q_js_rt
-                .create_context("c")
-                .ok()
-                .expect("could not create context c");
+
+        rt.create_context("c")
+            .ok()
+            .expect("could not create context c");
+
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            let c_ctx = q_js_rt.get_context("c");
             let func = functions::new_function(
                 c_ctx.context,
                 "test",
@@ -309,7 +312,9 @@ pub mod tests {
             .ok()
             .unwrap();
             let global = get_global(c_ctx.context);
-            objects::set_property(c_ctx.context, &global, "test_func", func);
+            objects::set_property(c_ctx.context, &global, "test_func", &func)
+                .ok()
+                .expect("could not set prop");
             q_js_rt.gc();
         });
         rt.add_to_event_queue_sync(|q_js_rt| {
@@ -322,9 +327,7 @@ pub mod tests {
             assert!(v.is_i32());
             q_js_rt.gc();
         });
-        rt.add_to_event_queue_mut_sync(|q_js_rt| {
-            q_js_rt.drop_context("c");
-        });
+        rt.drop_context("c");
         rt.add_to_event_queue_sync(|q_js_rt| {
             q_js_rt.gc();
             let ctx_a = q_js_rt.get_context("a");

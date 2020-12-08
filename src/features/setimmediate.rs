@@ -33,7 +33,7 @@ pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
             q_ctx.context,
             &global,
             "setImmediate",
-            set_immediate_func,
+            &set_immediate_func,
             0,
         )?;
         Ok(())

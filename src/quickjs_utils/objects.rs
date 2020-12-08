@@ -24,7 +24,7 @@ pub fn get_namespace(
                 log::trace!("objects::get_namespace -> is null, creating");
                 // create
                 sub = create_object(context)?;
-                set_property2(context, &obj, p_name, sub.clone(), 0)?;
+                set_property2(context, &obj, p_name, &sub, 0)?;
             } else {
                 log::trace!("objects::get_namespace -> is null -> err");
                 return Err(EsError::new_string(format!(
@@ -70,7 +70,7 @@ pub fn set_property(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     prop_name: &str,
-    prop_ref: JSValueRef,
+    prop_ref: &JSValueRef,
 ) -> Result<(), EsError> {
     set_property2(
         context,
@@ -85,7 +85,7 @@ pub fn set_property2(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     prop_name: &str,
-    prop_ref: JSValueRef,
+    prop_ref: &JSValueRef,
     flags: i32,
 ) -> Result<(), EsError> {
     log::trace!("set_property2: {}", prop_name);
@@ -402,15 +402,15 @@ pub mod tests {
             let prop2_ref = create_object(context).ok().expect("c");
             assert_eq!(obj.get_ref_count(), 1);
             assert_eq!(prop_ref.get_ref_count(), 1);
-            set_property(q_ctx.context, &obj, "a", prop_ref.clone())
+            set_property(q_ctx.context, &obj, "a", &prop_ref)
                 .ok()
                 .expect("d");
             assert_eq!(prop_ref.get_ref_count(), 2);
-            set_property(q_ctx.context, &obj, "b", prop_ref.clone())
+            set_property(q_ctx.context, &obj, "b", &prop_ref)
                 .ok()
                 .expect("e");
             assert_eq!(prop_ref.get_ref_count(), 3);
-            set_property(q_ctx.context, &obj, "b", prop2_ref.clone())
+            set_property(q_ctx.context, &obj, "b", &prop2_ref)
                 .ok()
                 .expect("f");
             assert_eq!(prop_ref.get_ref_count(), 2);
@@ -439,12 +439,12 @@ pub mod tests {
 
             let obj_a = create_object(q_ctx.context).ok().unwrap();
             let obj_b = create_object(q_ctx.context).ok().unwrap();
-            set_property(q_ctx.context, &obj_a, "b", obj_b)
+            set_property(q_ctx.context, &obj_a, "b", &obj_b)
                 .ok()
                 .unwrap();
 
             let b1 = get_property(q_ctx.context, &obj_a, "b").ok().unwrap();
-            set_property(q_ctx.context, &b1, "i", primitives::from_i32(123))
+            set_property(q_ctx.context, &b1, "i", &primitives::from_i32(123))
                 .ok()
                 .unwrap();
             drop(b1);
@@ -504,7 +504,7 @@ pub mod tests {
             assert_eq!(obj_ref.get_ref_count(), 1);
 
             let global_ref = get_global(q_ctx.context);
-            set_property(q_ctx.context, &global_ref, "test_obj", obj_ref.clone())
+            set_property(q_ctx.context, &global_ref, "test_obj", &obj_ref)
                 .ok()
                 .expect("could not set property 1");
 
@@ -514,7 +514,7 @@ pub mod tests {
             let obj_ref = get_property(q_ctx.context, &global_ref, "test_obj")
                 .ok()
                 .expect("could not get test_obj");
-            set_property(q_ctx.context, &obj_ref, "test_prop", prop_ref)
+            set_property(q_ctx.context, &obj_ref, "test_prop", &prop_ref)
                 .ok()
                 .expect("could not set property 2");
 

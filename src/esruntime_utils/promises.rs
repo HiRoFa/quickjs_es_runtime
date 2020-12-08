@@ -45,7 +45,7 @@ thread_local! {
 ///
 ///      // add func to global scope
 ///      let global_ref = quickjs_utils::get_global(q_ctx.context);
-///      objects::set_property(q_ctx.context, &global_ref, "asyncTest", func_ref).ok()
+///      objects::set_property(q_ctx.context, &global_ref, "asyncTest", &func_ref).ok()
 ///             .expect("could not set prop");;
 ///            
 /// });
@@ -189,7 +189,7 @@ pub mod tests {
             // add func to global scope
             let global_ref = quickjs_utils::get_global(q_ctx.context);
             let i = global_ref.get_ref_count();
-            objects::set_property(q_ctx.context, &global_ref, "asyncTest", func_ref.clone())
+            objects::set_property(q_ctx.context, &global_ref, "asyncTest", &func_ref)
                 .ok()
                 .expect("could not set prop");
             assert_eq!(i, global_ref.get_ref_count());

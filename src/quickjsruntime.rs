@@ -51,25 +51,34 @@ impl QuickJsRuntime {
     // so actually needs to be called in a plain job to inner.TaskManager and not by add_to_esEventquueue
     // EsRuntime should have a util to do that
     // EsRuntime should have extra methods like eval_sync_ctx(ctx: &str, script: &EsScript) etc
-    pub fn create_context(&mut self, id: &str) -> Result<&QuickJsContext, EsError> {
-        assert!(!self.has_context(id));
-        {
-            let ctx = QuickJsContext::new(id.to_string(), self);
+    pub fn create_context(id: &str) -> Result<(), EsError> {
+        let ctx = Self::do_with(|q_js_rt| {
+            assert!(!q_js_rt.has_context(id));
+            QuickJsContext::new(id.to_string(), q_js_rt)
+        });
 
-            let hooks = &*self.context_init_hooks.borrow();
+        QJS_RT.with(|rc| {
+            let m_rt = &mut *rc.borrow_mut();
+            m_rt.contexts.insert(id.to_string(), ctx);
+        });
+
+        Self::do_with(|q_js_rt| {
+            let ctx = q_js_rt.get_context(&id);
+            let hooks = &*q_js_rt.context_init_hooks.borrow();
             for hook in hooks {
-                hook(self, &ctx)?;
+                hook(q_js_rt, &ctx)?;
             }
-
-            self.contexts.insert(id.to_string(), ctx);
-        }
-
-        Ok(self.get_context(id))
+            Ok(())
+        })
     }
-    pub fn drop_context(&mut self, id: &str) {
-        assert!(self.has_context(id));
-        self.gc();
-        self.contexts.remove(id);
+    pub fn drop_context(id: &str) {
+        let ctx = QJS_RT.with(|rc| {
+            let m_rt = &mut *rc.borrow_mut();
+            m_rt.gc();
+            m_rt.contexts.remove(id).expect("no such context")
+        });
+
+        drop(ctx);
     }
     pub fn get_context(&self, id: &str) -> &QuickJsContext {
         self.contexts.get(id).expect("no such context")
@@ -124,9 +133,8 @@ impl QuickJsRuntime {
         modules::set_module_loader(&q_rt);
         promises::init_promise_rejection_tracker(&q_rt);
 
-        q_rt.create_context("__main__")
-            .ok()
-            .expect("could not init main context");
+        let main_ctx = QuickJsContext::new("__main__".to_string(), &q_rt);
+        q_rt.contexts.insert("__main__".to_string(), main_ctx);
 
         q_rt
     }
@@ -187,12 +195,14 @@ impl QuickJsRuntime {
 
 impl Drop for QuickJsRuntime {
     fn drop(&mut self) {
+        // drop contexts first, should be done when Dropping EsRuntime?
+        log::trace!("drop QuickJsRuntime, dropping contexts");
+        self.contexts.clear();
+        log::trace!("drop QuickJsRuntime, after dropping contexts");
+
         log::trace!("before JS_FreeRuntime");
-
-        self.gc();
-
         unsafe { q::JS_FreeRuntime(self.runtime) };
-        log::trace!("after drop QuickJsRuntime");
+        log::trace!("after JS_FreeRuntime");
     }
 }
 
@@ -205,24 +215,5 @@ pub(crate) fn make_cstring(value: &str) -> Result<CString, EsError> {
             "could not create cstring from {}",
             value
         ))),
-    }
-}
-
-#[cfg(test)]
-pub mod tests {
-    use crate::esscript::EsScript;
-    use crate::quickjsruntime::QuickJsRuntime;
-
-    #[test]
-    fn test_rt() {
-        log::info!("> test_rt");
-
-        let rt = QuickJsRuntime::new();
-        rt.get_main_context()
-            .eval(EsScript::new("test.es", "1+1;"))
-            .ok()
-            .expect("could not eval");
-
-        log::info!("< test_rt");
     }
 }

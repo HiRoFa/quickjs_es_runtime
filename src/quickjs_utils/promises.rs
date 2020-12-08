@@ -99,7 +99,7 @@ pub fn new_promise(context: *mut q::JSContext) -> Result<PromiseRef, EsError> {
 
     assert_eq!(resolve_function_obj_ref.get_ref_count(), 1);
     assert_eq!(reject_function_obj_ref.get_ref_count(), 1);
-    //assert_eq!(promise_obj_ref.get_ref_count(), 1);
+    assert_eq!(promise_obj_ref.get_ref_count(), 3);
 
     Ok(PromiseRef {
         promise_obj_ref,
@@ -204,15 +204,25 @@ pub mod tests {
                 "(new Promise((res, rej) => {}));",
             ));
             match res {
-                Ok(v) => is_promise(q_ctx.context, &v),
+                Ok(v) => {
+                    log::info!("checking if instance_of prom");
+
+                    is_promise(q_ctx.context, &v)
+                        && is_promise(q_ctx.context, &v)
+                        && is_promise(q_ctx.context, &v)
+                        && is_promise(q_ctx.context, &v)
+                        && is_promise(q_ctx.context, &v)
+                }
                 Err(e) => {
-                    panic!("err: {}", e);
+                    log::error!("err testing instance_of prom: {}", e);
+                    false
                 }
             }
         });
         assert!(io);
 
         log::info!("< test_instance_of_prom");
+        std::thread::sleep(Duration::from_secs(1));
     }
 
     #[test]
@@ -232,14 +242,15 @@ pub mod tests {
 
             let prom = new_promise(q_ctx.context).ok().unwrap();
 
-            functions::call_function(
+            let res = functions::call_function(
                 q_ctx.context,
                 &func_ref,
                 vec![prom.get_promise_obj_ref()],
                 None,
-            )
-            .ok()
-            .unwrap();
+            );
+            if res.is_err() {
+                panic!("func call failed: {}", res.err().unwrap());
+            }
 
             prom.resolve(q_ctx.context, primitives::from_i32(743))
                 .ok()
@@ -267,14 +278,15 @@ pub mod tests {
 
             let prom = new_promise(q_ctx.context).ok().unwrap();
 
-            functions::call_function(
+            let res = functions::call_function(
                 q_ctx.context,
                 &func_ref,
                 vec![prom.get_promise_obj_ref()],
                 None,
-            )
-            .ok()
-            .unwrap();
+            );
+            if res.is_err() {
+                panic!("func call failed: {}", res.err().unwrap());
+            }
 
             prom.reject(q_ctx.context, primitives::from_i32(130))
                 .ok()

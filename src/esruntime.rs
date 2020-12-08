@@ -94,6 +94,18 @@ impl EsRuntimeInner {
             })
         });
     }
+
+    pub(crate) fn create_context(&self, id: &str) -> Result<(), EsError> {
+        let id = id.to_string();
+        self.event_queue
+            .exe_task(move || QuickJsRuntime::create_context(id.as_str()))
+    }
+
+    pub(crate) fn drop_context(&self, id: &str) {
+        let id = id.to_string();
+        self.event_queue
+            .exe_task(move || QuickJsRuntime::drop_context(id.as_str()))
+    }
 }
 
 impl EsRuntime {
@@ -375,14 +387,6 @@ impl EsRuntime {
         self.inner.add_to_event_queue_sync(consumer)
     }
 
-    pub fn add_to_event_queue_mut_sync<C, R>(&self, consumer: C) -> R
-    where
-        C: FnOnce(&mut QuickJsRuntime) -> R + Send + 'static,
-        R: Send + 'static,
-    {
-        self.inner.add_to_event_queue_mut_sync(consumer)
-    }
-
     /// this adds a rust function to JavaScript
     /// # Example
     /// ```rust
@@ -435,7 +439,7 @@ impl EsRuntime {
                 1,
             )?;
 
-            objects::set_property2(q_ctx.context, &ns, name.as_str(), func, 0)?;
+            objects::set_property2(q_ctx.context, &ns, name.as_str(), &func, 0)?;
 
             Ok(())
         })
@@ -449,6 +453,14 @@ impl EsRuntime {
         log::trace!("adding a helper task");
         HELPER_TASKS.add_task(task);
     }
+
+    pub fn create_context(&self, id: &str) -> Result<(), EsError> {
+        self.inner.create_context(id)
+    }
+
+    pub fn drop_context(&self, id: &str) {
+        self.inner.drop_context(id)
+    }
 }
 
 #[cfg(test)]
@@ -457,7 +469,7 @@ pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
     use crate::esvalue::{EsValueConvertible, EsValueFacade};
-    use ::log::debug;
+    use log::debug;
     use log::LevelFilter;
     use std::sync::Arc;
     use std::time::Duration;
@@ -466,12 +478,23 @@ pub mod tests {
         pub static ref TEST_ESRT: Arc<EsRuntime> = init();
     }
 
-    fn init() -> Arc<EsRuntime> {
-        log::trace!("TEST_ESRT::init");
+    #[test]
+    fn test_rt_drop() {
+        let rt = init();
+        log::trace!("before drop");
 
+        drop(rt);
+        log::trace!("after before drop");
+        std::thread::sleep(Duration::from_secs(5));
+        log::trace!("after sleep");
+    }
+
+    fn init() -> Arc<EsRuntime> {
         simple_logging::log_to_file("esruntime.log", LevelFilter::max())
             .ok()
             .expect("could not init logger");
+
+        log::trace!("TEST_ESRT::init");
         EsRuntime::builder()
             .gc_interval(Duration::from_secs(1))
             .max_stack_size(1024*16)
