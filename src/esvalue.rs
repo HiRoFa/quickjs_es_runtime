@@ -527,7 +527,7 @@ impl EsValueConvertible for CachedJSFunction {
 
 impl EsValueConvertible for String {
     fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
-        crate::quickjs_utils::primitives::from_string(q_ctx.context, self.as_str())
+        crate::quickjs_utils::primitives::from_string_q(q_ctx, self.as_str())
     }
 
     fn is_str(&self) -> bool {
@@ -883,7 +883,7 @@ impl EsValueConvertible for EsPromise {
     fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         log::trace!("EsPromise::to_js_value");
 
-        let prom_ref = promises::new_promise(q_ctx.context)?;
+        let prom_ref = promises::new_promise_q(q_ctx)?;
 
         let ret = prom_ref.get_promise_obj_ref();
         let id = ESPROMISE_REFS.with(move |rc| {
@@ -915,7 +915,7 @@ impl EsValueFacade {
         match r.tag {
             TAG_STRING => {
                 // String.
-                let s = crate::quickjs_utils::primitives::to_string(q_ctx.context, value_ref)?;
+                let s = crate::quickjs_utils::primitives::to_string_q(q_ctx, value_ref)?;
 
                 Ok(s.to_es_value_facade())
             }
@@ -1010,11 +1010,10 @@ impl EsValueFacade {
     ) -> Result<EsValueFacade, EsError> {
         assert!(obj_ref.is_object());
 
-        let map = crate::quickjs_utils::objects::traverse_properties(
-            q_ctx.context,
-            obj_ref,
-            |_key, val| EsValueFacade::from_jsval(q_ctx, &val),
-        )?;
+        let map =
+            crate::quickjs_utils::objects::traverse_properties_q(q_ctx, obj_ref, |_key, val| {
+                EsValueFacade::from_jsval(q_ctx, &val)
+            })?;
         Ok(map.to_es_value_facade())
     }
     /// get the String value

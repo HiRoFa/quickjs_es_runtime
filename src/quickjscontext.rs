@@ -68,7 +68,7 @@ impl QuickJsContext {
         arguments: Vec<JSValueRef>,
     ) -> Result<JSValueRef, EsError> {
         let namespace_ref = unsafe { objects::get_namespace(self.context, namespace, false) }?;
-        functions::invoke_member_function(self.context, &namespace_ref, func_name, arguments)
+        functions::invoke_member_function_q(self, &namespace_ref, func_name, arguments)
     }
     /// evaluate a script
 

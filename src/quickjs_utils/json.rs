@@ -138,13 +138,13 @@ pub mod tests {
                 q_ctx,
                 &obj,
                 "c",
-                &primitives::from_string(q_ctx.context, "abc").ok().unwrap(),
+                &primitives::from_string_q(q_ctx, "abc").ok().unwrap(),
             )
             .ok()
             .unwrap();
             let str_res = json::stringify_q(q_ctx, &obj, None).ok().unwrap();
             assert_eq!(str_res.get_ref_count(), 1);
-            let json = primitives::to_string(q_ctx.context, &str_res).ok().unwrap();
+            let json = primitives::to_string_q(q_ctx, &str_res).ok().unwrap();
             assert_eq!(json.as_str(), "{\"a\":532,\"b\":true,\"c\":\"abc\"}");
 
             let obj2 = json::parse_q(q_ctx, json.as_str()).ok().unwrap();

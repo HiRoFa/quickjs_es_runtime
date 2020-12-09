@@ -249,8 +249,14 @@ pub unsafe fn get_property(
     Ok(prop_ref)
 }
 
-#[allow(dead_code)]
-pub fn get_property_names(
+pub fn get_property_names_q(
+    q_ctx: &QuickJsContext,
+    obj_ref: &JSValueRef,
+) -> Result<Vec<String>, EsError> {
+    unsafe { get_property_names(q_ctx.context, obj_ref) }
+}
+
+pub unsafe fn get_property_names(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
 ) -> Result<Vec<String>, EsError> {
@@ -258,36 +264,32 @@ pub fn get_property_names(
     let mut count: u32 = 0;
 
     let flags = (q::JS_GPN_STRING_MASK | q::JS_GPN_SYMBOL_MASK | q::JS_GPN_ENUM_ONLY) as i32;
-    let ret = unsafe {
-        q::JS_GetOwnPropertyNames(
-            context,
-            &mut properties,
-            &mut count,
-            *obj_ref.borrow_value(),
-            flags,
-        )
-    };
+    let ret = q::JS_GetOwnPropertyNames(
+        context,
+        &mut properties,
+        &mut count,
+        *obj_ref.borrow_value(),
+        flags,
+    );
     if ret != 0 {
         return Err(EsError::new_str("Could not get object properties"));
     }
 
     let properties = DroppableValue::new(properties, |&mut properties| {
         for index in 0..count {
-            let prop = unsafe { properties.offset(index as isize) };
-            unsafe {
-                q::JS_FreeAtom(context, (*prop).atom);
-            }
+            let prop = properties.offset(index as isize);
+
+            q::JS_FreeAtom(context, (*prop).atom);
         }
-        unsafe {
-            q::js_free(context, properties as *mut std::ffi::c_void);
-        }
+
+        q::js_free(context, properties as *mut std::ffi::c_void);
     });
 
     let mut res: Vec<String> = vec![];
     for index in 0..count {
-        let prop = unsafe { (*properties).offset(index as isize) };
+        let prop = (*properties).offset(index as isize);
 
-        let key_value = unsafe { q::JS_AtomToString(context, (*prop).atom) };
+        let key_value = q::JS_AtomToString(context, (*prop).atom);
         let key_ref = JSValueRef::new(
             context,
             key_value,
@@ -305,7 +307,18 @@ pub fn get_property_names(
     Ok(res)
 }
 
-pub fn traverse_properties<V, R>(
+pub fn traverse_properties_q<V, R>(
+    q_ctx: &QuickJsContext,
+    obj_ref: &JSValueRef,
+    visitor: V,
+) -> Result<HashMap<String, R>, EsError>
+where
+    V: Fn(&str, JSValueRef) -> Result<R, EsError>,
+{
+    unsafe { traverse_properties(q_ctx.context, obj_ref, visitor) }
+}
+
+pub unsafe fn traverse_properties<V, R>(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     visitor: V,
@@ -317,44 +330,38 @@ where
     let mut count: u32 = 0;
 
     let flags = (q::JS_GPN_STRING_MASK | q::JS_GPN_SYMBOL_MASK | q::JS_GPN_ENUM_ONLY) as i32;
-    let ret = unsafe {
-        q::JS_GetOwnPropertyNames(
-            context,
-            &mut properties,
-            &mut count,
-            *obj_ref.borrow_value(),
-            flags,
-        )
-    };
+    let ret = q::JS_GetOwnPropertyNames(
+        context,
+        &mut properties,
+        &mut count,
+        *obj_ref.borrow_value(),
+        flags,
+    );
     if ret != 0 {
         return Err(EsError::new_str("Could not get object properties"));
     }
 
     let properties = DroppableValue::new(properties, |&mut properties| {
         for index in 0..count {
-            let prop = unsafe { properties.offset(index as isize) };
-            unsafe {
-                q::JS_FreeAtom(context, (*prop).atom);
-            }
+            let prop = properties.offset(index as isize);
+
+            q::JS_FreeAtom(context, (*prop).atom);
         }
-        unsafe {
-            q::js_free(context, properties as *mut std::ffi::c_void);
-        }
+
+        q::js_free(context, properties as *mut std::ffi::c_void);
     });
 
     let mut map = HashMap::new();
 
     for index in 0..count {
-        let prop = unsafe { (*properties).offset(index as isize) };
-        let raw_value = unsafe {
-            q::JS_GetPropertyInternal(
-                context,
-                *obj_ref.borrow_value(),
-                (*prop).atom,
-                *obj_ref.borrow_value(),
-                0,
-            )
-        };
+        let prop = (*properties).offset(index as isize);
+        let raw_value = q::JS_GetPropertyInternal(
+            context,
+            *obj_ref.borrow_value(),
+            (*prop).atom,
+            *obj_ref.borrow_value(),
+            0,
+        );
         let prop_val_ref = JSValueRef::new(
             context,
             raw_value,
@@ -366,7 +373,7 @@ where
             return Err(EsError::new_str("Could not get object property"));
         }
 
-        let key_value = unsafe { q::JS_AtomToString(context, (*prop).atom) };
+        let key_value = q::JS_AtomToString(context, (*prop).atom);
         let key_ref = JSValueRef::new(
             context,
             key_value,
@@ -434,7 +441,7 @@ pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
     use crate::quickjs_utils::objects::{
-        create_object_q, get_property_names, get_property_q, set_property_q,
+        create_object_q, get_property_names_q, get_property_q, set_property_q,
     };
     use crate::quickjs_utils::primitives::{from_i32, to_i32};
     use crate::quickjs_utils::{get_global_q, primitives};
@@ -518,7 +525,7 @@ pub mod tests {
                 .eval(EsScript::new("test_propnames.es", "({one: 1, two: 2});"))
                 .ok()
                 .expect("could not get test obj");
-            let prop_names = get_property_names(q_ctx.context, &obj_ref)
+            let prop_names = get_property_names_q(q_ctx, &obj_ref)
                 .ok()
                 .expect("could not get prop names");
 

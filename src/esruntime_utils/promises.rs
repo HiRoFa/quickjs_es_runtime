@@ -1,7 +1,7 @@
 use crate::eserror::EsError;
 use crate::esruntime::EsRuntime;
 use crate::quickjs_utils::primitives;
-use crate::quickjs_utils::promises::new_promise;
+use crate::quickjs_utils::promises::new_promise_q;
 use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
@@ -73,7 +73,7 @@ where
     M: FnOnce(&QuickJsContext, R) -> Result<JSValueRef, EsError> + Send + 'static,
 {
     // create promise
-    let promise_ref = new_promise(q_ctx.context)?;
+    let promise_ref = new_promise_q(q_ctx)?;
     let return_ref = promise_ref.get_promise_obj_ref();
 
     // add to map and keep id
@@ -105,34 +105,34 @@ where
 
                     // resolve or reject promise
                     match raw_res {
-                        Ok(val_ref) => unsafe {
+                        Ok(val_ref) => {
                             prom_ref
-                                .resolve(q_ctx.context, val_ref)
+                                .resolve_q(q_ctx, val_ref)
                                 .ok()
                                 .expect("prom resolution failed");
-                        },
-                        Err(err) => unsafe {
+                        }
+                        Err(err) => {
                             // todo use error:new_error(err.get_message)
-                            let err_ref = primitives::from_string(q_ctx.context, err.get_message())
+                            let err_ref = primitives::from_string_q(q_ctx, err.get_message())
                                 .ok()
                                 .expect("could not create str");
                             prom_ref
-                                .reject(q_ctx.context, err_ref)
+                                .reject_q(q_ctx, err_ref)
                                 .ok()
                                 .expect("prom rejection failed");
-                        },
+                        }
                     }
                 }
-                Err(err) => unsafe {
+                Err(err) => {
                     // todo use error:new_error(err)
-                    let err_ref = primitives::from_string(q_ctx.context, err.as_str())
+                    let err_ref = primitives::from_string_q(q_ctx, err.as_str())
                         .ok()
                         .expect("could not create str");
                     prom_ref
-                        .reject(q_ctx.context, err_ref)
+                        .reject_q(q_ctx, err_ref)
                         .ok()
                         .expect("prom rejection failed");
-                },
+                }
             }
         })
     });

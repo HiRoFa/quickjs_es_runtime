@@ -58,7 +58,7 @@ fn response_text(
         };
         let mapper = |q_ctx: &QuickJsContext, res: String| {
             // map string to js_str
-            primitives::from_string(q_ctx.context, res.as_str())
+            primitives::from_string_q(q_ctx, res.as_str())
         };
 
         new_resolving_promise(q_ctx, producer, mapper, &es_rt)

@@ -129,8 +129,17 @@ pub fn JS_Invoke(
     ) -> JSValue;
  */
 
+pub fn invoke_member_function_q(
+    q_ctx: &QuickJsContext,
+    obj_ref: &JSValueRef,
+    function_name: &str,
+    arguments: Vec<JSValueRef>,
+) -> Result<JSValueRef, EsError> {
+    unsafe { invoke_member_function(q_ctx.context, obj_ref, function_name, arguments) }
+}
+
 #[allow(dead_code)]
-pub fn invoke_member_function(
+pub unsafe fn invoke_member_function(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     function_name: &str,
@@ -145,15 +154,13 @@ pub fn invoke_member_function(
         .map(|a| *a.borrow_value())
         .collect::<Vec<_>>();
 
-    let res_val = unsafe {
-        q::JS_Invoke(
-            context,
-            *obj_ref.borrow_value(),
-            atom_ref.get_atom(),
-            arg_count,
-            qargs.as_mut_ptr(),
-        )
-    };
+    let res_val = q::JS_Invoke(
+        context,
+        *obj_ref.borrow_value(),
+        atom_ref.get_atom(),
+        arg_count,
+        qargs.as_mut_ptr(),
+    );
 
     let res_ref = JSValueRef::new(
         context,
@@ -486,7 +493,7 @@ pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
     use crate::quickjs_utils::functions::{
-        call_function_q, call_to_string_q, invoke_member_function, new_function_q,
+        call_function_q, call_to_string_q, invoke_member_function_q, new_function_q,
     };
     use crate::quickjs_utils::{functions, objects, primitives};
     use std::sync::Arc;
@@ -505,8 +512,8 @@ pub mod tests {
                 .ok()
                 .expect("test_to_invoke.es failed");
 
-            let res = invoke_member_function(
-                q_ctx.context,
+            let res = invoke_member_function_q(
+                q_ctx,
                 &obj_ref,
                 "func",
                 vec![primitives::from_i32(12), primitives::from_i32(14)],

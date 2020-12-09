@@ -29,6 +29,10 @@ impl PromiseRef {
         self.promise_obj_ref.clone()
     }
 
+    pub fn resolve_q(&self, q_ctx: &QuickJsContext, value: JSValueRef) -> Result<(), EsError> {
+        unsafe { self.resolve(q_ctx.context, value) }
+    }
+
     pub unsafe fn resolve(
         &self,
         context: *mut q::JSContext,
@@ -49,6 +53,10 @@ impl PromiseRef {
             Ok(())
         })
     }
+    pub fn reject_q(&self, q_ctx: &QuickJsContext, value: JSValueRef) -> Result<(), EsError> {
+        unsafe { self.reject(q_ctx.context, value) }
+    }
+
     pub unsafe fn reject(
         &self,
         context: *mut q::JSContext,
@@ -71,16 +79,18 @@ impl PromiseRef {
     }
 }
 
-#[allow(dead_code)]
+pub fn new_promise_q(q_ctx: &QuickJsContext) -> Result<PromiseRef, EsError> {
+    unsafe { new_promise(q_ctx.context) }
+}
+
 /// create a new Promise
 /// you can use this to respond asynchronously to method calls from JavaScript by returning a Promise
-pub fn new_promise(context: *mut q::JSContext) -> Result<PromiseRef, EsError> {
+pub unsafe fn new_promise(context: *mut q::JSContext) -> Result<PromiseRef, EsError> {
     log::trace!("promises::new_promise()");
 
     let mut promise_resolution_functions = [quickjs_utils::new_null(), quickjs_utils::new_null()];
 
-    let prom_val =
-        unsafe { q::JS_NewPromiseCapability(context, promise_resolution_functions.as_mut_ptr()) };
+    let prom_val = q::JS_NewPromiseCapability(context, promise_resolution_functions.as_mut_ptr());
 
     let resolve_func_val = *promise_resolution_functions.get(0).unwrap();
     let reject_func_val = *promise_resolution_functions.get(1).unwrap();
@@ -218,7 +228,7 @@ unsafe extern "C" fn promise_rejection_tracker(
 pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
-    use crate::quickjs_utils::promises::{add_promise_reactions_q, is_promise_q, new_promise};
+    use crate::quickjs_utils::promises::{add_promise_reactions_q, is_promise_q, new_promise_q};
     use crate::quickjs_utils::{functions, new_null_ref, primitives};
     use std::sync::Arc;
     use std::time::Duration;
@@ -271,7 +281,7 @@ pub mod tests {
                 .ok()
                 .unwrap();
 
-            let prom = new_promise(q_ctx.context).ok().unwrap();
+            let prom = new_promise_q(q_ctx).ok().unwrap();
 
             let res = functions::call_function_q(
                 q_ctx,
@@ -309,7 +319,7 @@ pub mod tests {
                 .ok()
                 .unwrap();
 
-            let prom = new_promise(q_ctx.context).ok().unwrap();
+            let prom = new_promise_q(q_ctx).ok().unwrap();
 
             let res = functions::call_function_q(
                 q_ctx,

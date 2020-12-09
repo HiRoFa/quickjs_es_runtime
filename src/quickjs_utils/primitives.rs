@@ -1,4 +1,5 @@
 use crate::eserror::EsError;
+use crate::quickjscontext::QuickJsContext;
 use crate::valueref::{JSValueRef, TAG_BOOL, TAG_FLOAT64, TAG_INT};
 use libquickjs_sys as q;
 use libquickjs_sys::JSValue as JSVal;
@@ -67,13 +68,19 @@ pub fn from_i32(i: i32) -> JSValueRef {
     )
 }
 
-pub fn to_string(context: *mut q::JSContext, value_ref: &JSValueRef) -> Result<String, EsError> {
+pub fn to_string_q(q_ctx: &QuickJsContext, value_ref: &JSValueRef) -> Result<String, EsError> {
+    unsafe { to_string(q_ctx.context, value_ref) }
+}
+
+pub unsafe fn to_string(
+    context: *mut q::JSContext,
+    value_ref: &JSValueRef,
+) -> Result<String, EsError> {
     log::trace!("primitives::to_string on {}", value_ref.borrow_value().tag);
 
     assert!(value_ref.is_string());
 
-    let ptr =
-        unsafe { q::JS_ToCStringLen2(context, std::ptr::null_mut(), *value_ref.borrow_value(), 0) };
+    let ptr = q::JS_ToCStringLen2(context, std::ptr::null_mut(), *value_ref.borrow_value(), 0);
 
     if ptr.is_null() {
         return Err(EsError::new_str(
@@ -81,23 +88,26 @@ pub fn to_string(context: *mut q::JSContext, value_ref: &JSValueRef) -> Result<S
         ));
     }
 
-    let cstr = unsafe { std::ffi::CStr::from_ptr(ptr) };
+    let cstr = std::ffi::CStr::from_ptr(ptr);
 
     let s = cstr.to_str().expect("invalid string").to_string();
 
     // Free the c string.
-    unsafe { q::JS_FreeCString(context, ptr) };
+    q::JS_FreeCString(context, ptr);
 
     Ok(s)
 }
 
-pub fn to_str(context: *mut q::JSContext, value_ref: &JSValueRef) -> Result<&str, EsError> {
+pub fn to_str_q<'a>(q_ctx: &QuickJsContext, value_ref: &'a JSValueRef) -> Result<&'a str, EsError> {
+    unsafe { to_str(q_ctx.context, value_ref) }
+}
+
+pub unsafe fn to_str(context: *mut q::JSContext, value_ref: &JSValueRef) -> Result<&str, EsError> {
     log::trace!("primitives::to_string on {}", value_ref.borrow_value().tag);
 
     assert!(value_ref.is_string());
 
-    let ptr =
-        unsafe { q::JS_ToCStringLen2(context, std::ptr::null_mut(), *value_ref.borrow_value(), 0) };
+    let ptr = q::JS_ToCStringLen2(context, std::ptr::null_mut(), *value_ref.borrow_value(), 0);
 
     if ptr.is_null() {
         return Err(EsError::new_str(
@@ -105,18 +115,22 @@ pub fn to_str(context: *mut q::JSContext, value_ref: &JSValueRef) -> Result<&str
         ));
     }
 
-    let cstr = unsafe { std::ffi::CStr::from_ptr(ptr) };
+    let cstr = std::ffi::CStr::from_ptr(ptr);
 
     let s = cstr.to_str().expect("invalid string");
 
     // Free the c string.
-    unsafe { q::JS_FreeCString(context, ptr) };
+    q::JS_FreeCString(context, ptr);
 
     Ok(s)
 }
 
-pub fn from_string(context: *mut q::JSContext, s: &str) -> Result<JSValueRef, EsError> {
-    let qval = unsafe { q::JS_NewStringLen(context, s.as_ptr() as *const c_char, s.len() as _) };
+pub fn from_string_q(q_ctx: &QuickJsContext, s: &str) -> Result<JSValueRef, EsError> {
+    unsafe { from_string(q_ctx.context, s) }
+}
+
+pub unsafe fn from_string(context: *mut q::JSContext, s: &str) -> Result<JSValueRef, EsError> {
+    let qval = q::JS_NewStringLen(context, s.as_ptr() as *const c_char, s.len() as _);
     let ret = JSValueRef::new(context, qval, false, true, "primitives::from_string qval");
     if ret.is_exception() {
         return Err(EsError::new_str("Could not create string in runtime"));

@@ -352,7 +352,7 @@ impl Proxy {
             q_ctx.context,
             &constructor_ref,
             "name",
-            &primitives::from_string(q_ctx.context, &self.get_class_name())?,
+            &primitives::from_string_q(q_ctx, &self.get_class_name())?,
             0,
         )?;
 
