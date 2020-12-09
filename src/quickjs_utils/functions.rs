@@ -64,8 +64,16 @@ pub unsafe fn parse_function(
     Ok(ret)
 }
 
-#[allow(dead_code)]
-pub fn call_function(
+pub fn call_function_q(
+    q_ctx: &QuickJsContext,
+    function_ref: &JSValueRef,
+    arguments: Vec<JSValueRef>,
+    this_ref_opt: Option<&JSValueRef>,
+) -> Result<JSValueRef, EsError> {
+    unsafe { call_function(q_ctx.context, function_ref, arguments, this_ref_opt) }
+}
+
+pub unsafe fn call_function(
     context: *mut q::JSContext,
     function_ref: &JSValueRef,
     arguments: Vec<JSValueRef>,
@@ -87,15 +95,13 @@ pub fn call_function(
         None => crate::quickjs_utils::new_null(),
     };
 
-    let res = unsafe {
-        q::JS_Call(
-            context,
-            *function_ref.borrow_value(),
-            this_val,
-            arg_count,
-            qargs.as_mut_ptr(),
-        )
-    };
+    let res = q::JS_Call(
+        context,
+        *function_ref.borrow_value(),
+        this_val,
+        arg_count,
+        qargs.as_mut_ptr(),
+    );
 
     let mut res_ref = JSValueRef::new(context, res, false, true, "call_function result");
     res_ref.label("functions::call_function res");
@@ -160,7 +166,14 @@ pub fn invoke_member_function(
     Ok(res_ref)
 }
 
-pub fn call_to_string(context: *mut q::JSContext, obj_ref: &JSValueRef) -> Result<String, EsError> {
+pub fn call_to_string_q(q_ctx: &QuickJsContext, obj_ref: &JSValueRef) -> Result<String, EsError> {
+    unsafe { call_to_string(q_ctx.context, obj_ref) }
+}
+
+pub unsafe fn call_to_string(
+    context: *mut q::JSContext,
+    obj_ref: &JSValueRef,
+) -> Result<String, EsError> {
     if obj_ref.is_string() {
         crate::quickjs_utils::primitives::to_string(context, obj_ref)
     } else if obj_ref.is_null() {
@@ -181,7 +194,7 @@ pub fn call_to_string(context: *mut q::JSContext, obj_ref: &JSValueRef) -> Resul
     } else {
         log::trace!("calling JS_ToString on a {}", obj_ref.borrow_value().tag);
 
-        let res = unsafe { q::JS_ToString(context, *obj_ref.borrow_value()) };
+        let res = q::JS_ToString(context, *obj_ref.borrow_value());
         let res_ref = JSValueRef::new(context, res, false, true, "call_to_string result");
 
         log::trace!("called JS_ToString got a {}", res_ref.borrow_value().tag);
@@ -394,8 +407,18 @@ thread_local! {
     static CALLBACK_IDS: RefCell<HashSet<Box<i32>>> = RefCell::new(HashSet::new());
 }
 
-#[allow(dead_code)]
-pub fn new_function<F>(
+pub fn new_function_q<F>(
+    q_ctx: &QuickJsContext,
+    name: &str,
+    func: F,
+    arg_count: u32,
+) -> Result<JSValueRef, EsError>
+where
+    F: Fn(JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
+{
+    unsafe { new_function(q_ctx.context, name, func, arg_count) }
+}
+pub unsafe fn new_function<F>(
     context: *mut q::JSContext,
     _name: &str,
     func: F,
@@ -421,7 +444,7 @@ where
 
     let callback_class_id = CALLBACK_CLASS_ID.with(|rc| *rc.borrow());
 
-    let class_val: q::JSValue = unsafe { q::JS_NewObjectClass(context, callback_class_id as i32) };
+    let class_val: q::JSValue = q::JS_NewObjectClass(context, callback_class_id as i32);
 
     let class_val_ref = JSValueRef::new(
         context,
@@ -446,7 +469,7 @@ where
         let ibp: &mut i32 = &mut *bx;
         let info_ptr = ibp as *mut _ as *mut c_void;
 
-        unsafe { q::JS_SetOpaque(*class_val_ref.borrow_value(), info_ptr) };
+        q::JS_SetOpaque(*class_val_ref.borrow_value(), info_ptr);
 
         ids.insert(bx);
     });
@@ -463,7 +486,7 @@ pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
     use crate::quickjs_utils::functions::{
-        call_function, call_to_string, invoke_member_function, new_function,
+        call_function_q, call_to_string_q, invoke_member_function, new_function_q,
     };
     use crate::quickjs_utils::{functions, objects, primitives};
     use std::sync::Arc;
@@ -514,13 +537,13 @@ pub mod tests {
                 .expect("aa");
             assert_eq!(func_ref.get_ref_count(), 1);
 
-            let a = objects::create_object(q_ctx.context).ok().unwrap();
-            let b = objects::create_object(q_ctx.context).ok().unwrap();
+            let a = objects::create_object_q(q_ctx).ok().unwrap();
+            let b = objects::create_object_q(q_ctx).ok().unwrap();
 
             assert_eq!(1, a.get_ref_count());
             assert_eq!(1, b.get_ref_count());
 
-            let i_res = call_function(q_ctx.context, &func_ref, vec![a.clone(), b.clone()], None)
+            let i_res = call_function_q(q_ctx, &func_ref, vec![a.clone(), b.clone()], None)
                 .ok()
                 .expect("a");
             assert!(i_res.is_object());
@@ -531,12 +554,12 @@ pub mod tests {
 
             let q_ref = q_ctx.eval(EsScript::new("test_ret_refcount2.es", "test.q;")).ok().expect("get q failed");
             assert_eq!(2, q_ref.get_ref_count());
-            let _ = call_function(q_ctx.context, &func_ref, vec![primitives::from_i32(123), q_ref], None)
+            let _ = call_function_q(q_ctx, &func_ref, vec![primitives::from_i32(123), q_ref], None)
                 .ok()
                 .expect("b");
             let q_ref = q_ctx.eval(EsScript::new("test_ret_refcount2.es", "test.q;")).ok().expect("get q failed");
             assert_eq!(2, q_ref.get_ref_count());
-            let _ = call_function(q_ctx.context, &func_ref, vec![q_ref, primitives::from_i32(123)], None)
+            let _ = call_function_q(q_ctx, &func_ref, vec![q_ref, primitives::from_i32(123)], None)
                 .ok()
                 .expect("b");
             let q_ref = q_ctx.eval(EsScript::new("test_ret_refcount2.es", "test.q;")).ok().expect("get q failed");
@@ -557,13 +580,13 @@ pub mod tests {
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let i = primitives::from_i32(480);
-            let i_s = call_to_string(q_ctx.context, &i)
+            let i_s = call_to_string_q(q_ctx, &i)
                 .ok()
                 .expect("to_string failed on i");
             assert_eq!(i_s.as_str(), "480");
 
             let b = primitives::from_bool(true);
-            let b_s = call_to_string(q_ctx.context, &b)
+            let b_s = call_to_string_q(q_ctx, &b)
                 .ok()
                 .expect("to_string failed on b");
             assert_eq!(b_s.as_str(), "true");
@@ -587,8 +610,8 @@ pub mod tests {
                 .ok()
                 .expect("could not get func obj");
 
-            let res = call_function(
-                q_ctx.context,
+            let res = call_function_q(
+                q_ctx,
                 &func_ref,
                 vec![primitives::from_i32(8), primitives::from_i32(6)],
                 None,
@@ -617,8 +640,8 @@ pub mod tests {
 
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
-            let mut cb_ref = new_function(
-                q_ctx.context,
+            let mut cb_ref = new_function_q(
+                q_ctx,
                 "cb",
                 |_this_ref, _args| {
                     log::trace!("native callback invoked");
@@ -640,7 +663,7 @@ pub mod tests {
 
             assert_eq!(2, func_ref.get_ref_count());
 
-            let res = call_function(q_ctx.context, &func_ref, vec![cb_ref], None);
+            let res = call_function_q(q_ctx, &func_ref, vec![cb_ref], None);
             if res.is_err() {
                 let err = res.err().unwrap();
                 log::error!("could not invoke test_callback_563: {}", err);
@@ -668,8 +691,8 @@ pub mod tests {
                 .ok()
                 .expect("script failed");
 
-            let cb_ref = new_function(
-                q_ctx.context,
+            let cb_ref = new_function_q(
+                q_ctx,
                 "cb",
                 |_this_ref, args| {
                     log::trace!("native callback invoked");
@@ -682,7 +705,7 @@ pub mod tests {
             .ok()
             .expect("could not create function");
             log::debug!("calling js func test_callback_845");
-            let res = functions::call_function(q_ctx.context, &func_ref, vec![cb_ref], None);
+            let res = functions::call_function_q(q_ctx, &func_ref, vec![cb_ref], None);
             if res.is_err() {
                 let e = format!("test_callback_845 failed: {}", res.err().unwrap());
                 log::error!("{}", e);

@@ -29,7 +29,7 @@ thread_local! {
 /// rt.add_to_event_queue_sync(move |q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///      // create rust function, please note that using new_native_function_data will be the faster option
-///      let func_ref = functions::new_function(q_ctx.context, "asyncTest", move |_this_ref, _args| {
+///      let func_ref = functions::new_function_q(q_ctx, "asyncTest", move |_this_ref, _args| {
 ///           let rt_ref = rt_ref.clone();
 ///           QuickJsRuntime::do_with(move |q_js_rt| {
 ///               let q_ctx = q_js_rt.get_main_context();
@@ -45,7 +45,7 @@ thread_local! {
 ///
 ///      // add func to global scope
 ///      let global_ref = quickjs_utils::get_global_q(q_ctx);
-///      objects::set_property(q_ctx.context, &global_ref, "asyncTest", &func_ref).ok()
+///      objects::set_property_q(q_ctx, &global_ref, "asyncTest", &func_ref).ok()
 ///             .expect("could not set prop");;
 ///            
 /// });
@@ -105,13 +105,13 @@ where
 
                     // resolve or reject promise
                     match raw_res {
-                        Ok(val_ref) => {
+                        Ok(val_ref) => unsafe {
                             prom_ref
                                 .resolve(q_ctx.context, val_ref)
                                 .ok()
                                 .expect("prom resolution failed");
-                        }
-                        Err(err) => {
+                        },
+                        Err(err) => unsafe {
                             // todo use error:new_error(err.get_message)
                             let err_ref = primitives::from_string(q_ctx.context, err.get_message())
                                 .ok()
@@ -120,10 +120,10 @@ where
                                 .reject(q_ctx.context, err_ref)
                                 .ok()
                                 .expect("prom rejection failed");
-                        }
+                        },
                     }
                 }
-                Err(err) => {
+                Err(err) => unsafe {
                     // todo use error:new_error(err)
                     let err_ref = primitives::from_string(q_ctx.context, err.as_str())
                         .ok()
@@ -132,7 +132,7 @@ where
                         .reject(q_ctx.context, err_ref)
                         .ok()
                         .expect("prom rejection failed");
-                }
+                },
             }
         })
     });
@@ -160,8 +160,8 @@ pub mod tests {
         rt.add_to_event_queue_sync(move |q_js_rt| {
             // create rust function, please note that using new_native_function_data will be the faster option
             let q_ctx = q_js_rt.get_main_context();
-            let func_ref = functions::new_function(
-                q_ctx.context,
+            let func_ref = functions::new_function_q(
+                q_ctx,
                 "asyncTest",
                 move |_this_ref, _args| {
                     let rt_ref = rt_ref.clone();
@@ -189,7 +189,7 @@ pub mod tests {
             // add func to global scope
             let global_ref = quickjs_utils::get_global_q(q_ctx);
             let i = global_ref.get_ref_count();
-            objects::set_property(q_ctx.context, &global_ref, "asyncTest", &func_ref)
+            objects::set_property_q(q_ctx, &global_ref, "asyncTest", &func_ref)
                 .ok()
                 .expect("could not set prop");
             assert_eq!(i, global_ref.get_ref_count());

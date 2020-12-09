@@ -198,7 +198,12 @@ impl QuickJsContext {
     }
 
     /// Get the last exception from the runtime, and if present, convert it to a EsError.
-    pub fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
+    pub fn get_exception_ctx(&self) -> Option<EsError> {
+        unsafe { errors::get_exception(self.context) }
+    }
+
+    /// Get the last exception from the runtime, and if present, convert it to a EsError.
+    pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
         errors::get_exception(context)
     }
 
@@ -313,8 +318,8 @@ pub mod tests {
 
         rt.add_to_event_queue_sync(|q_js_rt| {
             let c_ctx = q_js_rt.get_context("c");
-            let func = functions::new_function(
-                c_ctx.context,
+            let func = functions::new_function_q(
+                c_ctx,
                 "test",
                 |_this, _args| Ok(quickjs_utils::new_null_ref()),
                 1,
@@ -322,7 +327,7 @@ pub mod tests {
             .ok()
             .unwrap();
             let global = get_global_q(c_ctx);
-            objects::set_property(c_ctx.context, &global, "test_func", &func)
+            objects::set_property_q(c_ctx, &global, "test_func", &func)
                 .ok()
                 .expect("could not set prop");
             q_js_rt.gc();

@@ -5,7 +5,6 @@ use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::reflection;
 use crate::valueref::JSValueRef;
-use libquickjs_sys as q;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -26,12 +25,11 @@ pub trait FetchResponse {
 const RESPONSE_PROXY_NAME: &str = "Response";
 
 fn response_text(
-    context: *mut q::JSContext,
+    q_ctx: &QuickJsContext,
     instance_id: &usize,
     _args: Vec<JSValueRef>,
 ) -> Result<JSValueRef, EsError> {
     QuickJsRuntime::do_with(|q_js_rt| {
-        let q_ctx = unsafe { q_js_rt.get_quickjs_context(context) };
         let es_rt_arc_opt = q_js_rt.get_rt_ref();
         let es_rt = &*es_rt_arc_opt.unwrap();
 
@@ -68,12 +66,11 @@ fn response_text(
 }
 
 fn response_json(
-    context: *mut q::JSContext,
+    q_ctx: &QuickJsContext,
     instance_id: &usize,
     _args: Vec<JSValueRef>,
 ) -> Result<JSValueRef, EsError> {
     QuickJsRuntime::do_with(|q_js_rt| {
-        let q_ctx = unsafe { q_js_rt.get_quickjs_context(context) };
         let es_rt_arc_opt = q_js_rt.get_rt_ref();
         let es_rt = &*es_rt_arc_opt.unwrap();
 
@@ -104,7 +101,7 @@ fn response_json(
             // map string to js_str and then parse
 
             log::trace!("fetch::response::json parsing: {}", res);
-            json::parse(q_ctx.context, res.as_str())
+            json::parse_q(q_ctx, res.as_str())
         };
 
         new_resolving_promise(q_ctx, producer, mapper, &es_rt)

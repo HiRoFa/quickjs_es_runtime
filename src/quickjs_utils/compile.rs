@@ -25,21 +25,19 @@ use libquickjs_sys as q;
 ///     assert_eq!(i, 7*5);
 /// });
 /// ```
-pub fn compile(context: *mut q::JSContext, script: EsScript) -> Result<JSValueRef, EsError> {
+pub unsafe fn compile(context: *mut q::JSContext, script: EsScript) -> Result<JSValueRef, EsError> {
     let filename_c = make_cstring(script.get_path())?;
     let code_c = make_cstring(script.get_code())?;
 
     log::debug!("q_js_rt.compile file {}", script.get_path());
 
-    let value_raw = unsafe {
-        q::JS_Eval(
-            context,
-            code_c.as_ptr(),
-            script.get_code().len() as _,
-            filename_c.as_ptr(),
-            q::JS_EVAL_FLAG_COMPILE_ONLY as i32,
-        )
-    };
+    let value_raw = q::JS_Eval(
+        context,
+        code_c.as_ptr(),
+        script.get_code().len() as _,
+        filename_c.as_ptr(),
+        q::JS_EVAL_FLAG_COMPILE_ONLY as i32,
+    );
 
     log::trace!("after compile, checking error");
 
@@ -66,12 +64,12 @@ pub fn compile(context: *mut q::JSContext, script: EsScript) -> Result<JSValueRe
 }
 
 /// run a compiled function, see compile for an example
-pub fn run_compiled_function(
+pub unsafe fn run_compiled_function(
     context: *mut q::JSContext,
     compiled_func: &JSValueRef,
 ) -> Result<JSValueRef, EsError> {
     assert!(compiled_func.is_compiled_function());
-    let val = unsafe { q::JS_EvalFunction(context, *compiled_func.borrow_value()) };
+    let val = q::JS_EvalFunction(context, *compiled_func.borrow_value());
     let val_ref = JSValueRef::new(context, val, false, true, "run_compiled_function result");
     if val_ref.is_exception() {
         let ex_opt = QuickJsContext::get_exception(context);
@@ -134,7 +132,10 @@ pub fn to_bytecode(context: *mut q::JSContext, compiled_func: &JSValueRef) -> Ve
 }
 
 /// read a compiled function from bytecode, see to_bytecode for an example
-pub fn from_bytecode(context: *mut q::JSContext, bytecode: Vec<u8>) -> Result<JSValueRef, EsError> {
+pub unsafe fn from_bytecode(
+    context: *mut q::JSContext,
+    bytecode: Vec<u8>,
+) -> Result<JSValueRef, EsError> {
     assert!(!bytecode.is_empty());
     {
         #[cfg(target_pointer_width = "64")]
@@ -143,7 +144,7 @@ pub fn from_bytecode(context: *mut q::JSContext, bytecode: Vec<u8>) -> Result<JS
         let len = bytecode.len() as u32;
 
         let buf = bytecode.as_ptr();
-        let raw = unsafe { q::JS_ReadObject(context, buf, len, q::JS_READ_OBJ_BYTECODE as i32) };
+        let raw = q::JS_ReadObject(context, buf, len, q::JS_READ_OBJ_BYTECODE as i32);
 
         let func_ref = JSValueRef::new(context, raw, true, true, "from_bytecode result");
         if func_ref.is_exception() {
@@ -173,30 +174,32 @@ pub mod tests {
     //#[test]
     fn _test_compile() {
         let rt = EsRuntimeBuilder::new().build();
-        rt.add_to_event_queue_sync(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
-            let func_res = compile(
-                q_ctx.context,
-                EsScript::new("test_func.es", "let a = 7; let b = 5; a * b;"),
-            );
-            let func = func_res.ok().expect("func compile failed");
-            let bytecode: Vec<u8> = to_bytecode(q_ctx.context, &func);
-            drop(func);
-            assert!(!bytecode.is_empty());
-            let func2_res = from_bytecode(q_ctx.context, bytecode);
-            let func2 = func2_res.ok().expect("could not read bytecode");
-            let run_res = run_compiled_function(q_ctx.context, &func2);
-            let res = run_res.ok().expect("run_compiled_function failed");
-            let i_res = primitives::to_i32(&res);
-            let i = i_res.ok().expect("could not convert to i32");
-            assert_eq!(i, 7 * 5);
-        });
+        unsafe {
+            rt.add_to_event_queue_sync(|q_js_rt| {
+                let q_ctx = q_js_rt.get_main_context();
+                let func_res = compile(
+                    q_ctx.context,
+                    EsScript::new("test_func.es", "let a = 7; let b = 5; a * b;"),
+                );
+                let func = func_res.ok().expect("func compile failed");
+                let bytecode: Vec<u8> = to_bytecode(q_ctx.context, &func);
+                drop(func);
+                assert!(!bytecode.is_empty());
+                let func2_res = from_bytecode(q_ctx.context, bytecode);
+                let func2 = func2_res.ok().expect("could not read bytecode");
+                let run_res = run_compiled_function(q_ctx.context, &func2);
+                let res = run_res.ok().expect("run_compiled_function failed");
+                let i_res = primitives::to_i32(&res);
+                let i = i_res.ok().expect("could not convert to i32");
+                assert_eq!(i, 7 * 5);
+            });
+        }
     }
 
     //#[test]
     fn _test_bytecode() {
         let rt = EsRuntimeBuilder::new().build();
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.add_to_event_queue_sync(|q_js_rt| unsafe {
             let q_ctx = q_js_rt.get_main_context();
             let func_res = compile(
                 q_ctx.context,

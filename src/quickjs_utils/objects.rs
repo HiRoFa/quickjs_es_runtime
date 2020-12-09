@@ -15,6 +15,8 @@ pub fn get_namespace_q(
     unsafe { get_namespace(context.context, namespace, create_if_absent) }
 }
 
+/// # Safety
+/// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
 pub unsafe fn get_namespace(
     context: *mut q::JSContext,
     namespace: Vec<&str>,
@@ -66,15 +68,37 @@ pub fn construct_object(
     unimplemented!();
 }
 
-pub fn create_object(context: *mut q::JSContext) -> Result<JSValueRef, EsError> {
-    let obj = unsafe { q::JS_NewObject(context) };
+/// create a new simple object, e.g. `let obj = {};`
+pub fn create_object_q(q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    unsafe { create_object(q_ctx.context) }
+}
+
+/// create a new simple object, e.g. `let obj = {};`
+/// # Safety
+/// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
+pub unsafe fn create_object(context: *mut q::JSContext) -> Result<JSValueRef, EsError> {
+    let obj = q::JS_NewObject(context);
     let obj_ref = JSValueRef::new(context, obj, false, true, "objects::create_object");
     if obj_ref.is_exception() {
         return Err(EsError::new_str("Could not create object"));
     }
     Ok(obj_ref)
 }
-pub fn set_property(
+
+/// set a property in an object, like `obj[propName] = val;`
+pub fn set_property_q(
+    q_ctx: &QuickJsContext,
+    obj_ref: &JSValueRef,
+    prop_name: &str,
+    prop_ref: &JSValueRef,
+) -> Result<(), EsError> {
+    unsafe { set_property(q_ctx.context, obj_ref, prop_name, prop_ref) }
+}
+
+/// set a property in an object, like `obj[propName] = val;`
+/// # Safety
+/// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
+pub unsafe fn set_property(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     prop_name: &str,
@@ -133,7 +157,7 @@ pub fn set_property2(
 }
 
 #[allow(dead_code)]
-pub fn define_getter_setter(
+pub unsafe fn define_getter_setter(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     prop_name: &str,
@@ -162,16 +186,14 @@ pub fn define_getter_setter(
 
     log::trace!("objects::define_getter_setter 4");
 
-    let res = unsafe {
-        q::JS_DefinePropertyGetSet(
-            context,
-            *obj_ref.borrow_value(),
-            prop_atom.get_atom(),
-            *getter_func_ref.borrow_value(),
-            *setter_func_ref.borrow_value(),
-            0,
-        )
-    };
+    let res = q::JS_DefinePropertyGetSet(
+        context,
+        *obj_ref.borrow_value(),
+        prop_atom.get_atom(),
+        *getter_func_ref.borrow_value(),
+        *setter_func_ref.borrow_value(),
+        0,
+    );
 
     log::trace!("objects::define_getter_setter 5 {}", res);
 
@@ -188,7 +210,19 @@ pub fn define_getter_setter(
     }
 }
 
-pub fn get_property(
+/// get a property from an object by name
+pub fn get_property_q(
+    q_ctx: &QuickJsContext,
+    obj_ref: &JSValueRef,
+    prop_name: &str,
+) -> Result<JSValueRef, EsError> {
+    unsafe { get_property(q_ctx.context, obj_ref, prop_name) }
+}
+
+/// get a property from an object by name
+/// # Safety
+/// when passing a context please ensure the corresponding QuickJsContext is still valid
+pub unsafe fn get_property(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     prop_name: &str,
@@ -203,8 +237,7 @@ pub fn get_property(
 
     log::trace!("objects::get_property {}", prop_name);
 
-    let prop_val =
-        unsafe { q::JS_GetPropertyStr(context, *obj_ref.borrow_value(), c_prop_name.as_ptr()) };
+    let prop_val = q::JS_GetPropertyStr(context, *obj_ref.borrow_value(), c_prop_name.as_ptr());
     let prop_ref = JSValueRef::new(
         context,
         prop_val,
@@ -401,7 +434,7 @@ pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
     use crate::quickjs_utils::objects::{
-        create_object, get_property, get_property_names, set_property,
+        create_object_q, get_property_names, get_property_q, set_property_q,
     };
     use crate::quickjs_utils::primitives::{from_i32, to_i32};
     use crate::quickjs_utils::{get_global_q, primitives};
@@ -412,27 +445,22 @@ pub mod tests {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
-            let context = q_ctx.context;
-            let obj = create_object(context).ok().expect("a");
-            let prop_ref = create_object(context).ok().expect("b");
-            let prop2_ref = create_object(context).ok().expect("c");
+            let obj = create_object_q(q_ctx).ok().expect("a");
+            let prop_ref = create_object_q(q_ctx).ok().expect("b");
+            let prop2_ref = create_object_q(q_ctx).ok().expect("c");
             assert_eq!(obj.get_ref_count(), 1);
             assert_eq!(prop_ref.get_ref_count(), 1);
-            set_property(q_ctx.context, &obj, "a", &prop_ref)
-                .ok()
-                .expect("d");
+            set_property_q(q_ctx, &obj, "a", &prop_ref).ok().expect("d");
             assert_eq!(prop_ref.get_ref_count(), 2);
-            set_property(q_ctx.context, &obj, "b", &prop_ref)
-                .ok()
-                .expect("e");
+            set_property_q(q_ctx, &obj, "b", &prop_ref).ok().expect("e");
             assert_eq!(prop_ref.get_ref_count(), 3);
-            set_property(q_ctx.context, &obj, "b", &prop2_ref)
+            set_property_q(q_ctx, &obj, "b", &prop2_ref)
                 .ok()
                 .expect("f");
             assert_eq!(prop_ref.get_ref_count(), 2);
             assert_eq!(prop2_ref.get_ref_count(), 2);
 
-            let p3 = get_property(q_ctx.context, &obj, "b").ok().expect("g");
+            let p3 = get_property_q(q_ctx, &obj, "b").ok().expect("g");
             assert_eq!(p3.get_ref_count(), 3);
             assert_eq!(prop2_ref.get_ref_count(), 3);
 
@@ -453,24 +481,22 @@ pub mod tests {
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
-            let obj_a = create_object(q_ctx.context).ok().unwrap();
-            let obj_b = create_object(q_ctx.context).ok().unwrap();
-            set_property(q_ctx.context, &obj_a, "b", &obj_b)
-                .ok()
-                .unwrap();
+            let obj_a = create_object_q(q_ctx).ok().unwrap();
+            let obj_b = create_object_q(q_ctx).ok().unwrap();
+            set_property_q(q_ctx, &obj_a, "b", &obj_b).ok().unwrap();
 
-            let b1 = get_property(q_ctx.context, &obj_a, "b").ok().unwrap();
-            set_property(q_ctx.context, &b1, "i", &primitives::from_i32(123))
+            let b1 = get_property_q(q_ctx, &obj_a, "b").ok().unwrap();
+            set_property_q(q_ctx, &b1, "i", &primitives::from_i32(123))
                 .ok()
                 .unwrap();
             drop(b1);
             q_js_rt.gc();
-            let b2 = get_property(q_ctx.context, &obj_a, "b").ok().unwrap();
-            let i_ref = get_property(q_ctx.context, &b2, "i").ok().unwrap();
+            let b2 = get_property_q(q_ctx, &obj_a, "b").ok().unwrap();
+            let i_ref = get_property_q(q_ctx, &b2, "i").ok().unwrap();
             let i = to_i32(&i_ref).ok().unwrap();
             drop(i_ref);
             q_js_rt.gc();
-            let i_ref2 = get_property(q_ctx.context, &b2, "i").ok().unwrap();
+            let i_ref2 = get_property_q(q_ctx, &b2, "i").ok().unwrap();
             let i2 = to_i32(&i_ref2).ok().unwrap();
 
             assert_eq!(i, 123);
@@ -515,22 +541,22 @@ pub mod tests {
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
-            let obj_ref = create_object(q_ctx.context).ok().unwrap();
+            let obj_ref = create_object_q(q_ctx).ok().unwrap();
 
             assert_eq!(obj_ref.get_ref_count(), 1);
 
             let global_ref = get_global_q(q_ctx);
-            set_property(q_ctx.context, &global_ref, "test_obj", &obj_ref)
+            set_property_q(q_ctx, &global_ref, "test_obj", &obj_ref)
                 .ok()
                 .expect("could not set property 1");
 
             assert_eq!(obj_ref.get_ref_count(), 2);
 
             let prop_ref = from_i32(123);
-            let obj_ref = get_property(q_ctx.context, &global_ref, "test_obj")
+            let obj_ref = get_property_q(q_ctx, &global_ref, "test_obj")
                 .ok()
                 .expect("could not get test_obj");
-            set_property(q_ctx.context, &obj_ref, "test_prop", &prop_ref)
+            set_property_q(q_ctx, &obj_ref, "test_prop", &prop_ref)
                 .ok()
                 .expect("could not set property 2");
 

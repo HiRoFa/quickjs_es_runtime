@@ -4,8 +4,8 @@ use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use libquickjs_sys as q;
 
 /// Get the last exception from the runtime, and if present, convert it to an EsError.
-pub fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
-    let exception_val = unsafe { q::JS_GetException(context) };
+pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
+    let exception_val = q::JS_GetException(context);
     let mut exception_ref =
         JSValueRef::new(context, exception_val, false, true, "errors::get_exception");
     exception_ref.label("get_exception value obj");
@@ -37,13 +37,13 @@ pub fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
     }
 }
 
-pub fn new_error(
+pub unsafe fn new_error(
     context: *mut q::JSContext,
     name: &str,
     message: &str,
     stack: &str,
 ) -> Result<JSValueRef, EsError> {
-    let obj = unsafe { q::JS_NewError(context) };
+    let obj = q::JS_NewError(context);
     let obj_ref = JSValueRef::new(
         context,
         obj,
@@ -142,12 +142,8 @@ pub mod tests {
                 .ok()
                 .expect("script failed");
             assert!(functions::is_function(q_ctx.context, &func_ref));
-            let res = functions::call_function(
-                q_ctx.context,
-                &func_ref,
-                vec![primitives::from_i32(12)],
-                None,
-            );
+            let res =
+                functions::call_function_q(q_ctx, &func_ref, vec![primitives::from_i32(12)], None);
             match res {
                 Ok(_) => {}
                 Err(e) => {

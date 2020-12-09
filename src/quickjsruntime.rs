@@ -183,7 +183,7 @@ impl QuickJsRuntime {
             q::JS_ExecutePendingJob(self.runtime, &mut ctx)
         };
         if flag < 0 {
-            let e = QuickJsContext::get_exception(ctx)
+            let e = unsafe { QuickJsContext::get_exception(ctx) }
                 .unwrap_or_else(|| EsError::new_str("Unknown exception while running pending job"));
             return Err(e);
         }

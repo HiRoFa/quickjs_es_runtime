@@ -29,7 +29,11 @@ impl PromiseRef {
         self.promise_obj_ref.clone()
     }
 
-    pub fn resolve(&self, context: *mut q::JSContext, value: JSValueRef) -> Result<(), EsError> {
+    pub unsafe fn resolve(
+        &self,
+        context: *mut q::JSContext,
+        value: JSValueRef,
+    ) -> Result<(), EsError> {
         log::trace!("PromiseRef.resolve()");
         crate::quickjs_utils::functions::call_function(
             context,
@@ -45,7 +49,11 @@ impl PromiseRef {
             Ok(())
         })
     }
-    pub fn reject(&self, context: *mut q::JSContext, value: JSValueRef) -> Result<(), EsError> {
+    pub unsafe fn reject(
+        &self,
+        context: *mut q::JSContext,
+        value: JSValueRef,
+    ) -> Result<(), EsError> {
         log::trace!("PromiseRef.reject()");
         crate::quickjs_utils::functions::call_function(
             context,
@@ -265,8 +273,8 @@ pub mod tests {
 
             let prom = new_promise(q_ctx.context).ok().unwrap();
 
-            let res = functions::call_function(
-                q_ctx.context,
+            let res = functions::call_function_q(
+                q_ctx,
                 &func_ref,
                 vec![prom.get_promise_obj_ref()],
                 None,
@@ -275,9 +283,11 @@ pub mod tests {
                 panic!("func call failed: {}", res.err().unwrap());
             }
 
-            prom.resolve(q_ctx.context, primitives::from_i32(743))
-                .ok()
-                .expect("resolve failed");
+            unsafe {
+                prom.resolve(q_ctx.context, primitives::from_i32(743))
+                    .ok()
+                    .expect("resolve failed");
+            }
         });
         std::thread::sleep(Duration::from_secs(1));
 
@@ -301,8 +311,8 @@ pub mod tests {
 
             let prom = new_promise(q_ctx.context).ok().unwrap();
 
-            let res = functions::call_function(
-                q_ctx.context,
+            let res = functions::call_function_q(
+                q_ctx,
                 &func_ref,
                 vec![prom.get_promise_obj_ref()],
                 None,
@@ -311,9 +321,11 @@ pub mod tests {
                 panic!("func call failed: {}", res.err().unwrap());
             }
 
-            prom.reject(q_ctx.context, primitives::from_i32(130))
-                .ok()
-                .expect("reject failed");
+            unsafe {
+                prom.reject(q_ctx.context, primitives::from_i32(130))
+                    .ok()
+                    .expect("reject failed");
+            }
         });
         std::thread::sleep(Duration::from_secs(1));
 
@@ -335,8 +347,8 @@ pub mod tests {
                 .ok()
                 .expect("script failed");
 
-            let then_cb = functions::new_function(
-                q_ctx.context,
+            let then_cb = functions::new_function_q(
+                q_ctx,
                 "testThen",
                 |_this, args| {
                     let res = primitives::to_i32(args.get(0).unwrap()).ok().unwrap();
@@ -347,8 +359,8 @@ pub mod tests {
             )
             .ok()
             .expect("could not create cb");
-            let finally_cb = functions::new_function(
-                q_ctx.context,
+            let finally_cb = functions::new_function_q(
+                q_ctx,
                 "testThen",
                 |_this, _args| {
                     log::trace!("prom finalized");

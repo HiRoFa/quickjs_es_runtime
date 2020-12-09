@@ -416,8 +416,8 @@ impl EsRuntime {
         self.add_to_event_queue_sync(move |q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let ns = objects::get_namespace_q(q_ctx, namespace, true)?;
-            let func = functions::new_function(
-                q_ctx.context,
+            let func = functions::new_function_q(
+                q_ctx,
                 name.as_str(),
                 move |_this_ref, args| {
                     QuickJsRuntime::do_with(|q_js_rt| {

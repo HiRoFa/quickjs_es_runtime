@@ -1,4 +1,5 @@
 use crate::eserror::EsError;
+use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 
@@ -34,11 +35,18 @@ pub fn is_array(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
 /// rt.add_to_event_queue_sync(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     let obj_ref = q_ctx.eval(EsScript::new("get_length_test.es", "([1, 2, 3]);")).ok().expect("script failed");
-///     let len = arrays::get_length(q_ctx.context, &obj_ref).ok().expect("could not get length");
+///     let len = arrays::get_length_q(q_ctx, &obj_ref).ok().expect("could not get length");
 ///     assert_eq!(len, 3);
 /// });
 /// ```
-pub fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Result<u32, EsError> {
+pub fn get_length_q(q_ctx: &QuickJsContext, arr_ref: &JSValueRef) -> Result<u32, EsError> {
+    unsafe { get_length(q_ctx.context, arr_ref) }
+}
+
+/// Get the length of an Array
+/// # Safety
+/// Ensure the corresponding QuickjsContext is still valid
+pub unsafe fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Result<u32, EsError> {
     let len_ref = crate::quickjs_utils::objects::get_property(context, arr_ref, "length")?;
 
     let len = crate::quickjs_utils::primitives::to_i32(&len_ref)?;
@@ -98,7 +106,7 @@ pub fn create_array(context: *mut q::JSContext) -> Result<JSValueRef, EsError> {
 ///     arrays::set_element(q_ctx.context, &arr_ref, 3, primitives::from_i32(12));
 ///     arrays::set_element(q_ctx.context, &arr_ref, 4, primitives::from_i32(17));
 ///     // get the length
-///     let len = arrays::get_length(q_ctx.context, &arr_ref).ok().unwrap();
+///     let len = arrays::get_length_q(q_ctx, &arr_ref).ok().unwrap();
 ///     assert_eq!(len, 5);
 /// });
 /// ```
@@ -179,7 +187,7 @@ pub mod tests {
             let arr = create_array(q_ctx.context).ok().unwrap();
             assert_eq!(arr.get_ref_count(), 1);
 
-            let a = objects::create_object(q_ctx.context).ok().unwrap();
+            let a = objects::create_object_q(q_ctx).ok().unwrap();
             assert_eq!(1, a.get_ref_count());
 
             set_element(q_ctx.context, &arr, 0, a.clone()).ok().unwrap();
