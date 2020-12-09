@@ -20,29 +20,14 @@ pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
     log::trace!("set_timeout::init");
 
     q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| {
-        let set_timeout_func = functions::new_native_function(
-            q_ctx.context,
-            "setTimeout",
-            Some(set_timeout),
-            2,
-            false,
-        )?;
-        let set_interval_func = functions::new_native_function(
-            q_ctx.context,
-            "setInterval",
-            Some(set_interval),
-            2,
-            false,
-        )?;
-        let clear_timeout_func = functions::new_native_function(
-            q_ctx.context,
-            "clearTimeout",
-            Some(clear_timeout),
-            1,
-            false,
-        )?;
-        let clear_interval_func = functions::new_native_function(
-            q_ctx.context,
+        let set_timeout_func =
+            functions::new_native_function_q(q_ctx, "setTimeout", Some(set_timeout), 2, false)?;
+        let set_interval_func =
+            functions::new_native_function_q(q_ctx, "setInterval", Some(set_interval), 2, false)?;
+        let clear_timeout_func =
+            functions::new_native_function_q(q_ctx, "clearTimeout", Some(clear_timeout), 1, false)?;
+        let clear_interval_func = functions::new_native_function_q(
+            q_ctx,
             "clearInterval",
             Some(clear_interval),
             1,
@@ -51,22 +36,10 @@ pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
 
         let global = unsafe { get_global(q_ctx.context) };
 
-        objects::set_property2(q_ctx.context, &global, "setTimeout", &set_timeout_func, 0)?;
-        objects::set_property2(q_ctx.context, &global, "setInterval", &set_interval_func, 0)?;
-        objects::set_property2(
-            q_ctx.context,
-            &global,
-            "clearTimeout",
-            &clear_timeout_func,
-            0,
-        )?;
-        objects::set_property2(
-            q_ctx.context,
-            &global,
-            "clearInterval",
-            &clear_interval_func,
-            0,
-        )?;
+        objects::set_property2_q(q_ctx, &global, "setTimeout", &set_timeout_func, 0)?;
+        objects::set_property2_q(q_ctx, &global, "setInterval", &set_interval_func, 0)?;
+        objects::set_property2_q(q_ctx, &global, "clearTimeout", &clear_timeout_func, 0)?;
+        objects::set_property2_q(q_ctx, &global, "clearInterval", &clear_interval_func, 0)?;
         Ok(())
     })?;
     Ok(())

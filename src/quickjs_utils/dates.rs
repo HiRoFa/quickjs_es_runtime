@@ -9,6 +9,8 @@ pub fn new_date_q(context: &QuickJsContext) -> Result<JSValueRef, EsError> {
     unsafe { new_date(context.context) }
 }
 
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn new_date(context: *mut q::JSContext) -> Result<JSValueRef, EsError> {
     let constructor = quickjs_utils::get_constructor(context, "Date")?;
     let date_ref = functions::call_constructor(context, &constructor, &[])?;
@@ -19,6 +21,8 @@ pub fn is_date_q(context: &QuickJsContext, obj_ref: &JSValueRef) -> Result<bool,
     unsafe { is_date(context.context, obj_ref) }
 }
 
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn is_date(context: *mut q::JSContext, obj_ref: &JSValueRef) -> Result<bool, EsError> {
     objects::is_instance_of_by_name(context, obj_ref, "Date")
 }
@@ -29,6 +33,9 @@ pub fn set_time_q(
 ) -> Result<(), EsError> {
     unsafe { set_time(context.context, date_ref, timestamp) }
 }
+
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn set_time(
     context: *mut q::JSContext,
     date_ref: &JSValueRef,
@@ -47,6 +54,8 @@ pub fn get_time_q(context: &QuickJsContext, date_ref: &JSValueRef) -> Result<f64
     unsafe { get_time(context.context, date_ref) }
 }
 
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn get_time(context: *mut q::JSContext, date_ref: &JSValueRef) -> Result<f64, EsError> {
     let time_ref = functions::invoke_member_function(context, date_ref, "getTime", vec![])?;
     primitives::to_f64(&time_ref)

@@ -203,6 +203,8 @@ impl QuickJsContext {
     }
 
     /// Get the last exception from the runtime, and if present, convert it to a EsError.
+    /// # Safety
+    /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
     pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
         errors::get_exception(context)
     }
@@ -229,7 +231,8 @@ impl QuickJsContext {
         let opt = cache_map.get(&(id as usize));
         consumer(opt.expect("no such obj in cache"))
     }
-
+    /// # Safety
+    /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
     pub unsafe fn with_context<C, R>(context: *mut q::JSContext, consumer: C) -> R
     where
         C: FnOnce(&QuickJsContext) -> R,

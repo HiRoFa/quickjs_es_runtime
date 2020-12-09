@@ -584,7 +584,7 @@ impl EsValueConvertible for Vec<EsValueFacade> {
     fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         // create the array
 
-        let arr = crate::quickjs_utils::arrays::create_array(q_ctx.context)
+        let arr = crate::quickjs_utils::arrays::create_array_q(q_ctx)
             .ok()
             .unwrap();
 
@@ -594,12 +594,7 @@ impl EsValueConvertible for Vec<EsValueFacade> {
 
             let item_val_ref = item.as_js_value(q_ctx)?;
 
-            crate::quickjs_utils::arrays::set_element(
-                q_ctx.context,
-                &arr,
-                index as u32,
-                item_val_ref,
-            )?;
+            crate::quickjs_utils::arrays::set_element_q(q_ctx, &arr, index as u32, item_val_ref)?;
         }
         Ok(arr)
     }
@@ -957,9 +952,9 @@ impl EsValueFacade {
                         es_rt: Arc::downgrade(&es_rt),
                     }
                     .to_es_value_facade())
-                } else if arrays::is_array(q_ctx.context, value_ref) {
+                } else if arrays::is_array_q(q_ctx, value_ref) {
                     Self::from_jsval_array(q_ctx, value_ref)
-                } else if functions::is_function(q_ctx.context, value_ref) {
+                } else if functions::is_function_q(q_ctx, value_ref) {
                     let cached_obj_id = q_ctx.cache_object(value_ref.clone());
                     let es_rt = QuickJsRuntime::do_with(|q_js_rt| q_js_rt.get_rt_ref().unwrap());
                     let cached_func = CachedJSFunction {
@@ -993,8 +988,7 @@ impl EsValueFacade {
 
         let mut values = Vec::new();
         for index in 0..len {
-            let element_ref =
-                crate::quickjs_utils::arrays::get_element(q_ctx.context, value_ref, index)?;
+            let element_ref = crate::quickjs_utils::arrays::get_element_q(q_ctx, value_ref, index)?;
 
             let element_value = EsValueFacade::from_jsval(q_ctx, &element_ref)?;
 

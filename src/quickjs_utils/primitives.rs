@@ -71,7 +71,8 @@ pub fn from_i32(i: i32) -> JSValueRef {
 pub fn to_string_q(q_ctx: &QuickJsContext, value_ref: &JSValueRef) -> Result<String, EsError> {
     unsafe { to_string(q_ctx.context, value_ref) }
 }
-
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn to_string(
     context: *mut q::JSContext,
     value_ref: &JSValueRef,
@@ -102,6 +103,8 @@ pub fn to_str_q<'a>(q_ctx: &QuickJsContext, value_ref: &'a JSValueRef) -> Result
     unsafe { to_str(q_ctx.context, value_ref) }
 }
 
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn to_str(context: *mut q::JSContext, value_ref: &JSValueRef) -> Result<&str, EsError> {
     log::trace!("primitives::to_string on {}", value_ref.borrow_value().tag);
 
@@ -128,7 +131,8 @@ pub unsafe fn to_str(context: *mut q::JSContext, value_ref: &JSValueRef) -> Resu
 pub fn from_string_q(q_ctx: &QuickJsContext, s: &str) -> Result<JSValueRef, EsError> {
     unsafe { from_string(q_ctx.context, s) }
 }
-
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn from_string(context: *mut q::JSContext, s: &str) -> Result<JSValueRef, EsError> {
     let qval = q::JS_NewStringLen(context, s.as_ptr() as *const c_char, s.len() as _);
     let ret = JSValueRef::new(context, qval, false, true, "primitives::from_string qval");

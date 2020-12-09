@@ -439,7 +439,7 @@ impl EsRuntime {
                 1,
             )?;
 
-            objects::set_property2(q_ctx.context, &ns, name.as_str(), &func, 0)?;
+            objects::set_property2_q(q_ctx, &ns, name.as_str(), &func, 0)?;
 
             Ok(())
         })

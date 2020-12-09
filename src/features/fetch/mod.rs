@@ -22,7 +22,7 @@ pub(crate) fn init(es_rt: Arc<EsRuntime>) -> Result<(), EsError> {
             // init the fetch method
 
             let func_ref =
-                functions::new_native_function(q_ctx.context, "fetch", Some(fetch_func), 1, false)?;
+                functions::new_native_function_q(q_ctx, "fetch", Some(fetch_func), 1, false)?;
             unsafe {
                 objects::set_property(
                     q_ctx.context,

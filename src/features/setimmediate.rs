@@ -19,23 +19,12 @@ pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
     log::trace!("setimmediate::init");
 
     q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| {
-        let set_immediate_func = functions::new_native_function(
-            q_ctx.context,
-            "setImmediate",
-            Some(set_immediate),
-            1,
-            false,
-        )?;
+        let set_immediate_func =
+            functions::new_native_function_q(q_ctx, "setImmediate", Some(set_immediate), 1, false)?;
 
         let global = get_global_q(q_ctx);
 
-        objects::set_property2(
-            q_ctx.context,
-            &global,
-            "setImmediate",
-            &set_immediate_func,
-            0,
-        )?;
+        objects::set_property2_q(q_ctx, &global, "setImmediate", &set_immediate_func, 0)?;
         Ok(())
     })?;
     Ok(())

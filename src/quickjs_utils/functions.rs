@@ -73,6 +73,8 @@ pub fn call_function_q(
     unsafe { call_function(q_ctx.context, function_ref, arguments, this_ref_opt) }
 }
 
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn call_function(
     context: *mut q::JSContext,
     function_ref: &JSValueRef,
@@ -139,6 +141,8 @@ pub fn invoke_member_function_q(
 }
 
 #[allow(dead_code)]
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn invoke_member_function(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
@@ -177,6 +181,8 @@ pub fn call_to_string_q(q_ctx: &QuickJsContext, obj_ref: &JSValueRef) -> Result<
     unsafe { call_to_string(q_ctx.context, obj_ref) }
 }
 
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn call_to_string(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
@@ -213,27 +219,48 @@ pub unsafe fn call_to_string(
     }
 }
 
+pub fn is_function_q(q_ctx: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
+    unsafe { is_function(q_ctx.context, obj_ref) }
+}
+
 #[allow(dead_code)]
-pub fn is_function(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn is_function(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
     if obj_ref.is_object() {
-        let res = unsafe { q::JS_IsFunction(context, *obj_ref.borrow_value()) };
+        let res = q::JS_IsFunction(context, *obj_ref.borrow_value());
         res != 0
     } else {
         false
     }
 }
 
-#[allow(dead_code)]
-pub fn is_constructor(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
+pub fn is_constructor_q(q_ctx: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
+    unsafe { is_constructor(q_ctx.context, obj_ref) }
+}
+
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn is_constructor(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
     if obj_ref.is_object() {
-        let res = unsafe { q::JS_IsConstructor(context, *obj_ref.borrow_value()) };
+        let res = q::JS_IsConstructor(context, *obj_ref.borrow_value());
         res != 0
     } else {
         false
     }
 }
 
-pub fn call_constructor(
+pub fn call_constructor_q(
+    q_ctx: &QuickJsContext,
+    constructor_ref: &JSValueRef,
+    arguments: &[JSValueRef],
+) -> Result<JSValueRef, EsError> {
+    unsafe { call_constructor(q_ctx.context, constructor_ref, arguments) }
+}
+
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn call_constructor(
     context: *mut q::JSContext,
     constructor_ref: &JSValueRef,
     arguments: &[JSValueRef],
@@ -254,14 +281,12 @@ pub fn call_constructor(
         .map(|arg| *arg.borrow_value())
         .collect::<Vec<_>>();
 
-    let ret_val = unsafe {
-        q::JS_CallConstructor(
-            context,
-            *constructor_ref.borrow_value(),
-            arg_count,
-            qargs.as_mut_ptr(),
-        )
-    };
+    let ret_val = q::JS_CallConstructor(
+        context,
+        *constructor_ref.borrow_value(),
+        arg_count,
+        qargs.as_mut_ptr(),
+    );
     Ok(JSValueRef::new(
         context,
         ret_val,
@@ -271,8 +296,19 @@ pub fn call_constructor(
     ))
 }
 
-#[allow(dead_code)]
-pub fn new_native_function(
+pub fn new_native_function_q(
+    q_ctx: &QuickJsContext,
+    name: &str,
+    func: q::JSCFunction,
+    arg_count: i32,
+    is_constructor: bool,
+) -> Result<JSValueRef, EsError> {
+    unsafe { new_native_function(q_ctx.context, name, func, arg_count, is_constructor) }
+}
+
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn new_native_function(
     context: *mut q::JSContext,
     name: &str,
     func: q::JSCFunction,
@@ -294,16 +330,14 @@ pub fn new_native_function(
 
     log::trace!("functions::new_native_function / 2");
 
-    let func_val = unsafe {
-        q::JS_NewCFunction2(
-            context,
-            func,
-            cname.as_ptr(),
-            arg_count as c_int,
-            cproto,
-            magic as c_int,
-        )
-    };
+    let func_val = q::JS_NewCFunction2(
+        context,
+        func,
+        cname.as_ptr(),
+        arg_count as c_int,
+        cproto,
+        magic as c_int,
+    );
 
     log::trace!("functions::new_native_function / 3");
 
@@ -324,8 +358,18 @@ pub fn new_native_function(
     }
 }
 
-#[allow(dead_code)]
-pub fn new_native_function_data(
+pub fn new_native_function_data_q(
+    q_ctx: &QuickJsContext,
+    func: q::JSCFunctionData,
+    arg_count: i32,
+    data: JSValueRef,
+) -> Result<JSValueRef, EsError> {
+    unsafe { new_native_function_data(q_ctx.context, func, arg_count, data) }
+}
+
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn new_native_function_data(
     context: *mut q::JSContext,
     func: q::JSCFunctionData,
     arg_count: i32,
@@ -334,16 +378,14 @@ pub fn new_native_function_data(
     let magic = 1;
     let data_len = 1;
 
-    let func_val = unsafe {
-        q::JS_NewCFunctionData(
-            context,
-            func,
-            magic,
-            arg_count as c_int,
-            data_len,
-            data.borrow_value_mut(),
-        )
-    };
+    let func_val = q::JS_NewCFunctionData(
+        context,
+        func,
+        magic,
+        arg_count as c_int,
+        data_len,
+        data.borrow_value_mut(),
+    );
     let func_ref = JSValueRef::new(
         context,
         func_val,
@@ -425,6 +467,9 @@ where
 {
     unsafe { new_function(q_ctx.context, name, func, arg_count) }
 }
+
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn new_function<F>(
     context: *mut q::JSContext,
     _name: &str,

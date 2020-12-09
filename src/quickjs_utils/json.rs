@@ -32,6 +32,8 @@ pub fn parse_q(q_ctx: &QuickJsContext, input: &str) -> Result<JSValueRef, EsErro
 /// });
 /// rt.gc_sync();
 /// ```
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRef, EsError> {
     let s = CString::new(input).ok().unwrap();
     let f_n = CString::new("JSON.parse").ok().unwrap();
@@ -66,7 +68,7 @@ pub unsafe fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRe
 ///     let obj_ref = objects::create_object_q(q_ctx).ok().unwrap();
 ///     objects::set_property_q(q_ctx, &obj_ref, "a", &primitives::from_i32(741)).ok().unwrap();
 ///     let str_ref = json::stringify_q(q_ctx, &obj_ref, None).ok().unwrap();
-///     let str_str = primitives::to_string(q_ctx.context, &str_ref).ok().unwrap();
+///     let str_str = primitives::to_string_q(q_ctx, &str_ref).ok().unwrap();
 ///     assert_eq!("{\"a\":741}", str_str);
 /// });
 /// rt.gc_sync();
@@ -79,6 +81,8 @@ pub fn stringify_q(
     unsafe { stringify(q_ctx.context, input, opt_space) }
 }
 
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn stringify(
     context: *mut q::JSContext,
     input: &JSValueRef,

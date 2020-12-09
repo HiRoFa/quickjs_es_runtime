@@ -4,6 +4,8 @@ use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use libquickjs_sys as q;
 
 /// Get the last exception from the runtime, and if present, convert it to an EsError.
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
     let exception_val = q::JS_GetException(context);
     let mut exception_ref =
@@ -37,6 +39,8 @@ pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
     }
 }
 
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn new_error(
     context: *mut q::JSContext,
     name: &str,
@@ -72,18 +76,22 @@ pub unsafe fn new_error(
     Ok(obj_ref)
 }
 
-pub fn is_error(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn is_error(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
     if obj_ref.is_object() {
-        let res = unsafe { q::JS_IsError(context, *obj_ref.borrow_value()) };
+        let res = q::JS_IsError(context, *obj_ref.borrow_value());
         res != 0
     } else {
         false
     }
 }
 
-pub fn throw(context: *mut q::JSContext, error: JSValueRef) -> q::JSValue {
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn throw(context: *mut q::JSContext, error: JSValueRef) -> q::JSValue {
     assert!(is_error(context, &error));
-    unsafe { q::JS_Throw(context, error.clone_value_incr_rc()) };
+    q::JS_Throw(context, error.clone_value_incr_rc());
     q::JSValue {
         u: q::JSValueUnion { int32: 0 },
         tag: TAG_EXCEPTION,
@@ -141,7 +149,7 @@ pub mod tests {
                 ))
                 .ok()
                 .expect("script failed");
-            assert!(functions::is_function(q_ctx.context, &func_ref));
+            assert!(functions::is_function_q(q_ctx, &func_ref));
             let res =
                 functions::call_function_q(q_ctx, &func_ref, vec![primitives::from_i32(12)], None);
             match res {

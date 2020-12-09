@@ -1,6 +1,6 @@
 use crate::eserror::EsError;
 use crate::quickjs_utils;
-use crate::quickjs_utils::functions::new_native_function;
+use crate::quickjs_utils::functions::new_native_function_q;
 use crate::quickjs_utils::primitives::from_string;
 use crate::quickjs_utils::{atoms, errors, functions, objects, parse_args, primitives};
 use crate::quickjscontext::QuickJsContext;
@@ -289,8 +289,8 @@ impl Proxy {
 
         log::trace!("reflection::Proxy::install_class_prop / 2");
 
-        let constructor_ref = new_native_function(
-            q_ctx.context,
+        let constructor_ref = new_native_function_q(
+            q_ctx,
             self.name.as_ref().unwrap().as_str(),
             Some(constructor),
             1,
@@ -348,8 +348,8 @@ impl Proxy {
 
         log::trace!("reflection::Proxy::install_class_prop / 7");
 
-        objects::set_property2(
-            q_ctx.context,
+        objects::set_property2_q(
+            q_ctx,
             &constructor_ref,
             "name",
             &primitives::from_string_q(q_ctx, &self.get_class_name())?,
@@ -367,8 +367,8 @@ impl Proxy {
 
         log::trace!("reflection::Proxy::install_class_prop / 9");
 
-        objects::set_property2(
-            q_ctx.context,
+        objects::set_property2_q(
+            q_ctx,
             &ns,
             self.name.as_ref().unwrap().as_str(),
             &constructor_ref,

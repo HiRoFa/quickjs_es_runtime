@@ -17,6 +17,8 @@ pub fn get_namespace_q(
 
 /// # Safety
 /// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn get_namespace(
     context: *mut q::JSContext,
     namespace: Vec<&str>,
@@ -113,7 +115,19 @@ pub unsafe fn set_property(
     )
 }
 
-pub fn set_property2(
+pub fn set_property2_q(
+    q_ctx: &QuickJsContext,
+    obj_ref: &JSValueRef,
+    prop_name: &str,
+    prop_ref: &JSValueRef,
+    flags: i32,
+) -> Result<(), EsError> {
+    unsafe { set_property2(q_ctx.context, obj_ref, prop_name, prop_ref, flags) }
+}
+
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn set_property2(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     prop_name: &str,
@@ -139,15 +153,13 @@ pub fn set_property2(
 
     log::trace!("set_property2 / 2");
 
-    let ret = unsafe {
-        q::JS_DefinePropertyValueStr(
-            context,
-            *obj_ref.borrow_value(),
-            ckey.as_ptr(),
-            prop_ref.clone_value_incr_rc(),
-            flags,
-        )
-    };
+    let ret = q::JS_DefinePropertyValueStr(
+        context,
+        *obj_ref.borrow_value(),
+        ckey.as_ptr(),
+        prop_ref.clone_value_incr_rc(),
+        flags,
+    );
     log::trace!("set_property2 / 3");
     if ret < 0 {
         return Err(EsError::new_str("Could not add property to object"));
@@ -157,6 +169,8 @@ pub fn set_property2(
 }
 
 #[allow(dead_code)]
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn define_getter_setter(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
@@ -256,6 +270,8 @@ pub fn get_property_names_q(
     unsafe { get_property_names(q_ctx.context, obj_ref) }
 }
 
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn get_property_names(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
@@ -318,6 +334,8 @@ where
     unsafe { traverse_properties(q_ctx.context, obj_ref, visitor) }
 }
 
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn traverse_properties<V, R>(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
@@ -394,7 +412,17 @@ where
     Ok(map)
 }
 
-pub fn is_instance_of(
+pub fn is_instance_of_q(
+    q_ctx: &QuickJsContext,
+    obj_ref: &JSValueRef,
+    constructor_ref: JSValueRef,
+) -> bool {
+    unsafe { is_instance_of(q_ctx.context, obj_ref, constructor_ref) }
+}
+
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn is_instance_of(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     constructor_ref: JSValueRef,
@@ -402,13 +430,12 @@ pub fn is_instance_of(
     if !obj_ref.is_object() {
         return false;
     }
-    unsafe {
-        q::JS_IsInstanceOf(
-            context,
-            *obj_ref.borrow_value(),
-            *constructor_ref.borrow_value(),
-        ) > 0
-    }
+
+    q::JS_IsInstanceOf(
+        context,
+        *obj_ref.borrow_value(),
+        *constructor_ref.borrow_value(),
+    ) > 0
 }
 
 pub fn is_instance_of_by_name_q(
@@ -419,6 +446,8 @@ pub fn is_instance_of_by_name_q(
     unsafe { is_instance_of_by_name(context.context, obj_ref, constructor_name) }
 }
 
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn is_instance_of_by_name(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,

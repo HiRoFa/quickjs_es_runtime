@@ -12,6 +12,8 @@ pub fn is_promise_q(context: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
 }
 
 #[allow(dead_code)]
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn is_promise(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
     is_instance_of_by_name(context, obj_ref, "Promise")
         .ok()
@@ -32,7 +34,8 @@ impl PromiseRef {
     pub fn resolve_q(&self, q_ctx: &QuickJsContext, value: JSValueRef) -> Result<(), EsError> {
         unsafe { self.resolve(q_ctx.context, value) }
     }
-
+    /// # Safety
+    /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
     pub unsafe fn resolve(
         &self,
         context: *mut q::JSContext,
@@ -56,7 +59,8 @@ impl PromiseRef {
     pub fn reject_q(&self, q_ctx: &QuickJsContext, value: JSValueRef) -> Result<(), EsError> {
         unsafe { self.reject(q_ctx.context, value) }
     }
-
+    /// # Safety
+    /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
     pub unsafe fn reject(
         &self,
         context: *mut q::JSContext,
@@ -85,6 +89,8 @@ pub fn new_promise_q(q_ctx: &QuickJsContext) -> Result<PromiseRef, EsError> {
 
 /// create a new Promise
 /// you can use this to respond asynchronously to method calls from JavaScript by returning a Promise
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn new_promise(context: *mut q::JSContext) -> Result<PromiseRef, EsError> {
     log::trace!("promises::new_promise()");
 
@@ -158,6 +164,8 @@ pub fn add_promise_reactions_q(
 }
 
 #[allow(dead_code)]
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn add_promise_reactions(
     context: *mut q::JSContext,
     promise_obj_ref: &JSValueRef,

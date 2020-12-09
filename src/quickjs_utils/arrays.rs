@@ -14,13 +14,19 @@ use libquickjs_sys as q;
 /// rt.add_to_event_queue_sync(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     let obj_ref = q_ctx.eval(EsScript::new("is_array_test.es", "([1, 2, 3]);")).ok().expect("script failed");
-///     let is_array = arrays::is_array(q_ctx.context, &obj_ref);
+///     let is_array = arrays::is_array_q(q_ctx, &obj_ref);
 ///     assert!(is_array);
 /// });
 /// ```
-pub fn is_array(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
+pub fn is_array_q(q_ctx: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
+    unsafe { is_array(q_ctx.context, obj_ref) }
+}
+
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn is_array(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
     let r = obj_ref.borrow_value();
-    let val = unsafe { q::JS_IsArray(context, *r) };
+    let val = q::JS_IsArray(context, *r);
     val > 0
 }
 
@@ -45,7 +51,7 @@ pub fn get_length_q(q_ctx: &QuickJsContext, arr_ref: &JSValueRef) -> Result<u32,
 
 /// Get the length of an Array
 /// # Safety
-/// Ensure the corresponding QuickjsContext is still valid
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Result<u32, EsError> {
     let len_ref = crate::quickjs_utils::objects::get_property(context, arr_ref, "length")?;
 
@@ -68,20 +74,27 @@ pub unsafe fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Re
 ///     // create a method to pass our new array to
 ///     q_ctx.eval(EsScript::new("create_array_test.es", "this.create_array_func = function(arr){return arr.length;};")).ok().expect("script failed");
 ///     // create a new array
-///     let arr_ref = arrays::create_array(q_ctx.context).ok().expect("could not create array");
+///     let arr_ref = arrays::create_array_q(q_ctx).ok().expect("could not create array");
 ///     // add some values
 ///     let val0 = primitives::from_i32(12);
 ///     let val1 = primitives::from_i32(17);
-///     arrays::set_element(q_ctx.context, &arr_ref, 0, val0);
-///     arrays::set_element(q_ctx.context, &arr_ref, 1, val1);
+///     arrays::set_element_q(q_ctx, &arr_ref, 0, val0);
+///     arrays::set_element_q(q_ctx, &arr_ref, 1, val1);
 ///     // call the function
-///     let result_ref = functions::invoke_member_function(q_ctx.context, &quickjs_utils::get_global_q(q_ctx), "create_array_func", vec![arr_ref]).ok().expect("could not invoke function");
+///     let result_ref = functions::invoke_member_function_q(q_ctx, &quickjs_utils::get_global_q(q_ctx), "create_array_func", vec![arr_ref]).ok().expect("could not invoke function");
 ///     let len = primitives::to_i32(&result_ref).ok().unwrap();
 ///     assert_eq!(len, 2);
 /// });
 /// ```
-pub fn create_array(context: *mut q::JSContext) -> Result<JSValueRef, EsError> {
-    let arr = unsafe { q::JS_NewArray(context) };
+
+pub fn create_array_q(q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    unsafe { create_array(q_ctx.context) }
+}
+
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn create_array(context: *mut q::JSContext) -> Result<JSValueRef, EsError> {
+    let arr = q::JS_NewArray(context);
     let arr_ref = JSValueRef::new(context, arr, false, true, "create_array");
     if arr_ref.is_exception() {
         return Err(EsError::new_str("Could not create array in runtime"));
@@ -103,14 +116,25 @@ pub fn create_array(context: *mut q::JSContext) -> Result<JSValueRef, EsError> {
 ///     // get an Array from script
 ///     let arr_ref = q_ctx.eval(EsScript::new("set_element_test.es", "([1, 2, 3]);")).ok().expect("script failed");
 ///     // add some values
-///     arrays::set_element(q_ctx.context, &arr_ref, 3, primitives::from_i32(12));
-///     arrays::set_element(q_ctx.context, &arr_ref, 4, primitives::from_i32(17));
+///     arrays::set_element_q(q_ctx, &arr_ref, 3, primitives::from_i32(12));
+///     arrays::set_element_q(q_ctx, &arr_ref, 4, primitives::from_i32(17));
 ///     // get the length
 ///     let len = arrays::get_length_q(q_ctx, &arr_ref).ok().unwrap();
 ///     assert_eq!(len, 5);
 /// });
 /// ```
-pub fn set_element(
+pub fn set_element_q(
+    q_ctx: &QuickJsContext,
+    array_ref: &JSValueRef,
+    index: u32,
+    entry_value_ref: JSValueRef,
+) -> Result<(), EsError> {
+    unsafe { set_element(q_ctx.context, array_ref, index, entry_value_ref) }
+}
+
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn set_element(
     context: *mut q::JSContext,
     array_ref: &JSValueRef,
     index: u32,
@@ -118,15 +142,13 @@ pub fn set_element(
 ) -> Result<(), EsError> {
     let entry_value_ref = entry_value_ref;
 
-    let ret = unsafe {
-        q::JS_DefinePropertyValueUint32(
-            context,
-            *array_ref.borrow_value(),
-            index,
-            entry_value_ref.clone_value_incr_rc(),
-            q::JS_PROP_C_W_E as i32,
-        )
-    };
+    let ret = q::JS_DefinePropertyValueUint32(
+        context,
+        *array_ref.borrow_value(),
+        index,
+        entry_value_ref.clone_value_incr_rc(),
+        q::JS_PROP_C_W_E as i32,
+    );
     if ret < 0 {
         return Err(EsError::new_str("Could not append element to array"));
     }
@@ -147,18 +169,28 @@ pub fn set_element(
 ///     // get an Array from script
 ///     let arr_ref = q_ctx.eval(EsScript::new("get_element_test.es", "([1, 2, 3]);")).ok().expect("script failed");
 ///     // get a value, the 3 in this case
-///     let val_ref = arrays::get_element(q_ctx.context, &arr_ref, 2).ok().unwrap();
+///     let val_ref = arrays::get_element_q(q_ctx, &arr_ref, 2).ok().unwrap();
 ///     let val_i32 = primitives::to_i32(&val_ref).ok().unwrap();
 ///     // get the length
 ///     assert_eq!(val_i32, 3);
 /// });
 /// ```
-pub fn get_element(
+pub fn get_element_q(
+    q_ctx: &QuickJsContext,
+    array_ref: &JSValueRef,
+    index: u32,
+) -> Result<JSValueRef, EsError> {
+    unsafe { get_element(q_ctx.context, array_ref, index) }
+}
+
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn get_element(
     context: *mut q::JSContext,
     array_ref: &JSValueRef,
     index: u32,
 ) -> Result<JSValueRef, EsError> {
-    let value_raw = unsafe { q::JS_GetPropertyUint32(context, *array_ref.borrow_value(), index) };
+    let value_raw = q::JS_GetPropertyUint32(context, *array_ref.borrow_value(), index);
     let ret = JSValueRef::new(
         context,
         value_raw,
@@ -175,7 +207,7 @@ pub fn get_element(
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::EsRuntime;
-    use crate::quickjs_utils::arrays::{create_array, get_element, set_element};
+    use crate::quickjs_utils::arrays::{create_array_q, get_element_q, set_element_q};
     use crate::quickjs_utils::objects;
     use std::sync::Arc;
 
@@ -184,16 +216,16 @@ pub mod tests {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
-            let arr = create_array(q_ctx.context).ok().unwrap();
+            let arr = create_array_q(q_ctx).ok().unwrap();
             assert_eq!(arr.get_ref_count(), 1);
 
             let a = objects::create_object_q(q_ctx).ok().unwrap();
             assert_eq!(1, a.get_ref_count());
 
-            set_element(q_ctx.context, &arr, 0, a.clone()).ok().unwrap();
+            set_element_q(q_ctx, &arr, 0, a.clone()).ok().unwrap();
             assert_eq!(2, a.get_ref_count());
 
-            let a2 = get_element(q_ctx.context, &arr, 0).ok().unwrap();
+            let a2 = get_element_q(q_ctx, &arr, 0).ok().unwrap();
             assert_eq!(3, a.get_ref_count());
             assert_eq!(3, a2.get_ref_count());
         });

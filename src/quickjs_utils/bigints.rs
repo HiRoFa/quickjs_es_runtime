@@ -10,6 +10,8 @@ pub fn new_bigint_i64_q(context: &QuickJsContext, int: i64) -> Result<JSValueRef
 }
 
 #[allow(dead_code)]
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn new_bigint_i64(context: *mut q::JSContext, int: i64) -> Result<JSValueRef, EsError> {
     let res_val = q::JS_NewBigInt64(context, int);
     let ret = JSValueRef::new(context, res_val, false, true, "new_bigint_i64");
@@ -18,6 +20,8 @@ pub unsafe fn new_bigint_i64(context: *mut q::JSContext, int: i64) -> Result<JSV
 }
 
 #[allow(dead_code)]
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn new_bigint_u64(context: *mut q::JSContext, int: u64) -> Result<JSValueRef, EsError> {
     let res_val = q::JS_NewBigUint64(context, int);
     let ret = JSValueRef::new(context, res_val, false, true, "new_bigint_u64");
@@ -30,6 +34,8 @@ pub fn new_bigint_str_q(context: &QuickJsContext, input_str: &str) -> Result<JSV
 }
 
 #[allow(dead_code)]
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn new_bigint_str(
     context: *mut q::JSContext,
     input_str: &str,
@@ -48,6 +54,8 @@ pub fn to_string_q(context: &QuickJsContext, big_int_ref: &JSValueRef) -> Result
 }
 
 #[allow(dead_code)]
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn to_string(
     context: *mut q::JSContext,
     big_int_ref: &JSValueRef,

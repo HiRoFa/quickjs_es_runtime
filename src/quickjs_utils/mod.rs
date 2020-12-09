@@ -55,12 +55,14 @@ pub fn new_null_ref() -> JSValueRef {
 pub fn get_global_q(context: &QuickJsContext) -> JSValueRef {
     unsafe { get_global(context.context) }
 }
-
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn get_global(context: *mut q::JSContext) -> JSValueRef {
     let global = q::JS_GetGlobalObject(context);
     JSValueRef::new(context, global, false, true, "global")
 }
-
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn get_constructor(
     context: *mut q::JSContext,
     constructor_name: &str,
@@ -73,7 +75,7 @@ pub unsafe fn get_constructor(
 }
 
 /// # Safety
-/// be safe
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn parse_args(
     context: *mut q::JSContext,
     argc: ::std::os::raw::c_int,

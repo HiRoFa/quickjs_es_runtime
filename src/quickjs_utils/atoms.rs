@@ -31,6 +31,8 @@ pub fn to_string_q(q_ctx: &QuickJsContext, atom_ref: &JSAtomRef) -> Result<Strin
     unsafe { to_string(q_ctx.context, atom_ref) }
 }
 
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn to_string(
     context: *mut q::JSContext,
     atom_ref: &JSAtomRef,
@@ -44,6 +46,8 @@ pub fn to_string2_q(q_ctx: &QuickJsContext, atom: &q::JSAtom) -> Result<String, 
     unsafe { to_string2(q_ctx.context, atom) }
 }
 
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn to_string2(context: *mut q::JSContext, atom: &q::JSAtom) -> Result<String, EsError> {
     let val = q::JS_AtomToString(context, *atom);
     let val_ref = JSValueRef::new(context, val, false, true, "atoms::to_string");
@@ -54,6 +58,8 @@ pub fn from_string_q(q_ctx: &QuickJsContext, string: &str) -> Result<JSAtomRef, 
     unsafe { from_string(q_ctx.context, string) }
 }
 
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn from_string(context: *mut q::JSContext, string: &str) -> Result<JSAtomRef, EsError> {
     let s = CString::new(string).ok().unwrap();
 

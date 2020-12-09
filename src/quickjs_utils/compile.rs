@@ -25,6 +25,8 @@ use libquickjs_sys as q;
 ///     assert_eq!(i, 7*5);
 /// });
 /// ```
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn compile(context: *mut q::JSContext, script: EsScript) -> Result<JSValueRef, EsError> {
     let filename_c = make_cstring(script.get_path())?;
     let code_c = make_cstring(script.get_code())?;
@@ -64,6 +66,8 @@ pub unsafe fn compile(context: *mut q::JSContext, script: EsScript) -> Result<JS
 }
 
 /// run a compiled function, see compile for an example
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn run_compiled_function(
     context: *mut q::JSContext,
     compiled_func: &JSValueRef,
@@ -109,7 +113,9 @@ pub unsafe fn run_compiled_function(
 ///     assert_eq!(i, 7*5);
 /// });
 /// ```
-pub fn to_bytecode(context: *mut q::JSContext, compiled_func: &JSValueRef) -> Vec<u8> {
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn to_bytecode(context: *mut q::JSContext, compiled_func: &JSValueRef) -> Vec<u8> {
     assert!(compiled_func.is_compiled_function());
 
     #[cfg(target_pointer_width = "64")]
@@ -117,21 +123,21 @@ pub fn to_bytecode(context: *mut q::JSContext, compiled_func: &JSValueRef) -> Ve
     #[cfg(target_pointer_width = "32")]
     let mut len: u32 = 0;
 
-    let slice_u8 = unsafe {
-        q::JS_WriteObject(
-            context,
-            &mut len,
-            *compiled_func.borrow_value(),
-            q::JS_WRITE_OBJ_BYTECODE as i32,
-        )
-    };
+    let slice_u8 = q::JS_WriteObject(
+        context,
+        &mut len,
+        *compiled_func.borrow_value(),
+        q::JS_WRITE_OBJ_BYTECODE as i32,
+    );
 
-    let slice = unsafe { std::slice::from_raw_parts(slice_u8, len as usize) };
+    let slice = std::slice::from_raw_parts(slice_u8, len as usize);
 
     slice.to_vec()
 }
 
 /// read a compiled function from bytecode, see to_bytecode for an example
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn from_bytecode(
     context: *mut q::JSContext,
     bytecode: Vec<u8>,
