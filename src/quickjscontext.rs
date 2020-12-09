@@ -52,9 +52,12 @@ impl QuickJsContext {
             proxy_registry: RefCell::new(HashMap::new()),
         }
     }
-    pub fn get_id(context: *mut q::JSContext) -> &'static str {
-        let info_ptr: *mut c_void = unsafe { q::JS_GetContextOpaque(context) };
-        let info: &mut String = unsafe { &mut *(info_ptr as *mut String) };
+    /// get the id of a QuickJsContext from a JSContext
+    /// # Safety
+    /// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
+    pub unsafe fn get_id(context: *mut q::JSContext) -> &'static str {
+        let info_ptr: *mut c_void = q::JS_GetContextOpaque(context);
+        let info: &mut String = &mut *(info_ptr as *mut String);
         info
     }
     /// call a function by namespace and name
@@ -70,23 +73,26 @@ impl QuickJsContext {
     /// evaluate a script
 
     pub fn eval(&self, script: EsScript) -> Result<JSValueRef, EsError> {
-        Self::eval_ctx(self.context, script)
+        unsafe { Self::eval_ctx(self.context, script) }
     }
-    pub fn eval_ctx(context: *mut q::JSContext, script: EsScript) -> Result<JSValueRef, EsError> {
+    /// # Safety
+    /// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
+    pub unsafe fn eval_ctx(
+        context: *mut q::JSContext,
+        script: EsScript,
+    ) -> Result<JSValueRef, EsError> {
         let filename_c = make_cstring(script.get_path())?;
         let code_c = make_cstring(script.get_code())?;
 
         log::debug!("q_js_rt.eval file {}", script.get_path());
 
-        let value_raw = unsafe {
-            q::JS_Eval(
-                context,
-                code_c.as_ptr(),
-                script.get_code().len() as _,
-                filename_c.as_ptr(),
-                q::JS_EVAL_TYPE_GLOBAL as i32,
-            )
-        };
+        let value_raw = q::JS_Eval(
+            context,
+            code_c.as_ptr(),
+            script.get_code().len() as _,
+            filename_c.as_ptr(),
+            q::JS_EVAL_TYPE_GLOBAL as i32,
+        );
 
         log::trace!("after eval, checking error");
 
@@ -123,9 +129,12 @@ impl QuickJsContext {
 
     /// evaluate a Module
     pub fn eval_module(&self, script: EsScript) -> Result<JSValueRef, EsError> {
-        Self::eval_module_ctx(self.context, script)
+        unsafe { Self::eval_module_ctx(self.context, script) }
     }
-    pub fn eval_module_ctx(
+
+    /// # Safety
+    /// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
+    pub unsafe fn eval_module_ctx(
         context: *mut q::JSContext,
         script: EsScript,
     ) -> Result<JSValueRef, EsError> {
@@ -134,15 +143,13 @@ impl QuickJsContext {
         let filename_c = make_cstring(script.get_path())?;
         let code_c = make_cstring(script.get_code())?;
 
-        let value_raw = unsafe {
-            q::JS_Eval(
-                context,
-                code_c.as_ptr(),
-                script.get_code().len() as _,
-                filename_c.as_ptr(),
-                q::JS_EVAL_TYPE_MODULE as i32,
-            )
-        };
+        let value_raw = q::JS_Eval(
+            context,
+            code_c.as_ptr(),
+            script.get_code().len() as _,
+            filename_c.as_ptr(),
+            q::JS_EVAL_TYPE_MODULE as i32,
+        );
 
         // check for error
         let ret = JSValueRef::new(
@@ -176,11 +183,14 @@ impl QuickJsContext {
     }
     /// throw an internal error to quickjs and create a new ex obj
     pub fn report_ex(&self, err: &str) -> q::JSValue {
-        Self::report_ex_ctx(self.context, err)
+        unsafe { Self::report_ex_ctx(self.context, err) }
     }
-    pub fn report_ex_ctx(context: *mut q::JSContext, err: &str) -> q::JSValue {
+    /// throw an Error in the runtime and init an Exception JSValue to return
+    /// # Safety
+    /// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
+    pub unsafe fn report_ex_ctx(context: *mut q::JSContext, err: &str) -> q::JSValue {
         let c_err = CString::new(err);
-        unsafe { q::JS_ThrowInternalError(context, c_err.as_ref().ok().unwrap().as_ptr()) };
+        q::JS_ThrowInternalError(context, c_err.as_ref().ok().unwrap().as_ptr());
         q::JSValue {
             u: q::JSValueUnion { int32: 0 },
             tag: TAG_EXCEPTION,
@@ -215,7 +225,7 @@ impl QuickJsContext {
         consumer(opt.expect("no such obj in cache"))
     }
 
-    pub fn with_context<C, R>(context: *mut q::JSContext, consumer: C) -> R
+    pub unsafe fn with_context<C, R>(context: *mut q::JSContext, consumer: C) -> R
     where
         C: FnOnce(&QuickJsContext) -> R,
     {

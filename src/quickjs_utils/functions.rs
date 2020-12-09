@@ -36,7 +36,9 @@ use std::os::raw::{c_char, c_int, c_void};
 ///     assert_eq!(res_i32, 63);
 /// });
 /// ```
-pub fn parse_function(
+/// # Safety
+/// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
+pub unsafe fn parse_function(
     context: *mut q::JSContext,
     async_fn: bool,
     name: &str,

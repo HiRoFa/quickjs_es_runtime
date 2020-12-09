@@ -94,7 +94,7 @@ impl QuickJsRuntime {
     pub(crate) fn init_rt_ref(&mut self, rt_ref: Arc<EsRuntime>) {
         self.es_rt_ref = Some(Arc::downgrade(&rt_ref));
     }
-    pub fn get_quickjs_context(&self, context: *mut q::JSContext) -> &QuickJsContext {
+    pub unsafe fn get_quickjs_context(&self, context: *mut q::JSContext) -> &QuickJsContext {
         let id = QuickJsContext::get_id(context);
         self.get_context(id)
     }

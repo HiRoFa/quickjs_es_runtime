@@ -31,7 +31,7 @@ fn response_text(
     _args: Vec<JSValueRef>,
 ) -> Result<JSValueRef, EsError> {
     QuickJsRuntime::do_with(|q_js_rt| {
-        let q_ctx = q_js_rt.get_quickjs_context(context);
+        let q_ctx = unsafe { q_js_rt.get_quickjs_context(context) };
         let es_rt_arc_opt = q_js_rt.get_rt_ref();
         let es_rt = &*es_rt_arc_opt.unwrap();
 
@@ -73,7 +73,7 @@ fn response_json(
     _args: Vec<JSValueRef>,
 ) -> Result<JSValueRef, EsError> {
     QuickJsRuntime::do_with(|q_js_rt| {
-        let q_ctx = q_js_rt.get_quickjs_context(context);
+        let q_ctx = unsafe { q_js_rt.get_quickjs_context(context) };
         let es_rt_arc_opt = q_js_rt.get_rt_ref();
         let es_rt = &*es_rt_arc_opt.unwrap();
 
