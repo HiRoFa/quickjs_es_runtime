@@ -8,10 +8,8 @@ pub struct JSValueRef {
     label: String,
 }
 
-// todo
-// use q::JSFreeValue and q::JSDupvalue for rc manipulation
-
 impl JSValueRef {
+    #[allow(dead_code)]
     pub(crate) fn label(&mut self, label: &str) {
         self.label = label.to_string()
     }
