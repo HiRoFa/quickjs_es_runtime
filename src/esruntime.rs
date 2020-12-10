@@ -13,7 +13,9 @@ use std::sync::{Arc, Weak};
 use crate::features::fetch::request::FetchRequest;
 
 use crate::features::fetch::response::FetchResponse;
+use crate::quickjscontext::QuickJsContext;
 use hirofa_utils::task_manager::TaskManager;
+use std::rc::Rc;
 
 lazy_static! {
     /// a static Multithreaded taskmanager used to run rust ops async and multithreaded ( in at least 2 threads)
@@ -387,7 +389,7 @@ impl EsRuntime {
         self.inner.add_to_event_queue_sync(consumer)
     }
 
-    /// this adds a rust function to JavaScript
+    /// this adds a rust function to JavaScript, it is added for all current and future contexts
     /// # Example
     /// ```rust
     /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
@@ -395,7 +397,7 @@ impl EsRuntime {
     /// use quickjs_es_runtime::quickjs_utils::primitives;
     /// use quickjs_es_runtime::esvalue::{EsValueFacade, EsValueConvertible};
     /// let rt = EsRuntimeBuilder::new().build();
-    /// rt.set_function(vec!["com", "mycompany", "util"], "methodA", |args: Vec<EsValueFacade>|{
+    /// rt.set_function(vec!["com", "mycompany", "util"], "methodA", |q_ctx, args: Vec<EsValueFacade>|{
     ///     let a = args[0].get_i32();
     ///     let b = args[1].get_i32();
     ///     Ok((a * b).to_es_value_facade())
@@ -410,38 +412,45 @@ impl EsRuntime {
         function: F,
     ) -> Result<(), EsError>
     where
-        F: Fn(Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> + Send + 'static,
+        F: Fn(&QuickJsContext, Vec<EsValueFacade>) -> Result<EsValueFacade, EsError>
+            + Send
+            + 'static,
     {
         let name = name.to_string();
         self.add_to_event_queue_sync(move |q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
-            let ns = objects::get_namespace_q(q_ctx, namespace, true)?;
-            let func = functions::new_function_q(
-                q_ctx,
-                name.as_str(),
-                move |_this_ref, args| {
-                    QuickJsRuntime::do_with(|q_js_rt| {
-                        let q_ctx = q_js_rt.get_main_context();
+            let ns_rc = Rc::new(namespace);
+            let func_rc = Rc::new(function);
+            let name_rc = Rc::new(name.to_string());
+
+            q_js_rt.add_context_init_hook(move |_q_js_rt, q_ctx| {
+                let ns = objects::get_namespace_q(q_ctx, (*ns_rc).clone(), true)?;
+
+                let func_rc = func_rc.clone();
+
+                let func = functions::new_function_q(
+                    q_ctx,
+                    name_rc.as_str(),
+                    move |q_ctx, _this_ref, args| {
                         let mut args_facades = vec![];
 
                         for arg_ref in args {
                             args_facades.push(EsValueFacade::from_jsval(q_ctx, &arg_ref)?);
                         }
 
-                        let res = function(args_facades);
+                        let res = func_rc(q_ctx, args_facades);
 
                         match res {
                             Ok(mut val_esvf) => val_esvf.as_js_value(q_ctx),
                             Err(e) => Err(e),
                         }
-                    })
-                },
-                1,
-            )?;
+                    },
+                    1,
+                )?;
 
-            objects::set_property2_q(q_ctx, &ns, name.as_str(), &func, 0)?;
+                objects::set_property2_q(q_ctx, &ns, name.as_str(), &func, 0)?;
 
-            Ok(())
+                Ok(())
+            })
         })
     }
 
@@ -513,7 +522,7 @@ pub mod tests {
     #[test]
     fn test_func() {
         let rt: Arc<EsRuntime> = TEST_ESRT.clone();
-        let res = rt.set_function(vec!["nl", "my", "utils"], "methodA", |args| {
+        let res = rt.set_function(vec!["nl", "my", "utils"], "methodA", |_q_ctx, args| {
             if args.len() != 2 || !args.get(0).unwrap().is_i32() || !args.get(1).unwrap().is_i32() {
                 Err(EsError::new_str(
                     "i'd realy like 2 args of the int32 kind please",

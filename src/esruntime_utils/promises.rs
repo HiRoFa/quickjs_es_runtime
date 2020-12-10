@@ -29,10 +29,8 @@ thread_local! {
 /// rt.add_to_event_queue_sync(move |q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///      // create rust function, please note that using new_native_function_data will be the faster option
-///      let func_ref = functions::new_function_q(q_ctx, "asyncTest", move |_this_ref, _args| {
+///      let func_ref = functions::new_function_q(q_ctx, "asyncTest", move |q_ctx, _this_ref, _args| {
 ///           let rt_ref = rt_ref.clone();
-///           QuickJsRuntime::do_with(move |q_js_rt| {
-///               let q_ctx = q_js_rt.get_main_context();
 ///               let prom = promises::new_resolving_promise(q_ctx, ||{
 ///                   std::thread::sleep(Duration::from_secs(1));
 ///                   Ok(135)
@@ -40,7 +38,6 @@ thread_local! {
 ///                   Ok(primitives::from_i32(res))
 ///               }, &rt_ref);
 ///               prom
-///           })
 ///      }, 1).ok().expect("could not create func");
 ///
 ///      // add func to global scope
@@ -149,7 +146,6 @@ pub mod tests {
     use crate::esscript::EsScript;
     use crate::quickjs_utils;
     use crate::quickjs_utils::{functions, objects, primitives};
-    use crate::quickjsruntime::QuickJsRuntime;
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -163,21 +159,19 @@ pub mod tests {
             let func_ref = functions::new_function_q(
                 q_ctx,
                 "asyncTest",
-                move |_this_ref, _args| {
+                move |q_ctx, _this_ref, _args| {
                     let rt_ref = rt_ref.clone();
-                    QuickJsRuntime::do_with(move |q_js_rt| {
-                        let q_ctx = q_js_rt.get_main_context();
-                        let prom = promises::new_resolving_promise(
-                            q_ctx,
-                            || {
-                                std::thread::sleep(Duration::from_secs(1));
-                                Ok(135)
-                            },
-                            |_q_ctx, res| Ok(primitives::from_i32(res)),
-                            &rt_ref,
-                        );
-                        prom
-                    })
+
+                    let prom = promises::new_resolving_promise(
+                        q_ctx,
+                        || {
+                            std::thread::sleep(Duration::from_secs(1));
+                            Ok(135)
+                        },
+                        |_q_ctx, res| Ok(primitives::from_i32(res)),
+                        &rt_ref,
+                    );
+                    prom
                 },
                 1,
             )

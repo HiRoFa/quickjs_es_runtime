@@ -112,7 +112,7 @@ pub mod tests {
         // check if stacktrace is preserved when invoking native methods
 
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
-        rt.set_function(vec![], "test_consume", |args| {
+        rt.set_function(vec![], "test_consume", |_q_ctx, args| {
             // args[0] is a function i'll want to call
             let func_esvf = &args[0];
             func_esvf.invoke_function_sync(vec![12.to_es_value_facade()])?;

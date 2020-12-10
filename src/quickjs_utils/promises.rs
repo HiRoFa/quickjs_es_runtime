@@ -368,7 +368,7 @@ pub mod tests {
             let then_cb = functions::new_function_q(
                 q_ctx,
                 "testThen",
-                |_this, args| {
+                |_q_ctx, _this, args| {
                     let res = primitives::to_i32(args.get(0).unwrap()).ok().unwrap();
                     log::trace!("prom resolved with: {}", res);
                     Ok(new_null_ref())
@@ -380,7 +380,7 @@ pub mod tests {
             let finally_cb = functions::new_function_q(
                 q_ctx,
                 "testThen",
-                |_this, _args| {
+                |_q_ctx, _this, _args| {
                     log::trace!("prom finalized");
                     Ok(new_null_ref())
                 },

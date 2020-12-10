@@ -403,7 +403,8 @@ pub unsafe fn new_native_function_data(
 
 static CNAME: &str = "CallbackClass\0";
 
-type Callback = dyn Fn(JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static;
+type Callback =
+    dyn Fn(*mut q::JSContext, JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static;
 
 thread_local! {
     static INSTANCE_ID_MAPPINGS: RefCell<HashMap<usize, Box<(usize, String)>>> = RefCell::new(HashMap::new());
@@ -463,9 +464,15 @@ pub fn new_function_q<F>(
     arg_count: u32,
 ) -> Result<JSValueRef, EsError>
 where
-    F: Fn(JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
+    F: Fn(&QuickJsContext, JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
 {
-    unsafe { new_function(q_ctx.context, name, func, arg_count) }
+    let func_raw = move |ctx: *mut q::JSContext, this: JSValueRef, args: Vec<JSValueRef>| {
+        QuickJsRuntime::do_with(|q_js_rt| {
+            func(unsafe { q_js_rt.get_quickjs_context(ctx) }, this, args)
+        })
+    };
+
+    unsafe { new_function(q_ctx.context, name, func_raw, arg_count) }
 }
 
 /// # Safety
@@ -477,7 +484,7 @@ pub unsafe fn new_function<F>(
     _arg_count: u32,
 ) -> Result<JSValueRef, EsError>
 where
-    F: Fn(JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
+    F: Fn(*mut q::JSContext, JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
 {
     // put func in map, retrieve on call.. delete on destroy
     // create a new class_def for callbacks, with a finalize
@@ -695,7 +702,7 @@ pub mod tests {
             let mut cb_ref = new_function_q(
                 q_ctx,
                 "cb",
-                |_this_ref, _args| {
+                |_q_ctx, _this_ref, _args| {
                     log::trace!("native callback invoked");
                     Ok(primitives::from_i32(983))
                 },
@@ -746,7 +753,7 @@ pub mod tests {
             let cb_ref = new_function_q(
                 q_ctx,
                 "cb",
-                |_this_ref, args| {
+                |_q_ctx, _this_ref, args| {
                     log::trace!("native callback invoked");
                     assert_eq!(args[0].get_ref_count(), 3);
 
@@ -822,7 +829,7 @@ unsafe extern "C" fn callback_function(
             let this_ref =
                 JSValueRef::new(ctx, this_val, false, false, "callback_function this_val");
 
-            let callback_res: Result<JSValueRef, EsError> = callback(this_ref, args_vec);
+            let callback_res: Result<JSValueRef, EsError> = callback(ctx, this_ref, args_vec);
 
             match callback_res {
                 Ok(res) => res.clone_value_incr_rc(),

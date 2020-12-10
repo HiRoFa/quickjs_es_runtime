@@ -324,7 +324,7 @@ pub mod tests {
             let func = functions::new_function_q(
                 c_ctx,
                 "test",
-                |_this, _args| Ok(quickjs_utils::new_null_ref()),
+                |_q_ctx, _this, _args| Ok(quickjs_utils::new_null_ref()),
                 1,
             )
             .ok()
