@@ -183,6 +183,24 @@ impl EsRuntime {
         EsRuntimeBuilder::new()
     }
 
+    /// this can be used to run a function in the event_queue thread for the QuickJSRuntime
+    /// without borrowing the q_js_rt
+    pub fn add_task<C>(&self, task: C)
+    where
+        C: FnOnce() + Send + 'static,
+    {
+        self.inner.add_task(task);
+    }
+
+    /// this can be used to run a function in the event_queue thread for the QuickJSRuntime
+    /// without borrowing the q_js_rt
+    pub fn exe_task<C, R: Send + 'static>(&self, task: C) -> R
+    where
+        C: FnOnce() -> R + Send + 'static,
+    {
+        self.inner.exe_task(task)
+    }
+
     /// Evaluate a script asynchronously
     pub fn eval(&self, script: EsScript) {
         self.add_to_event_queue(|q_js_rt| {
