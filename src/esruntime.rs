@@ -418,18 +418,17 @@ impl EsRuntime {
     {
         let name = name.to_string();
         self.add_to_event_queue_sync(move |q_js_rt| {
-            let ns_rc = Rc::new(namespace);
             let func_rc = Rc::new(function);
-            let name_rc = Rc::new(name.to_string());
+            let name = name.to_string();
 
             q_js_rt.add_context_init_hook(move |_q_js_rt, q_ctx| {
-                let ns = objects::get_namespace_q(q_ctx, (*ns_rc).clone(), true)?;
+                let ns = objects::get_namespace_q(q_ctx, namespace.clone(), true)?;
 
                 let func_rc = func_rc.clone();
 
                 let func = functions::new_function_q(
                     q_ctx,
-                    name_rc.as_str(),
+                    name.as_str(),
                     move |q_ctx, _this_ref, args| {
                         let mut args_facades = vec![];
 
