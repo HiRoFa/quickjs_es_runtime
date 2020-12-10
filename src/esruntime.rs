@@ -35,13 +35,28 @@ pub struct EsRuntime {
 }
 
 impl EsRuntimeInner {
+    pub fn add_task<C>(&self, task: C)
+    where
+        C: FnOnce() + Send + 'static,
+    {
+        self.event_queue.add_task(task);
+        self._add_job_run_task();
+    }
+
+    pub fn exe_task<C, R: Send + 'static>(&self, task: C) -> R
+    where
+        C: FnOnce() -> R + Send + 'static,
+    {
+        let res = self.event_queue.exe_task(task);
+        self._add_job_run_task();
+        res
+    }
+
     pub fn add_to_event_queue<C>(&self, consumer: C)
     where
         C: FnOnce(&QuickJsRuntime) + Send + 'static,
     {
-        self.event_queue
-            .add_task(|| QuickJsRuntime::do_with(consumer));
-        self._add_job_run_task();
+        self.add_task(|| QuickJsRuntime::do_with(consumer));
     }
 
     pub(crate) fn add_to_event_queue_from_worker<C>(&self, consumer: C)
@@ -58,22 +73,7 @@ impl EsRuntimeInner {
         C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,
         R: Send + 'static,
     {
-        let res = self
-            .event_queue
-            .exe_task(|| QuickJsRuntime::do_with(consumer));
-        self._add_job_run_task();
-        res
-    }
-    pub fn add_to_event_queue_mut_sync<C, R>(&self, consumer: C) -> R
-    where
-        C: FnOnce(&mut QuickJsRuntime) -> R + Send + 'static,
-        R: Send + 'static,
-    {
-        let res = self
-            .event_queue
-            .exe_task(|| QuickJsRuntime::do_with_mut(consumer));
-        self._add_job_run_task();
-        res
+        self.exe_task(|| QuickJsRuntime::do_with(consumer))
     }
 
     fn _add_job_run_task(&self) {
