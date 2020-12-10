@@ -301,6 +301,16 @@ pub mod tests {
                 .ok()
                 .expect("script failed");
             assert!(v2.is_null_or_undefined());
+            let v3 = ctx_a
+                .eval(EsScript::new("a2.es", "this.b;"))
+                .ok()
+                .expect("script failed");
+            assert!(v3.is_null_or_undefined());
+            let v4 = ctx_b
+                .eval(EsScript::new("b2.es", "this.b;"))
+                .ok()
+                .expect("script failed");
+            assert!(v4.is_i32());
         });
         rt.drop_context("b");
 
