@@ -105,8 +105,7 @@ pub unsafe fn call_function(
         qargs.as_mut_ptr(),
     );
 
-    let mut res_ref = JSValueRef::new(context, res, false, true, "call_function result");
-    res_ref.label("functions::call_function res");
+    let res_ref = JSValueRef::new(context, res, false, true, "call_function result");
 
     if res_ref.is_exception() {
         if let Some(ex) = QuickJsContext::get_exception(context) {
@@ -174,7 +173,17 @@ pub unsafe fn invoke_member_function(
         format!("functions::invoke_member_function res: {}", function_name).as_str(),
     );
 
-    Ok(res_ref)
+    if res_ref.is_exception() {
+        if let Some(ex) = QuickJsContext::get_exception(context) {
+            Err(ex)
+        } else {
+            Err(EsError::new_str(
+                "invoke_member_function failed but could not get ex",
+            ))
+        }
+    } else {
+        Ok(res_ref)
+    }
 }
 
 pub fn call_to_string_q(q_ctx: &QuickJsContext, obj_ref: &JSValueRef) -> Result<String, EsError> {
@@ -287,13 +296,25 @@ pub unsafe fn call_constructor(
         arg_count,
         qargs.as_mut_ptr(),
     );
-    Ok(JSValueRef::new(
+    let res_ref = JSValueRef::new(
         context,
         ret_val,
         false,
         true,
         "functions::call_constructor result",
-    ))
+    );
+
+    if res_ref.is_exception() {
+        if let Some(ex) = QuickJsContext::get_exception(context) {
+            Err(ex)
+        } else {
+            Err(EsError::new_str(
+                "call_constructor failed but could not get ex",
+            ))
+        }
+    } else {
+        Ok(res_ref)
+    }
 }
 
 pub fn new_native_function_q(
