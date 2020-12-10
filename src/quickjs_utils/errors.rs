@@ -8,9 +8,8 @@ use libquickjs_sys as q;
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
     let exception_val = q::JS_GetException(context);
-    let mut exception_ref =
+    let exception_ref =
         JSValueRef::new(context, exception_val, false, true, "errors::get_exception");
-    exception_ref.label("get_exception value obj");
 
     if exception_ref.is_null() {
         None
@@ -103,7 +102,7 @@ pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
     use crate::esvalue::EsValueConvertible;
-    use crate::quickjs_utils::{functions, primitives};
+    use crate::quickjs_utils::functions;
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -142,20 +141,46 @@ pub mod tests {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
-            let func_ref = q_ctx
+
+            q_ctx
+                .eval(EsScript::new(
+                    "test_ex2_pre.es",
+                    "console.log('before ex test');",
+                ))
+                .ok()
+                .expect("test_ex2_pre failed");
+            {
+                let func_ref1 = q_ctx
+                    .eval(EsScript::new(
+                        "test_ex2f1.es",
+                        "(function(){\nconsole.log('running f1');});",
+                    ))
+                    .ok()
+                    .expect("script failed");
+                assert!(functions::is_function_q(q_ctx, &func_ref1));
+                let res = functions::call_function_q(q_ctx, &func_ref1, vec![], None);
+                match res {
+                    Ok(_) => {}
+                    Err(e) => {
+                        log::error!("func1 failed: {}", e);
+                    }
+                }
+            }
+            // why the f does this fail with a stack overflow if i remove the block above?
+            let func_ref2 = q_ctx
                 .eval(EsScript::new(
                     "test_ex2.es",
-                    "(function t(){\nconsole.log('running f');\nthrow Error('poof');\n});",
+                    "(function(){\nconsole.log('running f2');\nthrow Error('poof');\n});",
                 ))
                 .ok()
                 .expect("script failed");
-            assert!(functions::is_function_q(q_ctx, &func_ref));
-            let res =
-                functions::call_function_q(q_ctx, &func_ref, vec![primitives::from_i32(12)], None);
+
+            assert!(functions::is_function_q(q_ctx, &func_ref2));
+            let res = functions::call_function_q(q_ctx, &func_ref2, vec![], None);
             match res {
                 Ok(_) => {}
                 Err(e) => {
-                    log::error!("func failed: {}", e);
+                    log::error!("func2 failed: {}", e);
                 }
             }
         });
