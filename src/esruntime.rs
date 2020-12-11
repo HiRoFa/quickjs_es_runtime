@@ -170,7 +170,7 @@ impl EsRuntime {
                 }
                 if let Some(stack_size) = builder.opt_max_stack_size {
                     unsafe {
-                        q::JS_SetMaxStackSize(q_js_rt.runtime, stack_size as _);
+                        q::JS_SetMaxStackSize(q_js_rt.runtime, stack_size);
                     }
                 }
             })
