@@ -79,19 +79,22 @@ unsafe extern "C" fn set_timeout(
             0
         };
 
+        let q_ctx_id = q_ctx.id.clone();
+
         if let Some(rt) = q_js_rt.get_rt_ref() {
             let id = rt.inner.event_queue.schedule_task_from_worker(
                 move || {
-                    let mut args = args.clone();
-
-                    let func = args.remove(0);
-
-                    match functions::call_function(context, &func, args, None) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            log::error!("setTimeout func failed: {}", e);
-                        }
-                    };
+                    QuickJsRuntime::do_with(|q_js_rt| {
+                        let mut args = args.clone();
+                        let func = args.remove(0);
+                        let q_ctx = q_js_rt.get_context(q_ctx_id.as_str());
+                        match functions::call_function_q(q_ctx, &func, args, None) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                log::error!("setTimeout func failed: {}", e);
+                            }
+                        };
+                    })
                 },
                 None,
                 Duration::from_millis(delay_ms),
@@ -138,19 +141,24 @@ unsafe extern "C" fn set_interval(
             0
         };
 
+        let q_ctx_id = q_ctx.id.clone();
+
         if let Some(rt) = q_js_rt.get_rt_ref() {
             let id = rt.inner.event_queue.schedule_task_from_worker(
                 move || {
-                    let mut args = args.clone();
+                    QuickJsRuntime::do_with(|q_js_rt| {
+                        let q_ctx = q_js_rt.get_context(q_ctx_id.as_str());
+                        let mut args = args.clone();
 
-                    let func = args.remove(0);
+                        let func = args.remove(0);
 
-                    match functions::call_function(context, &func, args, None) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            log::error!("setInterval func failed: {}", e);
-                        }
-                    };
+                        match functions::call_function_q(q_ctx, &func, args, None) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                log::error!("setInterval func failed: {}", e);
+                            }
+                        };
+                    })
                 },
                 Some(Duration::from_millis(delay_ms)),
                 Duration::from_millis(delay_ms),
@@ -228,17 +236,21 @@ pub mod tests {
     #[test]
     fn test_set_timeout() {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
-        rt.eval(EsScript::new("test_set_timeout.es", "let t_id1 = setInterval((a, b) => {console.log('setInterval invoked with %s and %s', a, b);}, 500, 123, 456);"));
-        rt.eval(EsScript::new("test_set_timeout.es", "let t_id2 = setTimeout((a, b) => {console.log('setTimeout invoked with %s and %s', a, b);}, 500, 123, 456);"));
+        rt.eval_sync(EsScript::new("test_set_timeout.es", "let t_id1 = setInterval((a, b) => {console.log('setInterval invoked with %s and %s', a, b);}, 500, 123, 456);")).ok().expect("fail a");
+        rt.eval_sync(EsScript::new("test_set_interval.es", "let t_id2 = setTimeout((a, b) => {console.log('setTimeout invoked with %s and %s', a, b);}, 500, 123, 456);")).ok().expect("fail b");
         std::thread::sleep(Duration::from_secs(3));
-        rt.eval(EsScript::new(
-            "test_set_timeout2.es",
+        rt.eval_sync(EsScript::new(
+            "test_clearInterval.es",
             "clearInterval(t_id1);",
-        ));
-        rt.eval(EsScript::new(
-            "test_set_timeout2.es",
+        ))
+        .ok()
+        .expect("fail c");
+        rt.eval_sync(EsScript::new(
+            "test_clearTimeout2.es",
             "clearTimeout(t_id2);",
-        ));
+        ))
+        .ok()
+        .expect("fail d");
         std::thread::sleep(Duration::from_secs(2));
         rt.gc_sync();
     }

@@ -835,7 +835,7 @@ unsafe extern "C" fn callback_function(
 
     // todo run multiple times and check refcount not growing for data, this and args
 
-    let data_ref = JSValueRef::new(ctx, *func_data, false, false, "callback_function func_data");
+    let data_ref = JSValueRef::new(ctx, *func_data, true, true, "callback_function func_data");
     let callback_id = primitives::to_i32(&data_ref)
         .ok()
         .expect("failed to get callback_id");
@@ -847,8 +847,7 @@ unsafe extern "C" fn callback_function(
         if let Some(callback) = registry.get(&(callback_id as usize)) {
             let args_vec = parse_args(ctx, argc, argv);
 
-            let this_ref =
-                JSValueRef::new(ctx, this_val, false, false, "callback_function this_val");
+            let this_ref = JSValueRef::new(ctx, this_val, true, true, "callback_function this_val");
 
             let callback_res: Result<JSValueRef, EsError> = callback(ctx, this_ref, args_vec);
 

@@ -107,6 +107,7 @@ impl QuickJsRuntime {
             None
         }
     }
+
     fn new() -> Self {
         log::trace!("creating new QuickJsRuntime");
         let runtime = unsafe { q::JS_NewRuntime() };
@@ -171,6 +172,22 @@ impl QuickJsRuntime {
             let qjs_rt = &mut *qjs_rc.borrow_mut();
             task(qjs_rt)
         })
+    }
+
+    pub fn run_pending_jobs_if_any(&self) {
+        log::trace!("EsRuntime._add_job_run_task > async!");
+        while self.has_pending_jobs() {
+            log::trace!("quick_js_rt.has_pending_jobs!");
+            let res = self.run_pending_job();
+            match res {
+                Ok(_) => {
+                    log::trace!("run_pending_job OK!");
+                }
+                Err(e) => {
+                    log::error!("run_pending_job failed: {}", e);
+                }
+            }
+        }
     }
 
     pub fn has_pending_jobs(&self) -> bool {

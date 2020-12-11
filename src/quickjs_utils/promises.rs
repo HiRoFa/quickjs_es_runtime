@@ -50,9 +50,7 @@ impl PromiseRef {
         )?;
 
         QuickJsRuntime::do_with(|q_js_rt| {
-            while q_js_rt.has_pending_jobs() {
-                q_js_rt.run_pending_job()?;
-            }
+            q_js_rt.run_pending_jobs_if_any();
             Ok(())
         })
     }
@@ -75,9 +73,7 @@ impl PromiseRef {
         )?;
 
         QuickJsRuntime::do_with(|q_js_rt| {
-            while q_js_rt.has_pending_jobs() {
-                q_js_rt.run_pending_job()?;
-            }
+            q_js_rt.run_pending_jobs_if_any();
             Ok(())
         })
     }

@@ -7,7 +7,6 @@ use crate::quickjs_utils::{functions, objects};
 use crate::quickjsruntime::{QuickJsRuntime, QJS_RT};
 use hirofa_utils::single_threaded_event_queue::SingleThreadedEventQueue;
 use libquickjs_sys as q;
-use log::error;
 use std::sync::{Arc, Weak};
 
 use crate::features::fetch::request::FetchRequest;
@@ -39,17 +38,31 @@ impl EsRuntimeInner {
     where
         C: FnOnce() + Send + 'static,
     {
-        self.event_queue.add_task(task);
-        self._add_job_run_task();
+        let eq_arc = self.event_queue.clone();
+        self.event_queue.add_task(move || {
+            task();
+            eq_arc.add_task_from_worker(|| {
+                QuickJsRuntime::do_with(|q_js_rt| {
+                    q_js_rt.run_pending_jobs_if_any();
+                })
+            })
+        });
     }
 
     pub fn exe_task<C, R: Send + 'static>(&self, task: C) -> R
     where
         C: FnOnce() -> R + Send + 'static,
     {
-        let res = self.event_queue.exe_task(task);
-        self._add_job_run_task();
-        res
+        let eq_arc = self.event_queue.clone();
+        self.event_queue.exe_task(move || {
+            let res = task();
+            eq_arc.add_task_from_worker(|| {
+                QuickJsRuntime::do_with(|q_js_rt| {
+                    q_js_rt.run_pending_jobs_if_any();
+                })
+            });
+            res
+        })
     }
 
     pub fn add_to_event_queue<C>(&self, consumer: C)
@@ -63,9 +76,17 @@ impl EsRuntimeInner {
     where
         C: FnOnce(&QuickJsRuntime) + 'static,
     {
-        self.event_queue
-            .add_task_from_worker(|| QuickJsRuntime::do_with(consumer));
-        self._add_job_run_task();
+        let eq_arc = self.event_queue.clone();
+        self.event_queue.add_task_from_worker(move || {
+            QuickJsRuntime::do_with(|q_js_rt| {
+                consumer(q_js_rt);
+            });
+            eq_arc.add_task_from_worker(|| {
+                QuickJsRuntime::do_with(|q_js_rt| {
+                    q_js_rt.run_pending_jobs_if_any();
+                })
+            })
+        });
     }
 
     pub fn add_to_event_queue_sync<C, R>(&self, consumer: C) -> R
@@ -74,27 +95,6 @@ impl EsRuntimeInner {
         R: Send + 'static,
     {
         self.exe_task(|| QuickJsRuntime::do_with(consumer))
-    }
-
-    fn _add_job_run_task(&self) {
-        log::trace!("EsRuntime._add_job_run_task!");
-        self.event_queue.add_task(|| {
-            QuickJsRuntime::do_with(|quick_js_rt| {
-                log::trace!("EsRuntime._add_job_run_task > async!");
-                while quick_js_rt.has_pending_jobs() {
-                    log::trace!("quick_js_rt.has_pending_jobs!");
-                    let res = quick_js_rt.run_pending_job();
-                    match res {
-                        Ok(_) => {
-                            log::trace!("run_pending_job OK!");
-                        }
-                        Err(e) => {
-                            error!("run_pending_job failed: {}", e);
-                        }
-                    }
-                }
-            })
-        });
     }
 
     pub(crate) fn create_context(&self, id: &str) -> Result<(), EsError> {

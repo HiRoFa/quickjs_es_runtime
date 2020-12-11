@@ -111,6 +111,7 @@ impl JSValueRef {
         ref_ct_decr_on_drop: bool,
         label: &str,
     ) -> Self {
+        assert!(!label.is_empty());
         let s = Self {
             context,
             value,
