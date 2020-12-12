@@ -1,3 +1,4 @@
+use crate::quickjsruntime::QuickJsRuntime;
 use libquickjs_sys as q;
 use std::ptr::null_mut;
 
@@ -87,7 +88,10 @@ impl JSValueRef {
 
     pub(crate) fn decrement_ref_count(&self) {
         if self.get_tag() < 0 {
-            unsafe { libquickjs_sys::JS_FreeValue(self.context, *self.borrow_value()) }
+            QuickJsRuntime::do_with(|q_js_rt| unsafe {
+                let q_ctx = q_js_rt.get_quickjs_context(self.context);
+                libquickjs_sys::JS_FreeValue(q_ctx.context, *self.borrow_value())
+            });
         }
     }
 
@@ -111,7 +115,8 @@ impl JSValueRef {
         ref_ct_decr_on_drop: bool,
         label: &str,
     ) -> Self {
-        assert!(!label.is_empty());
+        debug_assert!(!label.is_empty());
+
         let s = Self {
             context,
             value,

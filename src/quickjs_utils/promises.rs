@@ -111,8 +111,8 @@ pub unsafe fn new_promise(context: *mut q::JSContext) -> Result<PromiseRef, EsEr
         true,
         "promises::new_promise reject_func_val",
     );
-    assert!(functions::is_function(context, &resolve_function_obj_ref));
-    assert!(functions::is_function(context, &reject_function_obj_ref));
+    debug_assert!(functions::is_function(context, &resolve_function_obj_ref));
+    debug_assert!(functions::is_function(context, &reject_function_obj_ref));
 
     let promise_obj_ref = JSValueRef::new(
         context,
@@ -122,9 +122,9 @@ pub unsafe fn new_promise(context: *mut q::JSContext) -> Result<PromiseRef, EsEr
         "promises::new_promise prom_val",
     );
 
-    assert_eq!(resolve_function_obj_ref.get_ref_count(), 1);
-    assert_eq!(reject_function_obj_ref.get_ref_count(), 1);
-    assert_eq!(promise_obj_ref.get_ref_count(), 3);
+    debug_assert_eq!(resolve_function_obj_ref.get_ref_count(), 1);
+    debug_assert_eq!(reject_function_obj_ref.get_ref_count(), 1);
+    debug_assert_eq!(promise_obj_ref.get_ref_count(), 3);
 
     Ok(PromiseRef {
         promise_obj_ref,
@@ -169,7 +169,7 @@ pub unsafe fn add_promise_reactions(
     catch_func_obj_ref_opt: Option<JSValueRef>,
     finally_func_obj_ref_opt: Option<JSValueRef>,
 ) -> Result<(), EsError> {
-    assert!(is_promise(context, promise_obj_ref));
+    debug_assert!(is_promise(context, promise_obj_ref));
 
     if let Some(then_func_obj_ref) = then_func_obj_ref_opt {
         functions::invoke_member_function(
@@ -378,6 +378,7 @@ pub mod tests {
                 "testThen",
                 |_q_ctx, _this, _args| {
                     log::trace!("prom finalized");
+
                     Ok(new_null_ref())
                 },
                 1,

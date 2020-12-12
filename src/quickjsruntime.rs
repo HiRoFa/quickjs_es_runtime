@@ -175,7 +175,7 @@ impl QuickJsRuntime {
     }
 
     pub fn run_pending_jobs_if_any(&self) {
-        log::trace!("EsRuntime._add_job_run_task > async!");
+        log::trace!("quick_js_rt.run_pending_jobs_if_any");
         while self.has_pending_jobs() {
             log::trace!("quick_js_rt.has_pending_jobs!");
             let res = self.run_pending_job();

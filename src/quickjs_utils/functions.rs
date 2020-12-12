@@ -59,7 +59,7 @@ pub unsafe fn parse_function(
 
     let ret = QuickJsContext::eval_ctx(context, EsScript::new(&file_name, &src))?;
 
-    assert!(is_function(context, &ret));
+    debug_assert!(is_function(context, &ret));
 
     Ok(ret)
 }
@@ -83,7 +83,7 @@ pub unsafe fn call_function(
 ) -> Result<JSValueRef, EsError> {
     log::trace!("functions::call_function()");
 
-    assert!(is_function(context, function_ref));
+    debug_assert!(is_function(context, function_ref));
 
     let arg_count = arguments.len() as i32;
 
@@ -820,6 +820,10 @@ unsafe extern "C" fn callback_finalizer(_rt: *mut q::JSRuntime, val: q::JSValue)
         let rid = callback_id as usize;
         trace!("callback_finalizer remove id={}", rid);
         let _ = registry.remove(&rid);
+    });
+
+    QuickJsRuntime::do_with(|q_js_rt| {
+        q_js_rt.run_pending_jobs_if_any();
     });
 }
 
