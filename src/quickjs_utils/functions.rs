@@ -148,9 +148,13 @@ pub unsafe fn invoke_member_function(
     function_name: &str,
     arguments: Vec<JSValueRef>,
 ) -> Result<JSValueRef, EsError> {
+    //let member = get_property(context, obj_ref, function_name)?;
+    //call_function(context, &member, arguments, Some(obj_ref))
+
     let arg_count = arguments.len() as i32;
 
     let atom_ref = atoms::from_string(context, function_name)?;
+    atom_ref.increment_ref_ct();
 
     let mut qargs = arguments
         .iter()
@@ -488,7 +492,9 @@ where
     F: Fn(&QuickJsContext, JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
 {
     let func_raw = move |ctx: *mut q::JSContext, this: JSValueRef, args: Vec<JSValueRef>| {
+        log::trace!("new_function_q outer");
         QuickJsRuntime::do_with(|q_js_rt| {
+            log::trace!("new_function_q inner");
             func(unsafe { q_js_rt.get_quickjs_context(ctx) }, this, args)
         })
     };
@@ -502,7 +508,7 @@ pub unsafe fn new_function<F>(
     context: *mut q::JSContext,
     _name: &str,
     func: F,
-    _arg_count: u32,
+    arg_count: u32,
 ) -> Result<JSValueRef, EsError>
 where
     F: Fn(*mut q::JSContext, JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
@@ -520,7 +526,8 @@ where
     log::trace!("new_function callback_id = {}", callback_id);
 
     let data = primitives::from_i32(callback_id as i32);
-    let func_ref = new_native_function_data(context, Some(callback_function), 0, data)?;
+    let func_ref =
+        new_native_function_data(context, Some(callback_function), arg_count as i32, data)?;
 
     let callback_class_id = CALLBACK_CLASS_ID.with(|rc| *rc.borrow());
 

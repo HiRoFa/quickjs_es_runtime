@@ -495,6 +495,7 @@ pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
     use crate::esvalue::{EsValueConvertible, EsValueFacade};
+    use crate::quickjs_utils::promises;
     use log::debug;
     use log::LevelFilter;
     use std::sync::Arc;
@@ -595,8 +596,43 @@ pub mod tests {
     }
 
     #[test]
+    fn t1234() {
+        // test stack overflow
+        let rt: Arc<EsRuntime> = TEST_ESRT.clone();
+
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            //q_js_rt.run_pending_jobs_if_any();
+            let q_ctx = q_js_rt.get_main_context();
+            let r = q_ctx.eval(EsScript::new(
+                "test_async.es",
+                "let f = async function(){let p = new Promise((resolve, reject) => {resolve(12345);}); const p2 = await p; return p2}; f();",
+            )).ok().unwrap();
+            log::trace!("tag = {}", r.get_tag());
+            //std::thread::sleep(Duration::from_secs(1));
+
+            assert!(promises::is_promise_q(q_ctx, &r));
+
+            if promises::is_promise_q(q_ctx, &r) {
+                log::info!("r IS a Promise");
+            } else {
+                log::error!("r is NOT a Promise");
+            }
+
+            std::thread::sleep(Duration::from_secs(1));
+
+            //q_js_rt.run_pending_jobs_if_any();
+        });
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            q_js_rt.run_pending_jobs_if_any();
+        });
+
+        std::thread::sleep(Duration::from_secs(1));
+    }
+
+    #[test]
     fn test_eval_await() {
         let rt: Arc<EsRuntime> = TEST_ESRT.clone();
+
         let res = rt.eval_sync(EsScript::new(
             "test_async.es",
             "{let f = async function(){let p = new Promise((resolve, reject) => {resolve(12345);}); const p2 = await p; return p2}; f()};",
@@ -605,12 +641,14 @@ pub mod tests {
         match res {
             Ok(esvf) => {
                 assert!(esvf.is_promise());
-                let res = esvf
+                let p_res = esvf
                     .await_promise_blocking(Duration::from_secs(1))
                     .ok()
-                    .expect("prom timed out")
-                    .ok()
-                    .expect("prom failed");
+                    .expect("prom timed out");
+                if p_res.is_err() {
+                    panic!("{:?}", p_res.err().unwrap());
+                }
+                let res = p_res.ok().unwrap();
                 assert!(res.is_i32());
                 assert_eq!(res.get_i32(), 12345);
             }

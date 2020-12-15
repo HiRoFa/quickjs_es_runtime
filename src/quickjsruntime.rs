@@ -5,6 +5,7 @@ use crate::esruntime::EsRuntime;
 use crate::esscript::EsScript;
 use crate::quickjs_utils::{gc, modules, promises};
 use crate::quickjscontext::QuickJsContext;
+use hirofa_utils::single_threaded_event_queue::SingleThreadedEventQueue;
 use libquickjs_sys as q;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -54,6 +55,9 @@ impl QuickJsRuntime {
     // EsRuntime should have a util to do that
     // EsRuntime should have extra methods like eval_sync_ctx(ctx: &str, script: &EsScript) etc
     pub fn create_context(id: &str) -> Result<(), EsError> {
+        // check that we a re in a event queue thread
+        debug_assert!(SingleThreadedEventQueue::looks_like_eventqueue_thread());
+
         let ctx = Self::do_with(|q_js_rt| {
             assert!(!q_js_rt.has_context(id));
             QuickJsContext::new(id.to_string(), q_js_rt)
@@ -109,6 +113,7 @@ impl QuickJsRuntime {
     }
 
     fn new() -> Self {
+        debug_assert!(SingleThreadedEventQueue::looks_like_eventqueue_thread());
         log::trace!("creating new QuickJsRuntime");
         let runtime = unsafe { q::JS_NewRuntime() };
         if runtime.is_null() {

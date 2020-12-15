@@ -18,12 +18,19 @@ impl JSAtomRef {
     pub(crate) fn get_atom(&self) -> q::JSAtom {
         self.atom
     }
+
+    pub(crate) fn increment_ref_ct(&self) {
+        unsafe { q::JS_DupAtom(self.context, self.atom) };
+    }
+    pub(crate) fn decrement_ref_ct(&self) {
+        unsafe { q::JS_FreeAtom(self.context, self.atom) };
+    }
 }
 
 impl Drop for JSAtomRef {
     fn drop(&mut self) {
         // free
-        unsafe { q::JS_FreeAtom(self.context, self.atom) };
+        self.decrement_ref_ct();
     }
 }
 

@@ -48,11 +48,7 @@ impl PromiseRef {
             vec![value],
             None,
         )?;
-
-        QuickJsRuntime::do_with(|q_js_rt| {
-            q_js_rt.run_pending_jobs_if_any();
-            Ok(())
-        })
+        Ok(())
     }
     pub fn reject_q(&self, q_ctx: &QuickJsContext, value: JSValueRef) -> Result<(), EsError> {
         unsafe { self.reject(q_ctx.context, value) }
@@ -71,11 +67,7 @@ impl PromiseRef {
             vec![value],
             None,
         )?;
-
-        QuickJsRuntime::do_with(|q_js_rt| {
-            q_js_rt.run_pending_jobs_if_any();
-            Ok(())
-        })
+        Ok(())
     }
 }
 

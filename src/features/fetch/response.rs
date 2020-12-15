@@ -148,6 +148,8 @@ pub(crate) fn new_response_ref(
 ) -> Result<JSValueRef, EsError> {
     let res = reflection::new_instance(RESPONSE_PROXY_NAME, q_ctx)?;
 
+    log::trace!("created new FetchResponse: {}", res.0);
+
     RESPONSES.with(|responses_rc| {
         let responses = &mut *responses_rc.borrow_mut();
         responses.insert(res.0, Arc::new(Mutex::new(fetch_response)))

@@ -211,4 +211,34 @@ pub mod tests {
         std::thread::sleep(Duration::from_secs(2));
         assert!(RESOLVING_PROMISES.with(|rc| { (*rc.borrow()).is_empty() }))
     }
+
+    #[test]
+    fn test_simple_prom() {
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+
+        // todo test with context_init_hooks disabled
+
+        rt.add_to_event_queue_sync(|q_js_rt| {
+
+            let q_ctx = q_js_rt.get_main_context();
+             q_ctx.eval(EsScript::new(
+                "test_simple_prom.es",
+                "this.test = function(){return new Promise((resolve, reject) => {resolve('abc');}).then((a) => {return(a.toUpperCase());})}",
+            )).ok().expect("p1");
+
+            q_js_rt.run_pending_jobs_if_any();
+
+            let global = quickjs_utils::get_global_q(q_ctx);
+            let e_res = functions::invoke_member_function_q(q_ctx, &global,  "test", vec![quickjs_utils::new_null_ref()]);
+            if e_res.is_err() {
+                panic!("{}", e_res.err().unwrap());
+            }
+            let _p_ref = e_res.ok().unwrap();
+
+            q_js_rt.run_pending_jobs_if_any();
+
+        });
+
+        std::thread::sleep(Duration::from_secs(1));
+    }
 }
