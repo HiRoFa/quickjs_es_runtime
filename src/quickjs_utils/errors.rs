@@ -123,13 +123,15 @@ pub mod tests {
             "test_ex.es",
             "let consumer = function() {\n
         console.log('consuming');\n
-        throw Error('oh dear shit failed at line 3 in consumer');\n
+        throw Error('oh dear stuff failed at line 3 in consumer');\n
         };\n
         console.log('calling consume from line 5');test_consume(consumer);\n
         console.log('should never reach line 7')",
         ));
         if s_res.is_err() {
-            log::info!("script failed: {}", s_res.err().unwrap());
+            let e = format!("script failed: {}", s_res.err().unwrap());
+            log::error!("{}", e);
+            panic!("{}", e);
         }
         std::thread::sleep(Duration::from_secs(1));
     }

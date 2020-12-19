@@ -601,7 +601,9 @@ unsafe extern "C" fn proxy_static_get_prop(
         let proxy_name_ref = objects::get_property(context, &receiver_ref, "name")
             .ok()
             .unwrap();
-        let proxy_name = primitives::to_str(context, &proxy_name_ref).ok().unwrap();
+        let proxy_name = primitives::to_string(context, &proxy_name_ref)
+            .ok()
+            .unwrap();
         trace!("proxy_static_get_prop: {}", proxy_name);
 
         let prop_name = atoms::to_string2(context, &atom)
@@ -610,7 +612,7 @@ unsafe extern "C" fn proxy_static_get_prop(
         trace!("proxy_static_get_prop: prop: {}", prop_name);
 
         let registry = &*q_ctx.proxy_registry.borrow();
-        if let Some(proxy) = registry.get(proxy_name) {
+        if let Some(proxy) = registry.get(proxy_name.as_str()) {
             if proxy.static_methods.contains_key(&prop_name) {
                 trace!("found method for {}", prop_name);
 
@@ -808,7 +810,7 @@ unsafe extern "C" fn proxy_instance_method(
             false,
             "reflection::proxy_instance_method func_data",
         );
-        let func_name = primitives::to_str(context, &func_name_ref)
+        let func_name = primitives::to_string(context, &func_name_ref)
             .ok()
             .expect("could not to_string func_name_ref");
 
@@ -818,7 +820,7 @@ unsafe extern "C" fn proxy_instance_method(
         let proxy = registry
             .get(proxy_instance_info.class_name.as_str())
             .unwrap();
-        if let Some(method) = proxy.methods.get(func_name) {
+        if let Some(method) = proxy.methods.get(func_name.as_str()) {
             // todo report ex
             let m_res: Result<JSValueRef, EsError> =
                 method(q_ctx, &proxy_instance_info.id, args_vec);
@@ -863,7 +865,7 @@ unsafe extern "C" fn proxy_static_method(
         let proxy_name_ref = objects::get_property(context, &this_ref, "name")
             .ok()
             .unwrap();
-        let proxy_name = primitives::to_str(context, &proxy_name_ref)
+        let proxy_name = primitives::to_string(context, &proxy_name_ref)
             .ok()
             .expect("could not to_string classname");
 
@@ -876,15 +878,15 @@ unsafe extern "C" fn proxy_static_method(
             false,
             "reflection::proxy_static_method func_data",
         );
-        let func_name = primitives::to_str(context, &func_name_ref)
+        let func_name = primitives::to_string(context, &func_name_ref)
             .ok()
             .expect("could not to_string func_name_ref");
 
         trace!("proxy_static_method: {}", func_name);
 
         let registry = &*q_ctx.proxy_registry.borrow();
-        let proxy = registry.get(proxy_name).unwrap();
-        if let Some(method) = proxy.static_methods.get(func_name) {
+        let proxy = registry.get(proxy_name.as_str()).unwrap();
+        if let Some(method) = proxy.static_methods.get(func_name.as_str()) {
             let m_res: Result<JSValueRef, EsError> = method(q_ctx, args_vec);
             match m_res {
                 Ok(m_res_ref) => m_res_ref.clone_value_incr_rc(),

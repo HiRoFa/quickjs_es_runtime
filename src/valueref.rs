@@ -56,10 +56,7 @@ impl Drop for JSValueRef {
                 self.decrement_ref_count();
             }
         }
-        log::trace!(
-            "dropping OwnedValueRef, after free,  ref_ct: {}",
-            self.get_ref_count()
-        );
+        log::trace!("dropping OwnedValueRef, after free",);
     }
 }
 

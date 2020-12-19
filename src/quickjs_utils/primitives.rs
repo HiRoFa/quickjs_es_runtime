@@ -81,7 +81,9 @@ pub unsafe fn to_string(
 
     assert!(value_ref.is_string());
 
-    let ptr = q::JS_ToCStringLen2(context, std::ptr::null_mut(), *value_ref.borrow_value(), 0);
+    let mut len: u64 = 0;
+    // todo make JS_ToCString avail via static-functions in quickjs-rs
+    let ptr: *const c_char = q::JS_ToCStringLen2(context, &mut len, *value_ref.borrow_value(), 0);
 
     if ptr.is_null() {
         return Err(EsError::new_str(
@@ -91,36 +93,8 @@ pub unsafe fn to_string(
 
     let cstr = std::ffi::CStr::from_ptr(ptr);
 
-    let s = cstr.to_str().expect("invalid string").to_string();
-
-    // Free the c string.
-    q::JS_FreeCString(context, ptr);
-
-    Ok(s)
-}
-
-pub fn to_str_q<'a>(q_ctx: &QuickJsContext, value_ref: &'a JSValueRef) -> Result<&'a str, EsError> {
-    unsafe { to_str(q_ctx.context, value_ref) }
-}
-
-/// # Safety
-/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn to_str(context: *mut q::JSContext, value_ref: &JSValueRef) -> Result<&str, EsError> {
-    log::trace!("primitives::to_string on {}", value_ref.borrow_value().tag);
-
-    assert!(value_ref.is_string());
-
-    let ptr = q::JS_ToCStringLen2(context, std::ptr::null_mut(), *value_ref.borrow_value(), 0);
-
-    if ptr.is_null() {
-        return Err(EsError::new_str(
-            "Could not convert string: got a null pointer",
-        ));
-    }
-
-    let cstr = std::ffi::CStr::from_ptr(ptr);
-
-    let s = cstr.to_str().expect("invalid string");
+    let s = cstr.to_string_lossy().into_owned();
+    debug_assert_eq!(s.len() as u64, len);
 
     // Free the c string.
     q::JS_FreeCString(context, ptr);
