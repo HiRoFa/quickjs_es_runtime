@@ -112,7 +112,7 @@ impl QuickJsRuntime {
         }
     }
 
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         debug_assert!(SingleThreadedEventQueue::looks_like_eventqueue_thread());
         log::trace!("creating new QuickJsRuntime");
         let runtime = unsafe { q::JS_NewRuntime() };

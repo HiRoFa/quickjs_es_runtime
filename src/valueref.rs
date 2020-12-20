@@ -85,10 +85,7 @@ impl JSValueRef {
 
     pub(crate) fn decrement_ref_count(&self) {
         if self.get_tag() < 0 {
-            QuickJsRuntime::do_with(|q_js_rt| unsafe {
-                let q_ctx = q_js_rt.get_quickjs_context(self.context);
-                libquickjs_sys::JS_FreeValue(q_ctx.context, *self.borrow_value())
-            });
+            unsafe { libquickjs_sys::JS_FreeValue(self.context, *self.borrow_value()) }
         }
     }
 

@@ -92,10 +92,12 @@ pub unsafe fn call_function(
         .map(|a| *a.borrow_value())
         .collect::<Vec<_>>();
 
-    let this_val = match this_ref_opt {
-        Some(r) => *r.borrow_value(),
-        None => crate::quickjs_utils::new_null(),
-    };
+    let this_val;
+    if this_ref_opt.is_some() {
+        this_val = *this_ref_opt.unwrap().borrow_value();
+    } else {
+        this_val = crate::quickjs_utils::new_null();
+    }
 
     let res = q::JS_Call(
         context,
