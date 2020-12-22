@@ -524,7 +524,7 @@ pub mod tests {
         log::trace!("TEST_ESRT::init");
         EsRuntime::builder()
             .gc_interval(Duration::from_secs(1))
-            .max_stack_size(1024*16)
+            .max_stack_size(u64::MAX)
             .module_script_loader(|_q_ctx, _rel, name| {
                 if name.eq("notfound.mes") {
                     None
