@@ -19,6 +19,8 @@ pub type ModuleScriptLoader =
 thread_local! {
    /// the thread-local QuickJsRuntime
    /// this only exists for the worker thread of the EsEventQueue
+   /// todo move rt init to toplevel stackframe (out of lazy init)
+   /// so the thread_local should be a refcel containing a null reF? or a None
    pub(crate) static QJS_RT: RefCell<QuickJsRuntime> = {
    let runtime = unsafe { q::JS_NewRuntime() };
    RefCell::new(QuickJsRuntime::new(runtime))
