@@ -93,8 +93,8 @@ pub unsafe fn call_function(
         .collect::<Vec<_>>();
 
     let this_val;
-    if this_ref_opt.is_some() {
-        this_val = *this_ref_opt.unwrap().borrow_value();
+    if let Some(this_ref) = this_ref_opt {
+        this_val = *this_ref.borrow_value();
     } else {
         this_val = crate::quickjs_utils::new_null();
     }

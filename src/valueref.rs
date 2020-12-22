@@ -1,4 +1,3 @@
-use crate::quickjsruntime::QuickJsRuntime;
 use libquickjs_sys as q;
 use std::ptr::null_mut;
 
