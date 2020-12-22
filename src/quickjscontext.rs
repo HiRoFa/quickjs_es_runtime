@@ -26,6 +26,8 @@ thread_local! {
 
 impl QuickJsContext {
     pub(crate) fn new(id: String, q_js_rt: &QuickJsRuntime) -> Self {
+        let context = unsafe { q::JS_NewContext(q_js_rt.runtime) };
+
         let mut bx = Box::new(id.clone());
 
         let ibp: &mut String = &mut *bx;
@@ -35,8 +37,6 @@ impl QuickJsContext {
             let registry = &mut *rc.borrow_mut();
             registry.insert(id.clone(), bx);
         });
-
-        let context = unsafe { q::JS_NewContext(q_js_rt.runtime) };
 
         unsafe { q::JS_SetContextOpaque(context, info_ptr) };
 

@@ -28,7 +28,12 @@ pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
             let stack_ref = objects::get_property(context, &exception_ref, "stack")
                 .ok()
                 .unwrap();
-            let stack_string = primitives::to_string(context, &stack_ref).ok().unwrap();
+            let stack_string;
+            if stack_ref.is_string() {
+                stack_string = primitives::to_string(context, &stack_ref).ok().unwrap();
+            } else {
+                stack_string = "".to_string();
+            }
 
             EsError::new(name_string, message_string, stack_string)
         } else {

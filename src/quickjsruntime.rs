@@ -19,7 +19,10 @@ pub type ModuleScriptLoader =
 thread_local! {
    /// the thread-local QuickJsRuntime
    /// this only exists for the worker thread of the EsEventQueue
-   pub(crate) static QJS_RT: RefCell<QuickJsRuntime> = RefCell::new(QuickJsRuntime::new());
+   pub(crate) static QJS_RT: RefCell<QuickJsRuntime> = {
+   let runtime = unsafe { q::JS_NewRuntime() };
+   RefCell::new(QuickJsRuntime::new(runtime))
+   };
 
 }
 
@@ -112,10 +115,10 @@ impl QuickJsRuntime {
         }
     }
 
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(runtime: *mut q::JSRuntime) -> Self {
         debug_assert!(SingleThreadedEventQueue::looks_like_eventqueue_thread());
         log::trace!("creating new QuickJsRuntime");
-        let runtime = unsafe { q::JS_NewRuntime() };
+
         if runtime.is_null() {
             panic!("RuntimeCreationFailed");
         }
