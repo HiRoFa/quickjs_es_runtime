@@ -4,7 +4,7 @@ use crate::esscript::EsScript;
 use crate::esvalue::EsValueFacade;
 use crate::features;
 use crate::quickjs_utils::{functions, objects};
-use crate::quickjsruntime::{QuickJsRuntime, QJS_RT};
+use crate::quickjsruntime::QuickJsRuntime;
 use hirofa_utils::single_threaded_event_queue::SingleThreadedEventQueue;
 use libquickjs_sys as q;
 use std::sync::{Arc, Weak};
