@@ -21,9 +21,8 @@ thread_local! {
    /// this only exists for the worker thread of the EsEventQueue
    /// todo move rt init to toplevel stackframe (out of lazy init)
    /// so the thread_local should be a refcel containing a null reF? or a None
-   pub(crate) static QJS_RT: RefCell<QuickJsRuntime> = {
-   let runtime = unsafe { q::JS_NewRuntime() };
-   RefCell::new(QuickJsRuntime::new(runtime))
+   pub(crate) static QJS_RT: RefCell<Option<QuickJsRuntime>> = {
+       RefCell::new(None)
    };
 
 }
@@ -41,6 +40,13 @@ pub struct QuickJsRuntime {
 }
 
 impl QuickJsRuntime {
+    pub(crate) fn init_rt_for_current_thread(rt: QuickJsRuntime) {
+        QJS_RT.with(|rc| {
+            let opt = &mut *rc.borrow_mut();
+            opt.replace(rt);
+        })
+    }
+
     pub fn add_context_init_hook<H>(&self, hook: H) -> Result<(), EsError>
     where
         H: Fn(&QuickJsRuntime, &QuickJsContext) -> Result<(), EsError> + 'static,
@@ -68,9 +74,8 @@ impl QuickJsRuntime {
             QuickJsContext::new(id.to_string(), q_js_rt)
         });
 
-        QJS_RT.with(|rc| {
-            let m_rt = &mut *rc.borrow_mut();
-            m_rt.contexts.insert(id.to_string(), ctx);
+        QuickJsRuntime::do_with_mut(|q_js_rt| {
+            q_js_rt.contexts.insert(id.to_string(), ctx);
         });
 
         Self::do_with(|q_js_rt| {
@@ -83,8 +88,7 @@ impl QuickJsRuntime {
         })
     }
     pub fn drop_context(id: &str) {
-        let ctx = QJS_RT.with(|rc| {
-            let m_rt = &mut *rc.borrow_mut();
+        let ctx = QuickJsRuntime::do_with_mut(|m_rt| {
             m_rt.gc();
             m_rt.contexts.remove(id).expect("no such context")
         });
@@ -170,7 +174,11 @@ impl QuickJsRuntime {
     {
         QJS_RT.with(|qjs_rc| {
             let qjs_rt = &*qjs_rc.borrow();
-            task(qjs_rt)
+            task(
+                qjs_rt
+                    .as_ref()
+                    .expect("runtime was not yet initialized for this thread"),
+            )
         })
     }
 
@@ -180,7 +188,11 @@ impl QuickJsRuntime {
     {
         QJS_RT.with(|qjs_rc| {
             let qjs_rt = &mut *qjs_rc.borrow_mut();
-            task(qjs_rt)
+            task(
+                qjs_rt
+                    .as_mut()
+                    .expect("runtime was not yet initialized for this thread"),
+            )
         })
     }
 

@@ -122,11 +122,16 @@ impl EsRuntime {
             }),
         });
 
+        ret.inner.event_queue.exe_task(|| {
+            let rt_ptr = unsafe { q::JS_NewRuntime() };
+            let rt = QuickJsRuntime::new(rt_ptr);
+            QuickJsRuntime::init_rt_for_current_thread(rt);
+        });
+
         // init ref in q_js_rt
         let rt_ref = ret.clone();
         ret.inner.event_queue.exe_task(move || {
-            QJS_RT.with(|rc| {
-                let m_q_js_rt = &mut *rc.borrow_mut();
+            QuickJsRuntime::do_with_mut(|m_q_js_rt| {
                 m_q_js_rt.init_rt_ref(rt_ref);
             })
         });
@@ -152,8 +157,7 @@ impl EsRuntime {
         }
 
         ret.inner.event_queue.exe_task(|| {
-            QJS_RT.with(move |qjs_rt_rc| {
-                let q_js_rt = &mut *qjs_rt_rc.borrow_mut();
+            QuickJsRuntime::do_with_mut(|q_js_rt| {
                 if builder.opt_module_script_loader.is_some() {
                     q_js_rt.module_script_loader = Some(builder.opt_module_script_loader.unwrap());
                 }
