@@ -2,7 +2,7 @@ use crate::droppable_value::DroppableValue;
 use crate::eserror::EsError;
 use crate::quickjs_utils::{atoms, functions, get_constructor, get_global};
 use crate::quickjscontext::QuickJsContext;
-use crate::quickjsruntime::make_cstring;
+use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 use std::collections::HashMap;
@@ -462,7 +462,20 @@ pub unsafe fn is_instance_of_by_name(
         return Ok(false);
     }
 
-    Ok(is_instance_of(context, obj_ref, constructor_ref))
+    if is_instance_of(context, obj_ref, constructor_ref) {
+        Ok(true)
+    } else {
+        // todo check if context is not __main__
+        QuickJsRuntime::do_with(|q_js_rt| {
+            let main_ctx = q_js_rt.get_main_context();
+            let main_constructor_ref = get_constructor(main_ctx.context, constructor_name)?;
+            if is_instance_of(main_ctx.context, obj_ref, main_constructor_ref) {
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        })
+    }
 }
 
 #[cfg(test)]

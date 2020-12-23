@@ -224,8 +224,10 @@ unsafe extern "C" fn promise_rejection_tracker(
 pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
+    use crate::esvalue::EsValueFacade;
     use crate::quickjs_utils::promises::{add_promise_reactions_q, is_promise_q, new_promise_q};
     use crate::quickjs_utils::{functions, new_null_ref, primitives};
+    use crate::quickjsruntime::QuickJsRuntime;
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -385,5 +387,42 @@ pub mod tests {
         std::thread::sleep(Duration::from_secs(1));
 
         log::info!("< test_promise_reactions");
+    }
+
+    #[test]
+    fn test_promise_nested() {
+        log::info!("> test_promise_nested");
+
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+
+        let mut esvf_res = rt.exe_task(|| {
+            QuickJsRuntime::create_context("test").ok().expect("create ctx failed");
+            QuickJsRuntime::do_with(|q_js_rt| {
+                let q_ctx = q_js_rt.get_context("test");
+
+                let script = "(new Promise((resolve, reject) => {resolve({a: 7});}).then((obj) => {return {b: obj.a * 5}}));";
+                let esvf_res = q_ctx
+                    .eval(EsScript::new("test_promise_nested.es", script))
+                    .ok()
+                    .expect("script failed");
+
+                EsValueFacade::from_jsval(q_ctx, &esvf_res).ok().expect("poof")
+
+            })
+        });
+        while esvf_res.is_promise() {
+            esvf_res = esvf_res
+                .await_promise_blocking(Duration::from_secs(1))
+                .ok()
+                .expect("timed out")
+                .ok()
+                .expect("failure");
+        }
+        assert!(esvf_res.is_object());
+        let obj = esvf_res.get_object();
+        let b = obj.get("b").expect("got no b");
+        assert!(b.is_i32());
+        let i = b.get_i32();
+        assert_eq!(i, 5 * 7);
     }
 }
