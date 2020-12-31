@@ -183,6 +183,11 @@ impl EsRuntime {
         ret
     }
 
+    /// get the number of todos in the event queue
+    pub fn get_todo_count(&self) -> usize {
+        self.inner.event_queue.todo_count()
+    }
+
     pub fn builder() -> EsRuntimeBuilder {
         EsRuntimeBuilder::new()
     }
