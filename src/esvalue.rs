@@ -4,6 +4,7 @@ use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjs_utils::{arrays, dates, functions, new_null_ref, promises};
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
+use crate::reflection;
 use crate::valueref::*;
 use hirofa_utils::auto_id_map::AutoIdMap;
 use std::cell::RefCell;
@@ -119,6 +120,25 @@ pub trait EsValueConvertible {
 
 pub struct EsUndefinedValue {}
 pub struct EsNullValue {}
+pub struct EsProxyInstance {
+    class_name: &'static str,
+    instance_id: usize,
+}
+
+impl EsValueConvertible for EsProxyInstance {
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+        let proxy_opt = reflection::get_proxy(q_ctx, self.class_name);
+        if proxy_opt.is_none() {
+            Err(EsError::new_string(format!(
+                "no such proxy: {}",
+                self.class_name
+            )))
+        } else {
+            let proxy = proxy_opt.unwrap();
+            reflection::new_instance3(&proxy, self.instance_id, q_ctx)
+        }
+    }
+}
 
 impl EsValueConvertible for EsNullValue {
     fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
