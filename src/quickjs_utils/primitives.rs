@@ -81,8 +81,11 @@ pub unsafe fn to_string(
 
     assert!(value_ref.is_string());
 
+    #[cfg(target_pointer_width = "64")]
     let mut len: u64 = 0;
-    // todo make JS_ToCString avail via static-functions in quickjs-rs
+    #[cfg(target_pointer_width = "32")]
+    let mut len: u32 = 0;
+
     let ptr: *const c_char = q::JS_ToCStringLen2(context, &mut len, *value_ref.borrow_value(), 0);
 
     if ptr.is_null() {
@@ -94,7 +97,11 @@ pub unsafe fn to_string(
     let cstr = std::ffi::CStr::from_ptr(ptr);
 
     let s = cstr.to_string_lossy().into_owned();
+
+    #[cfg(target_pointer_width = "64")]
     debug_assert_eq!(s.len() as u64, len);
+    #[cfg(target_pointer_width = "32")]
+    debug_assert_eq!(s.len() as u32, len);
 
     // Free the c string.
     q::JS_FreeCString(context, ptr);
