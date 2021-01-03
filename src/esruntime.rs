@@ -178,7 +178,8 @@ impl EsRuntime {
                         q::JS_SetMaxStackSize(q_js_rt.runtime, stack_size);
                         #[cfg(target_pointer_width = "32")]
                         {
-                            let mut stack_size32: u32 = if (stack_size > u32::MAX) {
+                            let u32_max: u64 = u32::MAX as u64;
+                            let mut stack_size32: u32 = if (stack_size > u32_max) {
                                 u32::MAX
                             } else {
                                 stack_size as u32
