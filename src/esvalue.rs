@@ -137,14 +137,13 @@ impl EsProxyInstance {
 impl EsValueConvertible for EsProxyInstance {
     fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         let proxy_opt = reflection::get_proxy(q_ctx, self.class_name);
-        if proxy_opt.is_none() {
+        if let Some(proxy) = proxy_opt {
+            reflection::new_instance3(&proxy, self.instance_id, q_ctx)
+        } else {
             Err(EsError::new_string(format!(
                 "no such proxy: {}",
                 self.class_name
             )))
-        } else {
-            let proxy = proxy_opt.unwrap();
-            reflection::new_instance3(&proxy, self.instance_id, q_ctx)
         }
     }
 }
