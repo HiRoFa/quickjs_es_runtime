@@ -125,6 +125,15 @@ pub struct EsProxyInstance {
     instance_id: usize,
 }
 
+impl EsProxyInstance {
+    pub fn new(class_name: &'static str, instance_id: usize) -> Self {
+        Self {
+            class_name,
+            instance_id,
+        }
+    }
+}
+
 impl EsValueConvertible for EsProxyInstance {
     fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         let proxy_opt = reflection::get_proxy(q_ctx, self.class_name);
