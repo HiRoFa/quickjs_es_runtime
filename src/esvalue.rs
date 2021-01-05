@@ -703,7 +703,7 @@ impl EsPromiseResolvableHandle {
     }
 
     pub fn resolve(&self, mut value: EsValueFacade) {
-        log::debug!("resolving handle with val: {}", value);
+        log::debug!("resolving handle with val: {:?}", value);
         self.with_inner(|inner| {
             if let Some(info) = &inner.js_info {
                 // resolve
@@ -734,7 +734,7 @@ impl EsPromiseResolvableHandle {
         })
     }
     pub fn reject(&self, mut value: EsValueFacade) {
-        log::debug!("rejecting handle with val: {}", value);
+        log::debug!("rejecting handle with val: {:?}", value);
         self.with_inner(|inner| {
             if let Some(info) = &inner.js_info {
                 // resolve
