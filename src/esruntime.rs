@@ -285,10 +285,11 @@ impl EsRuntime {
         let func_name_string = func_name.to_string();
         self.add_to_event_queue_sync(move |q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
-            let q_args = arguments
-                .iter_mut()
-                .map(|arg| arg.as_js_value(q_ctx).ok().expect("arg conversion failed"))
-                .collect::<Vec<_>>();
+
+            let mut q_args = vec![];
+            for arg in &mut arguments {
+                q_args.push(arg.as_js_value(q_ctx)?);
+            }
 
             let res = q_ctx.call_function(namespace, func_name_string.as_str(), q_args);
             match res {
@@ -323,10 +324,16 @@ impl EsRuntime {
 
         self.add_to_event_queue(move |q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
-            let q_args = arguments
-                .iter_mut()
-                .map(|arg| arg.as_js_value(q_ctx).ok().expect("arg conversion failed"))
-                .collect::<Vec<_>>();
+            let mut q_args = vec![];
+            for arg in &mut arguments {
+                match arg.as_js_value(q_ctx) {
+                    Ok(js_arg) => q_args.push(js_arg),
+                    Err(err) => log::error!(
+                        "error occured in async esruntime::call_function closure: {}",
+                        err
+                    ),
+                }
+            }
 
             let res = q_ctx.call_function(namespace, func_name_string.as_str(), q_args);
             match res {
