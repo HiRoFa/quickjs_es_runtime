@@ -119,6 +119,10 @@ pub trait EsValueConvertible {
 
 pub struct EsUndefinedValue {}
 pub struct EsNullValue {}
+
+pub const ES_NULL: EsNullValue = EsNullValue {};
+pub const ES_UNDEFINED: EsUndefinedValue = EsUndefinedValue {};
+
 pub struct EsProxyInstance {
     class_name: &'static str,
     instance_id: usize,
@@ -151,11 +155,19 @@ impl EsValueConvertible for EsNullValue {
     fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::new_null_ref())
     }
+
+    fn is_null(&self) -> bool {
+        true
+    }
 }
 
 impl EsValueConvertible for EsUndefinedValue {
     fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         Ok(crate::quickjs_utils::new_undefined_ref())
+    }
+
+    fn is_undefined(&self) -> bool {
+        true
     }
 }
 
@@ -953,9 +965,9 @@ impl EsValueFacade {
                 Ok(val.to_es_value_facade())
             }
             // Null.
-            TAG_NULL => Ok(EsNullValue {}.to_es_value_facade()),
+            TAG_NULL => Ok(ES_NULL.to_es_value_facade()),
             // Undefined.
-            TAG_UNDEFINED => Ok(EsUndefinedValue {}.to_es_value_facade()),
+            TAG_UNDEFINED => Ok(ES_UNDEFINED.to_es_value_facade()),
 
             // Float.
             TAG_FLOAT64 => {
@@ -1112,6 +1124,13 @@ impl EsValueFacade {
         self.convertible.is_function()
     }
 
+    pub fn is_null(&self) -> bool {
+        self.convertible.is_null()
+    }
+    pub fn is_undefined(&self) -> bool {
+        self.convertible.is_undefined()
+    }
+
     pub fn invoke_function_sync(
         &self,
         arguments: Vec<EsValueFacade>,
@@ -1156,6 +1175,10 @@ impl Debug for EsValueFacade {
             f.write_str("[Object]")
         } else if self.is_array() {
             f.write_str("[Array]")
+        } else if self.is_null() {
+            f.write_str("[null]")
+        } else if self.is_undefined() {
+            f.write_str("[undefined]")
         } else {
             f.write_str("[Unknown]")
         }
