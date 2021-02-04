@@ -230,14 +230,20 @@ unsafe extern "C" fn clear_timeout(
 pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
+    use crate::quickjs_utils::get_global_q;
+    use crate::quickjs_utils::objects::get_property_q;
+    use crate::quickjs_utils::primitives::to_i32;
     use std::sync::Arc;
     use std::time::Duration;
 
     #[test]
     fn test_set_timeout() {
         let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
-        rt.eval_sync(EsScript::new("test_set_timeout.es", "let t_id1 = setInterval((a, b) => {console.log('setInterval invoked with %s and %s', a, b);}, 500, 123, 456);")).ok().expect("fail a");
-        rt.eval_sync(EsScript::new("test_set_interval.es", "let t_id2 = setTimeout((a, b) => {console.log('setTimeout invoked with %s and %s', a, b);}, 500, 123, 456);")).ok().expect("fail b");
+
+        rt.eval_sync(EsScript::new("test_set_interval.es", "let t_id1 = setInterval((a, b) => {console.log('setInterval invoked with %s and %s', a, b);}, 500, 123, 456);")).ok().expect("fail a");
+        rt.eval_sync(EsScript::new("test_set_timeout.es", "let t_id2 = setTimeout((a, b) => {console.log('setTimeout1 invoked with %s and %s', a, b);}, 500, 123, 456);")).ok().expect("fail b");
+        rt.eval_sync(EsScript::new("test_set_timeout.es", "let t_id3 = setTimeout((a, b) => {console.log('setTimeout2 invoked with %s and %s', a, b);}, 600, 123, 456);")).ok().expect("fail b");
+        rt.eval_sync(EsScript::new("test_set_timeout.es", "let t_id4 = setTimeout((a, b) => {console.log('setTimeout3 invoked with %s and %s', a, b);}, 900, 123, 456);")).ok().expect("fail b");
         std::thread::sleep(Duration::from_secs(3));
         rt.eval_sync(EsScript::new(
             "test_clearInterval.es",
@@ -251,7 +257,83 @@ pub mod tests {
         ))
         .ok()
         .expect("fail d");
-        std::thread::sleep(Duration::from_secs(2));
+
+        rt.eval_sync(EsScript::new(
+            "test_set_timeout2.es",
+            "this.__ti_num__ = 0;",
+        ))
+        .ok()
+        .expect("fail qewr");
+
+        rt.eval_sync(EsScript::new(
+            "test_set_timeout2.es",
+            "this.__it_num__ = 0;",
+        ))
+        .ok()
+        .expect("fail qewr");
+
+        rt.eval_sync(EsScript::new(
+            "test_set_timeout3.es",
+            "setTimeout(() => {console.log('seto1');this.__ti_num__++;}, 455);",
+        ))
+        .ok()
+        .expect("fail a1");
+        rt.eval_sync(EsScript::new(
+            "test_set_timeout3.es",
+            "setTimeout(() => {console.log('seto2');this.__ti_num__++;}, 366);",
+        ))
+        .ok()
+        .expect("fail a2");
+        rt.eval_sync(EsScript::new(
+            "test_set_timeout3.es",
+            "setTimeout(() => {console.log('seto3');this.__ti_num__++;}, 1001);",
+        ))
+        .ok()
+        .expect("fail a3");
+        rt.eval_sync(EsScript::new(
+            "test_set_timeout3.es",
+            "setTimeout(() => {console.log('seto4');this.__ti_num__++;}, 2002);",
+        ))
+        .ok()
+        .expect("fail a4");
+
+        rt.eval_sync(EsScript::new(
+            "test_set_interval.es",
+            "setInterval(() => {this.__it_num__++;}, 1600);",
+        ))
+        .ok()
+        .expect("fail a");
+        rt.eval_sync(EsScript::new(
+            "test_set_interval.es",
+            "setInterval(() => {this.__it_num__++;}, 2500);",
+        ))
+        .ok()
+        .expect("fail a");
+
+        std::thread::sleep(Duration::from_secs(6));
+
+        let i = rt.add_to_event_queue_sync(|q_js_rt| {
+            let q_ctx = q_js_rt.get_main_context();
+            let global = get_global_q(q_ctx);
+            let ti_num = get_property_q(q_ctx, &global, "__ti_num__")
+                .ok()
+                .expect("could not get ti num prop from global");
+            let it_num = get_property_q(q_ctx, &global, "__it_num__")
+                .ok()
+                .expect("could not get it num prop from global");
+
+            (
+                to_i32(&ti_num)
+                    .ok()
+                    .expect("could not convert ti num to num"),
+                to_i32(&it_num)
+                    .ok()
+                    .expect("could not convert ti num to num"),
+            )
+        });
+        assert_eq!(i.1, 5);
+        assert_eq!(i.0, 4);
+
         rt.gc_sync();
     }
 }
