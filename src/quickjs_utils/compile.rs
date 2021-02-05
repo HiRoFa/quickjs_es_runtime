@@ -170,46 +170,60 @@ pub unsafe fn from_bytecode(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntimebuilder::EsRuntimeBuilder;
+    use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
     use crate::quickjs_utils::compile::{
         compile, from_bytecode, run_compiled_function, to_bytecode,
     };
     use crate::quickjs_utils::primitives;
+    use std::sync::Arc;
 
-    //#[test]
-    fn _test_compile() {
-        let rt = EsRuntimeBuilder::new().build();
-        unsafe {
-            rt.add_to_event_queue_sync(|q_js_rt| {
-                let q_ctx = q_js_rt.get_main_context();
-                let func_res = compile(
+    #[test]
+    fn test_compile() {
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            let q_ctx = q_js_rt.get_main_context();
+            let func_res = unsafe {
+                compile(
                     q_ctx.context,
-                    EsScript::new("test_func.es", "let a = 7; let b = 5; a * b;"),
-                );
-                let func = func_res.ok().expect("func compile failed");
-                let bytecode: Vec<u8> = to_bytecode(q_ctx.context, &func);
-                drop(func);
-                assert!(!bytecode.is_empty());
-                let func2_res = from_bytecode(q_ctx.context, bytecode);
-                let func2 = func2_res.ok().expect("could not read bytecode");
-                let run_res = run_compiled_function(q_ctx.context, &func2);
-                let res = run_res.ok().expect("run_compiled_function failed");
-                let i_res = primitives::to_i32(&res);
-                let i = i_res.ok().expect("could not convert to i32");
-                assert_eq!(i, 7 * 5);
-            });
-        }
+                    EsScript::new(
+                        "test_func.es",
+                        "let a_tb3 = 7; let b_tb3 = 5; a_tb3 * b_tb3;",
+                    ),
+                )
+            };
+            let func = func_res.ok().expect("func compile failed");
+            let bytecode: Vec<u8> = unsafe { to_bytecode(q_ctx.context, &func) };
+            drop(func);
+            assert!(!bytecode.is_empty());
+            let func2_res = unsafe { from_bytecode(q_ctx.context, bytecode) };
+            let func2 = func2_res.ok().expect("could not read bytecode");
+            let run_res = unsafe { run_compiled_function(q_ctx.context, &func2) };
+            match run_res {
+                Ok(res) => {
+                    let i_res = primitives::to_i32(&res);
+                    let i = i_res.ok().expect("could not convert to i32");
+                    assert_eq!(i, 7 * 5);
+                }
+                Err(e) => {
+                    panic!("run failed1: {}", e);
+                }
+            }
+        });
     }
 
-    //#[test]
-    fn _test_bytecode() {
-        let rt = EsRuntimeBuilder::new().build();
+    #[test]
+    fn test_bytecode() {
+        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
         rt.add_to_event_queue_sync(|q_js_rt| unsafe {
             let q_ctx = q_js_rt.get_main_context();
             let func_res = compile(
                 q_ctx.context,
-                EsScript::new("test_func.es", "let a = 7; let b = 5; a * b;"),
+                EsScript::new(
+                    "test_func.es",
+                    "let a_tb4 = 7; let b_tb4 = 5; a_tb4 * b_tb4;",
+                ),
             );
             let func = func_res.ok().expect("func compile failed");
             let bytecode: Vec<u8> = to_bytecode(q_ctx.context, &func);
@@ -218,10 +232,17 @@ pub mod tests {
             let func2_res = from_bytecode(q_ctx.context, bytecode);
             let func2 = func2_res.ok().expect("could not read bytecode");
             let run_res = run_compiled_function(q_ctx.context, &func2);
-            let res = run_res.ok().expect("run_compiled_function failed");
-            let i_res = primitives::to_i32(&res);
-            let i = i_res.ok().expect("could not convert to i32");
-            assert_eq!(i, 7 * 5);
+
+            match run_res {
+                Ok(res) => {
+                    let i_res = primitives::to_i32(&res);
+                    let i = i_res.ok().expect("could not convert to i32");
+                    assert_eq!(i, 7 * 5);
+                }
+                Err(e) => {
+                    panic!("run failed: {}", e);
+                }
+            }
         });
     }
 }
