@@ -132,6 +132,75 @@ fn next_id(q_ctx: &QuickJsContext) -> usize {
     r
 }
 
+/// The Proxy struct can be used to create a class in JavaScript who's methods can be implemented in rust
+/// # Example
+/// ```rust
+/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_es_runtime::reflection::Proxy;
+/// use quickjs_es_runtime::quickjscontext::QuickJsContext;
+/// use quickjs_es_runtime::valueref::JSValueRef;
+/// use std::cell::RefCell;
+/// use std::collections::HashMap;
+/// use quickjs_es_runtime::quickjs_utils::primitives;
+/// use quickjs_es_runtime::esscript::EsScript;
+/// use quickjs_es_runtime::esvalue::EsValueFacade;
+/// use quickjs_es_runtime::eserror::EsError;
+/// let rt = EsRuntimeBuilder::new().build();
+///
+/// struct MyFunkyStruct{
+///     name: String
+/// }
+///
+/// impl Drop for MyFunkyStruct {fn drop(&mut self) {
+///         println!("Funky drop: {}", self.name.as_str());
+///     }
+/// }
+///
+/// thread_local! {
+///    static INSTANCES: RefCell<HashMap<usize, MyFunkyStruct>> = RefCell::new(HashMap::new());
+/// }
+///
+/// rt.add_to_event_queue_sync(|q_js_rt| {
+///    let q_ctx = q_js_rt.get_main_context();
+///    Proxy::new()
+///    .namespace(vec!["com", "hirofa"])
+///    .name("FunkyClass")
+///    .constructor(|q_ctx: &QuickJsContext, instance_id: usize, args: Vec<JSValueRef>| {
+///        let name = primitives::to_string_q(q_ctx, &args[0]).ok().expect("bad constructor! bad!");
+///        let instance = MyFunkyStruct{name};
+///        INSTANCES.with(move |rc| {
+///            let map = &mut *rc.borrow_mut();
+///            map.insert(instance_id, instance);
+///        });
+///        Ok(())
+///     })
+///    .method("getName", |q_ctx, instance_id, args| {
+///        INSTANCES.with(move |rc| {
+///            let map = & *rc.borrow();
+///            let instance = map.get(instance_id).unwrap();
+///            primitives::from_string_q(q_ctx, instance.name.as_str())
+///        })
+///    })
+///    .finalizer(|q_ctx, instance_id| {
+///        INSTANCES.with(move |rc| {
+///            let map = &mut *rc.borrow_mut();
+///            map.remove(&instance_id);
+///        });
+///     })
+///    .install(q_ctx);      
+/// });
+///
+/// match rt.eval_sync(EsScript::new("test_proxy.es", "let inst = new com.hirofa.FunkyClass('FooBar'); inst.getName();")) {
+///     Ok(name_esvf) => {
+///         assert_eq!(name_esvf.get_str(), "FooBar");
+///     },
+///     Err(e) => {
+///         panic!("script failed: {}", e);
+///     }
+/// }
+/// rt.gc_sync();
+///
+/// ```
 pub struct Proxy {
     name: Option<String>,
     namespace: Option<Vec<String>>,
