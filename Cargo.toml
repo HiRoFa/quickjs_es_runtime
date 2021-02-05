@@ -15,9 +15,9 @@ categories = ["development-tools"]
 
 [dependencies]
 
-#libquickjs-sys = "0.8.0"
+libquickjs-sys = "0.9.0"
 #libquickjs-sys = {path= "../quickjs-rs/libquickjs-sys"}
-libquickjs-sys = {git= "https://github.com/HiRoFa/quickjs-rs"}
+#libquickjs-sys = {git= "https://github.com/HiRoFa/quickjs-rs"}
 lazy_static = "1.4.0"
 hirofa_utils = {git="https://github.com/HiRoFa/utils"}
 log = "0.4.11"

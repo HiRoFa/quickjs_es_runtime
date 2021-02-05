@@ -58,11 +58,16 @@ pub fn get_time_q(context: &QuickJsContext, date_ref: &JSValueRef) -> Result<f64
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn get_time(context: *mut q::JSContext, date_ref: &JSValueRef) -> Result<f64, EsError> {
     let time_ref = functions::invoke_member_function(context, date_ref, "getTime", vec![])?;
-    primitives::to_f64(&time_ref)
+    if time_ref.is_f64() {
+        primitives::to_f64(&time_ref)
+    } else {
+        primitives::to_i32(&time_ref).map(|i| i as f64)
+    }
 }
 
 #[cfg(test)]
 pub mod tests {
+
     use crate::esruntime::EsRuntime;
     use crate::quickjs_utils::dates;
     use crate::quickjs_utils::dates::{get_time_q, is_date_q, set_time_q};
@@ -81,17 +86,28 @@ pub mod tests {
             set_time_q(q_ctx, &date_ref, 2147483648f64)
                 .ok()
                 .expect("could not set time");
-            let t = get_time_q(q_ctx, &date_ref)
-                .ok()
-                .expect("could not get time");
-            assert_eq!(t, 2147483648f64);
+            let gt_res = get_time_q(q_ctx, &date_ref);
+            match gt_res {
+                Ok(t) => {
+                    assert_eq!(t, 2147483648f64);
+                }
+                Err(e) => {
+                    panic!("get time failed: {}", e);
+                }
+            }
+
             set_time_q(q_ctx, &date_ref, 2f64)
                 .ok()
                 .expect("could not set time");
-            let t = get_time_q(q_ctx, &date_ref)
-                .ok()
-                .expect("could not get time");
-            assert_eq!(t, 2f64);
+            let gt_res = get_time_q(q_ctx, &date_ref);
+            match gt_res {
+                Ok(t) => {
+                    assert_eq!(t, 2f64);
+                }
+                Err(e) => {
+                    panic!("get time 2 failed: {}", e);
+                }
+            }
         });
     }
 }
