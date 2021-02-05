@@ -42,7 +42,7 @@ Other projects:
 * Add functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.set_function))
 * Invoke JS functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.call_function_sync))
 * Pass primitives, objects and arrays from and to rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/quickjs_utils/primitives/index.html))
-* Create Classes from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/quickjs_utils/reflection/struct.Proxy.html))
+* Create Classes from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/reflection/struct.Proxy.html))
 
 ## Future / Todo
 
