@@ -6,9 +6,9 @@ use libquickjs_sys as q;
 /// Check whether an object is an array
 /// # Example
 /// ```rust
-/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_es_runtime::esscript::EsScript;
-/// use quickjs_es_runtime::quickjs_utils::arrays;
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::esscript::EsScript;
+/// use quickjs_runtime::quickjs_utils::arrays;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
@@ -33,9 +33,9 @@ pub unsafe fn is_array(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool
 /// Get the length of an Array
 /// # Example
 /// ```rust
-/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_es_runtime::esscript::EsScript;
-/// use quickjs_es_runtime::quickjs_utils::arrays;
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::esscript::EsScript;
+/// use quickjs_runtime::quickjs_utils::arrays;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
@@ -63,10 +63,10 @@ pub unsafe fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Re
 /// Create a new Array
 /// # Example
 /// ```rust
-/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_es_runtime::esscript::EsScript;
-/// use quickjs_es_runtime::quickjs_utils::{arrays, primitives, functions};
-/// use quickjs_es_runtime::quickjs_utils;
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::esscript::EsScript;
+/// use quickjs_runtime::quickjs_utils::{arrays, primitives, functions};
+/// use quickjs_runtime::quickjs_utils;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
@@ -105,10 +105,10 @@ pub unsafe fn create_array(context: *mut q::JSContext) -> Result<JSValueRef, EsE
 /// Set a single element in an array
 /// # Example
 /// ```rust
-/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_es_runtime::esscript::EsScript;
-/// use quickjs_es_runtime::quickjs_utils::{arrays, primitives};
-/// use quickjs_es_runtime::quickjs_utils;
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::esscript::EsScript;
+/// use quickjs_runtime::quickjs_utils::{arrays, primitives};
+/// use quickjs_runtime::quickjs_utils;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
@@ -158,10 +158,10 @@ pub unsafe fn set_element(
 /// Get a single element from an array
 /// # Example
 /// ```rust
-/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_es_runtime::esscript::EsScript;
-/// use quickjs_es_runtime::quickjs_utils::{arrays, primitives};
-/// use quickjs_es_runtime::quickjs_utils;
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::esscript::EsScript;
+/// use quickjs_runtime::quickjs_utils::{arrays, primitives};
+/// use quickjs_runtime::quickjs_utils;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {

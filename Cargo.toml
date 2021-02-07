@@ -1,32 +1,30 @@
 [package]
-name = "quickjs_es_runtime"
+name = "quickjs_runtime"
 version = "0.1.0"
-authors = ["Andries Hiemstra"]
+authors = ["HiRoFa <info@hirofa.com>"]
 edition = "2018"
 description = "An API and Utils around the QuickJS script engine"
 homepage = "https://github.com/HiRoFa/quickjs_es_runtime"
-keywords = ["quickjs", "javascript", "runtime", "engine", "rust"]
+keywords = ["quickjs", "javascript", "runtime", "engine", "js"]
 repository = "https://github.com/HiRoFa/quickjs_es_runtime"
 license = "GPL-3.0"
 documentation = "https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/index.html"
 readme = "README.md"
 categories = ["development-tools"]
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 
 libquickjs-sys = "0.9.0"
-#libquickjs-sys = {path= "../quickjs-rs/libquickjs-sys"}
-#libquickjs-sys = {git= "https://github.com/HiRoFa/quickjs-rs"}
 lazy_static = "1.4.0"
-hirofa_utils = {git="https://github.com/HiRoFa/utils"}
 log = "0.4.11"
 simple-logging = "2.0.2"
 num_cpus = "1.13.0"
 rand = "0.7.3"
 thread-id = "3.3.0"
+uuid = {version = "0.8.1", features =["v4"]}
+rayon = "1.3.1"
 
 [dev-dependencies.cargo-husky]
 version = "1.5.0"
 default-features = false # Disable features which are enabled by default
-#features = ["precommit-hook", "run-cargo-test", "run-cargo-clippy"]
+features = ["precommit-hook", "run-cargo-test", "run-cargo-clippy"]

@@ -1,14 +1,17 @@
-# quickjs_es_runtime
+# quickjs_runtime
 
-quickjs_es_runtime is a library for quickly getting started with embedding a javascript engine in your rust project.
+quickjs_runtime is a library for quickly getting started with embedding a javascript engine in your rust project.
 
-quickjs_es_runtime focuses purely on making quickjs usable. 
+**DISCLAIMER: This project is far from what I would call "Battle Tested", use at your own risk.**
 
-Other projects:
+quickjs_runtime focuses purely on making [quickjs](https://bellard.org/quickjs/) easy to use and does not add anny additional features, that where these projects come in:
 * A more feature-rich runtime can be found in [ESsesLib-q](https://github.com/HiRoFa/ESsesLib-q).
 * There is also a commandline client: [ESsesCmd-q](https://github.com/HiRoFa/ESsesCmd-q).
 * And last but not least there is GreenCopper which aspires to be a full fledged application platform: [Green-Copper-q](https://github.com/HiRoFa/Green-Copper-q).
-* (they all end with -q because I started out with variants of these projects based on SpiderMonkey)
+
+This project is heavily inspired by the awesome quickjs wrapper at [theduke/quickjs-rs](https://github.com/theduke/quickjs-rs) and still uses its low level bindings [libquickjs-sys](https://crates.io/crates/libquickjs-sys).
+
+The big difference to quickjs-rs is that quickjs_runtime executes all quickjs related code in a dedicated single-threaded EventQueue.
 
 # This lib serves two main goals:
 
@@ -18,18 +21,19 @@ Other projects:
 * Wrap JSValue to provide reference counting (+1 on init, -1 on drop)
 * Pass a module loader
 
-## 2. Wrap quickjs for use as a ready to go JS Runtime
+## 2. Wrap quickjs for use as a ready to go JavaScript Runtime
 * This is the ESRuntime struct, it provides an EventQueue which has a thread_local QuickJSRuntime
 * All values are copied or abstracted in an ESValueFacade
 * So no need to worry about Garbage collection
-* Get promise result blocking or async
+* Get Promise result blocking or async
 
 # What works?
 
 ## Script and Modules
 
+* console (.log/info/debug/trace/error)
 * Eval script ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.eval_sync))
-* Create promises which execute async in JS
+* Create promises in JavaScript which execute async
 * Eval modules ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.eval_module_sync))
 * Load modules (dynamic and static) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntimebuilder/struct.EsRuntimeBuilder.html#method.module_script_loader))
 * fetch api [#2](https://github.com/HiRoFa/quickjs_es_runtime/issues/2)
@@ -46,9 +50,10 @@ Other projects:
 
 ## Future / Todo
 
+* Worker support
 * import native Modules (e.g. dynamic loading of rust functions) [#9](https://github.com/HiRoFa/quickjs_es_runtime/issues/9)
-* EventTarget
-* WebAssembly
+* EventTarget support in Proxies
+* WebAssembly support
 * Macro / IFDef support
 * Pre processing (for e.g. typescript)
 
@@ -66,9 +71,6 @@ but
 
 For some of my projects those are a big plus!
 
-A big thanks goes out to the people at https://github.com/theduke/quickjs-rs for making the bindings to quickjs!
-I learned a lot from their code and reused some of their concepts.
-
 # examples
 
 see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/index.html) for all inner working but here are some quickstarts:
@@ -77,7 +79,7 @@ Cargo.toml
 
 ```toml
 [dependencies]
-quickjs_es_runtime = {git="https://github.com/HiRoFa/quickjs_es_runtime"}
+quickjs_runtime = "0.1.0"
 log = "0.4.11"
 simple-logging = "2.0.2"
 ```
@@ -86,9 +88,9 @@ main.rs
 
 ```rust
 
-use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-use quickjs_es_runtime::esscript::EsScript;
-use quickjs_es_runtime::esvalue::EsValueFacade;
+use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+use quickjs_runtime::esscript::EsScript;
+use quickjs_runtime::esvalue::EsValueFacade;
 
 fn load_module(base: &str, name: &str) -> Option<EsScript> {
     // you should load your modules from files here
@@ -152,7 +154,6 @@ fn main() {
 
     match method_a_res {
         Ok(val) => {
-            assert!(val.is_i32());
             assert_eq!(val.get_i32(), 13 * 56);
         }
         Err(e) => {

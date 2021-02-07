@@ -15,9 +15,9 @@ pub fn parse_q(q_ctx: &QuickJsContext, input: &str) -> Result<JSValueRef, EsErro
 /// {"a": 1} will parse ok
 /// # Example
 /// ```dontrun
-/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_es_runtime::quickjs_utils::{json, objects, primitives};
-/// use quickjs_es_runtime::quickjs_utils::json::parse;
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::quickjs_utils::{json, objects, primitives};
+/// use quickjs_runtime::quickjs_utils::json::parse;
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
@@ -60,8 +60,8 @@ pub unsafe fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRe
 /// Stringify an Object in script
 /// # Example
 /// ```rust
-/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_es_runtime::quickjs_utils::{json, objects, primitives};
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::quickjs_utils::{json, objects, primitives};
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();

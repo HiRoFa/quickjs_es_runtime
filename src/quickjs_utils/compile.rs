@@ -9,10 +9,10 @@ use libquickjs_sys as q;
 ///  It can be executed with run_compiled_function().
 /// # Example
 /// ```dontrun
-/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_es_runtime::esscript::EsScript;
-/// use quickjs_es_runtime::quickjs_utils::primitives;
-/// use quickjs_es_runtime::quickjs_utils::compile::{compile, run_compiled_function};
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::esscript::EsScript;
+/// use quickjs_runtime::quickjs_utils::primitives;
+/// use quickjs_runtime::quickjs_utils::compile::{compile, run_compiled_function};
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
@@ -92,10 +92,10 @@ pub unsafe fn run_compiled_function(
 /// write a function to bytecode
 /// # Example
 /// ```dontrun
-/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_es_runtime::esscript::EsScript;
-/// use quickjs_es_runtime::quickjs_utils::primitives;
-/// use quickjs_es_runtime::quickjs_utils::compile::{compile, run_compiled_function, to_bytecode, from_bytecode};
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::esscript::EsScript;
+/// use quickjs_runtime::quickjs_utils::primitives;
+/// use quickjs_runtime::quickjs_utils::compile::{compile, run_compiled_function, to_bytecode, from_bytecode};
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();

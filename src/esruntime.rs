@@ -3,18 +3,16 @@ use crate::esruntimebuilder::EsRuntimeBuilder;
 use crate::esscript::EsScript;
 use crate::esvalue::EsValueFacade;
 use crate::features;
-use crate::quickjs_utils::{functions, objects};
-use crate::quickjsruntime::QuickJsRuntime;
-use hirofa_utils::single_threaded_event_queue::SingleThreadedEventQueue;
-use libquickjs_sys as q;
-use std::sync::{Arc, Weak};
-
 use crate::features::fetch::request::FetchRequest;
-
 use crate::features::fetch::response::FetchResponse;
+use crate::quickjs_utils::{functions, objects};
 use crate::quickjscontext::QuickJsContext;
-use hirofa_utils::task_manager::TaskManager;
+use crate::quickjsruntime::QuickJsRuntime;
+use crate::utils::single_threaded_event_queue::SingleThreadedEventQueue;
+use crate::utils::task_manager::TaskManager;
+use libquickjs_sys as q;
 use std::rc::Rc;
+use std::sync::{Arc, Weak};
 
 lazy_static! {
     /// a static Multithreaded taskmanager used to run rust ops async and multithreaded ( in at least 2 threads)
@@ -236,8 +234,8 @@ impl EsRuntime {
     /// Evaluate a script and return the result synchronously
     /// # example
     /// ```rust
-    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_es_runtime::esscript::EsScript;
+    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::esscript::EsScript;
     /// let rt = EsRuntimeBuilder::new().build();
     /// let script = EsScript::new("my_file.es", "(9 * 3);");
     /// let res = rt.eval_sync(script).ok().expect("script failed");
@@ -267,9 +265,9 @@ impl EsRuntime {
     /// call a function in the engine and await the result
     /// # example
     /// ```rust
-    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_es_runtime::esscript::EsScript;
-    /// use quickjs_es_runtime::esvalue::EsValueConvertible;
+    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::esscript::EsScript;
+    /// use quickjs_runtime::esvalue::EsValueConvertible;
     /// let rt = EsRuntimeBuilder::new().build();
     /// let script = EsScript::new("my_file.es", "this.com = {my: {methodA: function(a, b){return a*b;}}};");
     /// rt.eval_sync(script).ok().expect("script failed");
@@ -306,9 +304,9 @@ impl EsRuntime {
     /// call a function in the engine asynchronously
     /// # example
     /// ```rust
-    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_es_runtime::esscript::EsScript;
-    /// use quickjs_es_runtime::esvalue::EsValueConvertible;
+    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::esscript::EsScript;
+    /// use quickjs_runtime::esvalue::EsValueConvertible;
     /// let rt = EsRuntimeBuilder::new().build();
     /// let script = EsScript::new("my_file.es", "this.com = {my: {methodA: function(a, b){return a*b;}}};");
     /// rt.eval_sync(script).ok().expect("script failed");
@@ -354,9 +352,9 @@ impl EsRuntime {
     /// also to use this you need to build the EsRuntime with a module loader closure
     /// # example
     /// ```rust
-    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_es_runtime::esscript::EsScript;
-    /// use quickjs_es_runtime::esvalue::EsValueConvertible;
+    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::esscript::EsScript;
+    /// use quickjs_runtime::esvalue::EsValueConvertible;
     /// let rt = EsRuntimeBuilder::new().module_script_loader(|q_ctx, relative_file_path, name| {
     ///     // here you should analyze the relative_file_path, this is the absolute path of the script which contains the import statement
     ///     // if this is e.g. '/opt/files/my_module.mes' and the name is 'other_module.mes' then you should return
@@ -396,7 +394,7 @@ impl EsRuntime {
     /// this will run asynchronously
     /// # example
     /// ```rust
-    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
     /// let rt = EsRuntimeBuilder::new().build();
     /// rt.add_to_event_queue(|q_js_rt| {
     ///     // here you are in the worker thread and you can use the quickjs_utils
@@ -414,9 +412,9 @@ impl EsRuntime {
     /// this will run and return synchronously
     /// # example
     /// ```rust
-    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_es_runtime::esscript::EsScript;
-    /// use quickjs_es_runtime::quickjs_utils::primitives;
+    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::esscript::EsScript;
+    /// use quickjs_runtime::quickjs_utils::primitives;
     /// let rt = EsRuntimeBuilder::new().build();
     /// let res = rt.add_to_event_queue_sync(|q_js_rt| {
     ///     let q_ctx = q_js_rt.get_main_context();
@@ -437,10 +435,10 @@ impl EsRuntime {
     /// this adds a rust function to JavaScript, it is added for all current and future contexts
     /// # Example
     /// ```rust
-    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_es_runtime::esscript::EsScript;
-    /// use quickjs_es_runtime::quickjs_utils::primitives;
-    /// use quickjs_es_runtime::esvalue::{EsValueFacade, EsValueConvertible};
+    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::esscript::EsScript;
+    /// use quickjs_runtime::quickjs_utils::primitives;
+    /// use quickjs_runtime::esvalue::{EsValueFacade, EsValueConvertible};
     /// let rt = EsRuntimeBuilder::new().build();
     /// rt.set_function(vec!["com", "mycompany", "util"], "methodA", |q_ctx, args: Vec<EsValueFacade>|{
     ///     let a = args[0].get_i32();

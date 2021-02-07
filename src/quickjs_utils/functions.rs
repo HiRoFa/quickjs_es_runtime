@@ -3,8 +3,8 @@ use crate::esscript::EsScript;
 use crate::quickjs_utils::{atoms, errors, objects, parse_args, primitives};
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
+use crate::utils::auto_id_map::AutoIdMap;
 use crate::valueref::JSValueRef;
-use hirofa_utils::auto_id_map::AutoIdMap;
 use libquickjs_sys as q;
 use log::trace;
 use std::cell::RefCell;
@@ -14,11 +14,11 @@ use std::os::raw::{c_char, c_int, c_void};
 /// parse a function body and its arg_names into a JSValueRef which is a Function
 /// # Example
 /// ```dontrun
-/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_es_runtime::quickjs_utils::functions::{parse_function, call_function};
-/// use quickjs_es_runtime::quickjs_utils::primitives;
-/// use quickjs_es_runtime::eserror::EsError;
-/// use quickjs_es_runtime::valueref::JSValueRef;
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::quickjs_utils::functions::{parse_function, call_function};
+/// use quickjs_runtime::quickjs_utils::primitives;
+/// use quickjs_runtime::eserror::EsError;
+/// use quickjs_runtime::valueref::JSValueRef;
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();

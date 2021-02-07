@@ -135,16 +135,16 @@ fn next_id(q_ctx: &QuickJsContext) -> usize {
 /// The Proxy struct can be used to create a class in JavaScript who's methods can be implemented in rust
 /// # Example
 /// ```rust
-/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_es_runtime::reflection::Proxy;
-/// use quickjs_es_runtime::quickjscontext::QuickJsContext;
-/// use quickjs_es_runtime::valueref::JSValueRef;
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::reflection::Proxy;
+/// use quickjs_runtime::quickjscontext::QuickJsContext;
+/// use quickjs_runtime::valueref::JSValueRef;
 /// use std::cell::RefCell;
 /// use std::collections::HashMap;
-/// use quickjs_es_runtime::quickjs_utils::primitives;
-/// use quickjs_es_runtime::esscript::EsScript;
-/// use quickjs_es_runtime::esvalue::EsValueFacade;
-/// use quickjs_es_runtime::eserror::EsError;
+/// use quickjs_runtime::quickjs_utils::primitives;
+/// use quickjs_runtime::esscript::EsScript;
+/// use quickjs_runtime::esvalue::EsValueFacade;
+/// use quickjs_runtime::eserror::EsError;
 ///
 /// struct MyFunkyStruct{
 ///     name: String

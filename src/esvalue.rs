@@ -5,8 +5,8 @@ use crate::quickjs_utils::{arrays, dates, functions, new_null_ref, promises};
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::reflection;
+use crate::utils::auto_id_map::AutoIdMap;
 use crate::valueref::*;
-use hirofa_utils::auto_id_map::AutoIdMap;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
@@ -831,10 +831,10 @@ impl Drop for EsPromiseResolvableHandleInner {
 /// can be used to create a new Promise which is resolved with the resolver function
 /// # Example
 /// ```rust
-/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_es_runtime::esvalue::{EsPromise, EsValueConvertible};
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::esvalue::{EsPromise, EsValueConvertible};
 /// use std::time::Duration;
-/// use quickjs_es_runtime::esscript::EsScript;
+/// use quickjs_runtime::esscript::EsScript;
 /// use log::LevelFilter;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
@@ -877,10 +877,10 @@ impl EsPromise {
     /// this achieved by creating a Handle which is wrapped in an Arc and thus may be passed to another thread
     /// # Example
     /// ```rust
-    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_es_runtime::esscript::EsScript;
+    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::esscript::EsScript;
     /// use std::time::Duration;
-    /// use quickjs_es_runtime::esvalue::{EsPromise, EsValueConvertible};
+    /// use quickjs_runtime::esvalue::{EsPromise, EsValueConvertible};
     /// let rt = EsRuntimeBuilder::new().build();
     /// // prep a function which reacts to a promise
     /// rt.eval_sync(EsScript::new("new_unresolving.es", "this.new_unresolving = function(prom){prom.then((res) => {console.log('promise resolved to %s', res);});};")).ok().expect("script failed");

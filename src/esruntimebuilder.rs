@@ -10,7 +10,7 @@ use std::time::Duration;
 /// the EsRuntimeBuilder is used to init an EsRuntime
 /// # Example
 /// ```rust
-/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
 /// // init a rt which may use 16MB of memory
 /// let rt = EsRuntimeBuilder::new()
 /// .memory_limit(1024*1024*16)
@@ -46,14 +46,14 @@ impl EsRuntimeBuilder {
     /// add a script loaders which will be used to load modules when they are imported from script
     /// # Example
     /// ```rust
-    /// use quickjs_es_runtime::esscript::EsScript;
-    /// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_es_runtime::quickjscontext::QuickJsContext;
+    /// use quickjs_runtime::esscript::EsScript;
+    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::quickjscontext::QuickJsContext;
     /// fn load_module(_q_ctx: &QuickJsContext, base: &str, name: &str) -> Option<EsScript> {
     ///     // you should load your modules from files here
     ///     // please note that you need to return the name as absolute_path in the returned script struct
     ///     // return None if module is not found
-    ///     use quickjs_es_runtime::quickjscontext::QuickJsContext;
+    ///     use quickjs_runtime::quickjscontext::QuickJsContext;
     /// Some(EsScript::new(name, "export const foo = 12;"))
     /// }
     /// fn main(){

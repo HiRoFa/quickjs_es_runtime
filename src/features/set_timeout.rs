@@ -8,8 +8,8 @@ use std::time::Duration;
 /// provides the setImmediate methods for the runtime
 /// # Example
 /// ```rust
-/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_es_runtime::esscript::EsScript;
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::esscript::EsScript;
 /// use std::time::Duration;
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.eval(EsScript::new("test_timeout.es", "setTimeout(() => {console.log('timed logging')}, 1000);"));

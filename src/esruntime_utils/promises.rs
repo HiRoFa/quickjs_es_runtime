@@ -4,8 +4,8 @@ use crate::quickjs_utils::primitives;
 use crate::quickjs_utils::promises::new_promise_q;
 use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjscontext::QuickJsContext;
+use crate::utils::auto_id_map::AutoIdMap;
 use crate::valueref::JSValueRef;
-use hirofa_utils::auto_id_map::AutoIdMap;
 use std::cell::RefCell;
 thread_local! {
     static RESOLVING_PROMISES: RefCell<AutoIdMap<PromiseRef>> = RefCell::new(AutoIdMap::new());
@@ -17,13 +17,13 @@ thread_local! {
 /// the promise which was returned is then resolved with the value which is returned by the mapper
 /// # Example
 /// ```rust
-/// use quickjs_es_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_es_runtime::quickjs_utils::{functions, objects, primitives};
-/// use quickjs_es_runtime::quickjs_utils;
-/// use quickjs_es_runtime::esscript::EsScript;
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::quickjs_utils::{functions, objects, primitives};
+/// use quickjs_runtime::quickjs_utils;
+/// use quickjs_runtime::esscript::EsScript;
 /// use std::time::Duration;
-/// use quickjs_es_runtime::esruntime_utils::promises;
-/// use quickjs_es_runtime::quickjsruntime::QuickJsRuntime;
+/// use quickjs_runtime::esruntime_utils::promises;
+/// use quickjs_runtime::quickjsruntime::QuickJsRuntime;
 /// let rt = EsRuntimeBuilder::new().build();
 /// let rt_ref = rt.clone();
 /// rt.add_to_event_queue_sync(move |q_js_rt| {
