@@ -32,21 +32,21 @@ The big difference to quickjs-rs is that quickjs_runtime executes all quickjs re
 ## Script and Modules
 
 * console (.log/info/debug/trace/error)
-* Eval script ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.eval_sync))
+* Eval script ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html#method.eval_sync))
 * Create promises in JavaScript which execute async
-* Eval modules ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.eval_module_sync))
-* Load modules (dynamic and static) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntimebuilder/struct.EsRuntimeBuilder.html#method.module_script_loader))
+* Eval modules ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html#method.eval_module_sync))
+* Load modules (dynamic and static) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntimebuilder/struct.EsRuntimeBuilder.html#method.module_script_loader))
 * fetch api [#2](https://github.com/HiRoFa/quickjs_es_runtime/issues/2)
 * setImmediate [#3](https://github.com/HiRoFa/quickjs_es_runtime/issues/3)
 * setTimeout/Interval (and clear) [#4](https://github.com/HiRoFa/quickjs_es_runtime/issues/4)
 
 ## Rust-Script interoperability
 
-* Return Promises from rust functions and resolve them from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime_utils/promises/fn.new_resolving_promise.html))
-* Add functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.set_function))
-* Invoke JS functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/esruntime/struct.EsRuntime.html#method.call_function_sync))
-* Pass primitives, objects and arrays from and to rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/quickjs_utils/primitives/index.html))
-* Create Classes from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/reflection/struct.Proxy.html))
+* Return Promises from rust functions and resolve them from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime_utils/promises/fn.new_resolving_promise.html))
+* Add functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html#method.set_function))
+* Invoke JS functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html#method.call_function_sync))
+* Pass primitives, objects and arrays from and to rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/quickjs_utils/primitives/index.html))
+* Create Classes from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/reflection/struct.Proxy.html))
 
 ## Future / Todo
 
@@ -73,7 +73,7 @@ For some of my projects those are a big plus!
 
 # examples
 
-see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_es_runtime/index.html) for all inner working but here are some quickstarts:
+see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/index.html) for all inner working but here are some quickstarts:
 
 Cargo.toml
 
