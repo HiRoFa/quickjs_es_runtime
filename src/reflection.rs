@@ -145,7 +145,6 @@ fn next_id(q_ctx: &QuickJsContext) -> usize {
 /// use quickjs_es_runtime::esscript::EsScript;
 /// use quickjs_es_runtime::esvalue::EsValueFacade;
 /// use quickjs_es_runtime::eserror::EsError;
-/// let rt = EsRuntimeBuilder::new().build();
 ///
 /// struct MyFunkyStruct{
 ///     name: String
@@ -160,20 +159,31 @@ fn next_id(q_ctx: &QuickJsContext) -> usize {
 ///    static INSTANCES: RefCell<HashMap<usize, MyFunkyStruct>> = RefCell::new(HashMap::new());
 /// }
 ///
+/// //create a new EsRuntime
+/// let rt = EsRuntimeBuilder::new().build();
+///
+/// // install our proxy class as com.hirofa.FunkyClass
 /// rt.add_to_event_queue_sync(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    Proxy::new()
 ///    .namespace(vec!["com", "hirofa"])
 ///    .name("FunkyClass")
+///    // the constructor is called when a script does new com.hirofa.FunkyClass, teh reflection utils
+///    // generate an instance_id which may be used to identify the instance
 ///    .constructor(|q_ctx: &QuickJsContext, instance_id: usize, args: Vec<JSValueRef>| {
+///        // we'll asume our script allways constrcuts the Proxy with a single name argument
 ///        let name = primitives::to_string_q(q_ctx, &args[0]).ok().expect("bad constructor! bad!");
+///        // create a new instance of our struct and store it in a map
 ///        let instance = MyFunkyStruct{name};
+///        // store our struct in a thread_local map
 ///        INSTANCES.with(move |rc| {
 ///            let map = &mut *rc.borrow_mut();
 ///            map.insert(instance_id, instance);
 ///        });
+///        // return Ok, or Err if the constructor failed (e.g. wrong args were passed)
 ///        Ok(())
 ///     })
+///    // next we create a simple getName method, this will return a String
 ///    .method("getName", |q_ctx, instance_id, args| {
 ///        INSTANCES.with(move |rc| {
 ///            let map = & *rc.borrow();
@@ -181,18 +191,26 @@ fn next_id(q_ctx: &QuickJsContext) -> usize {
 ///            primitives::from_string_q(q_ctx, instance.name.as_str())
 ///        })
 ///    })
+///    // and lastly (but very important) implement a finalizer so our rust struct may be dropped
 ///    .finalizer(|q_ctx, instance_id| {
 ///        INSTANCES.with(move |rc| {
 ///            let map = &mut *rc.borrow_mut();
 ///            map.remove(&instance_id);
 ///        });
 ///     })
+///     // install the Proxy in the context
 ///    .install(q_ctx);      
 /// });
 ///
-/// match rt.eval_sync(EsScript::new("test_proxy.es", "let inst = new com.hirofa.FunkyClass('FooBar'); inst.getName();")) {
+/// match rt.eval_sync(EsScript::new("test_proxy.es",
+///     "{let inst = new com.hirofa.FunkyClass('FooBar'); let name = inst.getName(); inst = null; name;}"
+/// )) {
 ///     Ok(name_esvf) => {
+///         // assert correct getName result
 ///         assert_eq!(name_esvf.get_str(), "FooBar");
+///         let i_ct = INSTANCES.with(|rc| rc.borrow().len());
+///         // assert instance was finalized
+///         assert_eq!(i_ct, 0);
 ///     },
 ///     Err(e) => {
 ///         panic!("script failed: {}", e);
@@ -220,6 +238,7 @@ impl Default for crate::reflection::Proxy {
     }
 }
 
+/// get a proxy by class_name (namespace.ClassName)
 pub fn get_proxy(q_ctx: &QuickJsContext, class_name: &str) -> Option<Arc<Proxy>> {
     let registry = &*q_ctx.proxy_registry.borrow();
     registry.get(class_name).cloned()
