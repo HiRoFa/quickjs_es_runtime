@@ -196,13 +196,19 @@ impl SingleThreadedEventQueue {
     }
 
     fn worker_loop(&self) {
+        let wait_dur: Duration = run_sched_jobs();
+
         let jobs: Vec<Box<dyn FnOnce() + Send + 'static>>;
         {
             let mut jobs_lck = self.jobs.lock("worker_loop").unwrap();
 
             if jobs_lck.is_empty() && !self.has_local_jobs() {
-                let dur = Duration::from_millis(250);
-                jobs_lck = self.empty_cond.wait_timeout(jobs_lck, dur).ok().unwrap().0;
+                jobs_lck = self
+                    .empty_cond
+                    .wait_timeout(jobs_lck, wait_dur)
+                    .ok()
+                    .unwrap()
+                    .0;
             }
 
             jobs = replace(&mut *jobs_lck, vec![]);
@@ -212,40 +218,32 @@ impl SingleThreadedEventQueue {
             job();
         }
 
-        while has_local_or_runnable_sched() {
-            trace!("SingleThreadedEventQueue.has_local_or_runnable_sched() == true");
-            run_local_jobs();
-            run_sched_jobs();
-        }
+        run_local_jobs();
     }
 }
 
-fn has_local_or_runnable_sched() -> bool {
-    let local_jobs_empty = LOCAL_JOBS.with(|rc| rc.borrow().is_empty());
-
-    if !local_jobs_empty {
-        return true;
-    }
-
-    SCHEDULED_LOCAL_JOBS.with(|rc| {
-        let scheds = &*rc.borrow();
-        let now = Instant::now();
-        scheds.contains_value(|v| v.next_run.lt(&now))
-    })
-}
-
-fn run_sched_jobs() {
+fn run_sched_jobs() -> Duration {
     // NB prevent double borrow mut, so first get removable jobs
     let now = Instant::now();
     SCHEDULED_LOCAL_JOBS.with(|rc| {
+        let mut wait_dur = Duration::from_millis(250);
         {
-            // this block is so we don;t a a mutable borrow while running a job, a job might add another job and then there might allready be a mutable borrow. which would be bad
+            // this block is so we don;t a a mutable borrow while running a job, a job might add another job and then there might already be a mutable borrow. which would be bad
 
             let removable_jobs;
             {
                 let jobs = &mut *rc.borrow_mut();
                 removable_jobs =
                     jobs.remove_values(|job| job.next_run.lt(&now) && job.interval.is_none());
+
+                for job in jobs.map.values() {
+                    if job.interval.is_none() {
+                        let wait_opt = job.next_run.duration_since(now);
+                        if wait_opt.lt(&wait_dur) {
+                            wait_dur = wait_opt;
+                        }
+                    }
+                }
             }
 
             // run those
@@ -280,6 +278,7 @@ fn run_sched_jobs() {
                 }
             }
         }
+        wait_dur
     })
 }
 
