@@ -235,15 +235,6 @@ fn run_sched_jobs() -> Duration {
                 let jobs = &mut *rc.borrow_mut();
                 removable_jobs =
                     jobs.remove_values(|job| job.next_run.lt(&now) && job.interval.is_none());
-
-                for job in jobs.map.values() {
-                    if job.interval.is_none() {
-                        let wait_opt = job.next_run.duration_since(now);
-                        if wait_opt.lt(&wait_dur) {
-                            wait_dur = wait_opt;
-                        }
-                    }
-                }
             }
 
             // run those
@@ -275,6 +266,13 @@ fn run_sched_jobs() -> Duration {
                 for k in &*re_sched_ids.lock().unwrap() {
                     let job = jobs.get_mut(k).unwrap();
                     job.next_run = now.add(job.interval.unwrap());
+                }
+
+                for job in jobs.map.values() {
+                    let wait_opt = job.next_run.duration_since(now);
+                    if wait_opt.lt(&wait_dur) {
+                        wait_dur = wait_opt;
+                    }
                 }
             }
         }

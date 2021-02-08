@@ -1,6 +1,6 @@
 # 0.1.1 (Work in progress)
 
-* more precise timing for setTimeout
+* more precise timing for setTimeout and setInterval
 
 # 0.1.0
 
