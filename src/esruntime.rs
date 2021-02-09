@@ -15,7 +15,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Weak};
 
 lazy_static! {
-    /// a static Multithreaded taskmanager used to run rust ops async and multithreaded ( in at least 2 threads)
+    /// a static Multithreaded task manager used to run rust ops async and multithreaded ( in at least 2 threads)
     static ref HELPER_TASKS: Arc<TaskManager> = Arc::new(TaskManager::new(std::cmp::max(2, num_cpus::get())));
 }
 
@@ -26,6 +26,14 @@ pub struct EsRuntimeInner {
     pub(crate) event_queue: Arc<SingleThreadedEventQueue>,
     pub(crate) fetch_response_provider: Option<Box<FetchResponseProvider>>,
 }
+
+/// EsRuntime is the main public struct representing a JavaScript runtime.
+/// You can construct a new EsRuntime by using the [EsRuntimeBuilder] struct
+/// # Example
+/// ```rust
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// let rt = EsRuntimeBuilder::new().build();
+/// ```
 
 pub struct EsRuntime {
     pub(crate) inner: Arc<EsRuntimeInner>,
@@ -505,10 +513,25 @@ impl EsRuntime {
         HELPER_TASKS.add_task(task);
     }
 
+    /// create a new context besides the always existing main_context
+    /// # todo
+    /// EsRuntime needs some more pub methods using context like eval / call_func
+    /// # Example
+    /// ```
+    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::esscript::EsScript;
+    /// let rt = EsRuntimeBuilder::new().build();
+    /// rt.create_context("my_context");
+    /// rt.add_to_event_queue_sync(|q_js_rt| {
+    ///    let my_ctx = q_js_rt.get_context("my_context");
+    ///    my_ctx.eval(EsScript::new("ctx_test.es", "this.myVar = 'only exists in my_context';"));
+    /// });
+    /// ```
     pub fn create_context(&self, id: &str) -> Result<(), EsError> {
         self.inner.create_context(id)
     }
 
+    /// drop a context which was created earlier with a call to [create_context()](struct.EsRuntime.html#method.create_context)
     pub fn drop_context(&self, id: &str) {
         self.inner.drop_context(id)
     }

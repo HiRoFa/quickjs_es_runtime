@@ -1,5 +1,7 @@
 use std::fmt::{Error, Formatter};
 
+/// The EsError struct is used throughout this crate to represent errors
+
 pub struct EsError {
     name: String,
     message: String,

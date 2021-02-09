@@ -5,22 +5,26 @@
 //! * quickjs bindings and utils
 //!   these talk to the quickjs API directly and need to run in the same thread as the Runtime
 //!
+//! ## Noteworthy structs
+//!
+//! These are the structs you'll use the most
+//!
 //! | Thread safe | Runtime Thread-local |
 //! | --- | --- |
-//! | [EsRuntime](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html) | [QuickJsRuntime](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/quickjsruntime/struct.QuickJsRuntime.html) |
-//! | [EsValueFacade](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esvalue/struct.EsValueFacade.html) | [JSValueRef](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/valueref/struct.JSValueRef.html) |
+//! | [EsRuntime](esruntime/struct.EsRuntime.html) the 'starting point' | [QuickJsRuntime](quickjsruntime/struct.QuickJsRuntime.html) the wrapper for all things quickjs |
+//! | [EsValueFacade](esvalue/struct.EsValueFacade.html) copy of or reference to a value in the Runtime | [JSValueRef](valueref/struct.JSValueRef.html) reference counting pointer to a Value |
 //!
 //! ## Doing something in the runtime worker thread
 //!
-//! You always start with building a new ESRuntime
+//! You always start with building a new [EsRuntime](esruntime/struct.EsRuntime.html)
 //!
 //! ```dontrun
 //! use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-//! let rt = EsRuntimeBuilder::new().build();
+//! let rt: EsRuntime = EsRuntimeBuilder::new().build();
 //! ```
 //!
-//! [EsRuntime](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html) has plenty public methods you can check out but one the things you'l need to understand is how to communicate to the actual QuickJsRuntime
-//! This is done by adding a job to the EventQueue of the EsRuntime
+//! [EsRuntime](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html) has plenty public methods you can check out but one of the things you'll need to understand is how to communicate with the QuickJsRuntime
+//! This is done by adding a job to the [EventQueue](utils/single_threaded_event_queue/struct.SingleThreadedEventQueue.html) of the [EsRuntime](esruntime/struct.EsRuntime.html)
 //!
 //! ```dontrun
 //! use quickjs_runtime::quickjsruntime::QuickJsRuntime;
