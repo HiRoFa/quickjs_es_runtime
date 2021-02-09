@@ -50,6 +50,7 @@ The big difference to quickjs-rs is that quickjs_runtime executes all quickjs re
 
 ## Future / Todo
 
+* async/await support (for Promise resolution and other execution) [#26](https://github.com/HiRoFa/quickjs_es_runtime/issues/26)
 * Worker support
 * import native Modules (e.g. dynamic loading of rust functions) [#9](https://github.com/HiRoFa/quickjs_es_runtime/issues/9)
 * EventTarget support in Proxies

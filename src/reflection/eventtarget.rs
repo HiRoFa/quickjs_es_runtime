@@ -91,12 +91,7 @@ unsafe extern "C" fn add_event_listener(
             // get the Map
             let events_listeners_map = get_events_obj_map(q_ctx, &this_ref, event_id.as_str())?;
             // add listener and options to the map
-            functions::invoke_member_function_q(
-                q_ctx,
-                &events_listeners_map,
-                "set",
-                vec![listener_func, options_obj],
-            )?;
+            maps::set_q(q_ctx, &events_listeners_map, listener_func, options_obj)?;
 
             Ok(())
         }
