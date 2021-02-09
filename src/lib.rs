@@ -18,7 +18,7 @@ extern crate lazy_static;
 ///
 /// You always start with building a new ESRuntime
 ///
-/// ```rust
+/// ```ignore
 /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
 /// let rt = EsRuntimeBuilder::new().build();
 /// ```
@@ -26,14 +26,14 @@ extern crate lazy_static;
 /// [EsRuntime](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html) has plenty public methods you can check out but one the things you'l need to understand is how to communicate to the actual QuickJsRuntime
 /// This is done by adding a job to the EventQueue of the EsRuntime
 ///
-/// ```rust
+/// ```ignore
 /// rt.add_to_event_queue(|q_js_rt: &QuickJsRuntime| {
 ///    // this will run in the Worker thread, here we can use the quickjs API
 /// });
 /// ```
 ///
 /// In order to do something and get the result you can use the sync variant
-/// /// ```rust
+/// ```ignore
 /// let res = rt.add_to_event_queue_sync(|q_js_rt: &QuickJsRuntime| {
 ///    // this will run in the Worker thread, here we can use the quickjs API
 ///    return 1;
