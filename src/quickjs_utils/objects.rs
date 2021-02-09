@@ -54,20 +54,38 @@ pub unsafe fn get_namespace(
 }
 
 #[allow(dead_code)]
-pub fn construct_object(
-    _context: *mut q::JSContext,
-    _constructor_ref: &JSValueRef,
+/// construct a new instance of a constructor
+/// # Safety
+/// please ensure the passed JSContext is still valid
+pub unsafe fn construct_object(
+    ctx: *mut q::JSContext,
+    constructor_ref: &JSValueRef,
+    args: Vec<JSValueRef>,
 ) -> Result<JSValueRef, EsError> {
-    /*
-    q::JS_CallConstructor(
-        context,
-        date_constructor,
-        args.len() as i32,
-        args.as_mut_ptr(),
-    )
+    let arg_count = args.len() as i32;
 
-     */
-    unimplemented!();
+    let mut qargs = args.iter().map(|a| *a.borrow_value()).collect::<Vec<_>>();
+
+    let res = q::JS_CallConstructor(
+        ctx,
+        *constructor_ref.borrow_value(),
+        arg_count,
+        qargs.as_mut_ptr(),
+    );
+
+    let res_ref = JSValueRef::new(ctx, res, false, true, "call_function result");
+
+    if res_ref.is_exception() {
+        if let Some(ex) = QuickJsContext::get_exception(ctx) {
+            Err(ex)
+        } else {
+            Err(EsError::new_str(
+                "construct_object failed but could not get ex",
+            ))
+        }
+    } else {
+        Ok(res_ref)
+    }
 }
 
 /// create a new simple object, e.g. `let obj = {};`

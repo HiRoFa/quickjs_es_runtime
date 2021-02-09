@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::os::raw::{c_char, c_void};
 use std::sync::Arc;
 
-// todo, make these safe by replacing the ptr with a &QuickJSContext ref
+mod eventtarget;
 
 pub type ProxyConstructor =
     dyn Fn(&QuickJsContext, usize, Vec<JSValueRef>) -> Result<(), EsError> + 'static;
@@ -230,6 +230,8 @@ pub struct Proxy {
     static_native_methods: HashMap<String, ProxyStaticNativeMethod>,
     static_getters_setters: HashMap<String, (Box<ProxyStaticGetter>, Box<ProxyStaticSetter>)>,
     getters_setters: HashMap<String, (Box<ProxyGetter>, Box<ProxySetter>)>,
+    is_event_target: bool,
+    is_static_event_target: bool,
 }
 
 impl Default for crate::reflection::Proxy {
@@ -258,17 +260,38 @@ impl Proxy {
             static_native_methods: Default::default(),
             static_getters_setters: Default::default(),
             getters_setters: Default::default(),
+            is_event_target: false,
+            is_static_event_target: false,
         }
     }
-    #[allow(dead_code)]
+
+    /// set the name of the proxy class
+    /// this will indicate how to construct the class from script
     pub fn name(mut self, name: &str) -> Self {
         self.name = Some(name.to_string());
         self
     }
+    /// set the namespace of the proxy class
+    /// # Example
+    /// ```
+    /// use quickjs_runtime::reflection::Proxy;
+    /// Proxy::new().namespace(vec!["com", "hirofa"]).name("SomeClass");
+    /// ```
+    /// means from script you can access the class by
+    /// ```javascript
+    /// let instance = new com.hirofa.SomeClass();
+    /// ```
     pub fn namespace(mut self, namespace: Vec<&str>) -> Self {
         self.namespace = Some(namespace.iter().map(|s| s.to_string()).collect());
         self
     }
+    /// get the canonical classname of a Proxy
+    /// # example
+    /// ```
+    /// use quickjs_runtime::reflection::Proxy;
+    /// Proxy::new().namespace(vec!["com", "hirofa"]).name("SomeClass");
+    /// ```
+    /// will result in a class_name of "com.hirofa.SomeClass"
     pub fn get_class_name(&self) -> String {
         let cn = if let Some(n) = self.name.as_ref() {
             n.as_str()
@@ -281,7 +304,9 @@ impl Proxy {
             cn.to_string()
         }
     }
-    #[allow(dead_code)]
+    /// add a constructor for the Proxy class
+    /// this will enable a script to create a new instance of a Proxy class
+    /// if omitted the Proxy class will not be constructable from script
     pub fn constructor<C>(mut self, constructor: C) -> Self
     where
         C: Fn(&QuickJsContext, usize, Vec<JSValueRef>) -> Result<(), EsError> + 'static,
@@ -289,8 +314,8 @@ impl Proxy {
         self.constructor = Some(Box::new(constructor));
         self
     }
-
-    #[allow(dead_code)]
+    /// add a finalizer for the Proxy class
+    /// this will be called when an instance of the Proxy class is dropped or garbage collected
     pub fn finalizer<C>(mut self, finalizer: C) -> Self
     where
         C: Fn(&QuickJsContext, usize) + 'static,
@@ -298,8 +323,7 @@ impl Proxy {
         self.finalizer = Some(Box::new(finalizer));
         self
     }
-
-    #[allow(dead_code)]
+    /// add a method to the Proxy class, this method will be available as a member of instances of the Proxy class
     pub fn method<M>(mut self, name: &str, method: M) -> Self
     where
         M: Fn(&QuickJsContext, &usize, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
@@ -307,13 +331,12 @@ impl Proxy {
         self.methods.insert(name.to_string(), Box::new(method));
         self
     }
-
+    /// add a method to the Proxy class, this method will be available as a member of instances of the Proxy class
     pub fn native_method(mut self, name: &str, method: ProxyNativeMethod) -> Self {
         self.native_methods.insert(name.to_string(), method);
         self
     }
-
-    #[allow(dead_code)]
+    /// add a static method to the Proxy class, this method will be available as a member of the Proxy class itself
     pub fn static_method<M>(mut self, name: &str, method: M) -> Self
     where
         M: Fn(&QuickJsContext, Vec<JSValueRef>) -> Result<JSValueRef, EsError> + 'static,
@@ -322,12 +345,13 @@ impl Proxy {
             .insert(name.to_string(), Box::new(method));
         self
     }
-
+    /// add a static method to the Proxy class, this method will be available as a member of the Proxy class itself
     pub fn static_native_method(mut self, name: &str, method: ProxyStaticNativeMethod) -> Self {
         self.static_native_methods.insert(name.to_string(), method);
         self
     }
-    #[allow(dead_code)]
+
+    /// add a static getter and setter to the Proxy class
     pub fn static_getter_setter<G, S>(mut self, name: &str, getter: G, setter: S) -> Self
     where
         G: Fn(&QuickJsContext) -> Result<JSValueRef, EsError> + 'static,
@@ -337,8 +361,7 @@ impl Proxy {
             .insert(name.to_string(), (Box::new(getter), Box::new(setter)));
         self
     }
-
-    #[allow(dead_code)]
+    /// add a getter and setter to the Proxy class, these will be available as a member of an instance of this Proxy class
     pub fn getter_setter<G, S>(mut self, name: &str, getter: G, setter: S) -> Self
     where
         G: Fn(&QuickJsContext, &usize) -> Result<JSValueRef, EsError> + 'static,
@@ -348,16 +371,22 @@ impl Proxy {
             .insert(name.to_string(), (Box::new(getter), Box::new(setter)));
         self
     }
-
-    #[allow(dead_code)]
+    /// indicate the Proxy class should implement the EventTarget interface, this will result in the addEventListener, removeEventListener and dispatchEvent methods to be available on instances of the Proxy class
+    pub fn event_target(mut self) {
+        self.is_event_target = true
+    }
+    /// indicate the Proxy class should implement the EventTarget interface, this will result in the addEventListener, removeEventListener and dispatchEvent methods to be available
+    pub fn static_event_target(mut self) {
+        self.is_static_event_target = true
+    }
+    /// install the Proxy class in a QuickJsContext, this is always needed as a final step to actually make the Proxy class work
     pub fn install(self, q_ctx: &QuickJsContext) -> Result<(), EsError> {
         if self.name.is_none() {
             return Err(EsError::new_str("Proxy needs a name"));
         }
 
         let _class_ref = self.install_class_prop(q_ctx)?;
-
-        self.install_move_to_registry(q_ctx);
+        eventtarget::impl_event_target(self).install_move_to_registry(q_ctx);
 
         Ok(())
     }
@@ -369,7 +398,7 @@ impl Proxy {
         reg_map.insert(proxy.get_class_name(), Arc::new(proxy));
     }
     fn install_class_prop(&self, q_ctx: &QuickJsContext) -> Result<(), EsError> {
-        // this creates a constructor function, adds it to the global scope and then makes an instance of the satic_proxy_class its prototype so we can add static_getters_setters and static_methods
+        // this creates a constructor function, adds it to the global scope and then makes an instance of the static_proxy_class its prototype so we can add static_getters_setters and static_methods
 
         log::trace!("reflection::Proxy::install_class_prop / 1");
 

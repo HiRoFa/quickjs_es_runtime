@@ -8,10 +8,12 @@ pub mod dates;
 pub mod errors;
 pub mod functions;
 pub mod json;
+pub mod maps;
 pub mod modules;
 pub mod objects;
 pub mod primitives;
 pub mod promises;
+pub mod sets;
 pub mod typedarrays;
 
 use crate::eserror::EsError;
@@ -71,7 +73,14 @@ pub unsafe fn get_constructor(
 
     let constructor_ref = get_property(context, &global_ref, constructor_name)?;
 
-    Ok(constructor_ref)
+    if constructor_ref.is_null_or_undefined() {
+        Err(EsError::new_string(format!(
+            "not found: {}",
+            constructor_name
+        )))
+    } else {
+        Ok(constructor_ref)
+    }
 }
 
 /// # Safety
