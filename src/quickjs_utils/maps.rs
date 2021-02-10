@@ -380,23 +380,3 @@ pub unsafe fn entries<C: Fn(JSValueRef, JSValueRef) -> Result<R, EsError>, R>(
         consumer_producer(key, value)
     })
 }
-
-#[cfg(test)]
-pub mod tests {
-    use crate::esruntime::EsRuntime;
-    use crate::quickjs_utils::maps::{new_map_q, set_q};
-    use crate::quickjs_utils::primitives;
-    use std::sync::Arc;
-
-    #[test]
-    fn test_map() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
-        rt.add_to_event_queue_sync(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
-            let map = new_map_q(q_ctx).ok().expect("map creation failed");
-            let key = primitives::from_i32(12);
-            let val = primitives::from_i32(23);
-            set_q(q_ctx, &map, key, val).ok().expect("set failed");
-        });
-    }
-}
