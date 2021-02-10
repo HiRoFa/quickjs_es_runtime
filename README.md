@@ -13,6 +13,8 @@ This project is heavily inspired by the awesome quickjs wrapper at [theduke/quic
 
 The big difference to quickjs-rs is that quickjs_runtime executes all quickjs related code in a dedicated single-threaded EventQueue.
 
+Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/index.html) for all inner workings
+
 # This lib serves two main goals:
 
 ## 1. Provide simple utils for working with quickjs (these are located in the quickjs_utils mod)
@@ -74,7 +76,7 @@ For some of my projects those are a big plus!
 
 # examples
 
-see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/index.html) for all inner working but here are some quickstarts:
+Here are some quickstarts:
 
 Cargo.toml
 

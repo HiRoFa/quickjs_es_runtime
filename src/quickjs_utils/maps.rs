@@ -2,8 +2,8 @@
 //! see [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map) for more on Maps
 
 use crate::eserror::EsError;
-use crate::quickjs_utils::objects::construct_object;
-use crate::quickjs_utils::{functions, get_constructor, objects, primitives};
+use crate::quickjs_utils::objects::{construct_object, is_instance_of_by_name};
+use crate::quickjs_utils::{arrays, functions, get_constructor, iterators, objects, primitives};
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
@@ -31,6 +31,18 @@ pub fn new_map_q(q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
 pub unsafe fn new_map(ctx: *mut q::JSContext) -> Result<JSValueRef, EsError> {
     let map_constructor = get_constructor(ctx, "Map")?;
     construct_object(ctx, &map_constructor, vec![])
+}
+
+/// see if a JSValueRef is an instance of Map
+pub fn is_map_q(q_ctx: &QuickJsContext, obj: &JSValueRef) -> Result<bool, EsError> {
+    unsafe { is_map(q_ctx.context, obj) }
+}
+
+/// see if a JSValueRef is an instance of Map
+/// # Safety
+/// please ensure the passed JSContext is still valid
+pub unsafe fn is_map(ctx: *mut q::JSContext, obj: &JSValueRef) -> Result<bool, EsError> {
+    is_instance_of_by_name(ctx, obj, "Map")
 }
 
 /// set a key/value pair in a Map
@@ -213,7 +225,161 @@ pub unsafe fn size(ctx: *mut q::JSContext, map: &JSValueRef) -> Result<i32, EsEr
     primitives::to_i32(&res)
 }
 
-// todo, clear, forEach, keys, values, entries
+/// remove all entries from a map
+/// # Example
+/// ```rust
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, clear_q, size_q};
+/// use quickjs_runtime::valueref::JSValueRef;
+/// use quickjs_runtime::quickjs_utils::primitives;
+///
+/// let rt = EsRuntimeBuilder::new().build();
+/// rt.add_to_event_queue_sync(|q_js_rt| {
+///    let q_ctx = q_js_rt.get_main_context();
+///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
+///    let key = primitives::from_i32(12);
+///    let value = primitives::from_i32(23);
+///    set_q(q_ctx, &my_map, key.clone(), value).ok().unwrap();
+///    clear_q(q_ctx, &my_map).ok().unwrap();
+///    let i_size = size_q(q_ctx, &my_map).ok().unwrap();
+///    assert_eq!(i_size, 0);
+/// });
+/// ```
+pub fn clear_q(q_ctx: &QuickJsContext, map: &JSValueRef) -> Result<(), EsError> {
+    unsafe { clear(q_ctx.context, map) }
+}
+
+/// remove all entries from a map
+/// # Safety
+/// please ensure the passed JSContext is still valid
+pub unsafe fn clear(ctx: *mut q::JSContext, map: &JSValueRef) -> Result<(), EsError> {
+    let _ = functions::invoke_member_function(ctx, &map, "clear", vec![])?;
+    Ok(())
+}
+
+/// iterate over all keys of a map
+/// # Example
+/// ```rust
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, keys_q};
+/// use quickjs_runtime::valueref::JSValueRef;
+/// use quickjs_runtime::quickjs_utils::primitives;
+///
+/// let rt = EsRuntimeBuilder::new().build();
+/// rt.add_to_event_queue_sync(|q_js_rt| {
+///    let q_ctx = q_js_rt.get_main_context();
+///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
+///    let key = primitives::from_i32(12);
+///    let value = primitives::from_i32(23);
+///    set_q(q_ctx, &my_map, key, value).ok().unwrap();
+///    let mapped_keys = keys_q(q_ctx, &my_map, |key| {Ok(123)}).ok().unwrap();
+///    assert_eq!(mapped_keys.len(), 1);
+/// });
+/// ```
+pub fn keys_q<C: Fn(JSValueRef) -> Result<R, EsError>, R>(
+    q_ctx: &QuickJsContext,
+    map: &JSValueRef,
+    consumer_producer: C,
+) -> Result<Vec<R>, EsError> {
+    unsafe { keys(q_ctx.context, map, consumer_producer) }
+}
+
+/// iterate over all keys of a map
+/// # Safety
+/// please ensure the passed JSContext is still valid
+pub unsafe fn keys<C: Fn(JSValueRef) -> Result<R, EsError>, R>(
+    ctx: *mut q::JSContext,
+    map: &JSValueRef,
+    consumer_producer: C,
+) -> Result<Vec<R>, EsError> {
+    let iter_ref = functions::invoke_member_function(ctx, &map, "keys", vec![])?;
+
+    iterators::iterate(ctx, &iter_ref, consumer_producer)
+}
+
+/// iterate over all values of a map
+/// # Example
+/// ```rust
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, values_q};
+/// use quickjs_runtime::valueref::JSValueRef;
+/// use quickjs_runtime::quickjs_utils::primitives;
+///
+/// let rt = EsRuntimeBuilder::new().build();
+/// rt.add_to_event_queue_sync(|q_js_rt| {
+///    let q_ctx = q_js_rt.get_main_context();
+///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
+///    let key = primitives::from_i32(12);
+///    let value = primitives::from_i32(23);
+///    set_q(q_ctx, &my_map, key, value).ok().unwrap();
+///    let mapped_values = values_q(q_ctx, &my_map, |value| {Ok(123)}).ok().unwrap();
+///    assert_eq!(mapped_values.len(), 1);
+/// });
+/// ```
+pub fn values_q<C: Fn(JSValueRef) -> Result<R, EsError>, R>(
+    q_ctx: &QuickJsContext,
+    map: &JSValueRef,
+    consumer_producer: C,
+) -> Result<Vec<R>, EsError> {
+    unsafe { values(q_ctx.context, map, consumer_producer) }
+}
+
+/// iterate over all values of a map
+/// # Safety
+/// please ensure the passed JSContext is still valid
+pub unsafe fn values<C: Fn(JSValueRef) -> Result<R, EsError>, R>(
+    ctx: *mut q::JSContext,
+    map: &JSValueRef,
+    consumer_producer: C,
+) -> Result<Vec<R>, EsError> {
+    let iter_ref = functions::invoke_member_function(ctx, &map, "values", vec![])?;
+
+    iterators::iterate(ctx, &iter_ref, consumer_producer)
+}
+
+/// iterate over all entries of a map
+/// # Example
+/// ```rust
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, entries_q};
+/// use quickjs_runtime::valueref::JSValueRef;
+/// use quickjs_runtime::quickjs_utils::primitives;
+///
+/// let rt = EsRuntimeBuilder::new().build();
+/// rt.add_to_event_queue_sync(|q_js_rt| {
+///    let q_ctx = q_js_rt.get_main_context();
+///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
+///    let key = primitives::from_i32(12);
+///    let value = primitives::from_i32(23);
+///    set_q(q_ctx, &my_map, key, value).ok().unwrap();
+///    let mapped_values = entries_q(q_ctx, &my_map, |key, value| {Ok(123)}).ok().unwrap();
+///    assert_eq!(mapped_values.len(), 1);
+/// });
+/// ```
+pub fn entries_q<C: Fn(JSValueRef, JSValueRef) -> Result<R, EsError>, R>(
+    q_ctx: &QuickJsContext,
+    map: &JSValueRef,
+    consumer_producer: C,
+) -> Result<Vec<R>, EsError> {
+    unsafe { entries(q_ctx.context, map, consumer_producer) }
+}
+
+/// iterate over all entries of a map
+/// # Safety
+/// please ensure the passed JSContext is still valid
+pub unsafe fn entries<C: Fn(JSValueRef, JSValueRef) -> Result<R, EsError>, R>(
+    ctx: *mut q::JSContext,
+    map: &JSValueRef,
+    consumer_producer: C,
+) -> Result<Vec<R>, EsError> {
+    let iter_ref = functions::invoke_member_function(ctx, &map, "entries", vec![])?;
+
+    iterators::iterate(ctx, &iter_ref, |arr_ref| {
+        let key = arrays::get_element(ctx, &arr_ref, 0)?;
+        let value = arrays::get_element(ctx, &arr_ref, 1)?;
+        consumer_producer(key, value)
+    })
+}
 
 #[cfg(test)]
 pub mod tests {

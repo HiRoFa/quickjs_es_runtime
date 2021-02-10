@@ -7,6 +7,7 @@ pub mod compile;
 pub mod dates;
 pub mod errors;
 pub mod functions;
+pub mod iterators;
 pub mod json;
 pub mod maps;
 pub mod modules;
