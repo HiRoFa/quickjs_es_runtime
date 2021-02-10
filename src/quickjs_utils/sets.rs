@@ -130,8 +130,8 @@ pub unsafe fn delete(
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
 ///    let value = primitives::from_i32(23);
-///    add_q(q_ctx, &my_map, value).ok().unwrap();
-///    let bln_has = has_q(q_ctx, &my_map, key).ok().unwrap();
+///    add_q(q_ctx, &my_set, value.clone()).ok().unwrap();
+///    let bln_has = has_q(q_ctx, &my_set, value).ok().unwrap();
 ///    assert!(bln_has);
 /// });
 /// ```
