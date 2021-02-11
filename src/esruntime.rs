@@ -245,7 +245,7 @@ impl EsRuntime {
     }
 
     /// Evaluate a script asynchronously
-    pub fn eval(&self, script: EsScript) -> impl Future<Output = Result<EsValueFacade, EsError>> {
+    pub async fn eval(&self, script: EsScript) -> Result<EsValueFacade, EsError> {
         self.add_to_event_queue(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval(script);
@@ -254,6 +254,7 @@ impl EsRuntime {
                 Err(e) => Err(e),
             }
         })
+        .await
     }
 
     /// Evaluate a script and return the result synchronously
@@ -278,8 +279,8 @@ impl EsRuntime {
     }
 
     /// run the garbage collector asynchronously
-    pub fn gc(&self) -> impl Future<Output = ()> {
-        self.add_to_event_queue(|q_js_rt| q_js_rt.gc())
+    pub async fn gc(&self) {
+        self.add_to_event_queue(|q_js_rt| q_js_rt.gc()).await
     }
 
     /// run the garbage collector and wait for it to be done
@@ -327,6 +328,7 @@ impl EsRuntime {
     }
 
     /// call a function in the engine asynchronously
+    /// N.B. func_name is not a &str because of https://github.com/rust-lang/rust/issues/56238 (i think)
     /// # example
     /// ```rust
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
@@ -335,14 +337,14 @@ impl EsRuntime {
     /// let rt = EsRuntimeBuilder::new().build();
     /// let script = EsScript::new("my_file.es", "this.com = {my: {methodA: function(a, b){return a*b;}}};");
     /// rt.eval_sync(script).ok().expect("script failed");
-    /// rt.call_function(vec!["com", "my"], "methodA", vec![7.to_es_value_facade(), 5.to_es_value_facade()]);
+    /// rt.call_function(vec!["com", "my"], "methodA".to_string(), vec![7.to_es_value_facade(), 5.to_es_value_facade()]);
     /// ```
-    pub fn call_function(
+    pub async fn call_function(
         &self,
         namespace: Vec<&'static str>,
-        func_name: &str,
+        func_name: String,
         mut arguments: Vec<EsValueFacade>,
-    ) -> impl Future<Output = Result<EsValueFacade, EsError>> {
+    ) -> Result<EsValueFacade, EsError> {
         let func_name_string = func_name.to_string();
 
         self.add_to_event_queue(move |q_js_rt| {
@@ -364,6 +366,7 @@ impl EsRuntime {
                 Err(e) => Err(e),
             }
         })
+        .await
     }
 
     /// evaluate a module, you need if you want to compile a script that contains static imports
@@ -392,7 +395,7 @@ impl EsRuntime {
     /// console.log(util(1, 2, 3));");
     /// rt.eval_module(script);
     /// ```
-    pub fn eval_module(&self, script: EsScript) -> impl Future<Output = ()> {
+    pub async fn eval_module(&self, script: EsScript) {
         self.add_to_event_queue(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval_module(script);
@@ -401,6 +404,7 @@ impl EsRuntime {
                 Err(e) => log::error!("error in async eval {}", e),
             }
         })
+        .await
     }
 
     /// evaluate a module and return result synchronously

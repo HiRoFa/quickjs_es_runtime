@@ -7,7 +7,7 @@
 * objects::construct_object util to create a new instance of a constructor
 * iterators util to handle iterators
 * EventQueue.async_task will be a starting point for being able to use async/await with javascript
-* made async functions in EsRuntime (eval, eval_module, call_function, gc) return Future so they can be awaited
+* made async functions in EsRuntime (eval, eval_module, call_function, gc)
 * made invoke_function in EsValueFacade async
 
 # 0.1.0
