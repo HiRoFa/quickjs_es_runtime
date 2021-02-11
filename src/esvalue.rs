@@ -18,11 +18,11 @@ use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
-pub struct EsValueFacadeFuture<E> {
-    result: Receiver<Result<EsValueFacade, E>>,
-    sender: Sender<Result<EsValueFacade, E>>,
+pub struct EsValueFacadeFuture<R, E> {
+    result: Receiver<Result<R, E>>,
+    sender: Sender<Result<R, E>>,
 }
-impl<E> EsValueFacadeFuture<E> {
+impl<R, E> EsValueFacadeFuture<R, E> {
     fn new() -> Self {
         let (tx, rx) = channel();
 
@@ -31,12 +31,12 @@ impl<E> EsValueFacadeFuture<E> {
             sender: tx,
         }
     }
-    fn get_sender(&self) -> Sender<Result<EsValueFacade, E>> {
+    fn get_sender(&self) -> Sender<Result<R, E>> {
         self.sender.clone()
     }
 }
-impl<E> Future for EsValueFacadeFuture<E> {
-    type Output = Result<EsValueFacade, E>;
+impl<R, E> Future for EsValueFacadeFuture<R, E> {
+    type Output = Result<R, E>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if let Ok(res) = self.result.try_recv() {
@@ -54,6 +54,7 @@ pub type PromiseReactionType =
 pub trait EsValueConvertible {
     fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError>;
 
+    #[allow(clippy::wrong_self_convention)]
     fn to_es_value_facade(self) -> EsValueFacade
     where
         Self: Sized + Send + 'static,
@@ -101,7 +102,10 @@ pub trait EsValueConvertible {
     fn invoke_function_sync(&self, _args: Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> {
         panic!("i am not a function");
     }
-    fn invoke_function(&self, _args: Vec<EsValueFacade>) -> EsValueFacadeFuture<EsError> {
+    fn invoke_function(
+        &self,
+        _args: Vec<EsValueFacade>,
+    ) -> EsValueFacadeFuture<EsValueFacade, EsError> {
         panic!("i am not a function");
     }
     fn invoke_function_batch_sync(
@@ -116,10 +120,13 @@ pub trait EsValueConvertible {
     fn is_promise(&self) -> bool {
         false
     }
-    fn await_promise_blocking(
+    fn get_promise_result_sync(
         &self,
         _timeout: Duration,
     ) -> Result<Result<EsValueFacade, EsValueFacade>, RecvTimeoutError> {
+        panic!("i am not a promise");
+    }
+    fn get_promise_result(&self) -> EsValueFacadeFuture<EsValueFacade, EsValueFacade> {
         panic!("i am not a promise");
     }
     fn add_promise_reactions(
@@ -244,6 +251,93 @@ impl Drop for CachedJSFunction {
     }
 }
 
+fn pipe_promise_resolution_to_sender(
+    q_ctx: &QuickJsContext,
+    prom_obj_ref: &JSValueRef,
+    tx: Sender<Result<EsValueFacade, EsValueFacade>>,
+) {
+    let tx2 = tx.clone();
+    let then_func_ref = functions::new_function_q(
+        q_ctx,
+        "promise_then_result_transmitter",
+        move |q_ctx, _this_ref, args| {
+            // these clones are needed because create_func requires a Fn and not a FnOnce
+            // in practice however the Fn is called only once
+            let tx3 = tx2.clone();
+
+            let prom_res = &args[0];
+            let prom_res_esvf_res = EsValueFacade::from_jsval(q_ctx, prom_res);
+
+            match prom_res_esvf_res {
+                Ok(prom_res_esvf) => {
+                    let send_res = tx3.send(Ok(prom_res_esvf));
+                    match send_res {
+                        Ok(_) => {
+                            log::trace!("sent prom_res_esvf ok");
+                        }
+                        Err(e) => {
+                            log::error!("send prom_res_esvf failed: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::error!("could not convert promise result to esvf {}", e);
+                    panic!("could not convert promise result to esvf {}", e);
+                }
+            }
+
+            Ok(new_null_ref())
+        },
+        1,
+    )
+    .ok()
+    .expect("could not create func");
+
+    let catch_func_ref = functions::new_function_q(
+        q_ctx,
+        "promise_catch_result_transmitter",
+        move |q_ctx, _this_ref, args| {
+            // these clones are needed because create_func requires a Fn and not a FnOnce
+            // in practice however the Fn is called only once
+            let tx3 = tx.clone();
+
+            let prom_res = &args[0];
+            let prom_res_esvf_res = EsValueFacade::from_jsval(q_ctx, prom_res);
+            match prom_res_esvf_res {
+                Ok(prom_res_esvf) => {
+                    let send_res = tx3.send(Err(prom_res_esvf));
+                    match send_res {
+                        Ok(_) => {
+                            log::trace!("sent prom_res_esvf ok");
+                        }
+                        Err(e) => {
+                            log::error!("send prom_res_esvf failed: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::error!("could not convert promise result to esvf {}", e);
+                    panic!("could not convert promise result to esvf {}", e);
+                }
+            }
+            Ok(new_null_ref())
+        },
+        1,
+    )
+    .ok()
+    .expect("could not create func");
+
+    promises::add_promise_reactions_q(
+        q_ctx,
+        prom_obj_ref,
+        Some(then_func_ref),
+        Some(catch_func_ref),
+        None,
+    )
+    .ok()
+    .expect("could not create promise reactions");
+}
+
 impl EsValueConvertible for CachedJSPromise {
     fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         let cloned_ref = q_ctx.with_cached_obj(self.cached_obj_id, |obj_ref| obj_ref.clone());
@@ -254,7 +348,7 @@ impl EsValueConvertible for CachedJSPromise {
         true
     }
 
-    fn await_promise_blocking(
+    fn get_promise_result_sync(
         &self,
         timeout: Duration,
     ) -> Result<Result<EsValueFacade, EsValueFacade>, RecvTimeoutError> {
@@ -266,95 +360,32 @@ impl EsValueConvertible for CachedJSPromise {
                 let q_ctx = q_js_rt.get_context(context_id.as_str());
 
                 q_ctx.with_cached_obj(cached_obj_id, |prom_obj_ref| {
-                    let tx2 = tx.clone();
-                    let then_func_ref = functions::new_function_q(
-                        q_ctx,
-                        "promise_then_result_transmitter",
-                        move |q_ctx, _this_ref, args| {
-                            // these clones are needed because create_func requires a Fn and not a FnOnce
-                            // in practice however the Fn is called only once
-                            let tx3 = tx2.clone();
-
-                            let prom_res = &args[0];
-                            let prom_res_esvf_res = EsValueFacade::from_jsval(q_ctx, prom_res);
-
-                            match prom_res_esvf_res {
-                                Ok(prom_res_esvf) => {
-                                    let send_res = tx3.send(Ok(prom_res_esvf));
-                                    match send_res {
-                                        Ok(_) => {
-                                            log::trace!("sent prom_res_esvf ok");
-                                        }
-                                        Err(e) => {
-                                            log::error!("send prom_res_esvf failed: {}", e);
-                                        }
-                                    }
-                                }
-                                Err(e) => {
-                                    log::error!("could not convert promise result to esvf {}", e);
-                                    panic!("could not convert promise result to esvf {}", e);
-                                }
-                            }
-
-                            Ok(new_null_ref())
-                        },
-                        1,
-                    )
-                    .ok()
-                    .expect("could not create func");
-
-                    let q_ctx = q_js_rt.get_context(context_id.as_str());
-
-                    let tx2 = tx.clone();
-                    let catch_func_ref = functions::new_function_q(
-                        q_ctx,
-                        "promise_catch_result_transmitter",
-                        move |q_ctx, _this_ref, args| {
-                            // these clones are needed because create_func requires a Fn and not a FnOnce
-                            // in practice however the Fn is called only once
-                            let tx3 = tx2.clone();
-
-                            let prom_res = &args[0];
-                            let prom_res_esvf_res = EsValueFacade::from_jsval(q_ctx, prom_res);
-                            match prom_res_esvf_res {
-                                Ok(prom_res_esvf) => {
-                                    let send_res = tx3.send(Err(prom_res_esvf));
-                                    match send_res {
-                                        Ok(_) => {
-                                            log::trace!("sent prom_res_esvf ok");
-                                        }
-                                        Err(e) => {
-                                            log::error!("send prom_res_esvf failed: {}", e);
-                                        }
-                                    }
-                                }
-                                Err(e) => {
-                                    log::error!("could not convert promise result to esvf {}", e);
-                                    panic!("could not convert promise result to esvf {}", e);
-                                }
-                            }
-                            Ok(new_null_ref())
-                        },
-                        1,
-                    )
-                    .ok()
-                    .expect("could not create func");
-
-                    promises::add_promise_reactions_q(
-                        q_ctx,
-                        prom_obj_ref,
-                        Some(then_func_ref),
-                        Some(catch_func_ref),
-                        None,
-                    )
-                    .ok()
-                    .expect("could not create promise reactions");
+                    pipe_promise_resolution_to_sender(q_ctx, prom_obj_ref, tx);
                 });
             });
             Ok(rx.recv_timeout(timeout)?)
         } else {
             Ok(Err("rti dropped".to_string().to_es_value_facade()))
         }
+    }
+
+    fn get_promise_result(&self) -> EsValueFacadeFuture<EsValueFacade, EsValueFacade> {
+        let fut = EsValueFacadeFuture::new();
+        let tx = fut.get_sender();
+        let cached_obj_id = self.cached_obj_id;
+        let context_id = self.context_id.clone();
+        if let Some(es_rti) = self.es_rt.upgrade() {
+            let _ = es_rti.add_to_event_queue(move |q_js_rt| {
+                let q_ctx = q_js_rt.get_context(context_id.as_str());
+                q_ctx.with_cached_obj(cached_obj_id, |prom_obj_ref| {
+                    pipe_promise_resolution_to_sender(q_ctx, prom_obj_ref, tx);
+                });
+            });
+        } else {
+            log::error!("rt was dropped");
+        }
+
+        fut
     }
 
     fn add_promise_reactions(
@@ -479,7 +510,10 @@ impl EsValueConvertible for CachedJSFunction {
         }
     }
 
-    fn invoke_function(&self, mut args: Vec<EsValueFacade>) -> EsValueFacadeFuture<EsError> {
+    fn invoke_function(
+        &self,
+        mut args: Vec<EsValueFacade>,
+    ) -> EsValueFacadeFuture<EsValueFacade, EsError> {
         let cached_obj_id = self.cached_obj_id;
         let context_id = self.context_id.clone();
         let ret = EsValueFacadeFuture::new();
@@ -504,13 +538,9 @@ impl EsValueConvertible for CachedJSFunction {
 
                     let res = crate::quickjs_utils::functions::call_function_q(
                         q_ctx, obj_ref, ref_args, None,
-                    );
-                    if let Err(send_err) = match res {
-                        Ok(r) => tx.send(EsValueFacade::from_jsval(q_ctx, &r)),
-                        Err(e) => tx.send(Err(e)),
-                    } {
-                        log::error!("sending async result failed: {}", send_err);
-                    }
+                    )
+                    .and_then(|js_val| EsValueFacade::from_jsval(q_ctx, &js_val));
+                    let _ = tx.send(res);
                 });
             });
         } else {
@@ -923,7 +953,7 @@ impl EsPromise {
     /// // get the handle
     /// let prom_handle = prom.get_handle();
     /// // call the function with the promise as arg
-    /// rt.call_function(vec![], "new_unresolving", vec![prom.to_es_value_facade()]);
+    /// rt.call_function(vec![], "new_unresolving".to_string(), vec![prom.to_es_value_facade()]);
     /// // start a new thread which resolves the handler after x seconds
     /// std::thread::spawn(move || {
     ///     std::thread::sleep(Duration::from_secs(3));
@@ -1186,11 +1216,34 @@ impl EsValueFacade {
     pub fn invoke_function_batch(&self, arguments: Vec<Vec<EsValueFacade>>) -> Result<(), EsError> {
         self.convertible.invoke_function_batch(arguments)
     }
-    pub fn await_promise_blocking(
+    pub fn get_promise_result_sync(
         &self,
         timeout: Duration,
     ) -> Result<Result<EsValueFacade, EsValueFacade>, RecvTimeoutError> {
-        self.convertible.await_promise_blocking(timeout)
+        self.convertible.get_promise_result_sync(timeout)
+    }
+
+    /// wait for the result of a Promise async
+    /// # Example
+    /// ```rust
+    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::esscript::EsScript;
+    /// use futures::executor::block_on;
+    /// use quickjs_runtime::esvalue::EsValueFacade;
+    /// pub async fn test_async(esvf: EsValueFacade) -> i32 {
+    ///    let prom_res = esvf.get_promise_result().await;
+    ///    let res_esvf = prom_res.ok().unwrap();
+    ///    return res_esvf.get_i32();
+    /// }
+    ///
+    /// let rt = EsRuntimeBuilder::new().build();
+    /// let esvf = rt.eval_sync(EsScript::new("test_async_prom,es", "(new Promise((resolve, reject) => {setTimeout(() => {resolve(1360)}, 1000);}));")).ok().expect("script failed");
+    /// let i = block_on(test_async(esvf));
+    /// assert_eq!(i, 1360);
+    ///
+    /// ```
+    pub async fn get_promise_result(&self) -> Result<EsValueFacade, EsValueFacade> {
+        self.convertible.get_promise_result().await
     }
 }
 
@@ -1262,7 +1315,7 @@ pub mod tests {
         match res {
             Ok(esvf) => {
                 assert!(esvf.is_promise());
-                let res = esvf.await_promise_blocking(Duration::from_secs(1));
+                let res = esvf.get_promise_result_sync(Duration::from_secs(1));
                 match res {
                     Ok(r) => {
                         match r {

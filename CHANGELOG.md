@@ -9,6 +9,7 @@
 * EventQueue.async_task will be a starting point for being able to use async/await with javascript
 * made async functions in EsRuntime (eval, eval_module, call_function, gc)
 * made invoke_function in EsValueFacade async
+* added async [get_promise_result](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esvalue/struct.EsValueFacade.html#method.get_promise_result) to EsValueFacade so the result of a promise may be awaited async
 
 # 0.1.0
 

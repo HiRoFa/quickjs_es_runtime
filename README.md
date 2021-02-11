@@ -27,7 +27,8 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 * This is the ESRuntime struct, it provides an EventQueue which has a thread_local QuickJSRuntime
 * All values are copied or abstracted in an ESValueFacade
 * So no need to worry about Garbage collection
-* Get Promise result blocking or async
+* evaluate script and invoke functions while waiting for results blocking or with async/await  
+* Get Promise result blocking or with async/await
 
 # What works?
 
@@ -49,16 +50,16 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 * Invoke JS functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html#method.call_function_sync))
 * Pass primitives, objects and arrays from and to rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/quickjs_utils/primitives/index.html))
 * Create Classes from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/reflection/struct.Proxy.html))
+* async/await support on eval/call_function/promise resolution [docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esvalue/struct.EsValueFacade.html#method.get_promise_result)
 
 ## Future / Todo
 
-* async/await support (for Promise resolution and other execution) [#26](https://github.com/HiRoFa/quickjs_es_runtime/issues/26)
 * Worker support
 * import native Modules (e.g. dynamic loading of rust functions) [#9](https://github.com/HiRoFa/quickjs_es_runtime/issues/9)
-* EventTarget support in Proxies
 * WebAssembly support
 * Macro / IFDef support
 * Pre processing (for e.g. typescript)
+* EventTarget support in Proxies
 
 # goals
 

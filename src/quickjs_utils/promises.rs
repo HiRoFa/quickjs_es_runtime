@@ -412,7 +412,7 @@ pub mod tests {
         });
         while esvf_res.is_promise() {
             esvf_res = esvf_res
-                .await_promise_blocking(Duration::from_secs(1))
+                .get_promise_result_sync(Duration::from_secs(1))
                 .ok()
                 .expect("timed out")
                 .ok()
