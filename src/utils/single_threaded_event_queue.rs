@@ -2,10 +2,13 @@ use crate::utils::auto_id_map::AutoIdMap;
 use crate::utils::debug_mutex::DebugMutex;
 use log::trace;
 use std::cell::RefCell;
+use std::future::Future;
 use std::mem::replace;
 use std::ops::Add;
-use std::sync::mpsc::channel;
+use std::pin::Pin;
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Condvar, Mutex};
+use std::task::{Context, Poll};
 use std::thread;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
@@ -36,6 +39,36 @@ pub struct SingleThreadedEventQueue {
     jobs: DebugMutex<Vec<Box<dyn FnOnce() + Send + 'static>>>,
     empty_cond: Condvar,
     worker_thread_name: String,
+}
+
+struct TaskFuture<R> {
+    result: Receiver<R>,
+    sender: Sender<R>,
+}
+impl<R> TaskFuture<R> {
+    fn new() -> Self {
+        let (tx, rx) = channel();
+
+        Self {
+            result: rx,
+            sender: tx,
+        }
+    }
+    fn get_sender(&self) -> Sender<R> {
+        self.sender.clone()
+    }
+}
+impl<R> Future for TaskFuture<R> {
+    type Output = R;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if let Some(res) = self.result.try_recv().ok() {
+            Poll::Ready(res)
+        } else {
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        }
+    }
 }
 
 impl SingleThreadedEventQueue {
@@ -77,6 +110,25 @@ impl SingleThreadedEventQueue {
         }
         trace!("EsEventQueue::add_task / notify");
         self.empty_cond.notify_all();
+    }
+
+    pub fn async_task<T: FnOnce() -> R + Send + 'static, R: Send + 'static>(
+        &self,
+        task: T,
+    ) -> impl Future<Output = R> {
+        trace!("EsEventQueue::async_task");
+        let fut = TaskFuture::new();
+        let tx = fut.get_sender();
+        self.add_task(move || {
+            let res = task();
+            match tx.send(res) {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("resolving TaskFuture failed: {}", e);
+                }
+            }
+        });
+        fut
     }
 
     /// execute a task synchronously in the worker thread
@@ -306,6 +358,7 @@ impl Drop for SingleThreadedEventQueue {
 mod tests {
 
     use crate::utils::single_threaded_event_queue::SingleThreadedEventQueue;
+    use futures::executor::block_on;
     use log::debug;
     use std::thread;
     use std::time::Duration;
@@ -416,5 +469,29 @@ mod tests {
         });
 
         std::thread::sleep(Duration::from_secs(13));
+    }
+
+    async fn test_async1(sttm: &SingleThreadedEventQueue) {
+        let f1 = sttm.async_task(|| {
+            thread::sleep(Duration::from_secs(1));
+            "blurb1"
+        });
+        let f2 = sttm.async_task(|| {
+            thread::sleep(Duration::from_secs(1));
+            "blurb2"
+        });
+
+        let two = f2.await;
+        let one = f1.await;
+
+        assert_eq!(one, "blurb1");
+        assert_eq!(two, "blurb2");
+    }
+
+    #[test]
+    fn test_async() {
+        let sttm = SingleThreadedEventQueue::new();
+        let fut = test_async1(&sttm);
+        block_on(fut);
     }
 }
