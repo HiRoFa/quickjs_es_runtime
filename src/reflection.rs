@@ -12,7 +12,7 @@ use rand::{thread_rng, Rng};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::os::raw::{c_char, c_void};
-use std::sync::Arc;
+use std::rc::Rc;
 
 mod eventtarget;
 
@@ -124,9 +124,6 @@ fn next_id(q_ctx: &QuickJsContext) -> usize {
     let mut rng = thread_rng();
     let mut r: usize = rng.gen();
     while mappings.contains_key(&r) {
-        if r == usize::MAX {
-            r = 0;
-        }
         r += 1;
     }
     r
@@ -241,7 +238,7 @@ impl Default for crate::reflection::Proxy {
 }
 
 /// get a proxy by class_name (namespace.ClassName)
-pub fn get_proxy(q_ctx: &QuickJsContext, class_name: &str) -> Option<Arc<Proxy>> {
+pub fn get_proxy(q_ctx: &QuickJsContext, class_name: &str) -> Option<Rc<Proxy>> {
     let registry = &*q_ctx.proxy_registry.borrow();
     registry.get(class_name).cloned()
 }
@@ -395,7 +392,7 @@ impl Proxy {
         let proxy = self;
 
         let reg_map = &mut *q_ctx.proxy_registry.borrow_mut();
-        reg_map.insert(proxy.get_class_name(), Arc::new(proxy));
+        reg_map.insert(proxy.get_class_name(), Rc::new(proxy));
     }
     fn install_class_prop(&self, q_ctx: &QuickJsContext) -> Result<(), EsError> {
         // this creates a constructor function, adds it to the global scope and then makes an instance of the static_proxy_class its prototype so we can add static_getters_setters and static_methods

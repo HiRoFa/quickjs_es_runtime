@@ -10,12 +10,12 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::os::raw::c_void;
-use std::sync::Arc;
+use std::rc::Rc;
 
 pub struct QuickJsContext {
     object_cache: RefCell<AutoIdMap<JSValueRef>>,
     pub(crate) instance_id_mappings: RefCell<HashMap<usize, Box<ProxyInstanceInfo>>>,
-    pub(crate) proxy_registry: RefCell<HashMap<String, Arc<Proxy>>>, // todo: why do we need an Arc around proxy and not an Rc? or why even an rc?
+    pub(crate) proxy_registry: RefCell<HashMap<String, Rc<Proxy>>>, // todo is this Rc needed or can we just borrow the Proxy when needed?
     pub id: String,
     pub context: *mut q::JSContext,
 }
