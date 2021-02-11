@@ -11,6 +11,7 @@ use crate::quickjsruntime::QuickJsRuntime;
 use crate::utils::single_threaded_event_queue::SingleThreadedEventQueue;
 use crate::utils::task_manager::TaskManager;
 use libquickjs_sys as q;
+use std::future::Future;
 use std::rc::Rc;
 use std::sync::{Arc, Weak};
 
@@ -71,11 +72,27 @@ impl EsRuntimeInner {
         })
     }
 
-    pub fn add_to_event_queue<C>(&self, consumer: C)
+    pub fn async_task<C, R: Send + 'static>(&self, task: C) -> impl Future<Output = R>
     where
-        C: FnOnce(&QuickJsRuntime) + Send + 'static,
+        C: FnOnce() -> R + Send + 'static,
     {
-        self.add_task(|| QuickJsRuntime::do_with(consumer));
+        let eq_arc = self.event_queue.clone();
+        self.event_queue.async_task(move || {
+            let res = task();
+            eq_arc.add_task_from_worker(|| {
+                QuickJsRuntime::do_with(|q_js_rt| {
+                    q_js_rt.run_pending_jobs_if_any();
+                })
+            });
+            res
+        })
+    }
+
+    pub fn add_to_event_queue<C, R: Send + 'static>(&self, consumer: C) -> impl Future<Output = R>
+    where
+        C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,
+    {
+        self.async_task(|| QuickJsRuntime::do_with(consumer))
     }
 
     pub(crate) fn add_to_event_queue_from_worker<C>(&self, consumer: C)
@@ -228,15 +245,15 @@ impl EsRuntime {
     }
 
     /// Evaluate a script asynchronously
-    pub fn eval(&self, script: EsScript) {
+    pub fn eval(&self, script: EsScript) -> impl Future<Output = Result<EsValueFacade, EsError>> {
         self.add_to_event_queue(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval(script);
             match res {
-                Ok(_) => {}
-                Err(e) => log::error!("error in async eval {}", e),
+                Ok(js) => EsValueFacade::from_jsval(q_ctx, &js),
+                Err(e) => Err(e),
             }
-        });
+        })
     }
 
     /// Evaluate a script and return the result synchronously
@@ -261,7 +278,7 @@ impl EsRuntime {
     }
 
     /// run the garbage collector asynchronously
-    pub fn gc(&self) {
+    pub fn gc(&self) -> impl Future<Output = ()> {
         self.add_to_event_queue(|q_js_rt| q_js_rt.gc())
     }
 
@@ -325,7 +342,7 @@ impl EsRuntime {
         namespace: Vec<&'static str>,
         func_name: &str,
         mut arguments: Vec<EsValueFacade>,
-    ) {
+    ) -> impl Future<Output = Result<EsValueFacade, EsError>> {
         let func_name_string = func_name.to_string();
 
         self.add_to_event_queue(move |q_js_rt| {
@@ -335,7 +352,7 @@ impl EsRuntime {
                 match arg.as_js_value(q_ctx) {
                     Ok(js_arg) => q_args.push(js_arg),
                     Err(err) => log::error!(
-                        "error occured in async esruntime::call_function closure: {}",
+                        "error occurred in async esruntime::call_function closure: {}",
                         err
                     ),
                 }
@@ -343,8 +360,8 @@ impl EsRuntime {
 
             let res = q_ctx.call_function(namespace, func_name_string.as_str(), q_args);
             match res {
-                Ok(_val_ref) => log::trace!("call_function async job completed"),
-                Err(e) => (log::error!("call_function async job failed: {}", e)),
+                Ok(js_ref) => EsValueFacade::from_jsval(q_ctx, &js_ref),
+                Err(e) => Err(e),
             }
         })
     }
@@ -375,7 +392,7 @@ impl EsRuntime {
     /// console.log(util(1, 2, 3));");
     /// rt.eval_module(script);
     /// ```
-    pub fn eval_module(&self, script: EsScript) {
+    pub fn eval_module(&self, script: EsScript) -> impl Future<Output = ()> {
         self.add_to_event_queue(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval_module(script);
@@ -383,7 +400,7 @@ impl EsRuntime {
                 Ok(_) => {}
                 Err(e) => log::error!("error in async eval {}", e),
             }
-        });
+        })
     }
 
     /// evaluate a module and return result synchronously
@@ -409,9 +426,9 @@ impl EsRuntime {
     ///     q_js_rt.gc();
     /// });
     /// ```
-    pub fn add_to_event_queue<C>(&self, consumer: C)
+    pub fn add_to_event_queue<C, R: Send + 'static>(&self, consumer: C) -> impl Future<Output = R>
     where
-        C: FnOnce(&QuickJsRuntime) + Send + 'static,
+        C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,
     {
         self.inner.add_to_event_queue(consumer)
     }

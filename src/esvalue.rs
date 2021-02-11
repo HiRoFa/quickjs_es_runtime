@@ -183,7 +183,7 @@ impl Drop for CachedJSPromise {
         if let Some(rt_arc) = self.es_rt.upgrade() {
             let cached_obj_id = self.cached_obj_id;
             let context_id = self.context_id.clone();
-            rt_arc.add_to_event_queue(move |q_js_rt| {
+            let _ = rt_arc.add_to_event_queue(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id.as_str());
                 q_ctx.consume_cached_obj(cached_obj_id);
             });
@@ -203,7 +203,7 @@ impl Drop for CachedJSFunction {
         if let Some(rt_arc) = self.es_rt.upgrade() {
             let cached_obj_id = self.cached_obj_id;
             let context_id = self.context_id.clone();
-            rt_arc.add_to_event_queue(move |q_js_rt| {
+            let _ = rt_arc.add_to_event_queue(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id.as_str());
                 q_ctx.consume_cached_obj(cached_obj_id);
             });
@@ -334,7 +334,7 @@ impl EsValueConvertible for CachedJSPromise {
 
         if let Some(es_rt) = self.es_rt.upgrade() {
             let context_id_then = self.context_id.clone();
-            es_rt.add_to_event_queue(move |q_js_rt| {
+            let _ = es_rt.add_to_event_queue(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id_then.as_str());
 
                 q_ctx.with_cached_obj(cached_obj_id, |prom_ref| {
@@ -446,11 +446,12 @@ impl EsValueConvertible for CachedJSFunction {
         }
     }
 
+    // todo rewrite to Future
     fn invoke_function(&self, mut args: Vec<EsValueFacade>) -> Result<(), EsError> {
         let cached_obj_id = self.cached_obj_id;
         let context_id = self.context_id.clone();
         if let Some(rt_arc) = self.es_rt.upgrade() {
-            rt_arc.add_to_event_queue(move |q_js_rt| {
+            let _ = rt_arc.add_to_event_queue(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id.as_str());
                 q_ctx.with_cached_obj(cached_obj_id, move |obj_ref| {
                     let mut ref_args = vec![];
@@ -524,11 +525,12 @@ impl EsValueConvertible for CachedJSFunction {
         }
     }
 
+    // todo rewrite to Future
     fn invoke_function_batch(&self, batch_args: Vec<Vec<EsValueFacade>>) -> Result<(), EsError> {
         let cached_obj_id = self.cached_obj_id;
         let context_id = self.context_id.clone();
         if let Some(rt_arc) = self.es_rt.upgrade() {
-            rt_arc.add_to_event_queue(move |q_js_rt| {
+            let _ = rt_arc.add_to_event_queue(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id.as_str());
                 q_ctx.with_cached_obj(cached_obj_id, move |obj_ref| {
                     for mut args in batch_args {
@@ -730,7 +732,7 @@ impl EsPromiseResolvableHandle {
                 let id = info.id;
                 let context_id = info.context_id.clone();
                 if let Some(es_rt) = info.weak_es_rt.upgrade() {
-                    es_rt.add_to_event_queue(move |q_js_rt| {
+                    let _ = es_rt.add_to_event_queue(move |q_js_rt| {
                         let q_ctx = q_js_rt.get_context(context_id.as_str());
                         ESPROMISE_REFS.with(move |rc| {
                             let map = &*rc.borrow();
@@ -745,7 +747,7 @@ impl EsPromiseResolvableHandle {
                                 log::error!("resolve failed: {}", resolve_res.err().unwrap());
                             }
                         });
-                    })
+                    });
                 }
             } else {
                 // resolve later when converted to JSValue
@@ -761,7 +763,7 @@ impl EsPromiseResolvableHandle {
                 let id = info.id;
                 let context_id = info.context_id.clone();
                 if let Some(es_rt) = info.weak_es_rt.upgrade() {
-                    es_rt.add_to_event_queue(move |q_js_rt| {
+                    let _ = es_rt.add_to_event_queue(move |q_js_rt| {
                         let q_ctx = q_js_rt.get_context(context_id.as_str());
                         ESPROMISE_REFS.with(move |rc| {
                             let map = &*rc.borrow();
@@ -775,7 +777,7 @@ impl EsPromiseResolvableHandle {
                                 log::error!("reject failed: {}", reject_res.err().unwrap());
                             }
                         });
-                    })
+                    });
                 }
             } else {
                 // resolve later when converted to JSValue
@@ -817,12 +819,12 @@ impl Drop for EsPromiseResolvableHandleInner {
         if let Some(info) = &self.js_info {
             let id = info.id;
             if let Some(es_rt) = info.weak_es_rt.upgrade() {
-                es_rt.add_to_event_queue(move |_q_js_rt| {
+                let _ = es_rt.add_to_event_queue(move |_q_js_rt| {
                     ESPROMISE_REFS.with(move |rc| {
                         let map = &mut *rc.borrow_mut();
                         map.remove(&id);
                     });
-                })
+                });
             }
         }
     }

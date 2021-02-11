@@ -62,7 +62,7 @@ impl<R> Future for TaskFuture<R> {
     type Output = R;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if let Some(res) = self.result.try_recv().ok() {
+        if let Ok(res) = self.result.try_recv() {
             Poll::Ready(res)
         } else {
             cx.waker().wake_by_ref();

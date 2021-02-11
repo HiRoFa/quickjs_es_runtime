@@ -86,7 +86,7 @@ where
     EsRuntime::add_helper_task(move || {
         // in helper thread, produce result
         let produced_result = producer();
-        rti_ref.add_to_event_queue(move |q_js_rt| {
+        let _ = rti_ref.add_to_event_queue(move |q_js_rt| {
             let q_ctx = q_js_rt.get_context(ctx_id.as_str());
             // in q_js_rt worker thread, resolve promise
             // retrieve promise
@@ -131,7 +131,7 @@ where
                         .expect("prom rejection failed");
                 }
             }
-        })
+        });
     });
 
     Ok(return_ref)
