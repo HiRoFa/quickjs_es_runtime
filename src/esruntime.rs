@@ -561,6 +561,7 @@ pub mod tests {
     use crate::esscript::EsScript;
     use crate::esvalue::{EsValueConvertible, EsValueFacade};
     use crate::quickjs_utils::promises;
+    use futures::executor::block_on;
     use log::debug;
     use log::LevelFilter;
     use std::sync::Arc;
@@ -776,5 +777,18 @@ pub mod tests {
         std::thread::sleep(Duration::from_secs(1));
 
         log::info!("< test_module_sync");
+    }
+
+    async fn test_async1() -> i32 {
+        let rt = &TEST_ESRT;
+        let a = rt.eval(EsScript::new("test_async.es", "122 + 1;")).await;
+        a.ok().expect("script failed").get_i32()
+    }
+
+    #[test]
+    fn test_async() {
+        let fut = test_async1();
+        let res = block_on(fut);
+        assert_eq!(res, 123);
     }
 }

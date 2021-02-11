@@ -7,13 +7,46 @@ use crate::quickjsruntime::QuickJsRuntime;
 use crate::reflection;
 use crate::utils::auto_id_map::AutoIdMap;
 use crate::valueref::*;
+use futures::task::{Context, Poll};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
+use std::future::Future;
+use std::pin::Pin;
 use std::rc::Rc;
-use std::sync::mpsc::{channel, RecvTimeoutError};
+use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
+
+pub struct EsValueFacadeFuture<E> {
+    result: Receiver<Result<EsValueFacade, E>>,
+    sender: Sender<Result<EsValueFacade, E>>,
+}
+impl<E> EsValueFacadeFuture<E> {
+    fn new() -> Self {
+        let (tx, rx) = channel();
+
+        Self {
+            result: rx,
+            sender: tx,
+        }
+    }
+    fn get_sender(&self) -> Sender<Result<EsValueFacade, E>> {
+        self.sender.clone()
+    }
+}
+impl<E> Future for EsValueFacadeFuture<E> {
+    type Output = Result<EsValueFacade, E>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if let Ok(res) = self.result.try_recv() {
+            Poll::Ready(res)
+        } else {
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        }
+    }
+}
 
 pub type PromiseReactionType =
     Option<Box<dyn Fn(EsValueFacade) -> Result<EsValueFacade, EsError> + Send + 'static>>;
@@ -68,7 +101,7 @@ pub trait EsValueConvertible {
     fn invoke_function_sync(&self, _args: Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> {
         panic!("i am not a function");
     }
-    fn invoke_function(&self, _args: Vec<EsValueFacade>) -> Result<(), EsError> {
+    fn invoke_function(&self, _args: Vec<EsValueFacade>) -> EsValueFacadeFuture<EsError> {
         panic!("i am not a function");
     }
     fn invoke_function_batch_sync(
@@ -446,10 +479,11 @@ impl EsValueConvertible for CachedJSFunction {
         }
     }
 
-    // todo rewrite to Future
-    fn invoke_function(&self, mut args: Vec<EsValueFacade>) -> Result<(), EsError> {
+    fn invoke_function(&self, mut args: Vec<EsValueFacade>) -> EsValueFacadeFuture<EsError> {
         let cached_obj_id = self.cached_obj_id;
         let context_id = self.context_id.clone();
+        let ret = EsValueFacadeFuture::new();
+        let tx = ret.get_sender();
         if let Some(rt_arc) = self.es_rt.upgrade() {
             let _ = rt_arc.add_to_event_queue(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id.as_str());
@@ -471,20 +505,18 @@ impl EsValueConvertible for CachedJSFunction {
                     let res = crate::quickjs_utils::functions::call_function_q(
                         q_ctx, obj_ref, ref_args, None,
                     );
-                    match res {
-                        Ok(_) => {
-                            log::trace!("async func ok");
-                        }
-                        Err(e) => {
-                            log::error!("esvalue::invoke_function func failed: {}", e);
-                        }
+                    if let Err(send_err) = match res {
+                        Ok(r) => tx.send(EsValueFacade::from_jsval(q_ctx, &r)),
+                        Err(e) => tx.send(Err(e)),
+                    } {
+                        log::error!("sending async result failed: {}", send_err);
                     }
-                })
+                });
             });
-            Ok(())
         } else {
-            Err(EsError::new_str("rt was dropped"))
+            let _ = tx.send(Err(EsError::new_str("rt was dropped")));
         }
+        ret
     }
 
     fn invoke_function_batch_sync(
@@ -1139,8 +1171,11 @@ impl EsValueFacade {
     ) -> Result<EsValueFacade, EsError> {
         self.convertible.invoke_function_sync(arguments)
     }
-    pub fn invoke_function(&self, arguments: Vec<EsValueFacade>) -> Result<(), EsError> {
-        self.convertible.invoke_function(arguments)
+    pub async fn invoke_function(
+        &self,
+        arguments: Vec<EsValueFacade>,
+    ) -> Result<EsValueFacade, EsError> {
+        self.convertible.invoke_function(arguments).await
     }
     pub fn invoke_function_batch_sync(
         &self,
@@ -1192,8 +1227,30 @@ pub mod tests {
     use crate::esruntime::tests::TEST_ESRT;
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
+    use crate::esvalue::EsValueFacade;
+    use futures::executor::block_on;
     use std::sync::Arc;
     use std::time::Duration;
+
+    async fn test_async_func1(esvf: EsValueFacade) -> i32 {
+        let res = esvf.invoke_function(vec![]).await;
+        let esvf = res.ok().expect("func failed");
+        esvf.get_i32()
+    }
+
+    #[test]
+    fn test_async_func() {
+        let rt: Arc<EsRuntime> = TEST_ESRT.clone();
+        let func_esvf = rt
+            .eval_sync(EsScript::new(
+                "test_async_func.es",
+                "(function someFunc(){return 147;});",
+            ))
+            .ok()
+            .expect("script failed");
+        let fut = block_on(test_async_func1(func_esvf));
+        assert_eq!(fut, 147);
+    }
 
     #[test]
     fn test_promise() {
