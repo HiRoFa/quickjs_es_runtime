@@ -44,7 +44,7 @@
 use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions::call_to_string;
-use crate::quickjs_utils::{json, parse_args, primitives};
+use crate::quickjs_utils::{functions, json, parse_args, primitives};
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::reflection::Proxy;
@@ -169,7 +169,8 @@ unsafe fn parse_line(ctx: *mut q::JSContext, args: Vec<JSValueRef>) -> String {
     if args.is_empty() {
         return "".to_string();
     }
-    let message = primitives::to_string(ctx, &args[0])
+
+    let message = functions::call_to_string(ctx, &args[0])
         .or::<String>(Ok(String::new()))
         .unwrap();
 
@@ -215,7 +216,7 @@ unsafe extern "C" fn console_log(
         let args = parse_args(ctx, argc, argv);
         log::info!("{}", parse_line(ctx, args));
     }
-    quickjs_utils::NULL
+    quickjs_utils::new_null()
 }
 
 unsafe extern "C" fn console_trace(
@@ -229,7 +230,7 @@ unsafe extern "C" fn console_trace(
         let args = parse_args(ctx, argc, argv);
         log::trace!("{}", parse_line(ctx, args));
     }
-    quickjs_utils::NULL
+    quickjs_utils::new_null()
 }
 
 unsafe extern "C" fn console_debug(
@@ -239,12 +240,12 @@ unsafe extern "C" fn console_debug(
     argv: *mut q::JSValue,
 ) -> q::JSValue {
     log::trace!("> console.debug");
+
     if log::max_level() >= LevelFilter::Debug {
         let args = parse_args(ctx, argc, argv);
-
         log::debug!("{}", parse_line(ctx, args));
     }
-    quickjs_utils::NULL
+    quickjs_utils::new_null()
 }
 
 unsafe extern "C" fn console_info(
@@ -254,12 +255,12 @@ unsafe extern "C" fn console_info(
     argv: *mut q::JSValue,
 ) -> q::JSValue {
     log::trace!("> console.info");
+
     if log::max_level() >= LevelFilter::Info {
         let args = parse_args(ctx, argc, argv);
-
         log::info!("{}", parse_line(ctx, args));
     }
-    quickjs_utils::NULL
+    quickjs_utils::new_null()
 }
 
 unsafe extern "C" fn console_warn(
@@ -269,12 +270,12 @@ unsafe extern "C" fn console_warn(
     argv: *mut q::JSValue,
 ) -> q::JSValue {
     log::trace!("> console.warn");
+
     if log::max_level() >= LevelFilter::Warn {
         let args = parse_args(ctx, argc, argv);
-
         log::warn!("{}", parse_line(ctx, args));
     }
-    quickjs_utils::NULL
+    quickjs_utils::new_null()
 }
 
 unsafe extern "C" fn console_error(
@@ -284,12 +285,12 @@ unsafe extern "C" fn console_error(
     argv: *mut q::JSValue,
 ) -> q::JSValue {
     log::trace!("> console.error");
+
     if log::max_level() >= LevelFilter::Error {
         let args = parse_args(ctx, argc, argv);
-
         log::error!("{}", parse_line(ctx, args));
     }
-    quickjs_utils::NULL
+    quickjs_utils::new_null()
 }
 
 #[cfg(test)]

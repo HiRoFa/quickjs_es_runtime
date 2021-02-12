@@ -34,7 +34,7 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 
 ## Script and Modules
 
-* console (.log/info/debug/trace/error)
+* console (.log/info/debug/trace/error) [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/features/console/index.html)
 * Eval script ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html#method.eval_sync))
 * Create promises in JavaScript which execute async
 * Eval modules ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html#method.eval_module_sync))
