@@ -5,6 +5,7 @@ use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::reflection::Proxy;
 use libquickjs_sys as q;
+use log::LevelFilter;
 use std::str::FromStr;
 
 pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
@@ -164,11 +165,11 @@ unsafe extern "C" fn console_log(
 ) -> q::JSValue {
     log::trace!("> console.log");
 
-    let args = parse_args_as_strings(ctx, argc, argv);
-
-    log::info!("{}", parse_line2(args));
-
-    quickjs_utils::new_null()
+    if log::max_level() >= LevelFilter::Info {
+        let args = parse_args_as_strings(ctx, argc, argv);
+        log::info!("{}", parse_line2(args));
+    }
+    quickjs_utils::NULL
 }
 
 unsafe extern "C" fn console_trace(
@@ -177,13 +178,13 @@ unsafe extern "C" fn console_trace(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    log::trace!("> console.log");
+    log::trace!("> console.trace");
+    if log::max_level() >= LevelFilter::Trace {
+        let args = parse_args_as_strings(ctx, argc, argv);
 
-    let args = parse_args_as_strings(ctx, argc, argv);
-
-    log::trace!("{}", parse_line2(args));
-
-    quickjs_utils::new_null()
+        log::trace!("{}", parse_line2(args));
+    }
+    quickjs_utils::NULL
 }
 
 unsafe extern "C" fn console_debug(
@@ -192,13 +193,13 @@ unsafe extern "C" fn console_debug(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    log::trace!("> console.log");
+    log::trace!("> console.debug");
+    if log::max_level() >= LevelFilter::Debug {
+        let args = parse_args_as_strings(ctx, argc, argv);
 
-    let args = parse_args_as_strings(ctx, argc, argv);
-
-    log::debug!("{}", parse_line2(args));
-
-    quickjs_utils::new_null()
+        log::debug!("{}", parse_line2(args));
+    }
+    quickjs_utils::NULL
 }
 
 unsafe extern "C" fn console_info(
@@ -207,13 +208,13 @@ unsafe extern "C" fn console_info(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    log::trace!("> console.log");
+    log::trace!("> console.info");
+    if log::max_level() >= LevelFilter::Info {
+        let args = parse_args_as_strings(ctx, argc, argv);
 
-    let args = parse_args_as_strings(ctx, argc, argv);
-
-    log::info!("{}", parse_line2(args));
-
-    quickjs_utils::new_null()
+        log::info!("{}", parse_line2(args));
+    }
+    quickjs_utils::NULL
 }
 
 unsafe extern "C" fn console_warn(
@@ -222,13 +223,13 @@ unsafe extern "C" fn console_warn(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    log::trace!("> console.log");
+    log::trace!("> console.warn");
+    if log::max_level() >= LevelFilter::Warn {
+        let args = parse_args_as_strings(ctx, argc, argv);
 
-    let args = parse_args_as_strings(ctx, argc, argv);
-
-    log::warn!("{}", parse_line2(args));
-
-    quickjs_utils::new_null()
+        log::warn!("{}", parse_line2(args));
+    }
+    quickjs_utils::NULL
 }
 
 unsafe extern "C" fn console_error(
@@ -237,13 +238,13 @@ unsafe extern "C" fn console_error(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    log::trace!("> console.log");
+    log::trace!("> console.error");
+    if log::max_level() >= LevelFilter::Error {
+        let args = parse_args_as_strings(ctx, argc, argv);
 
-    let args = parse_args_as_strings(ctx, argc, argv);
-
-    log::error!("{}", parse_line2(args));
-
-    quickjs_utils::new_null()
+        log::error!("{}", parse_line2(args));
+    }
+    quickjs_utils::NULL
 }
 
 #[cfg(test)]

@@ -44,15 +44,17 @@ pub fn new_undefined_ref() -> JSValueRef {
     )
 }
 
+pub const NULL: q::JSValue = q::JSValue {
+    u: q::JSValueUnion { int32: 0 },
+    tag: TAG_NULL,
+};
+
 pub fn new_null() -> q::JSValue {
-    q::JSValue {
-        u: q::JSValueUnion { int32: 0 },
-        tag: TAG_NULL,
-    }
+    NULL
 }
 
 pub fn new_null_ref() -> JSValueRef {
-    JSValueRef::new_no_context(new_null(), "new_null_ref")
+    JSValueRef::new_no_context(NULL, "null_ref")
 }
 
 pub fn get_global_q(context: &QuickJsContext) -> JSValueRef {
