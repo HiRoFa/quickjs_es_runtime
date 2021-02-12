@@ -1,9 +1,54 @@
+//! the console feature enables the script to use various cansole.log variants
+//! see also: [MDN](https://developer.mozilla.org/en-US/docs/Web/API/Console)
+//! the following methods are available
+//! * console.log()
+//! * console.info()
+//! * console.error()
+//! * console.warning()
+//! * console.trace()
+//!
+//! The methods use rust's log crate to output messages. e.g. console.info() uses the log::info!() macro
+//! so the console messages should appear in the log you initialized from rust
+//!
+//! All methods accept a single message string and optional substitution values
+//!
+//! e.g.
+//! ```javascript
+//! console.log('Oh dear %s totaly failed %i times because of a %.4f variance in the space time continuum', 'some guy', 12, 2.46)
+//! ```
+//! will output 'Oh dear some guy totaly failed 12 times because of a 2.4600 variance in the space time continuum'
+//!
+//! The string substitution you can use are
+//! * %o or %O Outputs a JavaScript object (serialized)
+//! * %d or %i Outputs an integer. Number formatting is supported, for example  console.log("Foo %.2d", 1.1) will output the number as two significant figures with a leading 0: Foo 01
+//! * %s Outputs a string (will attempt to call .toString() on objects, use %o to output a serialized JSON string)
+//! * %f Outputs a floating-point value. Formatting is supported, for example  console.log("Foo %.2f", 1.1) will output the number to 2 decimal places: Foo 1.10
+//! # Example
+//! ```rust
+//! use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+//! use quickjs_runtime::esscript::EsScript;
+//! use log::LevelFilter;
+//! simple_logging::log_to_file("console_test.log", LevelFilter::max())
+//!             .ok()
+//!             .expect("could not init logger");
+//! let rt = EsRuntimeBuilder::new().build();
+//! rt.eval_sync(EsScript::new(
+//! "console.es",
+//! "console.log('the %s %s %s jumped over %i fences with a accuracy of %.2f', 'quick', 'brown', 'fox', 32, 0.512);"
+//! ));
+//! ```
+//!
+//! which will result in a log entry like
+//! ```[00:00:00.012] (7f44e7d24700) INFO   the quick brown fox jumped over 32 fences with a accuracy of 0.51```
+
 use crate::eserror::EsError;
 use crate::quickjs_utils;
-use crate::quickjs_utils::{functions, parse_args};
+use crate::quickjs_utils::functions::call_to_string;
+use crate::quickjs_utils::{json, parse_args, primitives};
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::reflection::Proxy;
+use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 use log::LevelFilter;
 use std::str::FromStr;
@@ -27,7 +72,8 @@ pub(crate) fn init_ctx(q_ctx: &QuickJsContext) -> Result<(), EsError> {
         .install(q_ctx)
 }
 
-fn parse_field_value(field: &str, value: &str) -> String {
+#[allow(clippy::or_fun_call)]
+unsafe fn parse_field_value(ctx: *mut q::JSContext, field: &str, value: &JSValueRef) -> String {
     // format ints
     // only support ,2 / .3 to declare the number of digits to display, e.g. $.3i turns 3 to 003
 
@@ -35,11 +81,13 @@ fn parse_field_value(field: &str, value: &str) -> String {
     // only support ,2 / .3 to declare the number of decimals to display, e.g. $.3f turns 3.1 to 3.100
 
     if field.eq(&"%.0f".to_string()) {
-        return parse_field_value("%i", value);
+        return parse_field_value(ctx, "%i", value);
     }
 
     if field.ends_with('d') || field.ends_with('i') {
-        let mut i_val: String = value.to_string();
+        let mut i_val: String = call_to_string(ctx, value)
+            .or::<String>(Ok("".to_string()))
+            .unwrap();
 
         // remove chars behind .
         if let Some(i) = i_val.find('.') {
@@ -67,7 +115,9 @@ fn parse_field_value(field: &str, value: &str) -> String {
 
         return i_val;
     } else if field.ends_with('f') {
-        let mut f_val = value.to_string();
+        let mut f_val: String = call_to_string(ctx, value)
+            .or::<String>(Ok("".to_string()))
+            .unwrap();
 
         if let Some(dot_in_field_idx) = field.find('.') {
             let mut m_field = field.to_string();
@@ -97,18 +147,31 @@ fn parse_field_value(field: &str, value: &str) -> String {
                     }
                 }
             }
+            return f_val;
+        } else if field.ends_with('o') || field.ends_with('O') {
+            let json_str_res = json::stringify(ctx, value, None);
+            let json = match json_str_res {
+                Ok(json_str) => primitives::to_string(ctx, &json_str)
+                    .or::<String>(Ok("".to_string()))
+                    .unwrap(),
+                Err(_e) => "".to_string(),
+            };
+            return json;
         }
-
-        return f_val;
     }
-    value.to_string()
+    call_to_string(ctx, value)
+        .or::<String>(Ok("".to_string()))
+        .unwrap()
 }
 
-fn parse_line2(args: Vec<String>) -> String {
+#[allow(clippy::or_fun_call)]
+unsafe fn parse_line(ctx: *mut q::JSContext, args: Vec<JSValueRef>) -> String {
     if args.is_empty() {
         return "".to_string();
     }
-    let message = &args[0];
+    let message = primitives::to_string(ctx, &args[0])
+        .or::<String>(Ok(String::new()))
+        .unwrap();
 
     let mut output = String::new();
     let mut field_code = String::new();
@@ -123,7 +186,7 @@ fn parse_line2(args: Vec<String>) -> String {
                 // end field
 
                 if x < args.len() {
-                    output.push_str(parse_field_value(field_code.as_str(), &args[x]).as_str());
+                    output.push_str(parse_field_value(ctx, field_code.as_str(), &args[x]).as_str());
                     x += 1;
                 }
 
@@ -140,23 +203,6 @@ fn parse_line2(args: Vec<String>) -> String {
     output
 }
 
-unsafe fn parse_args_as_strings(
-    context: *mut q::JSContext,
-    argc: ::std::os::raw::c_int,
-    argv: *mut q::JSValue,
-) -> Vec<String> {
-    let args_vec = parse_args(context, argc, argv);
-
-    args_vec
-        .iter()
-        .map(|arg| {
-            functions::call_to_string(context, arg)
-                .ok()
-                .expect("could not convert arg to string")
-        })
-        .collect::<Vec<String>>()
-}
-
 unsafe extern "C" fn console_log(
     ctx: *mut q::JSContext,
     _this_val: q::JSValue,
@@ -166,8 +212,8 @@ unsafe extern "C" fn console_log(
     log::trace!("> console.log");
 
     if log::max_level() >= LevelFilter::Info {
-        let args = parse_args_as_strings(ctx, argc, argv);
-        log::info!("{}", parse_line2(args));
+        let args = parse_args(ctx, argc, argv);
+        log::info!("{}", parse_line(ctx, args));
     }
     quickjs_utils::NULL
 }
@@ -180,9 +226,8 @@ unsafe extern "C" fn console_trace(
 ) -> q::JSValue {
     log::trace!("> console.trace");
     if log::max_level() >= LevelFilter::Trace {
-        let args = parse_args_as_strings(ctx, argc, argv);
-
-        log::trace!("{}", parse_line2(args));
+        let args = parse_args(ctx, argc, argv);
+        log::trace!("{}", parse_line(ctx, args));
     }
     quickjs_utils::NULL
 }
@@ -195,9 +240,9 @@ unsafe extern "C" fn console_debug(
 ) -> q::JSValue {
     log::trace!("> console.debug");
     if log::max_level() >= LevelFilter::Debug {
-        let args = parse_args_as_strings(ctx, argc, argv);
+        let args = parse_args(ctx, argc, argv);
 
-        log::debug!("{}", parse_line2(args));
+        log::debug!("{}", parse_line(ctx, args));
     }
     quickjs_utils::NULL
 }
@@ -210,9 +255,9 @@ unsafe extern "C" fn console_info(
 ) -> q::JSValue {
     log::trace!("> console.info");
     if log::max_level() >= LevelFilter::Info {
-        let args = parse_args_as_strings(ctx, argc, argv);
+        let args = parse_args(ctx, argc, argv);
 
-        log::info!("{}", parse_line2(args));
+        log::info!("{}", parse_line(ctx, args));
     }
     quickjs_utils::NULL
 }
@@ -225,9 +270,9 @@ unsafe extern "C" fn console_warn(
 ) -> q::JSValue {
     log::trace!("> console.warn");
     if log::max_level() >= LevelFilter::Warn {
-        let args = parse_args_as_strings(ctx, argc, argv);
+        let args = parse_args(ctx, argc, argv);
 
-        log::warn!("{}", parse_line2(args));
+        log::warn!("{}", parse_line(ctx, args));
     }
     quickjs_utils::NULL
 }
@@ -240,9 +285,9 @@ unsafe extern "C" fn console_error(
 ) -> q::JSValue {
     log::trace!("> console.error");
     if log::max_level() >= LevelFilter::Error {
-        let args = parse_args_as_strings(ctx, argc, argv);
+        let args = parse_args(ctx, argc, argv);
 
-        log::error!("{}", parse_line2(args));
+        log::error!("{}", parse_line(ctx, args));
     }
     quickjs_utils::NULL
 }
