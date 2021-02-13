@@ -293,11 +293,11 @@ impl EsRuntime {
     /// ```rust
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
     /// use quickjs_runtime::esscript::EsScript;
-    /// use quickjs_runtime::esvalue::EsValueConvertible;
+    /// use quickjs_runtime::es_args;
     /// let rt = EsRuntimeBuilder::new().build();
-    /// let script = EsScript::new("my_file.es", "this.com = {my: {methodA: function(a, b){return a*b;}}};");
+    /// let script = EsScript::new("my_file.es", "this.com = {my: {methodA: function(a, b, someStr, someBool){return a*b;}}};");
     /// rt.eval_sync(script).ok().expect("script failed");
-    /// let res = rt.call_function_sync(vec!["com", "my"], "methodA", vec![7.to_es_value_facade(), 5.to_es_value_facade()]).ok().expect("func failed");
+    /// let res = rt.call_function_sync(vec!["com", "my"], "methodA", es_args![7i32, 5i32, "abc".to_string(), true]).ok().expect("func failed");
     /// assert_eq!(res.get_i32(), 35);
     /// ```
     pub fn call_function_sync(
@@ -307,6 +307,7 @@ impl EsRuntime {
         mut arguments: Vec<EsValueFacade>,
     ) -> Result<EsValueFacade, EsError> {
         let func_name_string = func_name.to_string();
+
         self.add_to_event_queue_sync(move |q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
@@ -794,5 +795,10 @@ pub mod tests {
         let fut = test_async1();
         let res = block_on(fut);
         assert_eq!(res, 123);
+    }
+
+    #[test]
+    fn test_macro() {
+        let _args = es_args!(1, 2i32, true, "sdf".to_string());
     }
 }

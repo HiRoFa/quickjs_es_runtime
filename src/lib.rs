@@ -47,6 +47,19 @@
 #[macro_use]
 extern crate lazy_static;
 
+#[macro_export]
+macro_rules! es_args {
+    ( $( $x:expr ),* ) => {
+        {
+            let mut temp_vec: Vec<crate::esvalue::EsValueFacade> = Vec::new();
+            $(
+                temp_vec.push(crate::esvalue::EsValueConvertible::to_es_value_facade($x));
+            )*
+            temp_vec
+        }
+    };
+}
+
 mod droppable_value;
 pub mod eserror;
 pub mod esruntime;
@@ -61,3 +74,12 @@ pub mod quickjsruntime;
 pub mod reflection;
 pub mod utils;
 pub mod valueref;
+
+#[cfg(test)]
+pub mod tests {
+
+    #[test]
+    fn test_macro() {
+        let _args = es_args!(1, 2i32, true, "sdf".to_string());
+    }
+}
