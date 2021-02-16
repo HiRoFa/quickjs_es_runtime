@@ -51,11 +51,11 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 * Pass primitives, objects and arrays from and to rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/quickjs_utils/primitives/index.html))
 * Create Classes from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/reflection/struct.Proxy.html))
 * async/await support on eval/call_function/promise resolution [docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esvalue/struct.EsValueFacade.html#method.get_promise_result)
+* import native Modules (e.g. dynamic loading of rust functions) [#9](https://github.com/HiRoFa/quickjs_es_runtime/issues/9)
 
 ## Future / Todo
 
 * Worker support
-* import native Modules (e.g. dynamic loading of rust functions) [#9](https://github.com/HiRoFa/quickjs_es_runtime/issues/9)
 * WebAssembly support
 * Macro / IFDef support
 * Pre processing (for e.g. typescript)
