@@ -24,6 +24,14 @@ pub fn set_module_loader(q_js_rt: &QuickJsRuntime) {
     unsafe { q::JS_SetModuleLoaderFunc(q_js_rt.runtime, module_normalize, module_loader, opaque) }
 }
 
+/// detect if a script is module (contains import or export statements)
+pub fn detect_module(source: &str) -> bool {
+    let cstr = CString::new(source)
+        .ok()
+        .expect("could not create CString to to null term in source");
+    unsafe { q::JS_DetectModule(cstr.as_ptr(), source.len() as u64) != 0 }
+}
+
 unsafe extern "C" fn js_module_normalize(
     ctx: *mut q::JSContext,
     module_base_name: *const ::std::os::raw::c_char,
@@ -137,8 +145,17 @@ unsafe extern "C" fn js_module_loader(
 pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
+    use crate::quickjs_utils::modules::detect_module;
     use std::sync::Arc;
     use std::time::Duration;
+
+    #[test]
+    fn test_detect() {
+        assert!(detect_module("import {} from 'foo.es';"));
+        assert!(detect_module("export function a(){};"));
+        assert!(!detect_module("import('foo.es').then((a) = {});"));
+        assert!(!detect_module("let a = 1;"));
+    }
 
     #[test]
     fn test_module_sandbox() {
