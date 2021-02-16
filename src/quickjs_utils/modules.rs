@@ -11,6 +11,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_int;
+use std::ptr;
 
 thread_local! {
     // todo refactor to per ctx (map should be instance of quickjscontext instead of thread_local)
@@ -147,11 +148,12 @@ unsafe extern "C" fn js_module_normalize(
                 }
                 Err(e) => {
                     log::error!("module {} failed: {}", name_str, e);
-                    // todo report_ex_ctx
+                    // report_ex_ctx
                     QuickJsContext::report_ex_ctx(
                         ctx,
                         format!("Module eval failed for {}\ncaused by {}", name_str, e).as_str(),
                     );
+                    return ptr::null_mut();
                 }
             }
         } else {
@@ -218,18 +220,22 @@ unsafe extern "C" fn js_module_loader(
     QuickJsRuntime::do_with(|q_js_rt| {
         if let Some(module_loader) = &q_js_rt.native_module_loader {
             QuickJsContext::with_context(ctx, |q_ctx| {
-                let module = new_module(ctx, module_name, Some(native_module_init))
-                    .ok()
-                    .expect("could not create new module");
-
-                for name in module_loader.get_module_export_names(q_ctx, module_name) {
-                    add_module_export(ctx, module, name.as_str())
+                if module_loader.has_module(q_ctx, module_name) {
+                    let module = new_module(ctx, module_name, Some(native_module_init))
                         .ok()
-                        .expect("could not add export");
-                }
+                        .expect("could not create new module");
 
-                //std::ptr::null_mut()
-                module
+                    for name in module_loader.get_module_export_names(q_ctx, module_name) {
+                        add_module_export(ctx, module, name.as_str())
+                            .ok()
+                            .expect("could not add export");
+                    }
+
+                    //std::ptr::null_mut()
+                    module
+                } else {
+                    std::ptr::null_mut()
+                }
             })
         } else {
             std::ptr::null_mut()

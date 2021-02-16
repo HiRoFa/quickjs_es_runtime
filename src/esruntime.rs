@@ -302,7 +302,7 @@ impl EsRuntime {
     /// let rt = EsRuntimeBuilder::new().build();
     /// let script = EsScript::new("my_file.es", "this.com = {my: {methodA: function(a, b, someStr, someBool){return a*b;}}};");
     /// rt.eval_sync(script).ok().expect("script failed");
-    /// let res = rt.call_function_sync(vec!["com", "my"], "methodA", es_args![7i32, 5i32, "abc".to_string(), true]).ok().expect("func failed");
+    /// let res = rt.call_function_sync(vec!["com", "my"], "methodA", vec![7i32.to_es_value_facade(), 5i32.to_es_value_facade(), "abc".to_string().to_es_value_facade(), true.to_es_value_facade()]).ok().expect("func failed");
     /// assert_eq!(res.get_i32(), 35);
     /// ```
     pub fn call_function_sync(
@@ -587,8 +587,8 @@ pub mod tests {
     struct TestNativeModuleLoader {}
 
     impl NativeModuleLoader for TestNativeModuleLoader {
-        fn has_module(&self, _q_ctx: &QuickJsContext, _module_name: &str) -> bool {
-            true
+        fn has_module(&self, _q_ctx: &QuickJsContext, module_name: &str) -> bool {
+            !module_name.eq("notfound.mes")
         }
 
         fn get_module_export_names(
