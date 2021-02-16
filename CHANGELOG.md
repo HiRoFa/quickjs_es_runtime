@@ -18,6 +18,8 @@
   instead of
   
   ```let args = vec![1.to_es_value_facade(), 2.to_es_value_facade(), true.to_es_value_facade(), "sdf".to_string().to_es_value_facade()]```
+* added quickjs_utils::modules::new_module/add_module_export/set_module_export
+* added NativeModuleLoader to QuickJSRuntime to enable implementors to load native modules on-demand  
 
 # 0.1.0
 

@@ -184,6 +184,9 @@ impl EsRuntime {
                 if builder.opt_module_script_loader.is_some() {
                     q_js_rt.module_script_loader = Some(builder.opt_module_script_loader.unwrap());
                 }
+                if builder.opt_native_module_loader.is_some() {
+                    q_js_rt.native_module_loader = Some(builder.opt_native_module_loader.unwrap());
+                }
 
                 if let Some(limit) = builder.opt_memory_limit_bytes {
                     unsafe {
@@ -294,6 +297,8 @@ impl EsRuntime {
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
     /// use quickjs_runtime::esscript::EsScript;
     /// use quickjs_runtime::es_args;
+    /// use quickjs_runtime::esvalue::EsValueConvertible;
+    /// use quickjs_runtime::esvalue::EsValueFacade;
     /// let rt = EsRuntimeBuilder::new().build();
     /// let script = EsScript::new("my_file.es", "this.com = {my: {methodA: function(a, b, someStr, someBool){return a*b;}}};");
     /// rt.eval_sync(script).ok().expect("script failed");
@@ -565,7 +570,10 @@ pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
     use crate::esvalue::{EsValueConvertible, EsValueFacade};
-    use crate::quickjs_utils::promises;
+    use crate::quickjs_utils::{primitives, promises};
+    use crate::quickjscontext::QuickJsContext;
+    use crate::quickjsruntime::NativeModuleLoader;
+    use crate::valueref::JSValueRef;
     use futures::executor::block_on;
     use log::debug;
     use log::LevelFilter;
@@ -574,6 +582,34 @@ pub mod tests {
 
     lazy_static! {
         pub static ref TEST_ESRT: Arc<EsRuntime> = init();
+    }
+
+    struct TestNativeModuleLoader {}
+
+    impl NativeModuleLoader for TestNativeModuleLoader {
+        fn has_module(&self, _q_ctx: &QuickJsContext, _module_name: &str) -> bool {
+            true
+        }
+
+        fn get_module_export_names(
+            &self,
+            _q_ctx: &QuickJsContext,
+            _module_name: &str,
+        ) -> Vec<String> {
+            vec!["a".to_string(), "b".to_string(), "c".to_string()]
+        }
+
+        fn get_module_exports(
+            &self,
+            _q_ctx: &QuickJsContext,
+            _module_name: &str,
+        ) -> Vec<(String, JSValueRef)> {
+            vec![
+                ("a".to_string(), primitives::from_i32(1234)),
+                ("b".to_string(), primitives::from_i32(64834)),
+                ("c".to_string(), primitives::from_i32(333)),
+            ]
+        }
     }
 
     #[test]
@@ -597,7 +633,7 @@ pub mod tests {
             .gc_interval(Duration::from_secs(1))
             .max_stack_size(u64::MAX)
             .module_script_loader(|_q_ctx, _rel, name| {
-                if name.eq("notfound.mes") {
+                if name.eq("notfound.mes") || name.starts_with("greco://") {
                     None
                 } else if name.eq("invalid.mes") {
                     Some(EsScript::new(name, "I am the great cornholio! thou'gh shalt&s not p4arse mie!"))
@@ -605,6 +641,7 @@ pub mod tests {
                     Some(EsScript::new(name, "export const foo = 'bar';\nexport const mltpl = function(a, b){return a*b;}; globalThis;"))
                 }
             })
+            .native_module_loader(TestNativeModuleLoader{})
             .build()
     }
 

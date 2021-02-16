@@ -5,6 +5,7 @@ use crate::esruntime::EsRuntime;
 use crate::esscript::EsScript;
 use crate::quickjs_utils::{gc, modules, promises};
 use crate::quickjscontext::QuickJsContext;
+use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -14,6 +15,16 @@ use std::sync::{Arc, Weak};
 
 pub type ModuleScriptLoader =
     dyn Fn(&QuickJsContext, &str, &str) -> Option<EsScript> + Send + Sync + 'static;
+
+pub trait NativeModuleLoader {
+    fn has_module(&self, q_ctx: &QuickJsContext, module_name: &str) -> bool;
+    fn get_module_export_names(&self, q_ctx: &QuickJsContext, module_name: &str) -> Vec<String>;
+    fn get_module_exports(
+        &self,
+        q_ctx: &QuickJsContext,
+        module_name: &str,
+    ) -> Vec<(String, JSValueRef)>;
+}
 
 thread_local! {
    /// the thread-local QuickJsRuntime
@@ -36,6 +47,7 @@ pub struct QuickJsRuntime {
     id: String,
     context_init_hooks: RefCell<ContextInitHooks>,
     pub(crate) module_script_loader: Option<Box<ModuleScriptLoader>>,
+    pub(crate) native_module_loader: Option<Box<dyn NativeModuleLoader>>,
 }
 
 impl QuickJsRuntime {
@@ -142,6 +154,7 @@ impl QuickJsRuntime {
             id,
             context_init_hooks: RefCell::new(vec![]),
             module_script_loader: None,
+            native_module_loader: None,
         };
 
         modules::set_module_loader(&q_rt);

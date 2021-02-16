@@ -3,7 +3,7 @@ use crate::esscript::EsScript;
 use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
 use crate::quickjscontext::QuickJsContext;
-use crate::quickjsruntime::ModuleScriptLoader;
+use crate::quickjsruntime::{ModuleScriptLoader, NativeModuleLoader};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -18,6 +18,7 @@ use std::time::Duration;
 /// ```
 pub struct EsRuntimeBuilder {
     pub(crate) opt_module_script_loader: Option<Box<ModuleScriptLoader>>,
+    pub(crate) opt_native_module_loader: Option<Box<dyn NativeModuleLoader + Send>>,
     pub(crate) opt_fetch_response_provider: Option<Box<FetchResponseProvider>>,
     pub(crate) opt_memory_limit_bytes: Option<u64>,
     pub(crate) opt_gc_threshold: Option<u64>,
@@ -35,6 +36,7 @@ impl EsRuntimeBuilder {
     pub fn new() -> Self {
         Self {
             opt_module_script_loader: None,
+            opt_native_module_loader: None,
             opt_fetch_response_provider: None,
             opt_memory_limit_bytes: None,
             opt_gc_threshold: None,
@@ -67,6 +69,14 @@ impl EsRuntimeBuilder {
         M: Fn(&QuickJsContext, &str, &str) -> Option<EsScript> + Send + Sync + 'static,
     {
         self.opt_module_script_loader = Some(Box::new(loader));
+        self
+    }
+
+    pub fn native_module_loader<M: NativeModuleLoader + Send + 'static>(
+        mut self,
+        loader: M,
+    ) -> Self {
+        self.opt_native_module_loader = Some(Box::new(loader));
         self
     }
 
