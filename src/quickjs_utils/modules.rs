@@ -1,3 +1,5 @@
+//! utils for working with ES6 Modules
+
 use crate::eserror::EsError;
 use crate::esscript::EsScript;
 use crate::quickjs_utils::atoms;

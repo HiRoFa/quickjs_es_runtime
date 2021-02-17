@@ -1,3 +1,5 @@
+//! Utils for working with objects
+
 use crate::droppable_value::DroppableValue;
 use crate::eserror::EsError;
 use crate::quickjs_utils::{atoms, functions, get_constructor, get_global};
@@ -7,6 +9,19 @@ use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 use std::collections::HashMap;
 
+/// get a namespace object
+/// this is used to get nested object properties which are used as namespaces
+/// # Example
+/// ```rust
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::quickjs_utils::objects::get_namespace_q;
+/// let rt = EsRuntimeBuilder::new().build();
+/// rt.add_to_event_queue_sync(|q_js_rt| {
+///     let q_ctx = q_js_rt.get_main_context();
+///     let ns_obj = get_namespace_q(q_ctx, vec!["com", "hirofa", "examplepackage"], true).ok().unwrap();
+///     assert!(ns_obj.is_object())
+/// })
+/// ```
 pub fn get_namespace_q(
     context: &QuickJsContext,
     namespace: Vec<&str>,
@@ -133,6 +148,34 @@ pub unsafe fn set_property(
     )
 }
 
+/// set a property with specific flags
+/// set_property applies the default flag JS_PROP_C_W_E (Configurable, Writable, Enumerable)
+/// flags you can use here are
+/// * q::JS_PROP_CONFIGURABLE
+/// * q::JS_PROP_WRITABLE
+/// * q::JS_PROP_ENUMERABLE          
+/// * q::JS_PROP_C_W_E         
+/// * q::JS_PROP_LENGTH        
+/// * q::JS_PROP_TMASK         
+/// * q::JS_PROP_NORMAL         
+/// * q::JS_PROP_GETSET         
+/// * q::JS_PROP_VARREF
+/// * q::JS_PROP_AUTOINIT
+/// # Example
+/// ```rust
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::quickjs_utils::objects::{create_object_q, set_property2_q};
+/// use quickjs_runtime::quickjs_utils::primitives::from_i32;
+/// use libquickjs_sys as q;
+/// let rt = EsRuntimeBuilder::new().build();
+/// rt.add_to_event_queue_sync(|q_js_rt| {
+///    let q_ctx = q_js_rt.get_main_context();
+///    let obj = create_object_q(q_ctx).ok().unwrap();
+///    let prop = from_i32(785);
+///    // not enumerable
+///    set_property2_q(q_ctx, &obj, "someProp", &prop, (q::JS_PROP_CONFIGURABLE | q::JS_PROP_WRITABLE) as i32).ok().unwrap();
+/// })
+/// ```                         
 pub fn set_property2_q(
     q_ctx: &QuickJsContext,
     obj_ref: &JSValueRef,
@@ -143,6 +186,7 @@ pub fn set_property2_q(
     unsafe { set_property2(q_ctx.context, obj_ref, prop_name, prop_ref, flags) }
 }
 
+/// set a property with specific flags
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn set_property2(
@@ -186,7 +230,27 @@ pub unsafe fn set_property2(
     Ok(())
 }
 
+/// define a getter/setter property
+pub fn define_getter_setter_q(
+    q_ctx: &QuickJsContext,
+    obj_ref: &JSValueRef,
+    prop_name: &str,
+    getter_func_ref: &JSValueRef,
+    setter_func_ref: &JSValueRef,
+) -> Result<(), EsError> {
+    unsafe {
+        define_getter_setter(
+            q_ctx.context,
+            obj_ref,
+            prop_name,
+            getter_func_ref,
+            setter_func_ref,
+        )
+    }
+}
+
 #[allow(dead_code)]
+/// define a getter/setter property
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn define_getter_setter(

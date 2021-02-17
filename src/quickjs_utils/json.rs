@@ -1,13 +1,11 @@
+//! serialize and stringify JavaScript objects
+
 use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 use std::ffi::CString;
-
-pub fn parse_q(q_ctx: &QuickJsContext, input: &str) -> Result<JSValueRef, EsError> {
-    unsafe { parse(q_ctx.context, input) }
-}
 
 /// Parse a JSON string into an Object
 /// please note that JSON.parse requires member names to be enclosed in double quotes
@@ -32,6 +30,11 @@ pub fn parse_q(q_ctx: &QuickJsContext, input: &str) -> Result<JSValueRef, EsErro
 /// });
 /// rt.gc_sync();
 /// ```
+pub fn parse_q(q_ctx: &QuickJsContext, input: &str) -> Result<JSValueRef, EsError> {
+    unsafe { parse(q_ctx.context, input) }
+}
+
+/// Parse a JSON string into an Object
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRef, EsError> {

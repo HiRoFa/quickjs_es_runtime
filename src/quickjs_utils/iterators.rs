@@ -1,3 +1,5 @@
+//! utils for the iterator protocol
+
 use crate::eserror::EsError;
 use crate::quickjs_utils::{functions, objects, primitives};
 use crate::valueref::JSValueRef;
