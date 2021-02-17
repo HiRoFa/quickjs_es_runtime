@@ -231,6 +231,33 @@ pub unsafe fn set_property2(
 }
 
 /// define a getter/setter property
+/// # Example
+/// ```dontrun
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::quickjs_utils::objects::{create_object_q, define_getter_setter_q, set_property_q};
+/// use quickjs_runtime::quickjs_utils::functions::new_function_q;
+/// use quickjs_runtime::quickjs_utils::primitives::from_i32;
+/// use quickjs_runtime::quickjs_utils::{new_null_ref, get_global_q};
+/// use quickjs_runtime::esscript::EsScript;
+/// use quickjs_runtime::eserror::EsError;
+/// let rt = EsRuntimeBuilder::new().build();
+/// rt.add_to_event_queue_sync(|q_js_rt| {
+///     let q_ctx = q_js_rt.get_main_context();
+///     let obj = create_object_q(q_ctx).ok().expect("create obj failed");
+///     let getter_func = new_function_q(q_ctx, "getter", |_q_ctx, _this_ref, _args| {Ok(from_i32(13))}, 0).ok().expect("new_function_q getter failed");
+///     let setter_func = new_function_q(q_ctx, "setter", |_q_ctx, _this_ref, args| {
+///         log::debug!("setting someProperty to {:?}", &args[0]);
+///         Ok(new_null_ref())
+///     }, 1).ok().expect("new_function_q setter failed");
+///     let res = define_getter_setter_q(q_ctx, &obj, "someProperty", &getter_func, &setter_func);
+///     match res {
+///         Ok(_) => {},
+///         Err(e) => {panic!("define_getter_setter_q fail: {}", e)}}
+///     let global = get_global_q(q_ctx);
+///     set_property_q(q_ctx, &global, "testObj431", &obj).ok().expect("set prop on global failed");
+/// });
+/// rt.eval_sync(EsScript::new("define_getter_setter_q.es", "testObj431.someProperty = 'hello prop';")).ok().expect("script failed");
+/// ```
 pub fn define_getter_setter_q(
     q_ctx: &QuickJsContext,
     obj_ref: &JSValueRef,
@@ -286,9 +313,9 @@ pub unsafe fn define_getter_setter(
         context,
         *obj_ref.borrow_value(),
         prop_atom.get_atom(),
-        *getter_func_ref.borrow_value(),
-        *setter_func_ref.borrow_value(),
-        0,
+        getter_func_ref.clone_value_incr_rc(),
+        setter_func_ref.clone_value_incr_rc(),
+        q::JS_PROP_C_W_E as i32,
     );
 
     log::trace!("objects::define_getter_setter 5 {}", res);
