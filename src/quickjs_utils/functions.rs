@@ -1,3 +1,5 @@
+//! utils to create and invoke functions
+
 use crate::eserror::EsError;
 use crate::esscript::EsScript;
 use crate::quickjs_utils::{atoms, errors, objects, parse_args, primitives};
@@ -64,6 +66,7 @@ pub unsafe fn parse_function(
     Ok(ret)
 }
 
+/// call a function
 pub fn call_function_q(
     q_ctx: &QuickJsContext,
     function_ref: &JSValueRef,
@@ -73,6 +76,7 @@ pub fn call_function_q(
     unsafe { call_function(q_ctx.context, function_ref, arguments, this_ref_opt) }
 }
 
+/// call a function
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn call_function(
@@ -192,10 +196,12 @@ pub unsafe fn invoke_member_function(
     }
 }
 
+/// call an objects to_String method or convert a value to string
 pub fn call_to_string_q(q_ctx: &QuickJsContext, obj_ref: &JSValueRef) -> Result<String, EsError> {
     unsafe { call_to_string(q_ctx.context, obj_ref) }
 }
 
+/// call an objects to_String method or convert a value to string
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn call_to_string(
@@ -234,11 +240,13 @@ pub unsafe fn call_to_string(
     }
 }
 
+/// see if an Object is an instance of Function
 pub fn is_function_q(q_ctx: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
     unsafe { is_function(q_ctx.context, obj_ref) }
 }
 
 #[allow(dead_code)]
+/// see if an Object is an instance of Function
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn is_function(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
@@ -250,10 +258,12 @@ pub unsafe fn is_function(context: *mut q::JSContext, obj_ref: &JSValueRef) -> b
     }
 }
 
+/// see if an Object is an instance of Function and is a constructor (can be instantiated with new keyword)
 pub fn is_constructor_q(q_ctx: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
     unsafe { is_constructor(q_ctx.context, obj_ref) }
 }
 
+/// see if an Object is an instance of Function and is a constructor (can be instantiated with new keyword)
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn is_constructor(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
@@ -265,6 +275,7 @@ pub unsafe fn is_constructor(context: *mut q::JSContext, obj_ref: &JSValueRef) -
     }
 }
 
+/// call a constructor (instantiate an Object)
 pub fn call_constructor_q(
     q_ctx: &QuickJsContext,
     constructor_ref: &JSValueRef,
@@ -273,6 +284,7 @@ pub fn call_constructor_q(
     unsafe { call_constructor(q_ctx.context, constructor_ref, arguments) }
 }
 
+/// call a constructor (instantiate an Object)
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn call_constructor(
@@ -323,6 +335,7 @@ pub unsafe fn call_constructor(
     }
 }
 
+/// create a new Function object which calls a native method
 pub fn new_native_function_q(
     q_ctx: &QuickJsContext,
     name: &str,
@@ -333,6 +346,7 @@ pub fn new_native_function_q(
     unsafe { new_native_function(q_ctx.context, name, func, arg_count, is_constructor) }
 }
 
+/// create a new Function object which calls a native method
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn new_native_function(
@@ -385,6 +399,7 @@ pub unsafe fn new_native_function(
     }
 }
 
+/// create a new Function object which calls a native method (with data)
 pub fn new_native_function_data_q(
     q_ctx: &QuickJsContext,
     func: q::JSCFunctionData,
@@ -395,6 +410,7 @@ pub fn new_native_function_data_q(
     unsafe { new_native_function_data(q_ctx.context, func, name, arg_count, data) }
 }
 
+/// create a new Function object which calls a native method (with data)
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn new_native_function_data(
@@ -487,7 +503,26 @@ thread_local! {
 
     static CALLBACK_IDS: RefCell<HashSet<Box<i32>>> = RefCell::new(HashSet::new());
 }
-
+/// create a new Function which is backed by a closure
+/// # Example
+/// ```rust
+/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::quickjs_utils::functions::new_function_q;
+/// use quickjs_runtime::quickjs_utils::primitives::from_i32;
+/// use quickjs_runtime::quickjs_utils::get_global_q;
+/// use quickjs_runtime::quickjs_utils::objects::set_property_q;
+/// use quickjs_runtime::esscript::EsScript;
+/// let rt = EsRuntimeBuilder::new().build();
+/// rt.add_to_event_queue_sync(|q_js_rt| {
+///     let q_ctx = q_js_rt.get_main_context();
+///     // create a function which always returns 1253
+///     let func_obj = new_function_q(q_ctx, "myFunc7654", |_q_ctx, _this, _args|{Ok(from_i32(1253))}, 0).ok().unwrap();
+///     // store as a global member so script can call it
+///     let global = get_global_q(q_ctx);
+///     set_property_q(q_ctx, &global, "myFunc7654", &func_obj);
+/// });
+/// rt.eval_sync(EsScript::new("new_function_q.es", "let a = myFunc7654(); if (a !== 1253) {throw Error('a was not 1253')}")).ok().expect("script failed");
+/// ```
 pub fn new_function_q<F>(
     q_ctx: &QuickJsContext,
     name: &str,
@@ -508,6 +543,7 @@ where
     unsafe { new_function(q_ctx.context, name, func_raw, arg_count) }
 }
 
+/// create a new Function which is backed by a closure
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn new_function<F>(

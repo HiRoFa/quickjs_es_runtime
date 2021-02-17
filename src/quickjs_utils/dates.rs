@@ -1,3 +1,5 @@
+//! Utils for working with Date objects
+
 use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, objects, primitives};
@@ -5,10 +7,12 @@ use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 
+/// create a new instance of a Date object
 pub fn new_date_q(context: &QuickJsContext) -> Result<JSValueRef, EsError> {
     unsafe { new_date(context.context) }
 }
 
+/// create a new instance of a Date object
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn new_date(context: *mut q::JSContext) -> Result<JSValueRef, EsError> {
@@ -17,15 +21,19 @@ pub unsafe fn new_date(context: *mut q::JSContext) -> Result<JSValueRef, EsError
     Ok(date_ref)
 }
 
+/// check if a JSValueRef is an instance of Date
 pub fn is_date_q(context: &QuickJsContext, obj_ref: &JSValueRef) -> Result<bool, EsError> {
     unsafe { is_date(context.context, obj_ref) }
 }
 
+/// check if a JSValueRef is an instance of Date
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn is_date(context: *mut q::JSContext, obj_ref: &JSValueRef) -> Result<bool, EsError> {
     objects::is_instance_of_by_name(context, obj_ref, "Date")
 }
+
+/// set the timestamp for a Date object
 pub fn set_time_q(
     context: &QuickJsContext,
     date_ref: &JSValueRef,
@@ -34,6 +42,7 @@ pub fn set_time_q(
     unsafe { set_time(context.context, date_ref, timestamp) }
 }
 
+/// set the timestamp for a Date object
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn set_time(
@@ -49,11 +58,11 @@ pub unsafe fn set_time(
     )?;
     Ok(())
 }
-
+/// get the timestamp from a Date object
 pub fn get_time_q(context: &QuickJsContext, date_ref: &JSValueRef) -> Result<f64, EsError> {
     unsafe { get_time(context.context, date_ref) }
 }
-
+/// get the timestamp from a Date object
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn get_time(context: *mut q::JSContext, date_ref: &JSValueRef) -> Result<f64, EsError> {

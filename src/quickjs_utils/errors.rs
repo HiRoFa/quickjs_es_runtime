@@ -1,3 +1,5 @@
+//! utils for getting and reporting exceptions
+
 use crate::eserror::EsError;
 use crate::quickjs_utils::{objects, primitives};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
@@ -43,6 +45,7 @@ pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
     }
 }
 
+/// Create a new Error object
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn new_error(
@@ -80,6 +83,7 @@ pub unsafe fn new_error(
     Ok(obj_ref)
 }
 
+/// See if a JSValueRef is an Error objecte
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn is_error(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
@@ -91,6 +95,7 @@ pub unsafe fn is_error(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool
     }
 }
 
+/// Throw an error and get an Exception JSValue to return from native methods
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn throw(context: *mut q::JSContext, error: JSValueRef) -> q::JSValue {

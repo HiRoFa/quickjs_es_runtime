@@ -1,3 +1,5 @@
+//! Utils to compile script to bytecode and run script from bytecode
+
 use crate::eserror::EsError;
 use crate::esscript::EsScript;
 use crate::quickjscontext::QuickJsContext;
