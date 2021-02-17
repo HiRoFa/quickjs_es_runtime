@@ -1,8 +1,8 @@
 use crate::eserror::EsError;
 use crate::quickjscontext::QuickJsContext;
-use crate::valueref::{JSValueRef, TAG_BOOL, TAG_FLOAT64, TAG_INT};
+use crate::valueref::JSValueRef;
+use core::ptr;
 use libquickjs_sys as q;
-use libquickjs_sys::JSValue as JSVal;
 use std::os::raw::c_char;
 
 pub fn to_bool(value_ref: &JSValueRef) -> Result<bool, EsError> {
@@ -17,15 +17,8 @@ pub fn to_bool(value_ref: &JSValueRef) -> Result<bool, EsError> {
 }
 
 pub fn from_bool(b: bool) -> JSValueRef {
-    JSValueRef::new_no_context(
-        q::JSValue {
-            u: q::JSValueUnion {
-                int32: if b { 1 } else { 0 },
-            },
-            tag: TAG_BOOL,
-        },
-        "primitives::from_bool",
-    )
+    let raw = unsafe { q::JS_NewBool(ptr::null_mut(), b) };
+    JSValueRef::new_no_context(raw, "primitives::from_bool")
 }
 
 pub fn to_f64(value_ref: &JSValueRef) -> Result<f64, EsError> {
@@ -39,13 +32,8 @@ pub fn to_f64(value_ref: &JSValueRef) -> Result<f64, EsError> {
 }
 
 pub fn from_f64(f: f64) -> JSValueRef {
-    JSValueRef::new_no_context(
-        q::JSValue {
-            u: q::JSValueUnion { float64: f },
-            tag: TAG_FLOAT64,
-        },
-        "primitives::from_f64",
-    )
+    let raw = unsafe { q::JS_NewFloat64(ptr::null_mut(), f) };
+    JSValueRef::new_no_context(raw, "primitives::from_f64")
 }
 
 pub fn to_i32(value_ref: &JSValueRef) -> Result<i32, EsError> {
@@ -59,13 +47,8 @@ pub fn to_i32(value_ref: &JSValueRef) -> Result<i32, EsError> {
 }
 
 pub fn from_i32(i: i32) -> JSValueRef {
-    JSValueRef::new_no_context(
-        JSVal {
-            u: q::JSValueUnion { int32: i },
-            tag: TAG_INT,
-        },
-        "primitives::from_i32",
-    )
+    let raw = unsafe { q::JS_NewInt32(ptr::null_mut(), i) };
+    JSValueRef::new_no_context(raw, "primitives::from_i32")
 }
 
 pub fn to_string_q(q_ctx: &QuickJsContext, value_ref: &JSValueRef) -> Result<String, EsError> {
