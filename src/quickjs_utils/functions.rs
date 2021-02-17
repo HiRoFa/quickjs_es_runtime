@@ -373,7 +373,7 @@ pub unsafe fn new_native_function(
         func_val,
         false,
         true,
-        "functions::new_native_function result",
+        format!("functions::new_native_function {}", name).as_str(),
     );
 
     log::trace!("functions::new_native_function / 4");
@@ -388,10 +388,11 @@ pub unsafe fn new_native_function(
 pub fn new_native_function_data_q(
     q_ctx: &QuickJsContext,
     func: q::JSCFunctionData,
+    name: &str,
     arg_count: i32,
     data: JSValueRef,
 ) -> Result<JSValueRef, EsError> {
-    unsafe { new_native_function_data(q_ctx.context, func, arg_count, data) }
+    unsafe { new_native_function_data(q_ctx.context, func, name, arg_count, data) }
 }
 
 /// # Safety
@@ -399,6 +400,7 @@ pub fn new_native_function_data_q(
 pub unsafe fn new_native_function_data(
     context: *mut q::JSContext,
     func: q::JSCFunctionData,
+    name: &str,
     arg_count: i32,
     mut data: JSValueRef,
 ) -> Result<JSValueRef, EsError> {
@@ -418,12 +420,14 @@ pub unsafe fn new_native_function_data(
         func_val,
         false,
         true,
-        "functions::new_native_function_data result",
+        format!("functions::new_native_function_data {}", name).as_str(),
     );
 
     if !func_ref.is_object() {
         Err(EsError::new_str("Could not create new_native_function"))
     } else {
+        let name_ref = primitives::from_string(context, name)?;
+        objects::set_property2(context, &func_ref, "name", &name_ref, 0)?;
         Ok(func_ref)
     }
 }
@@ -508,7 +512,7 @@ where
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn new_function<F>(
     context: *mut q::JSContext,
-    _name: &str,
+    name: &str,
     func: F,
     arg_count: u32,
 ) -> Result<JSValueRef, EsError>
@@ -528,8 +532,13 @@ where
     log::trace!("new_function callback_id = {}", callback_id);
 
     let data = primitives::from_i32(callback_id as i32);
-    let func_ref =
-        new_native_function_data(context, Some(callback_function), arg_count as i32, data)?;
+    let func_ref = new_native_function_data(
+        context,
+        Some(callback_function),
+        name,
+        arg_count as i32,
+        data,
+    )?;
 
     let callback_class_id = CALLBACK_CLASS_ID.with(|rc| *rc.borrow());
 

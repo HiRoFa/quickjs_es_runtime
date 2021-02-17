@@ -72,6 +72,55 @@ impl EsRuntimeBuilder {
         self
     }
 
+    /// add a module loader which can load native functions and proxy classes
+    /// # Example
+    /// ```rust
+    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::quickjsruntime::NativeModuleLoader;
+    /// use quickjs_runtime::valueref::JSValueRef;
+    /// use quickjs_runtime::quickjscontext::QuickJsContext;
+    /// use quickjs_runtime::quickjs_utils::functions;
+    /// use quickjs_runtime::quickjs_utils::primitives::{from_bool, from_i32};
+    /// use quickjs_runtime::reflection::Proxy;
+    /// use quickjs_runtime::esscript::EsScript;
+    ///
+    /// struct MyModuleLoader{}
+    /// impl NativeModuleLoader for MyModuleLoader {
+    ///     fn has_module(&self, _q_ctx: &QuickJsContext,module_name: &str) -> bool {
+    ///         module_name.eq("my_module")
+    ///     }
+    ///
+    ///     fn get_module_export_names(&self, _q_ctx: &QuickJsContext, _module_name: &str) -> Vec<&str> {
+    ///         vec!["someVal", "someFunc", "SomeClass"]
+    ///     }
+    ///
+    ///     fn get_module_exports(&self, q_ctx: &QuickJsContext, _module_name: &str) -> Vec<(&str, JSValueRef)> {
+    ///         
+    ///         let js_val = from_i32(1470);
+    ///         let js_func = functions::new_function_q(
+    ///             q_ctx,
+    ///             "someFunc", |_q_ctx, _this, _args| {
+    ///                 return Ok(from_i32(432));
+    ///             }, 0)
+    ///             .ok().unwrap();
+    ///         let js_class = Proxy::new()
+    ///             .name("SomeClass")
+    ///             .static_method("doIt", |_q_ctx, _args|{
+    ///                 return Ok(from_i32(185));
+    ///             })
+    ///             .install(q_ctx, false)
+    ///             .ok().unwrap();
+    ///
+    ///         vec![("someVal", js_val), ("someFunc", js_func), ("SomeClass", js_class)]
+    ///     }
+    /// }
+    ///
+    /// let rt = EsRuntimeBuilder::new()
+    /// .native_module_loader(MyModuleLoader{})
+    /// .build();
+    ///
+    /// rt.eval_module_sync(EsScript::new("test_native_mod.es", "import {someVal, someFunc, SomeClass} from 'my_module';\nlet i = (someVal + someFunc() + SomeClass.doIt());\nif (i !== 2087){throw Error('i was not 2087');}")).ok().expect("script failed");
+    /// ```
     pub fn native_module_loader<M: NativeModuleLoader + Send + 'static>(
         mut self,
         loader: M,

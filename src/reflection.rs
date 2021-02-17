@@ -196,7 +196,7 @@ fn next_id(q_ctx: &QuickJsContext) -> usize {
 ///        });
 ///     })
 ///     // install the Proxy in the context
-///    .install(q_ctx);      
+///    .install(q_ctx, true);      
 /// });
 ///
 /// match rt.eval_sync(EsScript::new("test_proxy.es",
@@ -377,15 +377,19 @@ impl Proxy {
         self.is_static_event_target = true
     }
     /// install the Proxy class in a QuickJsContext, this is always needed as a final step to actually make the Proxy class work
-    pub fn install(self, q_ctx: &QuickJsContext) -> Result<(), EsError> {
+    pub fn install(
+        self,
+        q_ctx: &QuickJsContext,
+        add_variable_to_global: bool,
+    ) -> Result<JSValueRef, EsError> {
         if self.name.is_none() {
             return Err(EsError::new_str("Proxy needs a name"));
         }
 
-        let _class_ref = self.install_class_prop(q_ctx)?;
+        let class_ref = self.install_class_prop(q_ctx, add_variable_to_global)?;
         eventtarget::impl_event_target(self).install_move_to_registry(q_ctx);
 
-        Ok(())
+        Ok(class_ref)
     }
 
     fn install_move_to_registry(self, q_ctx: &QuickJsContext) {
@@ -394,7 +398,11 @@ impl Proxy {
         let reg_map = &mut *q_ctx.proxy_registry.borrow_mut();
         reg_map.insert(proxy.get_class_name(), Rc::new(proxy));
     }
-    fn install_class_prop(&self, q_ctx: &QuickJsContext) -> Result<(), EsError> {
+    fn install_class_prop(
+        &self,
+        q_ctx: &QuickJsContext,
+        add_variable_to_global: bool,
+    ) -> Result<JSValueRef, EsError> {
         // this creates a constructor function, adds it to the global scope and then makes an instance of the static_proxy_class its prototype so we can add static_getters_setters and static_methods
 
         log::trace!("reflection::Proxy::install_class_prop / 1");
@@ -470,30 +478,34 @@ impl Proxy {
             0,
         )?;
 
-        log::trace!("reflection::Proxy::install_class_prop / 8");
-
         // todo impl namespace here
-        let ns = if let Some(namespace) = &self.namespace {
-            objects::get_namespace_q(q_ctx, namespace.iter().map(|s| s.as_str()).collect(), true)?
-        } else {
-            quickjs_utils::get_global_q(q_ctx)
-        };
+        if add_variable_to_global {
+            log::trace!("reflection::Proxy::install_class_prop / 8");
+            let ns = if let Some(namespace) = &self.namespace {
+                objects::get_namespace_q(
+                    q_ctx,
+                    namespace.iter().map(|s| s.as_str()).collect(),
+                    true,
+                )?
+            } else {
+                quickjs_utils::get_global_q(q_ctx)
+            };
 
-        log::trace!("reflection::Proxy::install_class_prop / 9");
+            log::trace!("reflection::Proxy::install_class_prop / 9");
 
-        objects::set_property2_q(
-            q_ctx,
-            &ns,
-            self.name.as_ref().unwrap().as_str(),
-            &constructor_ref,
-            0,
-        )?;
-
+            objects::set_property2_q(
+                q_ctx,
+                &ns,
+                self.name.as_ref().unwrap().as_str(),
+                &constructor_ref,
+                0,
+            )?;
+        }
         log::trace!("reflection::Proxy::install_class_prop / 10");
 
         log::trace!("install_class_prop done");
 
-        Ok(())
+        Ok(constructor_ref)
     }
 }
 
@@ -737,6 +749,7 @@ unsafe extern "C" fn proxy_static_get_prop(
                 let func_ref = functions::new_native_function_data(
                     context,
                     Some(proxy_static_method),
+                    prop_name.as_str(),
                     1,
                     function_data_ref,
                 )
@@ -836,6 +849,7 @@ unsafe extern "C" fn proxy_instance_get_prop(
             let func_ref = functions::new_native_function_data(
                 context,
                 Some(proxy_instance_method),
+                prop_name.as_str(),
                 1,
                 function_data_ref,
             )
@@ -1107,11 +1121,11 @@ pub mod tests {
                     });
                     log::trace!("ran finalizer: {}", id);
                 })
-                .install(q_ctx);
+                .install(q_ctx, true);
 
             match res {
                 Ok(_) => {}
-                Err(e) => panic!("could nt install proxy: {}", e),
+                Err(e) => panic!("could not install proxy: {}", e),
             }
         });
 

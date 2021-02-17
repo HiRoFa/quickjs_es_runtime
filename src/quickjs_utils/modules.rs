@@ -32,13 +32,13 @@ pub fn set_module_loader(q_js_rt: &QuickJsRuntime) {
 
 /// detect if a script is module (contains import or export statements)
 pub fn detect_module(source: &str) -> bool {
-    let cstr = CString::new(source)
-        .ok()
-        .expect("could not create CString to to null term in source");
+    let cstr = CString::new(source).expect("could not create CString to to null term in source");
     unsafe { q::JS_DetectModule(cstr.as_ptr(), source.len() as u64) != 0 }
 }
 
 /// create new Module (JSModuleDef struct) which can be populated with exports after (and from) the init_func
+/// # Safety
+/// Please ensure the context passed is still valid
 pub unsafe fn new_module(
     ctx: *mut q::JSContext,
     name: &str,
@@ -50,6 +50,8 @@ pub unsafe fn new_module(
 
 /// set an export in a JSModuleDef, this should be called AFTER the init_func(as passed to new_module()) is called
 /// please note that you always need to use this in combination with add_module_export()
+/// # Safety
+/// Please ensure the context passed is still valid
 pub unsafe fn set_module_export(
     ctx: *mut q::JSContext,
     module: *mut q::JSModuleDef,
@@ -57,7 +59,12 @@ pub unsafe fn set_module_export(
     js_val: JSValueRef,
 ) -> Result<(), EsError> {
     let name_cstr = CString::new(export_name).map_err(|_e| EsError::new_str("CString failed"))?;
-    let res = q::JS_SetModuleExport(ctx, module, name_cstr.as_ptr(), *js_val.borrow_value());
+    let res = q::JS_SetModuleExport(
+        ctx,
+        module,
+        name_cstr.as_ptr(),
+        js_val.clone_value_incr_rc(),
+    );
     if res == 0 {
         Ok(())
     } else {
@@ -66,6 +73,8 @@ pub unsafe fn set_module_export(
 }
 
 /// set an export in a JSModuleDef, this should be called BEFORE this init_func(as passed to new_module()) is called
+/// # Safety
+/// Please ensure the context passed is still valid
 pub unsafe fn add_module_export(
     ctx: *mut q::JSContext,
     module: *mut q::JSModuleDef,
@@ -81,6 +90,8 @@ pub unsafe fn add_module_export(
 }
 
 /// get the name of an JSModuleDef struct
+/// # Safety
+/// Please ensure the context passed is still valid
 pub unsafe fn get_module_name(
     ctx: *mut q::JSContext,
     module: *mut q::JSModuleDef,
@@ -191,7 +202,7 @@ unsafe extern "C" fn native_module_init(
         if let Some(module_loader) = &q_js_rt.native_module_loader {
             QuickJsContext::with_context(ctx, |q_ctx| {
                 for (name, val) in module_loader.get_module_exports(q_ctx, module_name.as_str()) {
-                    set_module_export(ctx, module, name.as_str(), val)
+                    set_module_export(ctx, module, name, val)
                         .ok()
                         .expect("could not set export");
                 }
@@ -210,10 +221,7 @@ unsafe extern "C" fn js_module_loader(
     log::trace!("js_module_loader called.");
 
     let module_name_c = CStr::from_ptr(module_name_raw);
-    let module_name = module_name_c
-        .to_str()
-        .ok()
-        .expect("could not get module name");
+    let module_name = module_name_c.to_str().expect("could not get module name");
 
     log::trace!("js_module_loader called: {}", module_name);
 
@@ -226,7 +234,7 @@ unsafe extern "C" fn js_module_loader(
                         .expect("could not create new module");
 
                     for name in module_loader.get_module_export_names(q_ctx, module_name) {
-                        add_module_export(ctx, module, name.as_str())
+                        add_module_export(ctx, module, name)
                             .ok()
                             .expect("could not add export");
                     }

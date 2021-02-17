@@ -18,12 +18,12 @@ pub type ModuleScriptLoader =
 
 pub trait NativeModuleLoader {
     fn has_module(&self, q_ctx: &QuickJsContext, module_name: &str) -> bool;
-    fn get_module_export_names(&self, q_ctx: &QuickJsContext, module_name: &str) -> Vec<String>;
+    fn get_module_export_names(&self, q_ctx: &QuickJsContext, module_name: &str) -> Vec<&str>;
     fn get_module_exports(
         &self,
         q_ctx: &QuickJsContext,
         module_name: &str,
-    ) -> Vec<(String, JSValueRef)>;
+    ) -> Vec<(&str, JSValueRef)>;
 }
 
 thread_local! {

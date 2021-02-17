@@ -69,7 +69,8 @@ pub(crate) fn init_ctx(q_ctx: &QuickJsContext) -> Result<(), EsError> {
         .static_native_method("error", Some(console_error))
         //.static_native_method("assert", Some(console_assert)) // todo
         .static_native_method("debug", Some(console_debug))
-        .install(q_ctx)
+        .install(q_ctx, true)
+        .map(|_| {})
 }
 
 #[allow(clippy::or_fun_call)]

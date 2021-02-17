@@ -139,7 +139,8 @@ pub(crate) fn init_response_proxy(q_ctx: &QuickJsContext) -> Result<(), EsError>
                 responses.remove(&instance_id);
             });
         })
-        .install(q_ctx)
+        .install(q_ctx, true)
+        .map(|_| {})
 }
 
 pub(crate) fn new_response_ref(

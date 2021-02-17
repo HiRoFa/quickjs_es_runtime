@@ -595,19 +595,19 @@ pub mod tests {
             &self,
             _q_ctx: &QuickJsContext,
             _module_name: &str,
-        ) -> Vec<String> {
-            vec!["a".to_string(), "b".to_string(), "c".to_string()]
+        ) -> Vec<&str> {
+            vec!["a", "b", "c"]
         }
 
         fn get_module_exports(
             &self,
             _q_ctx: &QuickJsContext,
             _module_name: &str,
-        ) -> Vec<(String, JSValueRef)> {
+        ) -> Vec<(&str, JSValueRef)> {
             vec![
-                ("a".to_string(), primitives::from_i32(1234)),
-                ("b".to_string(), primitives::from_i32(64834)),
-                ("c".to_string(), primitives::from_i32(333)),
+                ("a", primitives::from_i32(1234)),
+                ("b", primitives::from_i32(64834)),
+                ("c", primitives::from_i32(333)),
             ]
         }
     }

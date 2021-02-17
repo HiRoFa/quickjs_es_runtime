@@ -34,14 +34,14 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 
 ## Script and Modules
 
-* console (.log/info/debug/trace/error) [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/features/console/index.html)
+* console (.log/info/debug/trace/error) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/features/console/index.html))
 * Eval script ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html#method.eval_sync))
 * Create promises in JavaScript which execute async
 * Eval modules ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html#method.eval_module_sync))
 * Load modules (dynamic and static) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntimebuilder/struct.EsRuntimeBuilder.html#method.module_script_loader))
-* fetch api [#2](https://github.com/HiRoFa/quickjs_es_runtime/issues/2)
-* setImmediate [#3](https://github.com/HiRoFa/quickjs_es_runtime/issues/3)
-* setTimeout/Interval (and clear) [#4](https://github.com/HiRoFa/quickjs_es_runtime/issues/4)
+* fetch api ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntimebuilder/struct.EsRuntimeBuilder.html#method.fetch_response_provider))
+* setImmediate
+* setTimeout/Interval (and clear)
 
 ## Rust-Script interoperability
 
@@ -51,7 +51,7 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 * Pass primitives, objects and arrays from and to rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/quickjs_utils/primitives/index.html))
 * Create Classes from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/reflection/struct.Proxy.html))
 * async/await support on eval/call_function/promise resolution [docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esvalue/struct.EsValueFacade.html#method.get_promise_result)
-* import native Modules (e.g. dynamic loading of rust functions) [#9](https://github.com/HiRoFa/quickjs_es_runtime/issues/9)
+* import native Modules (e.g. dynamic loading of rust functions or Proxy classes) [docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntimebuilder/struct.EsRuntimeBuilder.html#method.native_module_loader)
 
 ## Future / Todo
 
