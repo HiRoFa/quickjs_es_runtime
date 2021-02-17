@@ -129,6 +129,54 @@ impl EsRuntimeBuilder {
         self
     }
 
+    /// Provide a fetch response provider in order to make the fetch api work in the EsRuntime
+    /// # Example
+    /// ```rust
+    ///
+    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::features::fetch::response::FetchResponse;
+    /// use quickjs_runtime::features::fetch::request::FetchRequest;
+    /// use quickjs_runtime::esscript::EsScript;
+    /// use std::time::Duration;   
+    ///
+    /// struct SimpleResponse{
+    ///     read_done: bool
+    /// }
+    ///
+    /// impl SimpleResponse {
+    ///     fn new(_req: &FetchRequest) -> Self {
+    ///         Self{read_done:false}
+    ///     }
+    /// }
+    ///
+    /// impl FetchResponse for SimpleResponse {
+    ///     fn get_http_status(&self) -> u16 {
+    ///         200
+    ///     }
+    ///
+    ///     fn get_header(&self,name: &str) -> Option<&str> {
+    ///         unimplemented!()
+    ///     }
+    ///
+    ///     fn read(&mut self) -> Option<Vec<u8>> {
+    ///         if self.read_done {
+    ///             None
+    ///         } else {
+    ///             self.read_done = true;      
+    ///             Some("Hello world".as_bytes().to_vec())
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let rt = EsRuntimeBuilder::new()
+    /// .fetch_response_provider(|req| {Box::new(SimpleResponse::new(req))})
+    /// .build();
+    ///
+    /// let res_prom = rt.eval_sync(EsScript::new("test_fetch.es", "(fetch('something')).then((fetchRes) => {return fetchRes.text();});")).ok().expect("script failed");
+    /// let res = res_prom.get_promise_result_sync(Duration::from_secs(1)).ok().expect("promise timed out");
+    /// let str_esvf = res.ok().expect("promise did not resolve ok");
+    /// assert_eq!(str_esvf.get_str(), "Hello world");
+    /// ```
     pub fn fetch_response_provider<P>(mut self, provider: P) -> Self
     where
         P: Fn(&FetchRequest) -> Box<dyn FetchResponse + Send> + Send + Sync + 'static,
