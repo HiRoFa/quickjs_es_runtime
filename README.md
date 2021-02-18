@@ -59,7 +59,6 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 * WebAssembly support
 * Macro / IFDef support
 * Pre processing (for e.g. typescript)
-* EventTarget support in Proxies
 
 # goals
 
@@ -91,42 +90,37 @@ simple-logging = "2.0.2"
 main.rs
 
 ```rust
-
 use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
 use quickjs_runtime::esscript::EsScript;
-use quickjs_runtime::esvalue::EsValueFacade;
+use log::LevelFilter;
+use futures::executor::block_on;
+use std::sync::Arc;
+use quickjs_runtime::esruntime::EsRuntime;
 
-fn load_module(base: &str, name: &str) -> Option<EsScript> {
-    // you should load your modules from files here
-    // please note that you need to return the name as absolute_path in the returned script struct
-    // return None if module is not found
-    Some(EsScript::new(name, "export const foo = 12;"))
+async fn test(rt: Arc<EsRuntime>){
+    let res = rt.eval(EsScript::new(
+        "basics.es",
+        "7 * 12;",
+    )).await.ok().unwrap();
+
+    assert_eq!(res.get_i32(), 84);
 }
 
 fn main() {
     simple_logging::log_to_stderr(LevelFilter::Info);
 
     let rt = EsRuntimeBuilder::new()
-        .module_script_loader(load_module)
         .build();
 
-    // eval some basic stuff
+    block_on(test(rt));
 
-    rt.eval_sync(EsScript::new(
-        "basics.es",
-        "this.my_app_utils = {f: function(a, b){return a * b;}, f2: function(rf){rf(12);}};",
-    ))
-    .ok()
-    .expect("basics.es failed");
 }
 ```
 
 ## invoke a js method from rust
 
 ```rust
-    let a = 8.to_es_value_facade();
-    let b = 7.to_es_value_facade();
-    let res = rt.call_function_sync(vec!["my_app_utils"], "f", vec![a, b]);
+    let res = rt.call_function(vec!["myAppUtils"], "some_func", es_args![8, 7]).await;
     match res {
         Ok(val) => log::info!("8*7 in JavaScript = {}", val.get_i32()),
         Err(e) => println!("script failed: {}", e),
@@ -142,8 +136,8 @@ fn main() {
                 "i'd really like 2 args of the int32 kind please",
             ))
         } else {
-            let a = args.get(0).unwrap().get_i32();
-            let b = args.get(1).unwrap().get_i32();
+            let a = args[0].get_i32();
+            let b = args[1].get_i32();
             log::info!("rust is multiplying {} and {}", a, b);
             Ok((a * b).to_es_value_facade())
         }
@@ -151,10 +145,10 @@ fn main() {
     .ok()
     .expect("set_function failed");
 
-    let method_a_res = rt.eval_sync(EsScript::new(
+    let method_a_res = rt.eval(EsScript::new(
         "test_func.es",
         "(nl.my.utils.methodA(13, 56));",
-    ));
+    )).await;
 
     match method_a_res {
         Ok(val) => {
@@ -169,13 +163,13 @@ fn main() {
 ## eval a module
 
 ```rust
-    rt.eval_module_sync(EsScript::new(
+    rt.eval_module(EsScript::new(
         "my_app.mes",
         "\
     import {foo} from 'example.mes';\
     console.log('static foo is ' + foo);\
     ",
-    ))
+    )).await
     .ok()
     .expect("module failed");
 ```
@@ -184,7 +178,7 @@ fn main() {
 
 ```rust
     
-    rt.eval_module_sync(EsScript::new(
+    rt.eval_module(EsScript::new(
         "my_app2.es",
         "\
     import('example.mes')\
@@ -192,7 +186,7 @@ fn main() {
         console.log('dynamic foo is ' + example_module.foo);\
     });\
     ",
-    ))
+    )).await
     .ok()
     .expect("script failed");
 ```
@@ -201,7 +195,7 @@ fn main() {
 
 ```rust
     rt.set_function(vec!["nl", "my", "utils"], "methodB", |mut args| {
-        if args.len() != 1 || !args.get(0).unwrap().is_function() {
+        if args.len() != 1 || !args[0].is_function() {
             Err(EsError::new_str(
                 "i'd really like 1 arg of the function kind please",
             ))
@@ -210,10 +204,8 @@ fn main() {
 
             // invoke the func async, just because we can
             std::thread::spawn(move || {
-                let a = 19.to_es_value_facade();
-                let b = 17.to_es_value_facade();
                 consumer_func
-                    .invoke_function(vec![a, b])
+                    .invoke_function_sync(es_args![19, 17])
                     .ok()
                     .expect("func failed");
             });
@@ -224,10 +216,10 @@ fn main() {
     .ok()
     .expect("set_function failed");
 
-    rt.eval_sync(EsScript::new(
+    rt.eval(EsScript::new(
         "test_func2.es",
         "(nl.my.utils.methodB(function(a, b){console.log('consumer was called with ' +a + ', ' + b);}));",
-    )).ok().expect("test_func2.es failed");
+    )).await.ok().expect("test_func2.es failed");
 
     // wait a sec for the async onvoker to run
     std::thread::sleep(Duration::from_secs(1));

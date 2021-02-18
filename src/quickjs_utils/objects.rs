@@ -32,8 +32,6 @@ pub fn get_namespace_q(
 
 /// # Safety
 /// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
-/// # Safety
-/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn get_namespace(
     context: *mut q::JSContext,
     namespace: Vec<&str>,
