@@ -82,7 +82,7 @@ Cargo.toml
 
 ```toml
 [dependencies]
-quickjs_runtime = "0.1.0"
+quickjs_runtime = "0.1.1"
 log = "0.4.11"
 simple-logging = "2.0.2"
 ```

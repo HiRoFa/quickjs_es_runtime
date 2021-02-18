@@ -1,4 +1,6 @@
-# 0.1.1 (Work in progress)
+# 0.1.2 (work in progress)
+
+# 0.1.1
 
 * more precise timing for setTimeout and setInterval
 * quickjs_utils::maps utils for handling [Map](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map) instances from rust
