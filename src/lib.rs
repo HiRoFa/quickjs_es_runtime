@@ -34,7 +34,7 @@
 //! }).await;
 //! ```
 //! All the non-sync functions return a Future so you can .await them from async functions.
-//! 
+//!
 //! In order to do something and get the result synchronously you can use the sync variant
 //! ```dontrun
 //! use quickjs_runtime::quickjsruntime::QuickJsRuntime;
