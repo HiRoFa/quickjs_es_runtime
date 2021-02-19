@@ -28,12 +28,14 @@
 //!
 //! ```dontrun
 //! use quickjs_runtime::quickjsruntime::QuickJsRuntime;
-//! rt.add_to_event_queue(|q_js_rt: &QuickJsRuntime| {
+//! let res = rt.add_to_event_queue(|q_js_rt: &QuickJsRuntime| {
 //!    // this will run in the Worker thread, here we can use the quickjs API
-//! });
+//!    return true;
+//! }).await;
 //! ```
-//!
-//! In order to do something and get the result you can use the sync variant
+//! All the non-sync functions return a Future so you can .await them from async functions.
+//! 
+//! In order to do something and get the result synchronously you can use the sync variant
 //! ```dontrun
 //! use quickjs_runtime::quickjsruntime::QuickJsRuntime;
 //! let res = rt.add_to_event_queue_sync(|q_js_rt: &QuickJsRuntime| {
