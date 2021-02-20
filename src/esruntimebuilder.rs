@@ -68,6 +68,7 @@ impl EsRuntimeBuilder {
     where
         M: Fn(&QuickJsContext, &str, &str) -> Option<EsScript> + Send + Sync + 'static,
     {
+        assert!(self.opt_module_script_loader.is_none());
         self.opt_module_script_loader = Some(Box::new(loader));
         self
     }
@@ -125,6 +126,7 @@ impl EsRuntimeBuilder {
         mut self,
         loader: M,
     ) -> Self {
+        assert!(self.opt_native_module_loader.is_none());
         self.opt_native_module_loader = Some(Box::new(loader));
         self
     }
@@ -181,6 +183,7 @@ impl EsRuntimeBuilder {
     where
         P: Fn(&FetchRequest) -> Box<dyn FetchResponse + Send> + Send + Sync + 'static,
     {
+        assert!(self.opt_fetch_response_provider.is_none());
         self.opt_fetch_response_provider = Some(Box::new(provider));
         self
     }
