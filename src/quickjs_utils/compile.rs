@@ -137,8 +137,10 @@ pub unsafe fn to_bytecode(context: *mut q::JSContext, compiled_func: &JSValueRef
     );
 
     let slice = std::slice::from_raw_parts(slice_u8, len as usize);
-
-    slice.to_vec()
+    // it's a shame to copy the vec here but the alternative is to create a wrapping struct which free's the ptr on drop
+    let ret = slice.to_vec().clone();
+    unsafe { q::js_free(context.context, slice_u8 as *mut c_void) };
+    ret
 }
 
 /// read a compiled function from bytecode, see to_bytecode for an example
