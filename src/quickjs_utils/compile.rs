@@ -51,7 +51,7 @@ pub unsafe fn compile(context: *mut q::JSContext, script: EsScript) -> Result<JS
     let ret = JSValueRef::new(
         context,
         value_raw,
-        true,
+        false,
         true,
         format!("eval result of {}", script.get_path()).as_str(),
     );
@@ -77,7 +77,7 @@ pub unsafe fn run_compiled_function(
     compiled_func: &JSValueRef,
 ) -> Result<JSValueRef, EsError> {
     assert!(compiled_func.is_compiled_function());
-    let val = q::JS_EvalFunction(context, *compiled_func.borrow_value());
+    let val = q::JS_EvalFunction(context, compiled_func.clone_value_incr_rc());
     let val_ref = JSValueRef::new(context, val, false, true, "run_compiled_function result");
     if val_ref.is_exception() {
         let ex_opt = QuickJsContext::get_exception(context);
@@ -158,7 +158,7 @@ pub unsafe fn from_bytecode(
         let buf = bytecode.as_ptr();
         let raw = q::JS_ReadObject(context, buf, len, q::JS_READ_OBJ_BYTECODE as i32);
 
-        let func_ref = JSValueRef::new(context, raw, true, true, "from_bytecode result");
+        let func_ref = JSValueRef::new(context, raw, false, true, "from_bytecode result");
         if func_ref.is_exception() {
             let ex_opt = QuickJsContext::get_exception(context);
             if let Some(ex) = ex_opt {
@@ -177,6 +177,7 @@ pub unsafe fn from_bytecode(
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::EsRuntime;
+    use crate::esruntimebuilder::EsRuntimeBuilder;
     use crate::esscript::EsScript;
     use crate::quickjs_utils::compile::{
         compile, from_bytecode, run_compiled_function, to_bytecode,
@@ -249,6 +250,67 @@ pub mod tests {
                     panic!("run failed: {}", e);
                 }
             }
+        });
+    }
+
+    #[test]
+    fn test_bytecode_bad_compile() {
+        let rt = EsRuntimeBuilder::new().build();
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            let q_ctx = q_js_rt.get_main_context();
+
+            let func_res = unsafe {
+                compile(
+                    q_ctx.context,
+                    EsScript::new(
+                        "test_func_fail.es",
+                        "{the changes of me compil1ng a're slim to 0-0}",
+                    ),
+                )
+            };
+            func_res.err().expect("func compiled unexpectedly");
+        })
+    }
+
+    #[test]
+    fn test_bytecode_bad_run() {
+        let rt = EsRuntimeBuilder::new().build();
+        rt.add_to_event_queue_sync(|q_js_rt| unsafe {
+            let q_ctx = q_js_rt.get_main_context();
+
+            let func_res = compile(
+                q_ctx.context,
+                EsScript::new("test_func_runfail.es", "let abcdef = 1;"),
+            );
+            let func = func_res.ok().expect("func compile failed");
+            assert_eq!(1, func.get_ref_count());
+
+            let bytecode: Vec<u8> = to_bytecode(q_ctx.context, &func);
+
+            assert_eq!(1, func.get_ref_count());
+
+            drop(func);
+
+            assert!(!bytecode.is_empty());
+
+            let func2_res = from_bytecode(q_ctx.context, bytecode);
+            let func2 = func2_res.ok().expect("could not read bytecode");
+            //should fail the second time you run this because abcdef is already defined
+
+            assert_eq!(1, func2.get_ref_count());
+
+            let run_res1 = run_compiled_function(q_ctx.context, &func2)
+                .ok()
+                .expect("run 1 failed unexpectedly");
+            drop(run_res1);
+
+            assert_eq!(1, func2.get_ref_count());
+
+            let _run_res2 = run_compiled_function(q_ctx.context, &func2)
+                .err()
+                .expect("run 2 succeeded unexpectedly");
+
+            assert_eq!(1, func2.get_ref_count());
         });
     }
 }
