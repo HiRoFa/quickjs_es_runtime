@@ -200,18 +200,7 @@ impl EsRuntime {
                 }
                 if let Some(stack_size) = builder.opt_max_stack_size {
                     unsafe {
-                        #[cfg(target_pointer_width = "64")]
-                        q::JS_SetMaxStackSize(q_js_rt.runtime, stack_size);
-                        #[cfg(target_pointer_width = "32")]
-                        {
-                            let u32_max: u64 = u32::MAX as u64;
-                            let mut stack_size32: u32 = if (stack_size > u32_max) {
-                                u32::MAX
-                            } else {
-                                stack_size as u32
-                            };
-                            q::JS_SetMaxStackSize(q_js_rt.runtime, stack_size32);
-                        }
+                        q::JS_SetMaxStackSize(q_js_rt.runtime, stack_size as _);
                     }
                 }
             })
