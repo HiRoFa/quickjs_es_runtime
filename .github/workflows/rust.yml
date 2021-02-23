@@ -102,4 +102,5 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
     - name: Valgrind
       run: |
-        valgrind --leak-check=full ./target/test/quickjs_runtime
+        cargo build
+        valgrind --leak-check=full ./target/debug/libquickjs_runtime
