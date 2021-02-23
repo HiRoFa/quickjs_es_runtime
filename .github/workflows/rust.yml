@@ -35,9 +35,7 @@ jobs:
         cargo test
     
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - name: Prepare
@@ -100,42 +98,41 @@ jobs:
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 
-test-and-valgrind:
-  runs-on: ubuntu-latest
-
-  steps:
-    - uses: actions/checkout@v2
-    - name: Prepare
-      run: |
-        sudo apt update
-        sudo apt install gcc-7 ccache llvm autoconf2.13 automake clang python valgrind -y
-    - name: Cache cargo registry
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
-    - name: Cache cargo index
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
-    - name: Ccache
-      uses: actions/cache@v2
-      with:
-        path: ~/.ccache
-        key: ${{ runner.OS }}-ccache-${{ hashFiles('**\Cargo.toml') }}
-    - name: Build
-      run: |
-        export SHELL=/bin/bash
-        export CC=/usr/bin/clang
-        export CXX=/usr/bin/clang++
-        ccache -z
-        CCACHE=$(which ccache) cargo build --verbose
-        ccache -s
-        cargo clean
-        cargo build
-    - name: Run tests
-      run: cargo test --verbose
-    - name: Valgrind
-      run: |
-        find ./target/debug/deps/quickjs_runtime-* -maxdepth 1 -type f -executable | xargs valgrind --leak-check=full --error-exitcode=1
+  test-and-valgrind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Prepare
+        run: |
+          sudo apt update
+          sudo apt install gcc-7 ccache llvm autoconf2.13 automake clang python valgrind -y
+      - name: Cache cargo registry
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+      - name: Cache cargo index
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
+      - name: Ccache
+        uses: actions/cache@v2
+        with:
+          path: ~/.ccache
+          key: ${{ runner.OS }}-ccache-${{ hashFiles('**\Cargo.toml') }}
+      - name: Build
+        run: |
+          export SHELL=/bin/bash
+          export CC=/usr/bin/clang
+          export CXX=/usr/bin/clang++
+          ccache -z
+          CCACHE=$(which ccache) cargo build --verbose
+          ccache -s
+          cargo clean
+          cargo build
+      - name: Run tests
+        run: cargo test --verbose
+      - name: Valgrind
+        run: |
+          find ./target/debug/deps/quickjs_runtime-* -maxdepth 1 -type f -executable | xargs valgrind --leak-check=full --error-exitcode=1
