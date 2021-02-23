@@ -78,10 +78,7 @@ pub unsafe fn to_string(
 
     let s = cstr.to_string_lossy().into_owned();
 
-    #[cfg(target_pointer_width = "64")]
-    debug_assert_eq!(s.len() as u64, len);
-    #[cfg(target_pointer_width = "32")]
-    debug_assert_eq!(s.len() as u32, len);
+    debug_assert_eq!(s.len() as _, len);
 
     // Free the c string.
     q::JS_FreeCString(context, ptr);
