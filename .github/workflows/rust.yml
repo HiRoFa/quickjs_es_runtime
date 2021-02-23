@@ -100,7 +100,7 @@ jobs:
       uses: actions-rs/clippy-check@v1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-    - name: Valgrind
-      run: |
-        cargo build
-        valgrind --leak-check=full ./target/debug/libquickjs_runtime
+    #- name: Valgrind
+    #  run: |
+    #    cargo install cargo-valgrind
+    #    cargo valgrind
