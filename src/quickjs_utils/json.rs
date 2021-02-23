@@ -41,12 +41,9 @@ pub unsafe fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRe
     let s = CString::new(input).ok().unwrap();
     let f_n = CString::new("JSON.parse").ok().unwrap();
 
-    #[cfg(target_pointer_width = "64")]
-    let len = input.len() as u64;
-    #[cfg(target_pointer_width = "32")]
-    let len = input.len() as u32;
+    let len = input.len();
 
-    let val = q::JS_ParseJSON(context, s.as_ptr(), len, f_n.as_ptr());
+    let val = q::JS_ParseJSON(context, s.as_ptr(), len as _, f_n.as_ptr());
 
     let ret = JSValueRef::new(context, val, false, true, "json::parse result");
 

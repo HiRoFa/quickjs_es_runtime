@@ -35,7 +35,7 @@ pub fn set_module_loader(q_js_rt: &QuickJsRuntime) {
 /// detect if a script is module (contains import or export statements)
 pub fn detect_module(source: &str) -> bool {
     let cstr = CString::new(source).expect("could not create CString due to null term in source");
-    unsafe { q::JS_DetectModule(cstr.as_ptr(), source.len() as u64) != 0 }
+    unsafe { q::JS_DetectModule(cstr.as_ptr(), source.len() as _) != 0 }
 }
 
 /// create new Module (JSModuleDef struct) which can be populated with exports after (and from) the init_func

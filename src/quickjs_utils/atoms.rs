@@ -70,11 +70,8 @@ pub fn from_string_q(q_ctx: &QuickJsContext, string: &str) -> Result<JSAtomRef, 
 pub unsafe fn from_string(context: *mut q::JSContext, string: &str) -> Result<JSAtomRef, EsError> {
     let s = CString::new(string).ok().unwrap();
 
-    #[cfg(target_pointer_width = "64")]
-    let len = string.len() as u64;
-    #[cfg(target_pointer_width = "32")]
-    let len = string.len() as u32;
+    let len = string.len();
 
-    let atom = q::JS_NewAtomLen(context, s.as_ptr(), len);
+    let atom = q::JS_NewAtomLen(context, s.as_ptr(), len as _);
     Ok(JSAtomRef::new(context, atom))
 }
