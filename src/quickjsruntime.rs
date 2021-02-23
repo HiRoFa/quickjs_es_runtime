@@ -13,6 +13,13 @@ use std::ffi::CString;
 use std::panic;
 use std::sync::{Arc, Weak};
 
+// next up, rewrite this to a trait, then load in module loader so we need not worry about gc stuff anymore
+// then see if we can refactor both modul eloader traits into one (with native as subtype imp)
+
+pub trait ModuleLoader {
+    fn normalize_path(&self, ref_path: &str, path: &str) -> &str;
+}
+
 pub type ModuleScriptLoader =
     dyn Fn(&QuickJsContext, &str, &str) -> Option<EsScript> + Send + Sync + 'static;
 
