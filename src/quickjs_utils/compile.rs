@@ -6,6 +6,7 @@ use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::make_cstring;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
+use std::os::raw::c_void;
 
 /// compile a script, will result in a JSValueRef with tag JS_TAG_FUNCTION_BYTECODE or JS_TAG_MODULE.
 ///  It can be executed with run_compiled_function().
@@ -124,10 +125,7 @@ pub unsafe fn run_compiled_function(
 pub unsafe fn to_bytecode(context: *mut q::JSContext, compiled_func: &JSValueRef) -> Vec<u8> {
     assert!(compiled_func.is_compiled_function());
 
-    #[cfg(target_pointer_width = "64")]
-    let mut len: u64 = 0;
-    #[cfg(target_pointer_width = "32")]
-    let mut len: u32 = 0;
+    let mut len = 0;
 
     let slice_u8 = q::JS_WriteObject(
         context,
@@ -139,7 +137,7 @@ pub unsafe fn to_bytecode(context: *mut q::JSContext, compiled_func: &JSValueRef
     let slice = std::slice::from_raw_parts(slice_u8, len as usize);
     // it's a shame to copy the vec here but the alternative is to create a wrapping struct which free's the ptr on drop
     let ret = slice.to_vec().clone();
-    unsafe { q::js_free(context.context, slice_u8 as *mut c_void) };
+    q::js_free(context, slice_u8 as *mut c_void);
     ret
 }
 
@@ -152,13 +150,10 @@ pub unsafe fn from_bytecode(
 ) -> Result<JSValueRef, EsError> {
     assert!(!bytecode.is_empty());
     {
-        #[cfg(target_pointer_width = "64")]
-        let len = bytecode.len() as u64;
-        #[cfg(target_pointer_width = "32")]
-        let len = bytecode.len() as u32;
+        let len = bytecode.len();
 
         let buf = bytecode.as_ptr();
-        let raw = q::JS_ReadObject(context, buf, len, q::JS_READ_OBJ_BYTECODE as i32);
+        let raw = q::JS_ReadObject(context, buf, len as _, q::JS_READ_OBJ_BYTECODE as i32);
 
         let func_ref = JSValueRef::new(context, raw, false, true, "from_bytecode result");
         if func_ref.is_exception() {
