@@ -30,7 +30,9 @@ pub trait ModuleLoader {
         q_ctx: &QuickJsContext,
         absolute_path: &str,
     ) -> Result<*mut q::JSModuleDef, EsError>;
+    // has module is used to check if a loader can provide a certain module, this is currently used to check which loader should init a native module
     fn has_module(&self, q_ctx: &QuickJsContext, absolute_path: &str) -> bool;
+    // init a module, currently used to init native modules
     fn init_module(
         &self,
         q_ctx: &QuickJsContext,
@@ -45,8 +47,16 @@ pub trait ScriptModuleLoader {
     fn load_module(&self, absolute_path: &str) -> String;
 }
 
-struct ScriptModuleLoaderAdapter {
+pub struct ScriptModuleLoaderAdapter {
     inner: Box<dyn ScriptModuleLoader>,
+}
+
+impl ScriptModuleLoaderAdapter {
+    pub fn new<M: ScriptModuleLoader + 'static>(loader: M) -> Self {
+        Self {
+            inner: Box::new(loader),
+        }
+    }
 }
 
 impl ModuleLoader for ScriptModuleLoaderAdapter {
@@ -84,8 +94,16 @@ impl ModuleLoader for ScriptModuleLoaderAdapter {
     }
 }
 
-struct NativeModuleLoaderAdapter {
+pub struct NativeModuleLoaderAdapter {
     inner: Box<dyn NativeModuleLoader>,
+}
+
+impl NativeModuleLoaderAdapter {
+    pub fn new<M: NativeModuleLoader + 'static>(loader: M) -> Self {
+        Self {
+            inner: Box::new(loader),
+        }
+    }
 }
 
 impl ModuleLoader for NativeModuleLoaderAdapter {
