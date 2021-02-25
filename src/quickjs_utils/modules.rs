@@ -9,11 +9,8 @@ use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 use log::trace;
-use std::cell::RefCell;
-use std::collections::HashSet;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_int;
-use std::ptr;
 
 // compile a module, used for module loading
 pub unsafe fn compile_module(
@@ -168,6 +165,24 @@ unsafe extern "C" fn js_module_normalize(
         base_str,
         name_str
     );
+
+    let ret_opt = QuickJsRuntime::do_with(|q_js_rt| {
+        let q_ctx = q_js_rt.get_quickjs_context(ctx);
+        for loader in &q_js_rt.module_loaders {
+            if let Some(normalized_path) = loader.normalize_path(q_ctx, base_str, name_str) {
+                let c_absolute_path = CString::new(normalized_path.as_str()).ok().expect("fail");
+
+                return Some(c_absolute_path.into_raw());
+            }
+        }
+
+        None
+    });
+    if let Some(ret) = ret_opt {
+        return ret;
+    }
+
+    // legacy below, remove later
 
     let script_opt: Option<EsScript> = QuickJsRuntime::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(ctx);

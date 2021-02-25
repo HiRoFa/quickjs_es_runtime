@@ -140,7 +140,6 @@ impl QuickJsContext {
             q::JS_EVAL_TYPE_MODULE as i32,
         );
 
-        // check for error
         let ret = JSValueRef::new(
             context,
             value_raw,
@@ -150,6 +149,8 @@ impl QuickJsContext {
         );
 
         log::trace!("evalled module yielded a {}", ret.borrow_value().tag);
+
+        // check for error
 
         if ret.is_exception() {
             let ex_opt = Self::get_exception(context);

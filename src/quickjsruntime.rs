@@ -3,6 +3,10 @@
 use crate::eserror::EsError;
 use crate::esruntime::EsRuntime;
 use crate::esscript::EsScript;
+use crate::quickjs_utils::modules::{
+    add_module_export, compile_module, get_module_def, get_module_name, new_module,
+    set_module_export,
+};
 use crate::quickjs_utils::{gc, modules, promises};
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
@@ -10,14 +14,28 @@ use libquickjs_sys as q;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::CString;
+use std::os::raw::c_int;
 use std::panic;
 use std::sync::{Arc, Weak};
 
 // this is the internal abstract loader which is used to actually load the modules
 
 pub trait ModuleLoader {
+    // the normalize methods is used to translate a possible relative path to an absolute path of a module
+    // it doubles as a method to see IF a module can actually be loaded by a module loader (return None if the module can not be found)
     fn normalize_path(&self, q_ctx: &QuickJsContext, ref_path: &str, path: &str) -> Option<String>;
-    fn load_module(&self, q_ctx: &QuickJsContext, absolute_path: &str) -> *mut q::JSModuleDef;
+    // load the Module
+    fn load_module(
+        &self,
+        q_ctx: &QuickJsContext,
+        absolute_path: &str,
+    ) -> Result<*mut q::JSModuleDef, EsError>;
+    fn has_module(&self, q_ctx: &QuickJsContext, absolute_path: &str) -> bool;
+    fn init_module(
+        &self,
+        q_ctx: &QuickJsContext,
+        module: *mut q::JSModuleDef,
+    ) -> Result<(), EsError>;
 }
 
 // these are the external (util) loaders (todo move these to esruntime)
@@ -32,12 +50,37 @@ struct ScriptModuleLoaderAdapter {
 }
 
 impl ModuleLoader for ScriptModuleLoaderAdapter {
-    fn normalize_path(&self, q_ctx: &QuickJsContext, ref_path: &str, path: &str) -> Option<String> {
-        unimplemented!()
+    fn normalize_path(
+        &self,
+        _q_ctx: &QuickJsContext,
+        ref_path: &str,
+        path: &str,
+    ) -> Option<String> {
+        self.inner.normalize_path(ref_path, path)
     }
 
-    fn load_module(&self, q_ctx: &QuickJsContext, absolute_path: &str) -> *mut q::JSModuleDef {
-        unimplemented!()
+    fn load_module(
+        &self,
+        q_ctx: &QuickJsContext,
+        absolute_path: &str,
+    ) -> Result<*mut q::JSModuleDef, EsError> {
+        let code = self.inner.load_module(absolute_path);
+        let compiled_module =
+            unsafe { compile_module(q_ctx.context, EsScript::new(absolute_path, code.as_str()))? };
+        Ok(get_module_def(&compiled_module))
+    }
+
+    fn has_module(&self, q_ctx: &QuickJsContext, absolute_path: &str) -> bool {
+        self.normalize_path(q_ctx, absolute_path, absolute_path)
+            .is_some()
+    }
+
+    fn init_module(
+        &self,
+        _q_ctx: &QuickJsContext,
+        _module: *mut q::JSModuleDef,
+    ) -> Result<(), EsError> {
+        Ok(())
     }
 }
 
@@ -46,7 +89,12 @@ struct NativeModuleLoaderAdapter {
 }
 
 impl ModuleLoader for NativeModuleLoaderAdapter {
-    fn normalize_path(&self, q_ctx: &QuickJsContext, ref_path: &str, path: &str) -> Option<String> {
+    fn normalize_path(
+        &self,
+        q_ctx: &QuickJsContext,
+        _ref_path: &str,
+        path: &str,
+    ) -> Option<String> {
         if self.inner.has_module(q_ctx, path) {
             Some(path.to_string())
         } else {
@@ -54,9 +102,73 @@ impl ModuleLoader for NativeModuleLoaderAdapter {
         }
     }
 
-    fn load_module(&self, q_ctx: &QuickJsContext, absolute_path: &str) -> *mut q::JSModuleDef {
-        unimplemented!()
+    fn load_module(
+        &self,
+        q_ctx: &QuickJsContext,
+        absolute_path: &str,
+    ) -> Result<*mut q::JSModuleDef, EsError> {
+        // create module
+        let module = unsafe { new_module(q_ctx.context, absolute_path, Some(native_module_init))? };
+
+        for name in self.inner.get_module_export_names(q_ctx, absolute_path) {
+            unsafe { add_module_export(q_ctx.context, module, name)? }
+        }
+
+        //std::ptr::null_mut()
+        Ok(module)
     }
+
+    fn has_module(&self, q_ctx: &QuickJsContext, absolute_path: &str) -> bool {
+        self.inner.has_module(q_ctx, absolute_path)
+    }
+
+    fn init_module(
+        &self,
+        q_ctx: &QuickJsContext,
+        module: *mut q::JSModuleDef,
+    ) -> Result<(), EsError> {
+        let module_name = unsafe { get_module_name(q_ctx.context, module) }?;
+
+        for (name, val) in self.inner.get_module_exports(q_ctx, module_name.as_str()) {
+            unsafe { set_module_export(q_ctx.context, module, name, val)? };
+        }
+        Ok(())
+    }
+}
+
+unsafe extern "C" fn native_module_init(
+    ctx: *mut q::JSContext,
+    module: *mut q::JSModuleDef,
+) -> c_int {
+    let module_name = get_module_name(ctx, module)
+        .ok()
+        .expect("could not get name");
+    log::trace!("native_module_init: {}", module_name);
+
+    QuickJsRuntime::do_with(|q_js_rt| {
+        QuickJsContext::with_context(ctx, |q_ctx| {
+            for module_loader in &q_js_rt.module_loaders {
+                if module_loader.has_module(q_ctx, module_name.as_str()) {
+                    return match module_loader.init_module(q_ctx, module) {
+                        Ok(_) => {
+                            0 // ok
+                        }
+                        Err(e) => {
+                            q_ctx.report_ex(
+                                format!(
+                                    "Failed to init native module: {} caused by {}",
+                                    module_name, e
+                                )
+                                .as_str(),
+                            );
+                            1
+                        }
+                    };
+                }
+            }
+            0 // ok
+        })
+    })
 }
 
 pub type ModuleScriptLoader =
@@ -94,6 +206,7 @@ pub struct QuickJsRuntime {
     context_init_hooks: RefCell<ContextInitHooks>,
     pub(crate) module_script_loader: Option<Box<ModuleScriptLoader>>,
     pub(crate) native_module_loader: Option<Box<dyn NativeModuleLoader>>,
+    pub(crate) module_loaders: Vec<Box<dyn ModuleLoader>>,
 }
 
 impl QuickJsRuntime {
@@ -201,6 +314,7 @@ impl QuickJsRuntime {
             context_init_hooks: RefCell::new(vec![]),
             module_script_loader: None,
             native_module_loader: None,
+            module_loaders: vec![],
         };
 
         modules::set_module_loader(&q_rt);
