@@ -93,6 +93,8 @@ jobs:
     - name: Deploy to gh-pages 
       run: |
         curl -X POST https://api.github.com/repos/${{ github.repository }}/pages/builds -H "Accept: application/vnd.github.mister-fantastic-preview+json" -u ${{ github.actor }}:${{ secrets.GH_TOKEN }}
+    - name: Run tests
+      run: cargo test --verbose
     - name: Clippy check
       uses: actions-rs/clippy-check@v1
       with:

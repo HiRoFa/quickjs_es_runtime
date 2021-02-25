@@ -925,3 +925,36 @@ unsafe extern "C" fn callback_function(
         }
     })
 }
+
+#[cfg(test)]
+pub mod tests2 {
+    use crate::esruntimebuilder::EsRuntimeBuilder;
+    use crate::quickjs_utils::functions::{new_function_q, CALLBACK_IDS, CALLBACK_REGISTRY};
+    use crate::quickjs_utils::new_null_ref;
+
+    #[test]
+    fn test_function() {
+        let rt = EsRuntimeBuilder::new().build();
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            let q_ctx = q_js_rt.get_main_context();
+            let func = new_function_q(
+                q_ctx,
+                "test_func",
+                |_q_ctx, _this_arg, _args| Ok(new_null_ref()),
+                0,
+            )
+            .ok()
+            .unwrap();
+            let ct1 = CALLBACK_REGISTRY.with(|rc| rc.borrow().len());
+            let ct2 = CALLBACK_IDS.with(|rc| rc.borrow().len());
+            assert_eq!(1, ct1);
+            assert_eq!(1, ct2);
+            drop(func);
+
+            let ct1 = CALLBACK_REGISTRY.with(|rc| rc.borrow().len());
+            let ct2 = CALLBACK_IDS.with(|rc| rc.borrow().len());
+            assert_eq!(0, ct1);
+            assert_eq!(0, ct2);
+        });
+    }
+}

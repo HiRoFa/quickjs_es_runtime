@@ -577,7 +577,7 @@ pub mod tests {
 
     impl NativeModuleLoader for TestNativeModuleLoader {
         fn has_module(&self, _q_ctx: &QuickJsContext, module_name: &str) -> bool {
-            !module_name.eq("notfound.mes")
+            module_name.starts_with("greco://")
         }
 
         fn get_module_export_names(

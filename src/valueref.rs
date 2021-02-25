@@ -70,6 +70,7 @@ impl<'a> std::fmt::Debug for JSValueRef {
             TAG_FLOAT64 => write!(f, "Float(?)"),
             TAG_STRING => write!(f, "String(?)"),
             TAG_OBJECT => write!(f, "Object(?)"),
+            TAG_MODULE => write!(f, "Module(?)"),
             _ => write!(f, "?"),
         }
     }
@@ -174,6 +175,11 @@ impl JSValueRef {
         self.borrow_value().tag == TAG_INT
     }
 
+    /// return true if the wrapped value represents a Module
+    pub fn is_module(&self) -> bool {
+        self.borrow_value().tag == TAG_MODULE
+    }
+
     /// return true if the wrapped value represents a compiled function
     pub fn is_compiled_function(&self) -> bool {
         self.borrow_value().tag == TAG_FUNCTION_BYTECODE
@@ -189,7 +195,7 @@ impl JSValueRef {
         self.borrow_value().tag == TAG_BIG_INT
     }
 
-    /// return true if the wrapped value represents a JS Esception value
+    /// return true if the wrapped value represents a JS Exception value
     pub fn is_exception(&self) -> bool {
         unsafe { q::JS_IsException(self.value) }
     }
@@ -207,6 +213,7 @@ impl JSValueRef {
 
 pub(crate) const TAG_BIG_INT: i64 = -10;
 pub(crate) const TAG_STRING: i64 = -7;
+pub(crate) const TAG_MODULE: i64 = -3;
 pub(crate) const TAG_FUNCTION_BYTECODE: i64 = -2;
 pub(crate) const TAG_OBJECT: i64 = -1;
 pub(crate) const TAG_INT: i64 = 0;

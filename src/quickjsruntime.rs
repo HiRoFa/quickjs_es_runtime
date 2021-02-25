@@ -13,11 +13,50 @@ use std::ffi::CString;
 use std::panic;
 use std::sync::{Arc, Weak};
 
-// next up, rewrite this to a trait, then load in module loader so we need not worry about gc stuff anymore
-// then see if we can refactor both modul eloader traits into one (with native as subtype imp)
+// this is the internal abstract loader which is used to actually load the modules
 
 pub trait ModuleLoader {
-    fn normalize_path(&self, ref_path: &str, path: &str) -> &str;
+    fn normalize_path(&self, q_ctx: &QuickJsContext, ref_path: &str, path: &str) -> Option<String>;
+    fn load_module(&self, q_ctx: &QuickJsContext, absolute_path: &str) -> *mut q::JSModuleDef;
+}
+
+// these are the external (util) loaders (todo move these to esruntime)
+
+pub trait ScriptModuleLoader {
+    fn normalize_path(&self, ref_path: &str, path: &str) -> Option<String>;
+    fn load_module(&self, absolute_path: &str) -> String;
+}
+
+struct ScriptModuleLoaderAdapter {
+    inner: Box<dyn ScriptModuleLoader>,
+}
+
+impl ModuleLoader for ScriptModuleLoaderAdapter {
+    fn normalize_path(&self, q_ctx: &QuickJsContext, ref_path: &str, path: &str) -> Option<String> {
+        unimplemented!()
+    }
+
+    fn load_module(&self, q_ctx: &QuickJsContext, absolute_path: &str) -> *mut q::JSModuleDef {
+        unimplemented!()
+    }
+}
+
+struct NativeModuleLoaderAdapter {
+    inner: Box<dyn NativeModuleLoader>,
+}
+
+impl ModuleLoader for NativeModuleLoaderAdapter {
+    fn normalize_path(&self, q_ctx: &QuickJsContext, ref_path: &str, path: &str) -> Option<String> {
+        if self.inner.has_module(q_ctx, path) {
+            Some(path.to_string())
+        } else {
+            None
+        }
+    }
+
+    fn load_module(&self, q_ctx: &QuickJsContext, absolute_path: &str) -> *mut q::JSModuleDef {
+        unimplemented!()
+    }
 }
 
 pub type ModuleScriptLoader =

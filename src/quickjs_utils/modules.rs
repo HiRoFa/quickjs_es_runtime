@@ -15,9 +15,52 @@ use std::ffi::{CStr, CString};
 use std::os::raw::c_int;
 use std::ptr;
 
-thread_local! {
-    // todo refactor to per ctx (map should be instance of quickjscontext instead of thread_local)
-    static LOADED_MODULE_REGISTRY: RefCell<HashSet<String>> = RefCell::new(HashSet::new());
+// compile a module, used for module loading
+pub unsafe fn compile_module(
+    context: *mut q::JSContext,
+    script: EsScript,
+) -> Result<JSValueRef, EsError> {
+    let code = script.get_code();
+    let code_c = CString::new(code).ok().unwrap();
+    let filename_c = CString::new(script.get_path()).ok().unwrap();
+
+    let value_raw = q::JS_Eval(
+        context,
+        code_c.as_ptr(),
+        code.len() as _,
+        filename_c.as_ptr(),
+        (q::JS_EVAL_TYPE_MODULE | q::JS_EVAL_FLAG_COMPILE_ONLY) as i32,
+    );
+
+    // check for error
+    let ret = JSValueRef::new(
+        context,
+        value_raw,
+        false,
+        true,
+        format!("compile_module result of {}", script.get_path()).as_str(),
+    );
+
+    log::trace!("compile module yielded a {}", ret.borrow_value().tag);
+
+    if ret.is_exception() {
+        let ex_opt = QuickJsContext::get_exception(context);
+        if let Some(ex) = ex_opt {
+            Err(ex)
+        } else {
+            Err(EsError::new_str(
+                "compile_module failed and could not get exception",
+            ))
+        }
+    } else {
+        Ok(ret)
+    }
+}
+
+// get the ModuleDef obj from a JSValue, this is used for module loading
+pub fn get_module_def(value: &JSValueRef) -> *mut q::JSModuleDef {
+    assert!(value.is_module());
+    unsafe { value.borrow_value().u.ptr as *mut q::JSModuleDef }
 }
 
 #[allow(dead_code)]
@@ -140,38 +183,6 @@ unsafe extern "C" fn js_module_normalize(
 
     if let Some(script) = script_opt {
         absolute_path = script.get_path().to_string();
-        // todo, refactor this to per ctx, or drop entirely?
-        let needs_init = LOADED_MODULE_REGISTRY.with(|registry_rc| {
-            let registry = &*registry_rc.borrow();
-            !registry.contains(&absolute_path)
-        });
-        if needs_init {
-            trace!("module {} not loaded, initializing", name_str);
-
-            // init module here
-            let eval_res = QuickJsContext::eval_module_ctx(ctx, script);
-            match eval_res {
-                Ok(_) => {
-                    // add to registry
-                    trace!("module {} was loaded, adding to registry", name_str);
-                    LOADED_MODULE_REGISTRY.with(|registry_rc| {
-                        let registry = &mut *registry_rc.borrow_mut();
-                        registry.insert(absolute_path.to_string())
-                    });
-                }
-                Err(e) => {
-                    log::error!("module {} failed: {}", name_str, e);
-                    // report_ex_ctx
-                    QuickJsContext::report_ex_ctx(
-                        ctx,
-                        format!("Module eval failed for {}\ncaused by {}", name_str, e).as_str(),
-                    );
-                    return ptr::null_mut();
-                }
-            }
-        } else {
-            trace!("module {} was already loaded, doing nothing", name_str);
-        }
     } else {
         trace!("no module found for {} at {}", name_str, base_str);
 
@@ -201,15 +212,15 @@ unsafe extern "C" fn native_module_init(
     log::trace!("native_module_init: {}", module_name);
 
     QuickJsRuntime::do_with(|q_js_rt| {
-        if let Some(module_loader) = &q_js_rt.native_module_loader {
-            QuickJsContext::with_context(ctx, |q_ctx| {
+        QuickJsContext::with_context(ctx, |q_ctx| {
+            if let Some(module_loader) = &q_js_rt.native_module_loader {
                 for (name, val) in module_loader.get_module_exports(q_ctx, module_name.as_str()) {
                     set_module_export(ctx, module, name, val)
                         .ok()
                         .expect("could not set export");
                 }
-            })
-        }
+            }
+        })
     });
 
     0 // ok
@@ -227,9 +238,11 @@ unsafe extern "C" fn js_module_loader(
 
     log::trace!("js_module_loader called: {}", module_name);
 
+    // todo see if we can load module here (eval with compile_only)
+
     QuickJsRuntime::do_with(|q_js_rt| {
-        if let Some(module_loader) = &q_js_rt.native_module_loader {
-            QuickJsContext::with_context(ctx, |q_ctx| {
+        QuickJsContext::with_context(ctx, |q_ctx| {
+            if let Some(module_loader) = &q_js_rt.native_module_loader {
                 if module_loader.has_module(q_ctx, module_name) {
                     let module = new_module(ctx, module_name, Some(native_module_init))
                         .ok()
@@ -242,14 +255,32 @@ unsafe extern "C" fn js_module_loader(
                     }
 
                     //std::ptr::null_mut()
-                    module
-                } else {
-                    std::ptr::null_mut()
+                    return module;
                 }
-            })
-        } else {
-            std::ptr::null_mut()
-        }
+            }
+            if let Some(script_module_loader) = &q_js_rt.module_script_loader {
+                let module_script_opt: Option<EsScript> =
+                    script_module_loader(q_ctx, module_name, module_name);
+                if let Some(module_script) = module_script_opt {
+                    let mod_val_res = compile_module(ctx, module_script);
+                    match mod_val_res {
+                        Ok(mod_val) => {
+                            let mod_def = get_module_def(&mod_val);
+                            return mod_def;
+                        }
+                        Err(e) => {
+                            let err = format!(
+                                "Module compile failed for {} because of: {}",
+                                module_name, e
+                            );
+                            log::error!("{}", err);
+                            q_ctx.report_ex(err.as_str());
+                        }
+                    };
+                }
+            }
+            return std::ptr::null_mut();
+        })
     })
 }
 
@@ -341,7 +372,7 @@ pub mod tests {
                 .err()
                 .unwrap()
                 .get_message()
-                .contains("Module eval failed for invalid.mes"));
+                .contains("Module compile failed for invalid.mes"));
         });
 
         rt.add_to_event_queue_sync(|q_js_rt| {
