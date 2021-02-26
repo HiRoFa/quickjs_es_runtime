@@ -7,7 +7,7 @@ use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
 use crate::quickjs_utils::{functions, objects};
 use crate::quickjscontext::QuickJsContext;
-use crate::quickjsruntime::QuickJsRuntime;
+use crate::quickjsruntime::{NativeModuleLoaderAdapter, QuickJsRuntime, ScriptModuleLoaderAdapter};
 use crate::utils::single_threaded_event_queue::SingleThreadedEventQueue;
 use crate::utils::task_manager::TaskManager;
 use libquickjs_sys as q;
@@ -181,11 +181,19 @@ impl EsRuntime {
 
         ret.inner.event_queue.exe_task(|| {
             QuickJsRuntime::do_with_mut(|q_js_rt| {
-                if builder.opt_module_script_loader.is_some() {
-                    q_js_rt.module_script_loader = Some(builder.opt_module_script_loader.unwrap());
+                for native_module_loader in builder.native_module_loaders {
+                    q_js_rt
+                        .module_loaders
+                        .push(Box::new(NativeModuleLoaderAdapter::new(
+                            native_module_loader,
+                        )));
                 }
-                if builder.opt_native_module_loader.is_some() {
-                    q_js_rt.native_module_loader = Some(builder.opt_native_module_loader.unwrap());
+                for script_module_loader in builder.script_module_loaders {
+                    q_js_rt
+                        .module_loaders
+                        .push(Box::new(ScriptModuleLoaderAdapter::new(
+                            script_module_loader,
+                        )));
                 }
 
                 if let Some(limit) = builder.opt_memory_limit_bytes {
@@ -378,15 +386,19 @@ impl EsRuntime {
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
     /// use quickjs_runtime::esscript::EsScript;
     /// use quickjs_runtime::esvalue::EsValueConvertible;
-    /// let rt = EsRuntimeBuilder::new().module_script_loader(|q_ctx, relative_file_path, name| {
-    ///     // here you should analyze the relative_file_path, this is the absolute path of the script which contains the import statement
-    ///     // if this is e.g. '/opt/files/my_module.mes' and the name is 'other_module.mes' then you should return
-    ///     // EsScript object with '/opt/files/other_module.mes' as absolute path
-    ///     let name = format!("/opt/files/{}", name);
-    ///     // this is of course a bad impl, name might for example be '../files/other_module.mes'
-    ///     Some(EsScript::new(name.as_str(), "export const util = function(a, b, c){return a+b+c;};"))
-    /// }).build();
-    /// let script = EsScript::new("/opt/files/my_module.mes", "import {util} from 'other_module.mes';
+    /// use quickjs_runtime::quickjsruntime::ScriptModuleLoader;
+    /// struct TestModuleLoader {}
+    /// impl ScriptModuleLoader for TestModuleLoader {
+    ///     fn normalize_path(&self,ref_path: &str,path: &str) -> Option<String> {
+    ///         Some(path.to_string())
+    ///     }
+    ///
+    ///     fn load_module(&self,absolute_path: &str) -> String {
+    ///         "export const util = function(a, b, c){return a+b+c;};".to_string()
+    ///     }
+    /// }
+    /// let rt = EsRuntimeBuilder::new().script_module_loader(TestModuleLoader{}).build();
+    /// let script = EsScript::new("/opt/files/my_module.mes", "import {util} from 'other_module.mes';\n
     /// console.log(util(1, 2, 3));");
     /// rt.eval_module(script);
     /// ```
@@ -561,7 +573,7 @@ pub mod tests {
     use crate::esvalue::{EsValueConvertible, EsValueFacade};
     use crate::quickjs_utils::{primitives, promises};
     use crate::quickjscontext::QuickJsContext;
-    use crate::quickjsruntime::NativeModuleLoader;
+    use crate::quickjsruntime::{NativeModuleLoader, ScriptModuleLoader};
     use crate::valueref::JSValueRef;
     use futures::executor::block_on;
     use log::debug;
@@ -574,6 +586,7 @@ pub mod tests {
     }
 
     struct TestNativeModuleLoader {}
+    struct TestScriptModuleLoader {}
 
     impl NativeModuleLoader for TestNativeModuleLoader {
         fn has_module(&self, _q_ctx: &QuickJsContext, module_name: &str) -> bool {
@@ -601,6 +614,28 @@ pub mod tests {
         }
     }
 
+    impl ScriptModuleLoader for TestScriptModuleLoader {
+        fn normalize_path(&self, _ref_path: &str, path: &str) -> Option<String> {
+            if path.eq("notfound.mes") || path.starts_with("greco://") {
+                None
+            } else if path.eq("invalid.mes") {
+                Some(path.to_string())
+            } else {
+                Some(path.to_string())
+            }
+        }
+
+        fn load_module(&self, absolute_path: &str) -> String {
+            if absolute_path.eq("notfound.mes") || absolute_path.starts_with("greco://") {
+                panic!("tht realy should not happen");
+            } else if absolute_path.eq("invalid.mes") {
+                "I am the great cornholio! thou'gh shalt&s not p4arse mie!".to_string()
+            } else {
+                "export const foo = 'bar';\nexport const mltpl = function(a, b){return a*b;}; globalThis;".to_string()
+            }
+        }
+    }
+
     #[test]
     fn test_rt_drop() {
         let rt = init();
@@ -621,16 +656,8 @@ pub mod tests {
         EsRuntime::builder()
             .gc_interval(Duration::from_secs(1))
             .max_stack_size(u64::MAX)
-            .module_script_loader(|_q_ctx, _rel, name| {
-                if name.eq("notfound.mes") || name.starts_with("greco://") {
-                    None
-                } else if name.eq("invalid.mes") {
-                    Some(EsScript::new(name, "I am the great cornholio! thou'gh shalt&s not p4arse mie!"))
-                } else {
-                    Some(EsScript::new(name, "export const foo = 'bar';\nexport const mltpl = function(a, b){return a*b;}; globalThis;"))
-                }
-            })
-            .native_module_loader(TestNativeModuleLoader{})
+            .script_module_loader(TestScriptModuleLoader {})
+            .native_module_loader(TestNativeModuleLoader {})
             .build()
     }
 

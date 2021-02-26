@@ -1,9 +1,7 @@
 use crate::esruntime::{EsRuntime, FetchResponseProvider};
-use crate::esscript::EsScript;
 use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
-use crate::quickjscontext::QuickJsContext;
-use crate::quickjsruntime::{ModuleScriptLoader, NativeModuleLoader};
+use crate::quickjsruntime::{NativeModuleLoader, ScriptModuleLoader};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -17,8 +15,8 @@ use std::time::Duration;
 /// .build();
 /// ```
 pub struct EsRuntimeBuilder {
-    pub(crate) opt_module_script_loader: Option<Box<ModuleScriptLoader>>,
-    pub(crate) opt_native_module_loader: Option<Box<dyn NativeModuleLoader + Send>>,
+    pub(crate) script_module_loaders: Vec<Box<dyn ScriptModuleLoader + Send>>,
+    pub(crate) native_module_loaders: Vec<Box<dyn NativeModuleLoader + Send>>,
     pub(crate) opt_fetch_response_provider: Option<Box<FetchResponseProvider>>,
     pub(crate) opt_memory_limit_bytes: Option<u64>,
     pub(crate) opt_gc_threshold: Option<u64>,
@@ -35,8 +33,8 @@ impl EsRuntimeBuilder {
     /// init a new EsRuntimeBuilder
     pub fn new() -> Self {
         Self {
-            opt_module_script_loader: None,
-            opt_native_module_loader: None,
+            script_module_loaders: vec![],
+            native_module_loaders: vec![],
             opt_fetch_response_provider: None,
             opt_memory_limit_bytes: None,
             opt_gc_threshold: None,
@@ -51,25 +49,28 @@ impl EsRuntimeBuilder {
     /// use quickjs_runtime::esscript::EsScript;
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
     /// use quickjs_runtime::quickjscontext::QuickJsContext;
-    /// fn load_module(_q_ctx: &QuickJsContext, base: &str, name: &str) -> Option<EsScript> {
-    ///     // you should load your modules from files here
-    ///     // please note that you need to return the name as absolute_path in the returned script struct
-    ///     // return None if module is not found
-    ///     use quickjs_runtime::quickjscontext::QuickJsContext;
-    /// Some(EsScript::new(name, "export const foo = 12;"))
+    /// use quickjs_runtime::quickjsruntime::ScriptModuleLoader;
+    /// struct MyModuleLoader {}
+    /// impl ScriptModuleLoader for MyModuleLoader {
+    ///     fn normalize_path(&self,ref_path: &str,path: &str) -> Option<String> {
+    ///         Some(path.to_string())
+    ///     }
+    ///
+    ///     fn load_module(&self, absolute_path: &str) -> String {
+    ///         "export const foo = 12;".to_string()
+    ///     }
     /// }
-    /// fn main(){
-    ///     let rt = EsRuntimeBuilder::new()
-    ///         .module_script_loader(load_module)
-    ///         .build();
-    /// }
+    ///
+    /// let rt = EsRuntimeBuilder::new()
+    ///     .script_module_loader(MyModuleLoader{})
+    ///     .build();
+    /// rt.eval_module_sync(EsScript::new("test_module.es", "import {foo} from 'some_module.mes';\nconsole.log('foo = %s', foo);")).ok().unwrap();
     /// ```
-    pub fn module_script_loader<M>(mut self, loader: M) -> Self
-    where
-        M: Fn(&QuickJsContext, &str, &str) -> Option<EsScript> + Send + Sync + 'static,
-    {
-        assert!(self.opt_module_script_loader.is_none());
-        self.opt_module_script_loader = Some(Box::new(loader));
+    pub fn script_module_loader<M: ScriptModuleLoader + Send + 'static>(
+        mut self,
+        loader: M,
+    ) -> Self {
+        self.script_module_loaders.push(Box::new(loader));
         self
     }
 
@@ -126,8 +127,7 @@ impl EsRuntimeBuilder {
         mut self,
         loader: M,
     ) -> Self {
-        assert!(self.opt_native_module_loader.is_none());
-        self.opt_native_module_loader = Some(Box::new(loader));
+        self.native_module_loaders.push(Box::new(loader));
         self
     }
 
@@ -215,5 +215,37 @@ impl EsRuntimeBuilder {
 impl Default for EsRuntimeBuilder {
     fn default() -> Self {
         EsRuntimeBuilder::new()
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::esruntimebuilder::EsRuntimeBuilder;
+    use crate::esscript::EsScript;
+    use crate::quickjsruntime::ScriptModuleLoader;
+
+    #[test]
+    fn test_module_loader() {
+        struct MyModuleLoader {}
+        impl ScriptModuleLoader for MyModuleLoader {
+            fn normalize_path(&self, _ref_path: &str, path: &str) -> Option<String> {
+                Some(path.to_string())
+            }
+
+            fn load_module(&self, _absolute_path: &str) -> String {
+                "export const foo = 12;".to_string()
+            }
+        }
+
+        let rt = EsRuntimeBuilder::new()
+            .script_module_loader(MyModuleLoader {})
+            .build();
+        match rt.eval_module_sync(EsScript::new(
+            "test_module.es",
+            "import {foo} from 'some_module.mes';\nconsole.log('foo = %s', foo);",
+        )) {
+            Ok(_) => {}
+            Err(e) => panic!("script failed {}", e),
+        }
     }
 }

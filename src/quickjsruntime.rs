@@ -18,29 +18,30 @@ use std::os::raw::c_int;
 use std::panic;
 use std::sync::{Arc, Weak};
 
-// this is the internal abstract loader which is used to actually load the modules
-
+/// this is the internal abstract loader which is used to actually load the modules
 pub trait ModuleLoader {
-    // the normalize methods is used to translate a possible relative path to an absolute path of a module
-    // it doubles as a method to see IF a module can actually be loaded by a module loader (return None if the module can not be found)
+    /// the normalize methods is used to translate a possible relative path to an absolute path of a module
+    /// it doubles as a method to see IF a module can actually be loaded by a module loader (return None if the module can not be found)
     fn normalize_path(&self, q_ctx: &QuickJsContext, ref_path: &str, path: &str) -> Option<String>;
-    // load the Module
+    /// load the Module
     fn load_module(
         &self,
         q_ctx: &QuickJsContext,
         absolute_path: &str,
     ) -> Result<*mut q::JSModuleDef, EsError>;
-    // has module is used to check if a loader can provide a certain module, this is currently used to check which loader should init a native module
+    /// has module is used to check if a loader can provide a certain module, this is currently used to check which loader should init a native module
     fn has_module(&self, q_ctx: &QuickJsContext, absolute_path: &str) -> bool;
-    // init a module, currently used to init native modules
-    fn init_module(
+    /// init a module, currently used to init native modules
+    /// # Safety
+    /// be safe with the moduledef ptr
+    unsafe fn init_module(
         &self,
         q_ctx: &QuickJsContext,
         module: *mut q::JSModuleDef,
     ) -> Result<(), EsError>;
 }
 
-// these are the external (util) loaders (todo move these to esruntime)
+// these are the external (util) loaders (todo move these to esruntime?)
 
 pub trait ScriptModuleLoader {
     fn normalize_path(&self, ref_path: &str, path: &str) -> Option<String>;
@@ -52,10 +53,8 @@ pub struct ScriptModuleLoaderAdapter {
 }
 
 impl ScriptModuleLoaderAdapter {
-    pub fn new<M: ScriptModuleLoader + 'static>(loader: M) -> Self {
-        Self {
-            inner: Box::new(loader),
-        }
+    pub fn new(loader: Box<dyn ScriptModuleLoader>) -> Self {
+        Self { inner: loader }
     }
 }
 
@@ -85,7 +84,7 @@ impl ModuleLoader for ScriptModuleLoaderAdapter {
             .is_some()
     }
 
-    fn init_module(
+    unsafe fn init_module(
         &self,
         _q_ctx: &QuickJsContext,
         _module: *mut q::JSModuleDef,
@@ -99,10 +98,8 @@ pub struct NativeModuleLoaderAdapter {
 }
 
 impl NativeModuleLoaderAdapter {
-    pub fn new<M: NativeModuleLoader + 'static>(loader: M) -> Self {
-        Self {
-            inner: Box::new(loader),
-        }
+    pub fn new(loader: Box<dyn NativeModuleLoader>) -> Self {
+        Self { inner: loader }
     }
 }
 
@@ -140,15 +137,15 @@ impl ModuleLoader for NativeModuleLoaderAdapter {
         self.inner.has_module(q_ctx, absolute_path)
     }
 
-    fn init_module(
+    unsafe fn init_module(
         &self,
         q_ctx: &QuickJsContext,
         module: *mut q::JSModuleDef,
     ) -> Result<(), EsError> {
-        let module_name = unsafe { get_module_name(q_ctx.context, module) }?;
+        let module_name = get_module_name(q_ctx.context, module)?;
 
         for (name, val) in self.inner.get_module_exports(q_ctx, module_name.as_str()) {
-            unsafe { set_module_export(q_ctx.context, module, name, val)? };
+            set_module_export(q_ctx.context, module, name, val)?;
         }
         Ok(())
     }
@@ -189,9 +186,6 @@ unsafe extern "C" fn native_module_init(
     })
 }
 
-pub type ModuleScriptLoader =
-    dyn Fn(&QuickJsContext, &str, &str) -> Option<EsScript> + Send + Sync + 'static;
-
 pub trait NativeModuleLoader {
     fn has_module(&self, q_ctx: &QuickJsContext, module_name: &str) -> bool;
     fn get_module_export_names(&self, q_ctx: &QuickJsContext, module_name: &str) -> Vec<&str>;
@@ -222,8 +216,6 @@ pub struct QuickJsRuntime {
     es_rt_ref: Option<Weak<EsRuntime>>,
     id: String,
     context_init_hooks: RefCell<ContextInitHooks>,
-    pub(crate) module_script_loader: Option<Box<ModuleScriptLoader>>,
-    pub(crate) native_module_loader: Option<Box<dyn NativeModuleLoader>>,
     pub(crate) module_loaders: Vec<Box<dyn ModuleLoader>>,
 }
 
@@ -330,8 +322,6 @@ impl QuickJsRuntime {
             es_rt_ref: None,
             id,
             context_init_hooks: RefCell::new(vec![]),
-            module_script_loader: None,
-            native_module_loader: None,
             module_loaders: vec![],
         };
 

@@ -7,12 +7,13 @@ use crate::quickjs_utils::atoms::JSAtomRef;
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::JSValueRef;
+use core::ptr;
 use libquickjs_sys as q;
-use log::trace;
 use std::ffi::{CStr, CString};
-use std::os::raw::c_int;
 
-// compile a module, used for module loading
+/// compile a module, used for module loading
+/// # Safety
+/// please ensure the corresponding QuickJSContext is still valid
 pub unsafe fn compile_module(
     context: *mut q::JSContext,
     script: EsScript,
@@ -166,79 +167,18 @@ unsafe extern "C" fn js_module_normalize(
         name_str
     );
 
-    let ret_opt = QuickJsRuntime::do_with(|q_js_rt| {
+    QuickJsRuntime::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(ctx);
         for loader in &q_js_rt.module_loaders {
             if let Some(normalized_path) = loader.normalize_path(q_ctx, base_str, name_str) {
-                let c_absolute_path = CString::new(normalized_path.as_str()).ok().expect("fail");
+                let c_absolute_path = CString::new(normalized_path.as_str()).expect("fail");
 
-                return Some(c_absolute_path.into_raw());
+                return c_absolute_path.into_raw();
             }
         }
-
-        None
-    });
-    if let Some(ret) = ret_opt {
-        return ret;
-    }
-
-    // legacy below, remove later
-
-    let script_opt: Option<EsScript> = QuickJsRuntime::do_with(|q_js_rt| {
-        let q_ctx = q_js_rt.get_quickjs_context(ctx);
-
-        if let Some(loader) = &q_js_rt.module_script_loader {
-            loader(q_ctx, base_str, name_str)
-        } else {
-            None
-        }
-    });
-
-    let mut absolute_path = name_str.to_string();
-
-    if let Some(script) = script_opt {
-        absolute_path = script.get_path().to_string();
-    } else {
-        trace!("no module found for {} at {}", name_str, base_str);
-
-        QuickJsContext::report_ex_ctx(ctx, format!("Module {} was not found", name_str).as_str());
-    }
-
-    let c_absolute_path_res = CString::new(absolute_path.as_str());
-    match c_absolute_path_res {
-        Ok(c_absolute_path) => c_absolute_path.into_raw(),
-        Err(_e) => {
-            log::error!(
-                "could not normalize due to NullError about: {}",
-                absolute_path.as_str()
-            );
-            panic!("could not normalize due to NullError");
-        }
-    }
-}
-
-unsafe extern "C" fn native_module_init(
-    ctx: *mut q::JSContext,
-    module: *mut q::JSModuleDef,
-) -> c_int {
-    let module_name = get_module_name(ctx, module)
-        .ok()
-        .expect("could not get name");
-    log::trace!("native_module_init: {}", module_name);
-
-    QuickJsRuntime::do_with(|q_js_rt| {
-        QuickJsContext::with_context(ctx, |q_ctx| {
-            if let Some(module_loader) = &q_js_rt.native_module_loader {
-                for (name, val) in module_loader.get_module_exports(q_ctx, module_name.as_str()) {
-                    set_module_export(ctx, module, name, val)
-                        .ok()
-                        .expect("could not set export");
-                }
-            }
-        })
-    });
-
-    0 // ok
+        q_ctx.report_ex(format!("Module {} was not found", name_str).as_str());
+        ptr::null_mut()
+    })
 }
 
 unsafe extern "C" fn js_module_loader(
@@ -253,48 +193,26 @@ unsafe extern "C" fn js_module_loader(
 
     log::trace!("js_module_loader called: {}", module_name);
 
-    // todo see if we can load module here (eval with compile_only)
-
     QuickJsRuntime::do_with(|q_js_rt| {
         QuickJsContext::with_context(ctx, |q_ctx| {
-            if let Some(module_loader) = &q_js_rt.native_module_loader {
+            for module_loader in &q_js_rt.module_loaders {
                 if module_loader.has_module(q_ctx, module_name) {
-                    let module = new_module(ctx, module_name, Some(native_module_init))
-                        .ok()
-                        .expect("could not create new module");
-
-                    for name in module_loader.get_module_export_names(q_ctx, module_name) {
-                        add_module_export(ctx, module, name)
-                            .ok()
-                            .expect("could not add export");
-                    }
-
-                    //std::ptr::null_mut()
-                    return module;
-                }
-            }
-            if let Some(script_module_loader) = &q_js_rt.module_script_loader {
-                let module_script_opt: Option<EsScript> =
-                    script_module_loader(q_ctx, module_name, module_name);
-                if let Some(module_script) = module_script_opt {
-                    let mod_val_res = compile_module(ctx, module_script);
+                    let mod_val_res = module_loader.load_module(q_ctx, module_name);
                     match mod_val_res {
                         Ok(mod_val) => {
-                            let mod_def = get_module_def(&mod_val);
-                            return mod_def;
+                            return mod_val;
                         }
                         Err(e) => {
-                            let err = format!(
-                                "Module compile failed for {} because of: {}",
-                                module_name, e
-                            );
+                            let err =
+                                format!("Module load failed for {} because of: {}", module_name, e);
                             log::error!("{}", err);
                             q_ctx.report_ex(err.as_str());
+                            return std::ptr::null_mut();
                         }
                     };
                 }
             }
-            return std::ptr::null_mut();
+            std::ptr::null_mut()
         })
     })
 }
@@ -387,7 +305,7 @@ pub mod tests {
                 .err()
                 .unwrap()
                 .get_message()
-                .contains("Module compile failed for invalid.mes"));
+                .contains("Module load failed for invalid.mes"));
         });
 
         rt.add_to_event_queue_sync(|q_js_rt| {
