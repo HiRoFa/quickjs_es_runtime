@@ -236,6 +236,18 @@ pub mod tests {
             Ok(_module_res) => {}
             Err(e) => panic!("test_native_modules failed: {}", e),
         }
+
+        let res_prom = rt.eval_sync(EsScript::new("test_mod_nat_async.es", "(import('greco://someMod').then((module) => {return {a: module.a, b: module.b, c: module.c};}));")).ok().unwrap();
+        let res = res_prom
+            .get_promise_result_sync(Duration::from_secs(1))
+            .ok()
+            .expect("timeout");
+        let obj = res.ok().expect("prom failed");
+        assert!(obj.is_object());
+        let a = obj.get_object().get("a").expect("obj did not have a");
+        assert_eq!(a.get_i32(), 1234);
+        let b = obj.get_object().get("b").expect("obj did not have b");
+        assert_eq!(b.get_i32(), 64834);
     }
 
     #[test]
