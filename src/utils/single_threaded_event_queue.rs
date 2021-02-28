@@ -112,11 +112,10 @@ impl SingleThreadedEventQueue {
             .lock()
             .unwrap()
             .send(true)
-            .ok()
             .expect("could not send shutdown");
         let jh_opt = &mut *self.join_handle.lock().unwrap();
         let jh = jh_opt.take().expect("no join handle set");
-        jh.join().ok().expect("join failed");
+        jh.join().expect("join failed");
     }
 
     /// add a task which will run asynchronously
