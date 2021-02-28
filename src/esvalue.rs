@@ -1279,6 +1279,7 @@ impl Debug for EsValueFacade {
 pub mod tests {
     use crate::esruntime::tests::TEST_ESRT;
     use crate::esruntime::EsRuntime;
+    use crate::esruntimebuilder::EsRuntimeBuilder;
     use crate::esscript::EsScript;
     use crate::esvalue::EsValueFacade;
     use futures::executor::block_on;
@@ -1336,5 +1337,26 @@ pub mod tests {
             }
             Err(e) => panic!("{}", e),
         }
+    }
+
+    #[test]
+    fn test_promise_async() {
+        //simple_logging::log_to_stderr(LevelFilter::max());
+        pub async fn test_async(esvf: EsValueFacade) -> i32 {
+            let prom_res = esvf.get_promise_result().await;
+            let res_esvf = prom_res.ok().unwrap();
+            return res_esvf.get_i32();
+        }
+
+        let rt = EsRuntimeBuilder::new().build();
+        let esvf = rt
+            .eval_sync(EsScript::new(
+                "test_async_prom,es",
+                "(new Promise((resolve, reject) => {setTimeout(() => {resolve(1360)}, 1000);}));",
+            ))
+            .ok()
+            .expect("script failed");
+        let i = block_on(test_async(esvf));
+        assert_eq!(i, 1360);
     }
 }

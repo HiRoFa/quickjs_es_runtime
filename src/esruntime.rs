@@ -28,6 +28,13 @@ pub struct EsRuntimeInner {
     pub(crate) fetch_response_provider: Option<Box<FetchResponseProvider>>,
 }
 
+impl Drop for EsRuntimeInner {
+    fn drop(&mut self) {
+        // shutdown the queue and wait for thread to end
+        self.event_queue.shutdown();
+    }
+}
+
 /// EsRuntime is the main public struct representing a JavaScript runtime.
 /// You can construct a new EsRuntime by using the [EsRuntimeBuilder] struct
 /// # Example

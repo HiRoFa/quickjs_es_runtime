@@ -876,7 +876,7 @@ unsafe extern "C" fn callback_finalizer(_rt: *mut q::JSRuntime, val: q::JSValue)
         let _ = registry.remove(&rid);
     });
 
-    QuickJsRuntime::do_with(|q_js_rt| {
+    let _ = QuickJsRuntime::try_with(|q_js_rt| {
         q_js_rt.run_pending_jobs_if_any();
     });
 }

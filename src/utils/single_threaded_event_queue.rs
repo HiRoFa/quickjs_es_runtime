@@ -10,6 +10,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Condvar, Mutex};
 use std::task::{Context, Poll};
 use std::thread;
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
@@ -39,6 +40,8 @@ pub struct SingleThreadedEventQueue {
     jobs: DebugMutex<Vec<Box<dyn FnOnce() + Send + 'static>>>,
     empty_cond: Condvar,
     worker_thread_name: String,
+    shutdown_switch: Mutex<Sender<bool>>,
+    join_handle: Mutex<Option<JoinHandle<()>>>,
 }
 
 struct TaskFuture<R> {
@@ -74,29 +77,46 @@ impl<R> Future for TaskFuture<R> {
 impl SingleThreadedEventQueue {
     pub fn new() -> Arc<Self> {
         let uuid = format!("eseq_wt_{}", Uuid::new_v4());
+
+        let (shutdown_switch, shutdown_receiver) = channel();
+
         let task_manager = SingleThreadedEventQueue {
             jobs: DebugMutex::new(vec![], "EsEventQueue::jobs"),
             empty_cond: Condvar::new(),
             worker_thread_name: uuid.clone(),
+            shutdown_switch: Mutex::new(shutdown_switch),
+            join_handle: Mutex::new(None),
         };
-        let rc = Arc::new(task_manager);
+        let ret = Arc::new(task_manager);
+        let arc = ret.clone();
 
-        let wrc = Arc::downgrade(&rc);
-
-        thread::Builder::new()
+        let join_handle = thread::Builder::new()
             .name(uuid)
             .spawn(move || loop {
-                let rcc = wrc.upgrade();
-                if let Some(rc) = rcc {
-                    rc.worker_loop();
-                } else {
-                    trace!("Arc to EsEventQueue was dropped, stopping worker thread");
+                arc.worker_loop();
+                if shutdown_receiver.try_recv().is_ok() {
+                    trace!("Shutdown was called, stopping worker thread");
                     break;
                 }
             })
             .unwrap();
 
-        rc
+        ret.join_handle.lock().unwrap().replace(join_handle);
+
+        ret
+    }
+
+    pub fn shutdown(&self) {
+        // todo use a channel
+        self.shutdown_switch
+            .lock()
+            .unwrap()
+            .send(true)
+            .ok()
+            .expect("could not send shutdown");
+        let jh_opt = &mut *self.join_handle.lock().unwrap();
+        let jh = jh_opt.take().expect("no join handle set");
+        jh.join().ok().expect("join failed");
     }
 
     /// add a task which will run asynchronously

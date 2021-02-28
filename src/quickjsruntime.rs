@@ -17,6 +17,7 @@ use std::ffi::CString;
 use std::os::raw::c_int;
 use std::panic;
 use std::sync::{Arc, Weak};
+use std::thread::AccessError;
 
 /// this is the internal abstract loader which is used to actually load the modules
 pub trait ModuleLoader {
@@ -349,6 +350,20 @@ impl QuickJsRuntime {
         C: FnOnce(&QuickJsRuntime) -> R,
     {
         QJS_RT.with(|qjs_rc| {
+            let qjs_rt = &*qjs_rc.borrow();
+            task(
+                qjs_rt
+                    .as_ref()
+                    .expect("runtime was not yet initialized for this thread"),
+            )
+        })
+    }
+
+    pub fn try_with<C, R>(task: C) -> Result<R, AccessError>
+    where
+        C: FnOnce(&QuickJsRuntime) -> R,
+    {
+        QJS_RT.try_with(|qjs_rc| {
             let qjs_rt = &*qjs_rc.borrow();
             task(
                 qjs_rt
