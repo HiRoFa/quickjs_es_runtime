@@ -14,6 +14,8 @@ use libquickjs_sys as q;
 
 pub fn _dispatch_event(_proxy: &Proxy, _instance_id: usize, _event: JSValueRef) {
     // hmm... i'm afraid this means we need to store eventListeners in a map we can acces by id instead of the current put a map in proxy solution
+    // the problem is we need to drop the listeners when the proxy instance drops.. but if a listener has a ref to the instance.. well that will create a ref island.. which would be bad
+    // hmmz
     unimplemented!()
 }
 

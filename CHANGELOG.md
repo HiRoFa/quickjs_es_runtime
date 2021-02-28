@@ -1,4 +1,7 @@
-# 0.1.2 (work in progress)
+# 0.2.0 (work in progress)
+
+* rebuilt the module loading system
+* 
 
 # 0.1.1
 

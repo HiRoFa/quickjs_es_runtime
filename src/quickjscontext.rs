@@ -233,6 +233,13 @@ impl Drop for QuickJsContext {
     fn drop(&mut self) {
         log::trace!("before JS_FreeContext");
 
+        let id = &self.id;
+        {
+            ID_REGISTRY.with(|rc| {
+                let registry = &mut *rc.borrow_mut();
+                registry.remove(id);
+            });
+        }
         {
             let cache_map = &mut *self.object_cache.borrow_mut();
             cache_map.remove_values(|_v| true);
