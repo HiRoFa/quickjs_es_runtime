@@ -419,5 +419,8 @@ pub mod tests {
         assert!(b.is_i32());
         let i = b.get_i32();
         assert_eq!(i, 5 * 7);
+        rt.exe_task(|| {
+            QuickJsRuntime::drop_context("test");
+        })
     }
 }
