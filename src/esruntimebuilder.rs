@@ -175,7 +175,7 @@ impl EsRuntimeBuilder {
     /// .build();
     ///
     /// let res_prom = rt.eval_sync(EsScript::new("test_fetch.es", "(fetch('something')).then((fetchRes) => {return fetchRes.text();});")).ok().expect("script failed");
-    /// let res = res_prom.get_promise_result_sync(Duration::from_secs(1)).ok().expect("promise timed out");
+    /// let res = res_prom.get_promise_result_sync();
     /// let str_esvf = res.ok().expect("promise did not resolve ok");
     /// assert_eq!(str_esvf.get_str(), "Hello world");
     /// ```

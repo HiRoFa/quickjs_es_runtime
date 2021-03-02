@@ -772,10 +772,7 @@ pub mod tests {
         match res {
             Ok(esvf) => {
                 assert!(esvf.is_promise());
-                let p_res = esvf
-                    .get_promise_result_sync(Duration::from_secs(1))
-                    .ok()
-                    .expect("prom timed out");
+                let p_res = esvf.get_promise_result_sync();
                 if p_res.is_err() {
                     panic!("{:?}", p_res.err().unwrap());
                 }

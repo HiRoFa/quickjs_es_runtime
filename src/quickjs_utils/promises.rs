@@ -411,12 +411,7 @@ pub mod tests {
             })
         });
         while esvf_res.is_promise() {
-            esvf_res = esvf_res
-                .get_promise_result_sync(Duration::from_secs(1))
-                .ok()
-                .expect("timed out")
-                .ok()
-                .expect("failure");
+            esvf_res = esvf_res.get_promise_result_sync().ok().expect("failure");
         }
         assert!(esvf_res.is_object());
         let obj = esvf_res.get_object();

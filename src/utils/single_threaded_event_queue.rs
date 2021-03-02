@@ -1,12 +1,13 @@
 use crate::utils::auto_id_map::AutoIdMap;
 use crate::utils::debug_mutex::DebugMutex;
+use futures::task::Waker;
 use log::trace;
 use std::cell::RefCell;
 use std::future::Future;
 use std::mem::replace;
 use std::ops::Add;
 use std::pin::Pin;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver, SendError, Sender};
 use std::sync::{Arc, Condvar, Mutex};
 use std::task::{Context, Poll};
 use std::thread;
@@ -44,32 +45,68 @@ pub struct SingleThreadedEventQueue {
     join_handle: Mutex<Option<JoinHandle<()>>>,
 }
 
-struct TaskFuture<R> {
+pub struct TaskFutureResolver<R> {
+    sender: Mutex<Sender<R>>,
+    waker: Mutex<Option<Waker>>,
+}
+
+impl<R> TaskFutureResolver<R> {
+    pub fn new(tx: Sender<R>) -> Self {
+        Self {
+            sender: Mutex::new(tx),
+            waker: Mutex::new(None),
+        }
+    }
+    pub fn resolve(&self, resolution: R) -> Result<(), SendError<R>> {
+        log::trace!("TaskFutureResolver.resolve");
+        let sender = &*self.sender.lock().unwrap();
+        sender.send(resolution)?;
+        drop(sender);
+        let waker_opt = &mut *self.waker.lock().unwrap();
+        if let Some(waker) = waker_opt.take() {
+            waker.wake();
+        }
+        Ok(())
+    }
+}
+
+pub struct TaskFuture<R> {
     result: Receiver<R>,
-    sender: Sender<R>,
+    resolver: Arc<TaskFutureResolver<R>>,
 }
 impl<R> TaskFuture<R> {
-    fn new() -> Self {
+    pub fn new() -> Self {
         let (tx, rx) = channel();
 
         Self {
             result: rx,
-            sender: tx,
+            resolver: Arc::new(TaskFutureResolver {
+                sender: Mutex::new(tx),
+                waker: Mutex::new(None),
+            }),
         }
     }
-    fn get_sender(&self) -> Sender<R> {
-        self.sender.clone()
+    pub fn get_resolver(&self) -> Arc<TaskFutureResolver<R>> {
+        self.resolver.clone()
     }
 }
 impl<R> Future for TaskFuture<R> {
     type Output = R;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if let Ok(res) = self.result.try_recv() {
-            Poll::Ready(res)
-        } else {
-            cx.waker().wake_by_ref();
-            Poll::Pending
+        log::trace!("TaskFuture::poll");
+        match self.result.try_recv() {
+            Ok(res) => {
+                log::trace!("TaskFuture::poll -> Ready");
+                Poll::Ready(res)
+            }
+            Err(_) => {
+                log::trace!("TaskFuture::poll -> Pending");
+                let mtx = &self.resolver.waker;
+                let waker_opt = &mut *mtx.lock().unwrap();
+                let _ = waker_opt.replace(cx.waker().clone());
+                Poll::Pending
+            }
         }
     }
 }
@@ -137,10 +174,10 @@ impl SingleThreadedEventQueue {
     ) -> impl Future<Output = R> {
         trace!("EsEventQueue::async_task");
         let fut = TaskFuture::new();
-        let tx = fut.get_sender();
+        let tx = fut.get_resolver();
         self.add_task(move || {
             let res = task();
-            match tx.send(res) {
+            match tx.resolve(res) {
                 Ok(_) => {}
                 Err(e) => {
                     log::error!("resolving TaskFuture failed: {}", e);

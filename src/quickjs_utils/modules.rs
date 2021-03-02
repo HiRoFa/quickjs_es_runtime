@@ -238,10 +238,7 @@ pub mod tests {
         }
 
         let res_prom = rt.eval_sync(EsScript::new("test_mod_nat_async.es", "(import('greco://someMod').then((module) => {return {a: module.a, b: module.b, c: module.c};}));")).ok().unwrap();
-        let res = res_prom
-            .get_promise_result_sync(Duration::from_secs(1))
-            .ok()
-            .expect("timeout");
+        let res = res_prom.get_promise_result_sync();
         let obj = res.ok().expect("prom failed");
         assert!(obj.is_object());
         let a = obj.get_object().get("a").expect("obj did not have a");

@@ -6,47 +6,16 @@ use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::reflection;
 use crate::utils::auto_id_map::AutoIdMap;
+use crate::utils::single_threaded_event_queue::{TaskFuture, TaskFutureResolver};
 use crate::valueref::*;
-use futures::task::{Context, Poll};
+use futures::executor::block_on;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
-use std::future::Future;
-use std::pin::Pin;
 use std::rc::Rc;
-use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex, Weak};
-use std::time::Duration;
 
-pub struct EsValueFacadeFuture<R, E> {
-    result: Receiver<Result<R, E>>,
-    sender: Sender<Result<R, E>>,
-}
-impl<R, E> EsValueFacadeFuture<R, E> {
-    fn new() -> Self {
-        let (tx, rx) = channel();
-
-        Self {
-            result: rx,
-            sender: tx,
-        }
-    }
-    fn get_sender(&self) -> Sender<Result<R, E>> {
-        self.sender.clone()
-    }
-}
-impl<R, E> Future for EsValueFacadeFuture<R, E> {
-    type Output = Result<R, E>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if let Ok(res) = self.result.try_recv() {
-            Poll::Ready(res)
-        } else {
-            cx.waker().wake_by_ref();
-            Poll::Pending
-        }
-    }
-}
+pub type EsValueFacadeFuture<R, E> = TaskFuture<Result<R, E>>;
 
 pub type PromiseReactionType =
     Option<Box<dyn Fn(EsValueFacade) -> Result<EsValueFacade, EsError> + Send + 'static>>;
@@ -120,10 +89,7 @@ pub trait EsValueConvertible {
     fn is_promise(&self) -> bool {
         false
     }
-    fn get_promise_result_sync(
-        &self,
-        _timeout: Duration,
-    ) -> Result<Result<EsValueFacade, EsValueFacade>, RecvTimeoutError> {
+    fn get_promise_result_sync(&self) -> Result<EsValueFacade, EsValueFacade> {
         panic!("i am not a promise");
     }
     fn get_promise_result(&self) -> EsValueFacadeFuture<EsValueFacade, EsValueFacade> {
@@ -254,7 +220,7 @@ impl Drop for CachedJSFunction {
 fn pipe_promise_resolution_to_sender(
     q_ctx: &QuickJsContext,
     prom_obj_ref: &JSValueRef,
-    tx: Sender<Result<EsValueFacade, EsValueFacade>>,
+    tx: Arc<TaskFutureResolver<Result<EsValueFacade, EsValueFacade>>>,
 ) {
     let tx2 = tx.clone();
     let then_func_ref = functions::new_function_q(
@@ -270,7 +236,7 @@ fn pipe_promise_resolution_to_sender(
 
             match prom_res_esvf_res {
                 Ok(prom_res_esvf) => {
-                    let send_res = tx3.send(Ok(prom_res_esvf));
+                    let send_res = tx3.resolve(Ok(prom_res_esvf));
                     match send_res {
                         Ok(_) => {
                             log::trace!("sent prom_res_esvf ok");
@@ -305,7 +271,7 @@ fn pipe_promise_resolution_to_sender(
             let prom_res_esvf_res = EsValueFacade::from_jsval(q_ctx, prom_res);
             match prom_res_esvf_res {
                 Ok(prom_res_esvf) => {
-                    let send_res = tx3.send(Err(prom_res_esvf));
+                    let send_res = tx3.resolve(Err(prom_res_esvf));
                     match send_res {
                         Ok(_) => {
                             log::trace!("sent prom_res_esvf ok");
@@ -348,30 +314,17 @@ impl EsValueConvertible for CachedJSPromise {
         true
     }
 
-    fn get_promise_result_sync(
-        &self,
-        timeout: Duration,
-    ) -> Result<Result<EsValueFacade, EsValueFacade>, RecvTimeoutError> {
-        let (tx, rx) = channel();
-        let cached_obj_id = self.cached_obj_id;
-        let context_id = self.context_id.clone();
-        if let Some(es_rti) = self.es_rt.upgrade() {
-            es_rti.add_to_event_queue_sync(move |q_js_rt| {
-                let q_ctx = q_js_rt.get_context(context_id.as_str());
-
-                q_ctx.with_cached_obj(cached_obj_id, |prom_obj_ref| {
-                    pipe_promise_resolution_to_sender(q_ctx, prom_obj_ref, tx);
-                });
-            });
-            Ok(rx.recv_timeout(timeout)?)
-        } else {
-            Ok(Err("rti dropped".to_string().to_es_value_facade()))
-        }
+    fn get_promise_result_sync(&self) -> Result<EsValueFacade, EsValueFacade> {
+        let fut = self.get_promise_result();
+        log::trace!("block_on get_promise_result_sync");
+        let res = block_on(fut);
+        log::trace!("block_on get_promise_result_sync -> done");
+        res
     }
 
     fn get_promise_result(&self) -> EsValueFacadeFuture<EsValueFacade, EsValueFacade> {
-        let fut = EsValueFacadeFuture::new();
-        let tx = fut.get_sender();
+        let fut = TaskFuture::new();
+        let tx = fut.get_resolver();
         let cached_obj_id = self.cached_obj_id;
         let context_id = self.context_id.clone();
         if let Some(es_rti) = self.es_rt.upgrade() {
@@ -517,7 +470,7 @@ impl EsValueConvertible for CachedJSFunction {
         let cached_obj_id = self.cached_obj_id;
         let context_id = self.context_id.clone();
         let ret = EsValueFacadeFuture::new();
-        let tx = ret.get_sender();
+        let tx = ret.get_resolver();
         if let Some(rt_arc) = self.es_rt.upgrade() {
             let _ = rt_arc.add_to_event_queue(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id.as_str());
@@ -540,11 +493,11 @@ impl EsValueConvertible for CachedJSFunction {
                         q_ctx, obj_ref, ref_args, None,
                     )
                     .and_then(|js_val| EsValueFacade::from_jsval(q_ctx, &js_val));
-                    let _ = tx.send(res);
+                    let _ = tx.resolve(res);
                 });
             });
         } else {
-            let _ = tx.send(Err(EsError::new_str("rt was dropped")));
+            let _ = tx.resolve(Err(EsError::new_str("rt was dropped")));
         }
         ret
     }
@@ -1216,11 +1169,8 @@ impl EsValueFacade {
     pub fn invoke_function_batch(&self, arguments: Vec<Vec<EsValueFacade>>) -> Result<(), EsError> {
         self.convertible.invoke_function_batch(arguments)
     }
-    pub fn get_promise_result_sync(
-        &self,
-        timeout: Duration,
-    ) -> Result<Result<EsValueFacade, EsValueFacade>, RecvTimeoutError> {
-        self.convertible.get_promise_result_sync(timeout)
+    pub fn get_promise_result_sync(&self) -> Result<EsValueFacade, EsValueFacade> {
+        self.convertible.get_promise_result_sync()
     }
 
     /// wait for the result of a Promise async
@@ -1284,7 +1234,6 @@ pub mod tests {
     use crate::esvalue::EsValueFacade;
     use futures::executor::block_on;
     use std::sync::Arc;
-    use std::time::Duration;
 
     async fn test_async_func1(esvf: EsValueFacade) -> i32 {
         let res = esvf.invoke_function(vec![]).await;
@@ -1316,22 +1265,15 @@ pub mod tests {
         match res {
             Ok(esvf) => {
                 assert!(esvf.is_promise());
-                let res = esvf.get_promise_result_sync(Duration::from_secs(1));
+                let res = esvf.get_promise_result_sync();
                 match res {
-                    Ok(r) => {
-                        match r {
-                            Ok(v) => {
-                                // promise resolved to v
-                                assert!(v.is_i32());
-                                assert_eq!(v.get_i32(), 537);
-                            }
-                            Err(e) => {
-                                panic!("{}", e.get_str());
-                            }
-                        }
+                    Ok(v) => {
+                        // promise resolved to v
+                        assert!(v.is_i32());
+                        assert_eq!(v.get_i32(), 537);
                     }
                     Err(e) => {
-                        panic!("{}", e);
+                        panic!("{}", e.get_str());
                     }
                 }
             }

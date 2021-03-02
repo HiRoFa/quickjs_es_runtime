@@ -165,7 +165,7 @@ pub mod tests {
                     let prom = promises::new_resolving_promise(
                         q_ctx,
                         || {
-                            std::thread::sleep(Duration::from_secs(1));
+                            std::thread::sleep(Duration::from_millis(5));
                             Ok(135)
                         },
                         |_q_ctx, res| Ok(primitives::from_i32(res)),
@@ -208,7 +208,7 @@ pub mod tests {
         .expect("script failed");
         rt.gc_sync();
         // wait so promise can fullfill
-        std::thread::sleep(Duration::from_secs(2));
+        std::thread::sleep(Duration::from_secs(10));
         assert!(RESOLVING_PROMISES.with(|rc| { (*rc.borrow()).is_empty() }))
     }
 
