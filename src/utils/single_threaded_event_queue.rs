@@ -59,9 +59,11 @@ impl<R> TaskFutureResolver<R> {
     }
     pub fn resolve(&self, resolution: R) -> Result<(), SendError<R>> {
         log::trace!("TaskFutureResolver.resolve");
-        let sender = &*self.sender.lock().unwrap();
+        let lck = self.sender.lock().unwrap();
+        let sender = &*lck;
         sender.send(resolution)?;
-        drop(sender);
+        drop(lck);
+
         let waker_opt = &mut *self.waker.lock().unwrap();
         if let Some(waker) = waker_opt.take() {
             waker.wake();
@@ -88,6 +90,11 @@ impl<R> TaskFuture<R> {
     }
     pub fn get_resolver(&self) -> Arc<TaskFutureResolver<R>> {
         self.resolver.clone()
+    }
+}
+impl<R> Default for TaskFuture<R> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 impl<R> Future for TaskFuture<R> {
