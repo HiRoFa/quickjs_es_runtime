@@ -46,6 +46,10 @@ impl<T> AutoIdMap<T> {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.map.clear();
+    }
+
     pub fn remove_values<F: Fn(&T) -> bool>(&mut self, f: F) -> Vec<T> {
         let mut rems = vec![];
         let mut rem_keys = vec![];

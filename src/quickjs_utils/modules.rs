@@ -219,15 +219,14 @@ unsafe extern "C" fn js_module_loader(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::EsRuntime;
+    use crate::esruntime::tests::init_test_rt;
     use crate::esscript::EsScript;
     use crate::quickjs_utils::modules::detect_module;
-    use std::sync::Arc;
     use std::time::Duration;
 
     #[test]
     fn test_native_modules() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         let mres = rt.eval_module_sync(EsScript::new(
             "test.mes",
             "import {a, b, c} from 'greco://testmodule1';\nconsole.log('testmodule1.a = %s, testmodule1.b = %s, testmodule1.c = %s', a, b, c);",
@@ -259,7 +258,7 @@ pub mod tests {
     fn test_module_sandbox() {
         log::info!("> test_module_sandbox");
 
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval_module(EsScript::new(

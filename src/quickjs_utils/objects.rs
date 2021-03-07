@@ -587,18 +587,17 @@ pub unsafe fn is_instance_of_by_name(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::EsRuntime;
+    use crate::esruntime::tests::init_test_rt;
     use crate::esscript::EsScript;
     use crate::quickjs_utils::objects::{
         create_object_q, get_property_names_q, get_property_q, set_property_q,
     };
     use crate::quickjs_utils::primitives::{from_i32, to_i32};
     use crate::quickjs_utils::{get_global_q, primitives};
-    use std::sync::Arc;
 
     #[test]
     fn test_get_refs() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let obj = create_object_q(q_ctx).ok().expect("a");
@@ -633,7 +632,7 @@ pub mod tests {
     fn test_get_n_drop() {
         log::info!("> test_get_n_drop");
 
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
@@ -666,7 +665,7 @@ pub mod tests {
     fn test_propnames() {
         log::info!("> test_propnames");
 
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
@@ -693,7 +692,7 @@ pub mod tests {
     fn test_set_prop() {
         log::info!("> test_set_prop");
 
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 

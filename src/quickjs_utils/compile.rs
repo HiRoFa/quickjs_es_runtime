@@ -173,6 +173,7 @@ pub unsafe fn from_bytecode(
 
 #[cfg(test)]
 pub mod tests {
+    use crate::esruntime::tests::init_test_rt;
     use crate::esruntime::EsRuntime;
     use crate::esruntimebuilder::EsRuntimeBuilder;
     use crate::esscript::EsScript;
@@ -184,7 +185,7 @@ pub mod tests {
 
     #[test]
     fn test_compile() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt: Arc<EsRuntime> = init_test_rt();
 
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
@@ -219,7 +220,7 @@ pub mod tests {
 
     #[test]
     fn test_bytecode() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt: Arc<EsRuntime> = init_test_rt();
         rt.add_to_event_queue_sync(|q_js_rt| unsafe {
             let q_ctx = q_js_rt.get_main_context();
             let func_res = compile(

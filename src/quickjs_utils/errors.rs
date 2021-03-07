@@ -109,6 +109,7 @@ pub unsafe fn throw(context: *mut q::JSContext, error: JSValueRef) -> q::JSValue
 
 #[cfg(test)]
 pub mod tests {
+    use crate::esruntime::tests::init_test_rt;
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
     use crate::esvalue::EsValueConvertible;
@@ -120,7 +121,7 @@ pub mod tests {
     fn test_ex() {
         // check if stacktrace is preserved when invoking native methods
 
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt: Arc<EsRuntime> = init_test_rt();
         rt.set_function(vec![], "test_consume", |_q_ctx, args| {
             // args[0] is a function i'll want to call
             let func_esvf = &args[0];
@@ -150,7 +151,7 @@ pub mod tests {
     fn test_ex2() {
         // check if stacktrace is preserved when invoking native methods
 
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 

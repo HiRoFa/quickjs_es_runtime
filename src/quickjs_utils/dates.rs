@@ -77,6 +77,7 @@ pub unsafe fn get_time(context: *mut q::JSContext, date_ref: &JSValueRef) -> Res
 #[cfg(test)]
 pub mod tests {
 
+    use crate::esruntime::tests::init_test_rt;
     use crate::esruntime::EsRuntime;
     use crate::quickjs_utils::dates;
     use crate::quickjs_utils::dates::{get_time_q, is_date_q, set_time_q};
@@ -84,7 +85,7 @@ pub mod tests {
 
     #[test]
     fn test_date() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt: Arc<EsRuntime> = init_test_rt();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let date_ref = dates::new_date_q(q_ctx).ok().expect("new_date failed");

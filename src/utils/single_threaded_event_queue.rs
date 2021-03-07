@@ -140,6 +140,7 @@ impl SingleThreadedEventQueue {
                 arc.worker_loop();
                 if shutdown_receiver.try_recv().is_ok() {
                     trace!("Shutdown was called, stopping worker thread");
+                    arc.shutdown_cleanup();
                     break;
                 }
             })
@@ -160,6 +161,17 @@ impl SingleThreadedEventQueue {
         let jh_opt = &mut *self.join_handle.lock().unwrap();
         let jh = jh_opt.take().expect("no join handle set");
         jh.join().expect("join failed");
+    }
+
+    fn shutdown_cleanup(&self) {
+        LOCAL_JOBS.with(|rc| {
+            let lj = &mut *rc.borrow_mut();
+            lj.clear();
+        });
+        SCHEDULED_LOCAL_JOBS.with(|rc| {
+            let slj = &mut *rc.borrow_mut();
+            slj.clear();
+        })
     }
 
     /// add a task which will run asynchronously

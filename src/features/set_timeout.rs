@@ -228,6 +228,7 @@ unsafe extern "C" fn clear_timeout(
 
 #[cfg(test)]
 pub mod tests {
+    use crate::esruntime::tests::init_test_rt;
     use crate::esruntime::EsRuntime;
     use crate::esscript::EsScript;
     use crate::quickjs_utils::get_global_q;
@@ -238,7 +239,7 @@ pub mod tests {
 
     #[test]
     fn test_set_timeout() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt: Arc<EsRuntime> = init_test_rt();
 
         rt.eval_sync(EsScript::new("test_set_interval.es", "let t_id1 = setInterval((a, b) => {console.log('setInterval invoked with %s and %s', a, b);}, 500, 123, 456);")).ok().expect("fail a");
         rt.eval_sync(EsScript::new("test_set_timeout.es", "let t_id2 = setTimeout((a, b) => {console.log('setTimeout1 invoked with %s and %s', a, b);}, 500, 123, 456);")).ok().expect("fail b");

@@ -17,7 +17,7 @@ use std::sync::{Arc, Weak};
 
 lazy_static! {
     /// a static Multithreaded task manager used to run rust ops async and multithreaded ( in at least 2 threads)
-    static ref HELPER_TASKS: Arc<TaskManager> = Arc::new(TaskManager::new(std::cmp::max(2, num_cpus::get())));
+    static ref HELPER_TASKS: TaskManager = TaskManager::new(std::cmp::max(2, num_cpus::get()));
 }
 
 pub type FetchResponseProvider =
@@ -588,10 +588,6 @@ pub mod tests {
     use std::sync::Arc;
     use std::time::Duration;
 
-    lazy_static! {
-        pub static ref TEST_ESRT: Arc<EsRuntime> = init();
-    }
-
     struct TestNativeModuleLoader {}
     struct TestScriptModuleLoader {}
 
@@ -645,7 +641,7 @@ pub mod tests {
 
     #[test]
     fn test_rt_drop() {
-        let rt = init();
+        let rt = init_test_rt();
         log::trace!("before drop");
 
         drop(rt);
@@ -654,12 +650,11 @@ pub mod tests {
         log::trace!("after sleep");
     }
 
-    fn init() -> Arc<EsRuntime> {
+    pub fn init_test_rt() -> Arc<EsRuntime> {
         simple_logging::log_to_file("esruntime.log", LevelFilter::max())
             .ok()
             .expect("could not init logger");
 
-        log::trace!("TEST_ESRT::init");
         EsRuntime::builder()
             .gc_interval(Duration::from_secs(1))
             .max_stack_size(u64::MAX)
@@ -670,7 +665,7 @@ pub mod tests {
 
     #[test]
     fn test_func() {
-        let rt: Arc<EsRuntime> = TEST_ESRT.clone();
+        let rt = init_test_rt();
         let res = rt.set_function(vec!["nl", "my", "utils"], "methodA", |_q_ctx, args| {
             if args.len() != 2 || !args.get(0).unwrap().is_i32() || !args.get(1).unwrap().is_i32() {
                 Err(EsError::new_str(
@@ -708,7 +703,7 @@ pub mod tests {
 
     #[test]
     fn test_eval_sync() {
-        let rt: Arc<EsRuntime> = TEST_ESRT.clone();
+        let rt: Arc<EsRuntime> = init_test_rt();
         let res = rt.eval_sync(EsScript::new("test.es", "console.log('foo bar');"));
 
         match res {
@@ -729,7 +724,7 @@ pub mod tests {
     #[test]
     fn t1234() {
         // test stack overflow
-        let rt: Arc<EsRuntime> = TEST_ESRT.clone();
+        let rt: Arc<EsRuntime> = init_test_rt();
 
         rt.add_to_event_queue_sync(|q_js_rt| {
             //q_js_rt.run_pending_jobs_if_any();
@@ -762,7 +757,7 @@ pub mod tests {
 
     #[test]
     fn test_eval_await() {
-        let rt: Arc<EsRuntime> = TEST_ESRT.clone();
+        let rt: Arc<EsRuntime> = init_test_rt();
 
         let res = rt.eval_sync(EsScript::new(
             "test_async.es",
@@ -788,7 +783,7 @@ pub mod tests {
 
     #[test]
     fn test_promise() {
-        let rt: Arc<EsRuntime> = TEST_ESRT.clone();
+        let rt: Arc<EsRuntime> = init_test_rt();
 
         let res = rt.eval_sync(EsScript::new(
             "testp2.es",
@@ -806,7 +801,7 @@ pub mod tests {
     fn test_module_sync() {
         log::info!("> test_module_sync");
 
-        let rt = &TEST_ESRT;
+        let rt = init_test_rt();
         debug!("test static import");
         let res: Result<EsValueFacade, EsError> = rt.eval_module_sync(EsScript::new(
             "test.es",
@@ -842,7 +837,7 @@ pub mod tests {
     }
 
     async fn test_async1() -> i32 {
-        let rt = &TEST_ESRT;
+        let rt = init_test_rt();
         let a = rt.eval(EsScript::new("test_async.es", "122 + 1;")).await;
         a.ok().expect("script failed").get_i32()
     }

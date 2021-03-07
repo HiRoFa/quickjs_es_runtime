@@ -672,7 +672,7 @@ unsafe extern "C" fn finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
     let info: &ProxyInstanceInfo = get_proxy_instance_info(&val);
     trace!("finalize {}", info.id);
 
-    QuickJsRuntime::do_with(|q_js_rt| {
+    let _ = QuickJsRuntime::try_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_context(&info.context_id);
 
         let registry = &*q_ctx.proxy_registry.borrow();
@@ -1057,14 +1057,13 @@ unsafe extern "C" fn proxy_instance_set_prop(
 #[cfg(test)]
 pub mod tests {
     use crate::eserror::EsError;
-    use crate::esruntime::EsRuntime;
+    use crate::esruntime::tests::init_test_rt;
     use crate::esscript::EsScript;
     use crate::quickjs_utils::{functions, primitives};
     use crate::reflection::Proxy;
     use log::trace;
     use std::cell::RefCell;
     use std::collections::HashMap;
-    use std::sync::Arc;
     use std::time::Duration;
 
     thread_local! {
@@ -1075,7 +1074,7 @@ pub mod tests {
     pub fn test_proxy() {
         log::info!("> test_proxy");
 
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = Proxy::new()

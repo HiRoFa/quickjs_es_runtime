@@ -100,6 +100,7 @@ unsafe extern "C" fn fetch_func(
 #[cfg(test)]
 pub mod tests {
 
+    use crate::esruntime::tests::init_test_rt;
     use crate::esruntime::EsRuntime;
     use crate::esruntimebuilder::EsRuntimeBuilder;
     use crate::esscript::EsScript;
@@ -131,7 +132,7 @@ pub mod tests {
 
     #[test]
     fn test_fetch() {
-        let main_rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let main_rt: Arc<EsRuntime> = init_test_rt();
 
         let rt = EsRuntimeBuilder::new()
             .fetch_response_provider(|_req| {

@@ -222,20 +222,19 @@ unsafe extern "C" fn promise_rejection_tracker(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::EsRuntime;
+    use crate::esruntime::tests::init_test_rt;
     use crate::esscript::EsScript;
     use crate::esvalue::EsValueFacade;
     use crate::quickjs_utils::promises::{add_promise_reactions_q, is_promise_q, new_promise_q};
     use crate::quickjs_utils::{functions, new_null_ref, primitives};
     use crate::quickjsruntime::QuickJsRuntime;
-    use std::sync::Arc;
     use std::time::Duration;
 
     #[test]
     fn test_instance_of_prom() {
         log::info!("> test_instance_of_prom");
 
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval(EsScript::new(
@@ -268,7 +267,7 @@ pub mod tests {
     fn new_prom() {
         log::info!("> new_prom");
 
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let func_ref = q_ctx
@@ -306,7 +305,7 @@ pub mod tests {
     fn new_prom2() {
         log::info!("> new_prom2");
 
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let func_ref = q_ctx
@@ -344,7 +343,7 @@ pub mod tests {
     fn test_promise_reactions() {
         log::info!("> test_promise_reactions");
 
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let prom_ref = q_ctx
@@ -393,7 +392,7 @@ pub mod tests {
     fn test_promise_nested() {
         log::info!("> test_promise_nested");
 
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
 
         let mut esvf_res = rt.exe_task(|| {
             QuickJsRuntime::create_context("test").ok().expect("create ctx failed");

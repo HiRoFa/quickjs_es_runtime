@@ -140,6 +140,7 @@ where
 #[cfg(test)]
 
 pub mod tests {
+    use crate::esruntime::tests::init_test_rt;
     use crate::esruntime::EsRuntime;
     use crate::esruntime_utils::promises;
     use crate::esruntime_utils::promises::RESOLVING_PROMISES;
@@ -151,7 +152,7 @@ pub mod tests {
 
     #[test]
     fn test_resolving_prom() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt: Arc<EsRuntime> = init_test_rt();
         let rt_ref = rt.clone();
         rt.add_to_event_queue_sync(move |q_js_rt| {
             // create rust function, please note that using new_native_function_data will be the faster option
@@ -214,7 +215,7 @@ pub mod tests {
 
     #[test]
     fn test_simple_prom() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt: Arc<EsRuntime> = init_test_rt();
 
         // todo test with context_init_hooks disabled
 

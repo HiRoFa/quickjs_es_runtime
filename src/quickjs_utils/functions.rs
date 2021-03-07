@@ -617,18 +617,17 @@ where
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::EsRuntime;
+    use crate::esruntime::tests::init_test_rt;
     use crate::esscript::EsScript;
     use crate::quickjs_utils::functions::{
         call_function_q, call_to_string_q, invoke_member_function_q, new_function_q,
     };
     use crate::quickjs_utils::{functions, objects, primitives};
-    use std::sync::Arc;
     use std::time::Duration;
 
     #[test]
     pub fn test_invoke() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         let _io = rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let obj_ref = q_ctx
@@ -659,7 +658,7 @@ pub mod tests {
 
     #[test]
     pub fn test_ret_refcount() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let func_ref = q_ctx
@@ -710,7 +709,7 @@ pub mod tests {
 
     #[test]
     pub fn test_to_string() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let i = primitives::from_i32(480);
@@ -733,7 +732,7 @@ pub mod tests {
 
     #[test]
     pub fn test_call() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         let io = rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let func_ref = q_ctx
@@ -768,7 +767,7 @@ pub mod tests {
 
     #[test]
     fn test_callback() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
 
         rt.eval_sync(EsScript::new("test_callback1.es", "let test_callback_563 = function(cb){console.log('before invoke cb');let result = cb(1, true, 'foobar');console.log('after invoke cb. got:' + result);};")).ok().expect("script failed");
 
@@ -812,7 +811,7 @@ pub mod tests {
 
     #[test]
     fn test_callback_arg_ref_ct() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
 
         rt.add_to_event_queue_sync(|q_js_rt| {
 

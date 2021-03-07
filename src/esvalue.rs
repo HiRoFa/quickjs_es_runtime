@@ -1227,7 +1227,7 @@ impl Debug for EsValueFacade {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::TEST_ESRT;
+    use crate::esruntime::tests::init_test_rt;
     use crate::esruntime::EsRuntime;
     use crate::esruntimebuilder::EsRuntimeBuilder;
     use crate::esscript::EsScript;
@@ -1243,7 +1243,7 @@ pub mod tests {
 
     #[test]
     fn test_async_func() {
-        let rt: Arc<EsRuntime> = TEST_ESRT.clone();
+        let rt: Arc<EsRuntime> = init_test_rt();
         let func_esvf = rt
             .eval_sync(EsScript::new(
                 "test_async_func.es",
@@ -1257,7 +1257,7 @@ pub mod tests {
 
     #[test]
     fn test_promise() {
-        let rt: Arc<EsRuntime> = TEST_ESRT.clone();
+        let rt: Arc<EsRuntime> = init_test_rt();
         let res = rt.eval_sync(EsScript::new(
             "test_promise.es",
             "(new Promise(function(resolve, reject){resolve(537);}));",

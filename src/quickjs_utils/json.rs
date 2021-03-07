@@ -121,13 +121,12 @@ pub unsafe fn stringify(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::EsRuntime;
+    use crate::esruntime::tests::init_test_rt;
     use crate::quickjs_utils::{json, objects, primitives};
-    use std::sync::Arc;
 
     #[test]
     fn test_json() {
-        let rt: Arc<EsRuntime> = crate::esruntime::tests::TEST_ESRT.clone();
+        let rt = init_test_rt();
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
