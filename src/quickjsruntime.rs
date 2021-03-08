@@ -17,7 +17,6 @@ use std::ffi::CString;
 use std::os::raw::c_int;
 use std::panic;
 use std::sync::{Arc, Weak};
-use std::thread::AccessError;
 
 /// this is the internal abstract loader which is used to actually load the modules
 pub trait ModuleLoader {
@@ -266,12 +265,26 @@ impl QuickJsRuntime {
         })
     }
     pub fn drop_context(id: &str) {
-        let ctx = QuickJsRuntime::do_with_mut(|m_rt| {
+        QuickJsRuntime::do_with(|m_rt| {
             m_rt.gc();
-            m_rt.contexts.remove(id).expect("no such context")
         });
 
+        QuickJsRuntime::do_with(|rt| {
+            let q_ctx = rt.get_context(id);
+            q_ctx.free();
+            rt.gc();
+        });
+
+        let ctx =
+            QuickJsRuntime::do_with_mut(|m_rt| m_rt.contexts.remove(id).expect("no such context"));
+
         drop(ctx);
+        QuickJsRuntime::do_with(|m_rt| {
+            m_rt.gc();
+        });
+    }
+    pub(crate) fn get_context_ids() -> Vec<String> {
+        QuickJsRuntime::do_with(|q_js_rt| q_js_rt.contexts.iter().map(|c| c.0.clone()).collect())
     }
     pub fn get_context(&self, id: &str) -> &QuickJsContext {
         self.contexts.get(id).expect("no such context")
@@ -350,20 +363,6 @@ impl QuickJsRuntime {
         C: FnOnce(&QuickJsRuntime) -> R,
     {
         QJS_RT.with(|qjs_rc| {
-            let qjs_rt = &*qjs_rc.borrow();
-            task(
-                qjs_rt
-                    .as_ref()
-                    .expect("runtime was not yet initialized for this thread"),
-            )
-        })
-    }
-
-    pub fn try_with<C, R>(task: C) -> Result<R, AccessError>
-    where
-        C: FnOnce(&QuickJsRuntime) -> R,
-    {
-        QJS_RT.try_with(|qjs_rc| {
             let qjs_rt = &*qjs_rc.borrow();
             task(
                 qjs_rt

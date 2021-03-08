@@ -672,9 +672,9 @@ unsafe extern "C" fn finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
     let info: &ProxyInstanceInfo = get_proxy_instance_info(&val);
     trace!("finalize {}", info.id);
 
-    let _ = QuickJsRuntime::try_with(|q_js_rt| {
+    QuickJsRuntime::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_context(&info.context_id);
-
+        log::trace!("finalizer called, got q_ctx");
         let registry = &*q_ctx.proxy_registry.borrow();
         let proxy = registry.get(&info.class_name).unwrap();
 
@@ -1068,6 +1068,25 @@ pub mod tests {
 
     thread_local! {
         static TEST_INSTANCES: RefCell<HashMap<usize, String>> = RefCell::new(HashMap::new())
+    }
+
+    #[test]
+    pub fn test_proxy1() {
+        log::info!("> test_proxy");
+
+        let rt = init_test_rt();
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            q_js_rt.gc();
+            let q_ctx = q_js_rt.get_main_context();
+            let _ = Proxy::new()
+                .constructor(|_q_ctx, _id, _args| Ok(()))
+                .name("Test")
+                .install(q_ctx, true);
+            q_ctx
+                .eval(EsScript::new("test.es", "let t = new Test();"))
+                .ok()
+                .expect("script failed");
+        });
     }
 
     #[test]

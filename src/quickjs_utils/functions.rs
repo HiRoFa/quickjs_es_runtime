@@ -863,11 +863,11 @@ unsafe extern "C" fn callback_finalizer(_rt: *mut q::JSRuntime, val: q::JSValue)
 
     trace!("callback_finalizer called, id={}", callback_id);
 
-    let _res = CALLBACK_IDS.try_with(|rc| {
+    CALLBACK_IDS.with(|rc| {
         let ids = &mut *rc.borrow_mut();
         ids.remove(&callback_id);
     });
-    let _res = CALLBACK_REGISTRY.try_with(|rc| {
+    CALLBACK_REGISTRY.with(|rc| {
         let registry = &mut *rc.borrow_mut();
 
         let rid = callback_id as usize;
@@ -875,7 +875,7 @@ unsafe extern "C" fn callback_finalizer(_rt: *mut q::JSRuntime, val: q::JSValue)
         let _ = registry.remove(&rid);
     });
 
-    let _ = QuickJsRuntime::try_with(|q_js_rt| {
+    QuickJsRuntime::do_with(|q_js_rt| {
         q_js_rt.run_pending_jobs_if_any();
     });
 }

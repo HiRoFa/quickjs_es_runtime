@@ -31,6 +31,7 @@ pub struct EsRuntimeInner {
 impl Drop for EsRuntimeInner {
     fn drop(&mut self) {
         // shutdown the queue and wait for thread to end
+        self.clear_contexts();
         self.event_queue.shutdown();
     }
 }
@@ -48,6 +49,15 @@ pub struct EsRuntime {
 }
 
 impl EsRuntimeInner {
+    pub(crate) fn clear_contexts(&self) {
+        self.exe_task(|| {
+            let context_ids = QuickJsRuntime::get_context_ids();
+            for id in context_ids {
+                QuickJsRuntime::drop_context(id.as_str());
+            }
+        });
+    }
+
     pub fn add_task<C>(&self, task: C)
     where
         C: FnOnce() + Send + 'static,

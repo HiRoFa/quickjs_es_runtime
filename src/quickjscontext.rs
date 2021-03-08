@@ -25,6 +25,9 @@ thread_local! {
 }
 
 impl QuickJsContext {
+    pub(crate) fn free(&self) {
+        unsafe { q::JS_FreeContext(self.context) };
+    }
     pub(crate) fn new(id: String, q_js_rt: &QuickJsRuntime) -> Self {
         let context = unsafe { q::JS_NewContext(q_js_rt.runtime) };
 
@@ -231,7 +234,7 @@ impl QuickJsContext {
 
 impl Drop for QuickJsContext {
     fn drop(&mut self) {
-        log::trace!("before JS_FreeContext");
+        log::trace!("before drop QuickJSContext");
 
         let id = &self.id;
         {
@@ -253,8 +256,7 @@ impl Drop for QuickJsContext {
             id_mappings.clear();
         }
 
-        unsafe { q::JS_FreeContext(self.context) };
-        log::trace!("after JS_FreeContext");
+        log::trace!("after drop QuickJSContext");
     }
 }
 
