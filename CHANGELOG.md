@@ -1,7 +1,9 @@
-# 0.2.0 (work in progress)
+# 0.3.0 (work in progress)
+
+# 0.2.0
 
 * rebuilt the module loading system
-* 
+* use Waker in Futures
 
 # 0.1.1
 
