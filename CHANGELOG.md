@@ -1,5 +1,9 @@
 # 0.3.0 (work in progress)
 
+# 0.2.1
+
+* altered esruntimebuilder to accept Box<M>
+
 # 0.2.0
 
 * rebuilt the module loading system

@@ -414,7 +414,7 @@ impl EsRuntime {
     ///         "export const util = function(a, b, c){return a+b+c;};".to_string()
     ///     }
     /// }
-    /// let rt = EsRuntimeBuilder::new().script_module_loader(TestModuleLoader{}).build();
+    /// let rt = EsRuntimeBuilder::new().script_module_loader(Box::new(TestModuleLoader{})).build();
     /// let script = EsScript::new("/opt/files/my_module.mes", "import {util} from 'other_module.mes';\n
     /// console.log(util(1, 2, 3));");
     /// rt.eval_module(script);
@@ -668,8 +668,8 @@ pub mod tests {
         EsRuntime::builder()
             .gc_interval(Duration::from_secs(1))
             .max_stack_size(u64::MAX)
-            .script_module_loader(TestScriptModuleLoader {})
-            .native_module_loader(TestNativeModuleLoader {})
+            .script_module_loader(Box::new(TestScriptModuleLoader {}))
+            .native_module_loader(Box::new(TestNativeModuleLoader {}))
             .build()
     }
 

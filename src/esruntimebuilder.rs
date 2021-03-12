@@ -62,15 +62,15 @@ impl EsRuntimeBuilder {
     /// }
     ///
     /// let rt = EsRuntimeBuilder::new()
-    ///     .script_module_loader(MyModuleLoader{})
+    ///     .script_module_loader(Box::new(MyModuleLoader{}))
     ///     .build();
     /// rt.eval_module_sync(EsScript::new("test_module.es", "import {foo} from 'some_module.mes';\nconsole.log('foo = %s', foo);")).ok().unwrap();
     /// ```
     pub fn script_module_loader<M: ScriptModuleLoader + Send + 'static>(
         mut self,
-        loader: M,
+        loader: Box<M>,
     ) -> Self {
-        self.script_module_loaders.push(Box::new(loader));
+        self.script_module_loaders.push(loader);
         self
     }
 
@@ -118,16 +118,16 @@ impl EsRuntimeBuilder {
     /// }
     ///
     /// let rt = EsRuntimeBuilder::new()
-    /// .native_module_loader(MyModuleLoader{})
+    /// .native_module_loader(Box::new(MyModuleLoader{}))
     /// .build();
     ///
     /// rt.eval_module_sync(EsScript::new("test_native_mod.es", "import {someVal, someFunc, SomeClass} from 'my_module';\nlet i = (someVal + someFunc() + SomeClass.doIt());\nif (i !== 2087){throw Error('i was not 2087');}")).ok().expect("script failed");
     /// ```
     pub fn native_module_loader<M: NativeModuleLoader + Send + 'static>(
         mut self,
-        loader: M,
+        loader: Box<M>,
     ) -> Self {
-        self.native_module_loaders.push(Box::new(loader));
+        self.native_module_loaders.push(loader);
         self
     }
 
@@ -238,7 +238,7 @@ pub mod tests {
         }
 
         let rt = EsRuntimeBuilder::new()
-            .script_module_loader(MyModuleLoader {})
+            .script_module_loader(Box::new(MyModuleLoader {}))
             .build();
         match rt.eval_module_sync(EsScript::new(
             "test_module.es",
