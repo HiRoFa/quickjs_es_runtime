@@ -1148,12 +1148,14 @@ impl EsValueFacade {
         self.convertible.is_undefined()
     }
 
+    /// invoke the Function represented by this EsValueFacade
     pub fn invoke_function_sync(
         &self,
         arguments: Vec<EsValueFacade>,
     ) -> Result<EsValueFacade, EsError> {
         self.convertible.invoke_function_sync(arguments)
     }
+    /// invoke the Function represented by this EsValueFacade
     pub async fn invoke_function(
         &self,
         arguments: Vec<EsValueFacade>,
@@ -1169,11 +1171,15 @@ impl EsValueFacade {
     pub fn invoke_function_batch(&self, arguments: Vec<Vec<EsValueFacade>>) -> Result<(), EsError> {
         self.convertible.invoke_function_batch(arguments)
     }
+
+    /// get the result of a Promise, this method blocks until the Promise is fulfilled.
+    /// The Result will be an Ok if the Promise was resolved or an Err if the Promise was rejected
     pub fn get_promise_result_sync(&self) -> Result<EsValueFacade, EsValueFacade> {
         self.convertible.get_promise_result_sync()
     }
 
-    /// wait for the result of a Promise async
+    /// wait for the result of a Promise async.
+    /// The Result will be an Ok if the Promise was resolved or an Err if the Promise was rejected
     /// # Example
     /// ```rust
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
