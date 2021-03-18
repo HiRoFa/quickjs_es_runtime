@@ -353,7 +353,7 @@ fn run_sched_jobs() -> Duration {
     // NB prevent double borrow mut, so first get removable jobs
     let now = Instant::now();
     SCHEDULED_LOCAL_JOBS.with(|rc| {
-        let mut wait_dur = Duration::from_millis(250);
+        let mut wait_dur = Duration::from_millis(10000);
         {
             // this block is so we don;t a a mutable borrow while running a job, a job might add another job and then there might already be a mutable borrow. which would be bad
 
