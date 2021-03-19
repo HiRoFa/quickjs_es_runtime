@@ -1,5 +1,7 @@
 # 0.3.0 (work in progress)
 
+* no longer report Future resolving errors as errors, it's just a Future which was dropped before being resolved
+
 # 0.2.1
 
 * altered esruntimebuilder to accept Box<M>
