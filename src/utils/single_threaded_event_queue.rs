@@ -199,7 +199,10 @@ impl SingleThreadedEventQueue {
             match tx.resolve(res) {
                 Ok(_) => {}
                 Err(e) => {
-                    log::error!("resolving TaskFuture failed: {}", e);
+                    log::trace!(
+                        "resolving TaskFuture failed, TaskFuture was probably dropped: {}",
+                        e
+                    );
                 }
             }
         });
