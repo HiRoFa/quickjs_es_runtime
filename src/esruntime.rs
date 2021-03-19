@@ -112,6 +112,13 @@ impl EsRuntimeInner {
         self.async_task(|| QuickJsRuntime::do_with(consumer))
     }
 
+    pub fn add_to_event_queue_void<C>(&self, consumer: C)
+    where
+        C: FnOnce(&QuickJsRuntime) + Send + 'static,
+    {
+        self.add_task(|| QuickJsRuntime::do_with(consumer))
+    }
+
     pub(crate) fn add_to_event_queue_from_worker<C>(&self, consumer: C)
     where
         C: FnOnce(&QuickJsRuntime) + 'static,
@@ -459,6 +466,13 @@ impl EsRuntime {
         C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,
     {
         self.inner.add_to_event_queue(consumer)
+    }
+
+    pub fn add_to_event_queue_void<C>(&self, consumer: C)
+    where
+        C: FnOnce(&QuickJsRuntime) + Send + 'static,
+    {
+        self.inner.add_to_event_queue_void(consumer)
     }
 
     /// this is how you add a closure to the worker thread which has an instance of the QuickJsRuntime

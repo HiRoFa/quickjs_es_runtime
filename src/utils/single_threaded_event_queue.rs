@@ -158,6 +158,8 @@ impl SingleThreadedEventQueue {
             .unwrap()
             .send(true)
             .expect("could not send shutdown");
+        // wake up
+        self.add_task(|| {});
         let jh_opt = &mut *self.join_handle.lock().unwrap();
         let jh = jh_opt.take().expect("no join handle set");
         jh.join().expect("join failed");
@@ -199,7 +201,7 @@ impl SingleThreadedEventQueue {
             match tx.resolve(res) {
                 Ok(_) => {}
                 Err(e) => {
-                    log::trace!(
+                    log::error!(
                         "resolving TaskFuture failed, TaskFuture was probably dropped: {}",
                         e
                     );

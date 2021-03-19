@@ -1,6 +1,6 @@
 # 0.3.0 (work in progress)
 
-* no longer report Future resolving errors as errors, it's just a Future which was dropped before being resolved
+* added _void variants for adding jobs to the event queue, this prevents Futures being dropped before being resolved resulting in errors in the logs
 
 # 0.2.1
 

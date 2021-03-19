@@ -189,7 +189,7 @@ impl Drop for CachedJSPromise {
         if let Some(rt_arc) = self.es_rt.upgrade() {
             let cached_obj_id = self.cached_obj_id;
             let context_id = self.context_id.clone();
-            let _ = rt_arc.add_to_event_queue(move |q_js_rt| {
+            rt_arc.add_to_event_queue_void(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id.as_str());
                 q_ctx.consume_cached_obj(cached_obj_id);
             });
@@ -209,7 +209,7 @@ impl Drop for CachedJSFunction {
         if let Some(rt_arc) = self.es_rt.upgrade() {
             let cached_obj_id = self.cached_obj_id;
             let context_id = self.context_id.clone();
-            let _ = rt_arc.add_to_event_queue(move |q_js_rt| {
+            rt_arc.add_to_event_queue_void(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id.as_str());
                 q_ctx.consume_cached_obj(cached_obj_id);
             });
@@ -328,7 +328,7 @@ impl EsValueConvertible for CachedJSPromise {
         let cached_obj_id = self.cached_obj_id;
         let context_id = self.context_id.clone();
         if let Some(es_rti) = self.es_rt.upgrade() {
-            let _ = es_rti.add_to_event_queue(move |q_js_rt| {
+            es_rti.add_to_event_queue_void(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id.as_str());
                 q_ctx.with_cached_obj(cached_obj_id, |prom_obj_ref| {
                     pipe_promise_resolution_to_sender(q_ctx, prom_obj_ref, tx);
@@ -351,7 +351,7 @@ impl EsValueConvertible for CachedJSPromise {
 
         if let Some(es_rt) = self.es_rt.upgrade() {
             let context_id_then = self.context_id.clone();
-            let _ = es_rt.add_to_event_queue(move |q_js_rt| {
+            es_rt.add_to_event_queue_void(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id_then.as_str());
 
                 q_ctx.with_cached_obj(cached_obj_id, |prom_ref| {
@@ -472,7 +472,7 @@ impl EsValueConvertible for CachedJSFunction {
         let ret = EsValueFacadeFuture::new();
         let tx = ret.get_resolver();
         if let Some(rt_arc) = self.es_rt.upgrade() {
-            let _ = rt_arc.add_to_event_queue(move |q_js_rt| {
+            rt_arc.add_to_event_queue_void(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id.as_str());
                 q_ctx.with_cached_obj(cached_obj_id, move |obj_ref| {
                     let mut ref_args = vec![];
@@ -545,7 +545,7 @@ impl EsValueConvertible for CachedJSFunction {
         let cached_obj_id = self.cached_obj_id;
         let context_id = self.context_id.clone();
         if let Some(rt_arc) = self.es_rt.upgrade() {
-            let _ = rt_arc.add_to_event_queue(move |q_js_rt| {
+            rt_arc.add_to_event_queue_void(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id.as_str());
                 q_ctx.with_cached_obj(cached_obj_id, move |obj_ref| {
                     for mut args in batch_args {
@@ -747,7 +747,7 @@ impl EsPromiseResolvableHandle {
                 let id = info.id;
                 let context_id = info.context_id.clone();
                 if let Some(es_rt) = info.weak_es_rt.upgrade() {
-                    let _ = es_rt.add_to_event_queue(move |q_js_rt| {
+                    es_rt.add_to_event_queue_void(move |q_js_rt| {
                         let q_ctx = q_js_rt.get_context(context_id.as_str());
                         ESPROMISE_REFS.with(move |rc| {
                             let map = &*rc.borrow();
@@ -778,7 +778,7 @@ impl EsPromiseResolvableHandle {
                 let id = info.id;
                 let context_id = info.context_id.clone();
                 if let Some(es_rt) = info.weak_es_rt.upgrade() {
-                    let _ = es_rt.add_to_event_queue(move |q_js_rt| {
+                    es_rt.add_to_event_queue_void(move |q_js_rt| {
                         let q_ctx = q_js_rt.get_context(context_id.as_str());
                         ESPROMISE_REFS.with(move |rc| {
                             let map = &*rc.borrow();
@@ -834,7 +834,7 @@ impl Drop for EsPromiseResolvableHandleInner {
         if let Some(info) = &self.js_info {
             let id = info.id;
             if let Some(es_rt) = info.weak_es_rt.upgrade() {
-                let _ = es_rt.add_to_event_queue(move |_q_js_rt| {
+                es_rt.add_to_event_queue_void(move |_q_js_rt| {
                     ESPROMISE_REFS.with(move |rc| {
                         let map = &mut *rc.borrow_mut();
                         map.remove(&id);
