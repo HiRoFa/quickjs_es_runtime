@@ -823,31 +823,37 @@ impl EsPromiseResolvableHandle {
         }
     }
     fn set_info(&self, es_rt: &Arc<EsRuntime>, id: usize, context_id: &str) -> Result<(), EsError> {
-        self.with_inner(|inner| {
-            if inner.js_info.is_some() {
-                Err(EsError::new_str("info was already set"))
-            } else {
-                // set info
-                inner.js_info = Some(EsPromiseResolvableHandleInfo {
-                    weak_es_rt: Arc::downgrade(es_rt),
-                    id,
-                    context_id: context_id.to_string(),
-                });
+        let resolution_opt: Option<Result<EsValueFacade, EsValueFacade>> =
+            self.with_inner(|inner| {
+                if inner.js_info.is_some() {
+                    Err(EsError::new_str("info was already set"))
+                } else {
+                    // set info
+                    inner.js_info = Some(EsPromiseResolvableHandleInfo {
+                        weak_es_rt: Arc::downgrade(es_rt),
+                        id,
+                        context_id: context_id.to_string(),
+                    });
 
-                if let Some(resolution) = inner.resolution.take() {
-                    match resolution {
-                        Ok(val) => {
-                            self.resolve(val);
-                        }
-                        Err(val) => {
-                            self.reject(val);
-                        }
+                    // todo, take this outside with_inner
+                    if let Some(resolution) = inner.resolution.take() {
+                        Ok(Some(resolution))
+                    } else {
+                        Ok(None)
                     }
                 }
-
-                Ok(())
+            })?;
+        if let Some(resolution) = resolution_opt {
+            match resolution {
+                Ok(val) => {
+                    self.resolve(val);
+                }
+                Err(val) => {
+                    self.reject(val);
+                }
             }
-        })
+        }
+        Ok(())
     }
 }
 
