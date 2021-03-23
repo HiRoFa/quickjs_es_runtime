@@ -386,6 +386,9 @@ impl QuickJsRuntime {
         })
     }
 
+    /// run pending jobs if avail
+    /// # todo
+    /// move this to a quickjs_utils::pending_jobs so it can be used without doing QuickjsRuntime.do_with()
     pub fn run_pending_jobs_if_any(&self) {
         log::trace!("quick_js_rt.run_pending_jobs_if_any");
         while self.has_pending_jobs() {

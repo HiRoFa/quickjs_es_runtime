@@ -1,6 +1,7 @@
 # 0.3.0 (work in progress)
 
 * added _void variants for adding jobs to the event queue, this prevents Futures being dropped before being resolved resulting in errors in the logs
+* setTimeout / setInterval now correctly run pending jobs (fixes resolving promises with timeout and such)
 
 # 0.2.1
 

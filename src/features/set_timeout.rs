@@ -94,6 +94,7 @@ unsafe extern "C" fn set_timeout(
                                 log::error!("setTimeout func failed: {}", e);
                             }
                         };
+                        q_js_rt.run_pending_jobs_if_any();
                     })
                 },
                 None,
@@ -158,6 +159,8 @@ unsafe extern "C" fn set_interval(
                                 log::error!("setInterval func failed: {}", e);
                             }
                         };
+
+                        q_js_rt.run_pending_jobs_if_any();
                     })
                 },
                 Some(Duration::from_millis(delay_ms)),
