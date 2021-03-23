@@ -19,7 +19,14 @@ impl<T> DebugMutex<T> {
             reason,
             thread_id::get()
         );
-        self.mtx.lock()
+        let ret = self.mtx.lock();
+        log::trace!(
+            "locked mutex:{} for: {} from thread: {}",
+            self.name,
+            reason,
+            thread_id::get()
+        );
+        ret
 
         // first try_lock
 

@@ -6,6 +6,7 @@ use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::reflection;
 use crate::utils::auto_id_map::AutoIdMap;
+use crate::utils::debug_mutex::DebugMutex;
 use crate::utils::single_threaded_event_queue::{TaskFuture, TaskFutureResolver};
 use crate::valueref::*;
 use futures::executor::block_on;
@@ -13,7 +14,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Weak};
 
 pub type EsValueFacadeFuture<R, E> = TaskFuture<Result<R, E>>;
 
@@ -718,16 +719,19 @@ struct EsPromiseResolvableHandleInner {
 }
 
 pub struct EsPromiseResolvableHandle {
-    inner: Mutex<EsPromiseResolvableHandleInner>,
+    inner: DebugMutex<EsPromiseResolvableHandleInner>,
 }
 
 impl EsPromiseResolvableHandle {
     fn new() -> Self {
         Self {
-            inner: Mutex::new(EsPromiseResolvableHandleInner {
-                js_info: None,
-                resolution: None,
-            }),
+            inner: DebugMutex::new(
+                EsPromiseResolvableHandleInner {
+                    js_info: None,
+                    resolution: None,
+                },
+                "EsPromiseResolvableHandle::inner_mtx",
+            ),
         }
     }
 
@@ -735,7 +739,7 @@ impl EsPromiseResolvableHandle {
     where
         C: FnOnce(&mut EsPromiseResolvableHandleInner) -> R,
     {
-        let mut lck = self.inner.lock().unwrap();
+        let mut lck = self.inner.lock("with_inner").unwrap();
         consumer(&mut *lck)
     }
 
