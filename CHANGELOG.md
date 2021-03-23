@@ -2,6 +2,7 @@
 
 * added _void variants for adding jobs to the event queue, this prevents Futures being dropped before being resolved resulting in errors in the logs
 * setTimeout / setInterval now correctly run pending jobs (fixes resolving promises with timeout and such)
+* removed logging from console.rs so we can set custom loglevel to that package
 
 # 0.2.1
 

@@ -54,8 +54,6 @@ use log::LevelFilter;
 use std::str::FromStr;
 
 pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
-    log::trace!("console::init");
-
     q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| init_ctx(q_ctx))
 }
 
@@ -211,8 +209,6 @@ unsafe extern "C" fn console_log(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    log::trace!("> console.log");
-
     if log::max_level() >= LevelFilter::Info {
         let args = parse_args(ctx, argc, argv);
         log::info!("{}", parse_line(ctx, args));
@@ -226,7 +222,6 @@ unsafe extern "C" fn console_trace(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    log::trace!("> console.trace");
     if log::max_level() >= LevelFilter::Trace {
         let args = parse_args(ctx, argc, argv);
         log::trace!("{}", parse_line(ctx, args));
@@ -240,8 +235,6 @@ unsafe extern "C" fn console_debug(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    log::trace!("> console.debug");
-
     if log::max_level() >= LevelFilter::Debug {
         let args = parse_args(ctx, argc, argv);
         log::debug!("{}", parse_line(ctx, args));
@@ -255,8 +248,6 @@ unsafe extern "C" fn console_info(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    log::trace!("> console.info");
-
     if log::max_level() >= LevelFilter::Info {
         let args = parse_args(ctx, argc, argv);
         log::info!("{}", parse_line(ctx, args));
@@ -270,8 +261,6 @@ unsafe extern "C" fn console_warn(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    log::trace!("> console.warn");
-
     if log::max_level() >= LevelFilter::Warn {
         let args = parse_args(ctx, argc, argv);
         log::warn!("{}", parse_line(ctx, args));
@@ -285,8 +274,6 @@ unsafe extern "C" fn console_error(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    log::trace!("> console.error");
-
     if log::max_level() >= LevelFilter::Error {
         let args = parse_args(ctx, argc, argv);
         log::error!("{}", parse_line(ctx, args));
