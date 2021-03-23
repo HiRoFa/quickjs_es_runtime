@@ -1,8 +1,11 @@
 # 0.3.0 (work in progress)
 
+# 0.2.2
+
 * added _void variants for adding jobs to the event queue, this prevents Futures being dropped before being resolved resulting in errors in the logs
 * setTimeout / setInterval now correctly run pending jobs (fixes resolving promises with timeout and such)
 * removed logging from console.rs so we can set custom loglevel to that package
+* fixed deadlocks in esvalue promise resolution
 
 # 0.2.1
 
