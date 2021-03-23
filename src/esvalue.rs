@@ -739,66 +739,84 @@ impl EsPromiseResolvableHandle {
         consumer(&mut *lck)
     }
 
-    pub fn resolve(&self, mut value: EsValueFacade) {
+    pub fn resolve(&self, value: EsValueFacade) {
         log::debug!("resolving handle with val: {:?}", value);
-        self.with_inner(|inner| {
+        // this is done in two stages so we unlock the inner mutex while resolving
+        let rt_opt = self.with_inner(|inner| {
             if let Some(info) = &inner.js_info {
                 // resolve
                 let id = info.id;
                 let context_id = info.context_id.clone();
-                if let Some(es_rt) = info.weak_es_rt.upgrade() {
-                    es_rt.add_to_event_queue_void(move |q_js_rt| {
-                        let q_ctx = q_js_rt.get_context(context_id.as_str());
-                        ESPROMISE_REFS.with(move |rc| {
-                            let map = &*rc.borrow();
-                            let p_ref = map.get(&id).expect("no such promise");
-
-                            let js_val = value
-                                .as_js_value(q_ctx)
-                                .ok()
-                                .expect("could not convert to JSValue");
-                            let resolve_res = unsafe { p_ref.resolve(q_ctx.context, js_val) };
-                            if resolve_res.is_err() {
-                                log::error!("resolve failed: {}", resolve_res.err().unwrap());
-                            }
-                        });
-                    });
+                if let Some(rt) = info.weak_es_rt.upgrade() {
+                    Some((rt, id, context_id, value))
+                } else {
+                    log::error!("rt was dropped while resolving");
+                    None
                 }
             } else {
                 // resolve later when converted to JSValue
                 inner.resolution = Some(Ok(value));
+                None
             }
-        })
+        });
+        if let Some((es_rt, id, context_id, mut value)) = rt_opt {
+            es_rt.add_to_event_queue_void(move |q_js_rt| {
+                log::trace!("resolving handle with val, stage 2: {:?}", value);
+                let q_ctx = q_js_rt.get_context(context_id.as_str());
+                ESPROMISE_REFS.with(move |rc| {
+                    let map = &*rc.borrow();
+                    let p_ref = map.get(&id).expect("no such promise");
+
+                    let js_val = value
+                        .as_js_value(q_ctx)
+                        .ok()
+                        .expect("could not convert to JSValue");
+                    let resolve_res = unsafe { p_ref.resolve(q_ctx.context, js_val) };
+                    if resolve_res.is_err() {
+                        log::error!("resolve failed: {}", resolve_res.err().unwrap());
+                    }
+                });
+            });
+        }
     }
-    pub fn reject(&self, mut value: EsValueFacade) {
+    pub fn reject(&self, value: EsValueFacade) {
         log::debug!("rejecting handle with val: {:?}", value);
-        self.with_inner(|inner| {
+        let rt_opt = self.with_inner(|inner| {
             if let Some(info) = &inner.js_info {
                 // resolve
                 let id = info.id;
                 let context_id = info.context_id.clone();
-                if let Some(es_rt) = info.weak_es_rt.upgrade() {
-                    es_rt.add_to_event_queue_void(move |q_js_rt| {
-                        let q_ctx = q_js_rt.get_context(context_id.as_str());
-                        ESPROMISE_REFS.with(move |rc| {
-                            let map = &*rc.borrow();
-                            let p_ref = map.get(&id).expect("no such promise");
-                            let js_val = value
-                                .as_js_value(q_ctx)
-                                .ok()
-                                .expect("could not convert to JSValue");
-                            let reject_res = unsafe { p_ref.reject(q_ctx.context, js_val) };
-                            if reject_res.is_err() {
-                                log::error!("reject failed: {}", reject_res.err().unwrap());
-                            }
-                        });
-                    });
+
+                if let Some(rt) = info.weak_es_rt.upgrade() {
+                    Some((rt, id, context_id, value))
+                } else {
+                    log::error!("rt was dropped while rejecting");
+                    None
                 }
             } else {
                 // resolve later when converted to JSValue
                 inner.resolution = Some(Err(value));
+                None
             }
-        })
+        });
+        if let Some((es_rt, id, context_id, mut value)) = rt_opt {
+            es_rt.add_to_event_queue_void(move |q_js_rt| {
+                log::trace!("rejecting handle with val, stage 2: {:?}", value);
+                let q_ctx = q_js_rt.get_context(context_id.as_str());
+                ESPROMISE_REFS.with(move |rc| {
+                    let map = &*rc.borrow();
+                    let p_ref = map.get(&id).expect("no such promise");
+                    let js_val = value
+                        .as_js_value(q_ctx)
+                        .ok()
+                        .expect("could not convert to JSValue");
+                    let reject_res = unsafe { p_ref.reject(q_ctx.context, js_val) };
+                    if reject_res.is_err() {
+                        log::error!("reject failed: {}", reject_res.err().unwrap());
+                    }
+                });
+            });
+        }
     }
     fn set_info(&self, es_rt: &Arc<EsRuntime>, id: usize, context_id: &str) -> Result<(), EsError> {
         self.with_inner(|inner| {
