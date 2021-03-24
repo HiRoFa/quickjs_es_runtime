@@ -166,6 +166,7 @@ impl SingleThreadedEventQueue {
     }
 
     fn shutdown_cleanup(&self) {
+        println!("doing shutdown cleanup");
         LOCAL_JOBS.with(|rc| {
             let lj = &mut *rc.borrow_mut();
             lj.clear();
@@ -498,6 +499,7 @@ mod tests {
             std::thread::sleep(Duration::from_secs(2));
             j.join().ok().unwrap();
             debug!("done");
+            sttm.shutdown();
         }
         debug!("EsEventQueue should drop now");
         thread::sleep(Duration::from_secs(1));
@@ -549,6 +551,7 @@ mod tests {
         });
 
         std::thread::sleep(Duration::from_secs(13));
+        sttm.shutdown();
     }
 
     async fn test_async1(sttm: &SingleThreadedEventQueue) {
@@ -573,5 +576,6 @@ mod tests {
         let sttm = SingleThreadedEventQueue::new();
         let fut = test_async1(&sttm);
         block_on(fut);
+        sttm.shutdown();
     }
 }
