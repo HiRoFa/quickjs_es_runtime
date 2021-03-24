@@ -60,23 +60,28 @@ unsafe extern "C" fn fetch_func(
 
         if let Some(rt_ref) = q_js_rt.get_rt_ref() {
             if rt_ref.inner.fetch_response_provider.is_some() {
+                let rt_ref_weak = Arc::downgrade(&rt_ref);
+                // prevent accidental use
+                drop(rt_ref);
+
                 let producer = move || {
                     // call fetch_result_producer()
 
-                    // we are out of thread here, so we should get a ref to es_rt before and move it here
-                    // hmm so how do we use the fetch_provider out of the q_js_rt thread... i gues the provider should only be part of es_rt?
+                    if let Some(rt_ref) = rt_ref_weak.upgrade() {
+                        let provider = rt_ref
+                            .inner
+                            .fetch_response_provider
+                            .as_ref()
+                            .expect("we really expected a fetch_response_provider here");
 
-                    let provider = rt_ref
-                        .inner
-                        .fetch_response_provider
-                        .as_ref()
-                        .expect("we really expected a fetch_response_provider here");
+                        let request = FetchRequest::new(url.as_str(), HashMap::new());
 
-                    let request = FetchRequest::new(url.as_str(), HashMap::new());
+                        let result: Box<dyn FetchResponse + Send> = provider(&request);
 
-                    let result: Box<dyn FetchResponse + Send> = provider(&request);
-
-                    Ok(result)
+                        Ok(result)
+                    } else {
+                        Err("rt was dropped".to_string())
+                    }
                 };
                 let mapper = |q_ctx: &QuickJsContext, p_res: Box<dyn FetchResponse + Send>| {
                     response::new_response_ref(q_ctx, p_res)
@@ -144,7 +149,7 @@ pub mod tests {
             .build();
         let res = rt.eval_sync(EsScript::new(
             "test_fetch.es",
-            "let res = fetch('https://httpbin.org/get'); console.log('fetch res was: ' + res); res.then((fetch_resp) => {console.log('fetch response .ok = ' + fetch_resp.ok); fetch_resp.text().then((txt) => {console.log('fetch_resp.text() resolved into ' + txt);});}); res = null;",
+            "{let res = fetch('https://httpbin.org/get'); console.log('fetch res was: ' + res); res.then((fetch_resp) => {console.log('fetch response .ok = ' + fetch_resp.ok); fetch_resp.text().then((txt) => {console.log('fetch_resp.text() resolved into ' + txt);});}); res = null;}",
         ));
         match res {
             Ok(_) => {
@@ -156,7 +161,7 @@ pub mod tests {
         }
         let res2 = rt.eval_sync(EsScript::new(
             "test_fetch2.es",
-            "let res2 = fetch('https://httpbin.org/get'); console.log('fetch res2 was: ' + res2); res2.then((fetch_resp) => {console.log('fetch response .ok = ' + fetch_resp.ok); fetch_resp.json().then((js_obj) => {console.log('fetch_resp.json() resolved into ' + js_obj);}).catch((ex) => {console.log('fetch_resp.caught ' + ex);});;}); res2 = null;",
+            "{let res2 = fetch('https://httpbin.org/get'); console.log('fetch res2 was: ' + res2); res2.then((fetch_resp) => {console.log('fetch response .ok = ' + fetch_resp.ok); fetch_resp.json().then((js_obj) => {console.log('fetch_resp.json() resolved into ' + js_obj);}).catch((ex) => {console.log('fetch_resp.caught ' + ex);});;}); res2 = null;}",
         ));
         match res2 {
             Ok(_) => {
