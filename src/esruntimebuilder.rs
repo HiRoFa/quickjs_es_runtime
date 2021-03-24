@@ -1,9 +1,13 @@
+use crate::eserror::EsError;
 use crate::esruntime::{EsRuntime, FetchResponseProvider};
 use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
 use crate::quickjsruntime::{NativeModuleLoader, ScriptModuleLoader};
 use std::sync::Arc;
 use std::time::Duration;
+
+pub type EsRuntimeInitHooks =
+    Vec<Box<dyn FnOnce(&EsRuntime) -> Result<(), EsError> + Send + 'static>>;
 
 /// the EsRuntimeBuilder is used to init an EsRuntime
 /// # Example
@@ -22,6 +26,7 @@ pub struct EsRuntimeBuilder {
     pub(crate) opt_gc_threshold: Option<u64>,
     pub(crate) opt_max_stack_size: Option<u64>,
     pub(crate) opt_gc_interval: Option<Duration>,
+    pub(crate) runtime_init_hooks: EsRuntimeInitHooks,
 }
 
 impl EsRuntimeBuilder {
@@ -40,6 +45,7 @@ impl EsRuntimeBuilder {
             opt_gc_threshold: None,
             opt_max_stack_size: None,
             opt_gc_interval: None,
+            runtime_init_hooks: vec![],
         }
     }
 
@@ -71,6 +77,14 @@ impl EsRuntimeBuilder {
         loader: Box<M>,
     ) -> Self {
         self.script_module_loaders.push(loader);
+        self
+    }
+
+    pub fn runtime_init_hook<H>(mut self, hook: H) -> Self
+    where
+        H: FnOnce(&EsRuntime) -> Result<(), EsError> + Send + 'static,
+    {
+        self.runtime_init_hooks.push(Box::new(hook));
         self
     }
 

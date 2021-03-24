@@ -203,6 +203,8 @@ impl EsRuntime {
             });
         }
 
+        let init_hooks: Vec<_> = builder.runtime_init_hooks.drain(..).collect();
+
         ret.inner.event_queue.exe_task(|| {
             QuickJsRuntime::do_with_mut(|q_js_rt| {
                 for native_module_loader in builder.native_module_loaders {
@@ -237,6 +239,15 @@ impl EsRuntime {
                 }
             })
         });
+
+        for hook in init_hooks {
+            match hook(&ret) {
+                Ok(_) => {}
+                Err(e) => {
+                    panic!("runtime_init_hook failed: {}", e);
+                }
+            }
+        }
 
         ret
     }
