@@ -1,36 +1,59 @@
+use futures::Future;
 use log::trace;
-
-use rayon::{ThreadPool, ThreadPoolBuilder};
+use tokio::runtime::Runtime;
+use tokio::task::JoinError;
 
 pub struct TaskManager {
-    thread_pool: ThreadPool,
+    runtime: Runtime,
 }
 
 impl TaskManager {
     pub fn new(thread_count: usize) -> Self {
         // start threads
 
-        let thread_pool = ThreadPoolBuilder::new()
-            .thread_name(|id| format!("TaskManager_thread_{}", id))
-            .num_threads(thread_count)
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .max_blocking_threads(thread_count)
             .build()
-            .unwrap();
+            .ok()
+            .expect("tokio rt failed");
 
-        TaskManager { thread_pool }
+        TaskManager { runtime }
     }
 
     pub fn add_task<T: FnOnce() + Send + 'static>(&self, task: T) {
         trace!("adding a task");
+        self.runtime.spawn_blocking(task);
+    }
 
-        self.thread_pool.spawn(task);
+    /// start an async task
+    /// # Example
+    /// ```rust
+    /// use quickjs_runtime::utils::task_manager::TaskManager;
+    /// let tm = TaskManager::new(2);
+    /// let task = async {
+    ///     println!("foo");
+    /// };
+    /// tm.add_task_async(task);
+    /// ```
+    pub fn add_task_async<R: Send + 'static, T: Future<Output = R> + Send + 'static>(
+        &self,
+        task: T,
+    ) -> impl Future<Output = Result<R, JoinError>> {
+        self.runtime.spawn(task)
     }
 
     #[allow(dead_code)]
-    pub fn run_task_blocking<R: Send, T: FnOnce() -> R + Send>(&self, task: T) -> R {
+    pub fn run_task_blocking<R: Send + 'static, T: FnOnce() -> R + Send + 'static>(
+        &self,
+        task: T,
+    ) -> R {
         trace!("adding a sync task from thread {}", thread_id::get());
         // check if the current thread is not a worker thread, because that would be bad
-        assert!(self.thread_pool.current_thread_index().is_none());
-        self.thread_pool.install(task)
+        let join_handle = self.runtime.spawn_blocking(task);
+        self.runtime
+            .block_on(join_handle)
+            .ok()
+            .expect("task failed")
     }
 }
 

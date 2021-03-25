@@ -11,6 +11,7 @@ use crate::quickjs_utils::{gc, modules, promises};
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
+use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::CString;
@@ -231,8 +232,6 @@ impl QuickJsRuntime {
     where
         H: Fn(&QuickJsRuntime, &QuickJsContext) -> Result<(), EsError> + 'static,
     {
-        // todo, for each context run hook
-
         for ctx in self.contexts.values() {
             hook(self, ctx)?;
         }
@@ -427,6 +426,24 @@ impl QuickJsRuntime {
     pub fn get_id(&self) -> &str {
         self.id.as_str()
     }
+
+    /// this method tries to load a module script using the runtimes script_module loaders
+    pub fn load_module_script_opt(&self, ref_path: &str, path: &str) -> Option<String> {
+        for loader in &self.module_loaders {
+            let a: &dyn Any = loader;
+            match a.downcast_ref::<ScriptModuleLoaderAdapter>() {
+                None => {}
+                Some(script_loader) => {
+                    let i = &script_loader.inner;
+                    if let Some(normalized) = i.normalize_path(ref_path, path) {
+                        return Some(i.load_module(normalized.as_str()));
+                    }
+                }
+            }
+        }
+
+        None
+    }
 }
 
 impl Drop for QuickJsRuntime {
@@ -451,5 +468,37 @@ pub(crate) fn make_cstring(value: &str) -> Result<CString, EsError> {
             "could not create cstring from {}",
             value
         ))),
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::esruntimebuilder::EsRuntimeBuilder;
+    use crate::quickjsruntime::ScriptModuleLoader;
+
+    struct FooScriptModuleLoader {}
+    impl ScriptModuleLoader for FooScriptModuleLoader {
+        fn normalize_path(&self, _ref_path: &str, path: &str) -> Option<String> {
+            Some(path.to_string())
+        }
+
+        fn load_module(&self, _absolute_path: &str) -> String {
+            println!("load_module");
+            "{}".to_string()
+        }
+    }
+
+    //#[test]
+    fn _test_script_load() {
+        println!("testing1");
+        let rt = EsRuntimeBuilder::new()
+            .script_module_loader(Box::new(FooScriptModuleLoader {}))
+            .build();
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            println!("testing2");
+            let script = q_js_rt.load_module_script_opt("", "test.mjs").unwrap();
+            assert_eq!(script.as_str(), "{}");
+            println!("tested");
+        });
     }
 }

@@ -166,7 +166,6 @@ impl SingleThreadedEventQueue {
     }
 
     fn shutdown_cleanup(&self) {
-        println!("doing shutdown cleanup");
         LOCAL_JOBS.with(|rc| {
             let lj = &mut *rc.borrow_mut();
             lj.clear();

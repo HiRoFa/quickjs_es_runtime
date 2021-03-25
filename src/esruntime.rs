@@ -14,6 +14,7 @@ use libquickjs_sys as q;
 use std::future::Future;
 use std::rc::Rc;
 use std::sync::{Arc, Weak};
+use tokio::task::JoinError;
 
 lazy_static! {
     /// a static Multithreaded task manager used to run rust ops async and multithreaded ( in at least 2 threads)
@@ -581,6 +582,14 @@ impl EsRuntime {
     {
         log::trace!("adding a helper task");
         HELPER_TASKS.add_task(task);
+    }
+
+    /// add an async task the the "helper" thread pool
+    pub fn add_helper_task_async<R: Send + 'static, T: Future<Output = R> + Send + 'static>(
+        task: T,
+    ) -> impl Future<Output = Result<R, JoinError>> {
+        log::trace!("adding an async helper task");
+        HELPER_TASKS.add_task_async(task)
     }
 
     /// create a new context besides the always existing main_context

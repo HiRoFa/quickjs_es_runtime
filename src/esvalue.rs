@@ -13,6 +13,7 @@ use futures::executor::block_on;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
+use std::future::Future;
 use std::rc::Rc;
 use std::sync::{Arc, Weak};
 
@@ -918,6 +919,63 @@ impl EsPromise {
 
         ret
     }
+
+    /// create a new Promise based on an async resolver
+    /// this can be used to implement a resolver which in turn used .await to get results of other async functions
+    /// # Example
+    /// ```rust
+    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::esvalue::{EsPromise, EsValueConvertible};
+    /// use quickjs_runtime::esscript::EsScript;
+    /// use std::time::Duration;
+    ///
+    /// async fn a(i: i32) -> i32 {
+    ///     std::thread::sleep(Duration::from_secs(2));
+    ///     i * 3
+    /// }
+    ///
+    /// let rt = EsRuntimeBuilder::new().build();
+    ///
+    /// rt.set_function(vec!["com", "my"], "testasyncfunc", |_q_ctx, args| {
+    ///     let input = args[0].get_i32();
+    ///     let prom = EsPromise::new_async(async move {
+    ///         let i = a(input).await;
+    ///         Ok(i.to_es_value_facade())
+    ///     });
+    ///     Ok(prom.to_es_value_facade())
+    /// })
+    /// .ok()
+    /// .expect("setfunction failed");
+    ///
+    /// let res_prom = rt
+    ///     .eval_sync(EsScript::new("testasync2.es", "(com.my.testasyncfunc(7))"))
+    ///     .ok()
+    ///     .expect("script failed");
+    /// let res_i32 = res_prom.get_promise_result_sync().expect("prom failed");
+    /// assert_eq!(res_i32.get_i32(), 21);
+    /// ```
+    pub fn new_async<R>(resolver: R) -> Self
+    where
+        R: Future<Output = Result<EsValueFacade, String>> + Send + 'static,
+    {
+        let ret = Self::new_unresolving();
+
+        let handle = ret.get_handle();
+
+        let _ = EsRuntime::add_helper_task_async(async move {
+            let val = resolver.await;
+            match val {
+                Ok(v) => {
+                    handle.resolve(v);
+                }
+                Err(e) => {
+                    handle.reject(e.to_es_value_facade());
+                }
+            }
+        });
+
+        ret
+    }
     /// create a new Promise which will be resolved later
     /// this achieved by creating a Handle which is wrapped in an Arc and thus may be passed to another thread
     /// # Example
@@ -1265,9 +1323,10 @@ pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esruntimebuilder::EsRuntimeBuilder;
     use crate::esscript::EsScript;
-    use crate::esvalue::EsValueFacade;
+    use crate::esvalue::{EsPromise, EsValueConvertible, EsValueFacade};
     use futures::executor::block_on;
     use std::sync::Arc;
+    use std::time::Duration;
 
     async fn test_async_func1(esvf: EsValueFacade) -> i32 {
         let res = esvf.invoke_function(vec![]).await;
@@ -1334,5 +1393,33 @@ pub mod tests {
             .expect("script failed");
         let i = block_on(test_async(esvf));
         assert_eq!(i, 1360);
+    }
+
+    async fn a(i: i32) -> i32 {
+        std::thread::sleep(Duration::from_secs(2));
+        i * 3
+    }
+
+    #[test]
+    fn test_promise_async2() {
+        let rt = EsRuntimeBuilder::new().build();
+
+        rt.set_function(vec!["com", "my"], "testasyncfunc", |_q_ctx, args| {
+            let input = args[0].get_i32();
+            let prom = EsPromise::new_async(async move {
+                let i = a(input).await;
+                Ok(i.to_es_value_facade())
+            });
+            Ok(prom.to_es_value_facade())
+        })
+        .ok()
+        .expect("setfunction failed");
+
+        let res_prom = rt
+            .eval_sync(EsScript::new("testasync2.es", "(com.my.testasyncfunc(7))"))
+            .ok()
+            .expect("script failed");
+        let res_i32 = res_prom.get_promise_result_sync().expect("prom failed");
+        assert_eq!(res_i32.get_i32(), 21);
     }
 }
