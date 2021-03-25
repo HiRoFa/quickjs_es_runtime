@@ -7,7 +7,7 @@ quickjs_runtime is a library for quickly getting started with embedding a javasc
 quickjs_runtime focuses purely on making [quickjs](https://bellard.org/quickjs/) easy to use and does not add anny additional features, that where these projects come in:
 * A more feature-rich runtime can be found in [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime).
 * There is also a commandline client: [GreenCopperCmd](https://github.com/HiRoFa/GreenCopperCmd).
-* And last but not least there is GreenCopper which aspires to be a full fledged application platform: [Green-Copper-q](https://github.com/HiRoFa/Green-Copper-q).
+* And last but not least there is GreenCopper which aspires to be a full fledged application platform: [GreenCopperServer](https://github.com/HiRoFa/GreenCopperServer).
 
 This project is heavily inspired by the awesome quickjs wrapper at [theduke/quickjs-rs](https://github.com/theduke/quickjs-rs) and still uses its low level bindings [libquickjs-sys](https://crates.io/crates/libquickjs-sys).
 
