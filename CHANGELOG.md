@@ -2,6 +2,7 @@
 
 * added a runtime_init_hook(hook) method to the EsRuntimeBuilder so we can add vars to the runtime when the builder is built
 * added EsPromise::new_async which can be used to instantiate a Promise with an async resolver
+* refactored the module loader sin qjsrt so we can differentiate between sacript and native.. i need that for CommonJS and probably later for transpiling and such
 
 # 0.2.2
 

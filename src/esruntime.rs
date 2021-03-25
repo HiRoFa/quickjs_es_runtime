@@ -209,18 +209,14 @@ impl EsRuntime {
         ret.inner.event_queue.exe_task(|| {
             QuickJsRuntime::do_with_mut(|q_js_rt| {
                 for native_module_loader in builder.native_module_loaders {
-                    q_js_rt
-                        .module_loaders
-                        .push(Box::new(NativeModuleLoaderAdapter::new(
-                            native_module_loader,
-                        )));
+                    q_js_rt.add_native_module_loader(NativeModuleLoaderAdapter::new(
+                        native_module_loader,
+                    ));
                 }
                 for script_module_loader in builder.script_module_loaders {
-                    q_js_rt
-                        .module_loaders
-                        .push(Box::new(ScriptModuleLoaderAdapter::new(
-                            script_module_loader,
-                        )));
+                    q_js_rt.add_script_module_loader(ScriptModuleLoaderAdapter::new(
+                        script_module_loader,
+                    ));
                 }
 
                 if let Some(limit) = builder.opt_memory_limit_bytes {

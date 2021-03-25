@@ -169,15 +169,20 @@ unsafe extern "C" fn js_module_normalize(
 
     QuickJsRuntime::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(ctx);
-        for loader in &q_js_rt.module_loaders {
+
+        if let Some(res) = q_js_rt.with_all_module_loaders(|loader| {
             if let Some(normalized_path) = loader.normalize_path(q_ctx, base_str, name_str) {
                 let c_absolute_path = CString::new(normalized_path.as_str()).expect("fail");
-
-                return c_absolute_path.into_raw();
+                Some(c_absolute_path.into_raw())
+            } else {
+                None
             }
+        }) {
+            res
+        } else {
+            q_ctx.report_ex(format!("Module {} was not found", name_str).as_str());
+            ptr::null_mut()
         }
-        q_ctx.report_ex(format!("Module {} was not found", name_str).as_str());
-        ptr::null_mut()
     })
 }
 
@@ -195,24 +200,28 @@ unsafe extern "C" fn js_module_loader(
 
     QuickJsRuntime::do_with(|q_js_rt| {
         QuickJsContext::with_context(ctx, |q_ctx| {
-            for module_loader in &q_js_rt.module_loaders {
+            if let Some(res) = q_js_rt.with_all_module_loaders(|module_loader| {
                 if module_loader.has_module(q_ctx, module_name) {
                     let mod_val_res = module_loader.load_module(q_ctx, module_name);
                     match mod_val_res {
                         Ok(mod_val) => {
-                            return mod_val;
+                            return Some(mod_val);
                         }
                         Err(e) => {
                             let err =
                                 format!("Module load failed for {} because of: {}", module_name, e);
                             log::error!("{}", err);
                             q_ctx.report_ex(err.as_str());
-                            return std::ptr::null_mut();
+                            return Some(std::ptr::null_mut());
                         }
                     };
                 }
+                None
+            }) {
+                res
+            } else {
+                std::ptr::null_mut()
             }
-            std::ptr::null_mut()
         })
     })
 }

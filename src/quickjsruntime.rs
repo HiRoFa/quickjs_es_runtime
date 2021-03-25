@@ -11,7 +11,6 @@ use crate::quickjs_utils::{gc, modules, promises};
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
-use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::CString;
@@ -163,11 +162,11 @@ unsafe extern "C" fn native_module_init(
 
     QuickJsRuntime::do_with(|q_js_rt| {
         QuickJsContext::with_context(ctx, |q_ctx| {
-            for module_loader in &q_js_rt.module_loaders {
+            if let Some(res) = q_js_rt.with_all_module_loaders(|module_loader| {
                 if module_loader.has_module(q_ctx, module_name.as_str()) {
-                    return match module_loader.init_module(q_ctx, module) {
+                    match module_loader.init_module(q_ctx, module) {
                         Ok(_) => {
-                            0 // ok
+                            Some(0) // ok
                         }
                         Err(e) => {
                             q_ctx.report_ex(
@@ -177,12 +176,17 @@ unsafe extern "C" fn native_module_init(
                                 )
                                 .as_str(),
                             );
-                            1
+                            Some(1)
                         }
-                    };
+                    }
+                } else {
+                    None
                 }
+            }) {
+                res
+            } else {
+                0
             }
-            0 // ok
         })
     })
 }
@@ -217,7 +221,8 @@ pub struct QuickJsRuntime {
     es_rt_ref: Option<Weak<EsRuntime>>,
     id: String,
     context_init_hooks: RefCell<ContextInitHooks>,
-    pub(crate) module_loaders: Vec<Box<dyn ModuleLoader>>,
+    script_module_loaders: Vec<ScriptModuleLoaderAdapter>,
+    native_module_loaders: Vec<NativeModuleLoaderAdapter>,
 }
 
 impl QuickJsRuntime {
@@ -335,7 +340,8 @@ impl QuickJsRuntime {
             es_rt_ref: None,
             id,
             context_init_hooks: RefCell::new(vec![]),
-            module_loaders: vec![],
+            script_module_loaders: vec![],
+            native_module_loaders: vec![],
         };
 
         modules::set_module_loader(&q_rt);
@@ -347,9 +353,36 @@ impl QuickJsRuntime {
         q_rt
     }
 
+    pub fn add_script_module_loader(&mut self, sml: ScriptModuleLoaderAdapter) {
+        self.script_module_loaders.push(sml);
+    }
+
+    pub fn add_native_module_loader(&mut self, nml: NativeModuleLoaderAdapter) {
+        self.native_module_loaders.push(nml);
+    }
+
     pub fn get_main_context(&self) -> &QuickJsContext {
         // todo store this somewhere so we don't need a lookup in the map every time
         self.get_context("__main__")
+    }
+
+    pub fn with_all_module_loaders<C, R>(&self, consumer: C) -> Option<R>
+    where
+        C: Fn(&dyn ModuleLoader) -> Option<R>,
+    {
+        for loader in &self.native_module_loaders {
+            let res = consumer(loader);
+            if res.is_some() {
+                return res;
+            }
+        }
+        for loader in &self.script_module_loaders {
+            let res = consumer(loader);
+            if res.is_some() {
+                return res;
+            }
+        }
+        None
     }
 
     /// run the garbage collector
@@ -429,16 +462,10 @@ impl QuickJsRuntime {
 
     /// this method tries to load a module script using the runtimes script_module loaders
     pub fn load_module_script_opt(&self, ref_path: &str, path: &str) -> Option<String> {
-        for loader in &self.module_loaders {
-            let a: &dyn Any = loader;
-            match a.downcast_ref::<ScriptModuleLoaderAdapter>() {
-                None => {}
-                Some(script_loader) => {
-                    let i = &script_loader.inner;
-                    if let Some(normalized) = i.normalize_path(ref_path, path) {
-                        return Some(i.load_module(normalized.as_str()));
-                    }
-                }
+        for loader in &self.script_module_loaders {
+            let i = &loader.inner;
+            if let Some(normalized) = i.normalize_path(ref_path, path) {
+                return Some(i.load_module(normalized.as_str()));
             }
         }
 
@@ -488,8 +515,8 @@ pub mod tests {
         }
     }
 
-    //#[test]
-    fn _test_script_load() {
+    #[test]
+    fn test_script_load() {
         println!("testing1");
         let rt = EsRuntimeBuilder::new()
             .script_module_loader(Box::new(FooScriptModuleLoader {}))
