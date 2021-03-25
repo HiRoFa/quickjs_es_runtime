@@ -14,7 +14,6 @@ impl TaskManager {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .max_blocking_threads(thread_count)
             .build()
-            .ok()
             .expect("tokio rt failed");
 
         TaskManager { runtime }
@@ -50,10 +49,7 @@ impl TaskManager {
         trace!("adding a sync task from thread {}", thread_id::get());
         // check if the current thread is not a worker thread, because that would be bad
         let join_handle = self.runtime.spawn_blocking(task);
-        self.runtime
-            .block_on(join_handle)
-            .ok()
-            .expect("task failed")
+        self.runtime.block_on(join_handle).expect("task failed")
     }
 }
 
