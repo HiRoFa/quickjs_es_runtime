@@ -18,6 +18,7 @@ pub mod sets;
 pub mod typedarrays;
 
 use crate::eserror::EsError;
+use crate::quickjs_utils::atoms::JSAtomRef;
 use crate::quickjs_utils::objects::get_property;
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::{JSValueRef, TAG_NULL, TAG_UNDEFINED};
@@ -53,6 +54,20 @@ pub fn new_null() -> q::JSValue {
 
 pub fn new_null_ref() -> JSValueRef {
     JSValueRef::new_no_context(new_null(), "null_ref")
+}
+
+/// get the current filename
+pub fn get_script_or_module_name_q(ctx: &QuickJsContext) -> Result<String, EsError> {
+    unsafe { get_script_or_module_name(ctx.context) }
+}
+
+/// get the current filename
+/// # Safety
+/// ensure the QuickJsContext has not been dropped
+pub unsafe fn get_script_or_module_name(context: *mut q::JSContext) -> Result<String, EsError> {
+    let atom = q::JS_GetScriptOrModuleName(context, 0);
+    let atom_ref = JSAtomRef::new(context, atom);
+    atoms::to_string(context, &atom_ref)
 }
 
 pub fn get_global_q(context: &QuickJsContext) -> JSValueRef {
@@ -101,7 +116,9 @@ pub unsafe fn parse_args(
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::tests::init_test_rt;
-    use crate::quickjs_utils::get_global_q;
+    use crate::esscript::EsScript;
+    use crate::esvalue::EsValueConvertible;
+    use crate::quickjs_utils::{get_global_q, get_script_or_module_name_q};
 
     #[test]
     fn test_global() {
@@ -115,5 +132,21 @@ pub mod tests {
                 assert_eq!(global.get_ref_count(), ct);
             }
         });
+    }
+
+    #[test]
+    fn test_script_name() {
+        let rt = init_test_rt();
+        rt.set_function(vec![], "testName", |q_ctx, _args| {
+            let res = get_script_or_module_name_q(q_ctx)?.to_es_value_facade();
+            Ok(res)
+        })
+        .ok()
+        .expect("func set failed");
+        let name_esvf = rt
+            .eval_sync(EsScript::new("the_name.es", "(testName())"))
+            .ok()
+            .expect("script failed");
+        assert_eq!(name_esvf.get_str(), "the_name.es");
     }
 }
