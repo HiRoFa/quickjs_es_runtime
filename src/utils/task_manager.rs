@@ -12,6 +12,7 @@ impl TaskManager {
         // start threads
 
         let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
             .max_blocking_threads(thread_count)
             .build()
             .expect("tokio rt failed");
