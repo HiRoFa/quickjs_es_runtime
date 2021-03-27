@@ -1284,8 +1284,8 @@ impl EsValueFacade {
     /// assert_eq!(i, 1360);
     ///
     /// ```
-    pub async fn get_promise_result(&self) -> Result<EsValueFacade, EsValueFacade> {
-        self.convertible.get_promise_result().await
+    pub fn get_promise_result(&self) -> impl Future<Output = Result<EsValueFacade, EsValueFacade>> {
+        self.convertible.get_promise_result()
     }
 }
 
@@ -1325,7 +1325,7 @@ pub mod tests {
     use crate::esscript::EsScript;
     use crate::esvalue::{EsPromise, EsValueConvertible, EsValueFacade};
     use futures::executor::block_on;
-    use std::sync::Arc;
+    use std::sync::{Arc, Weak};
     use std::time::Duration;
 
     async fn test_async_func1(esvf: EsValueFacade) -> i32 {
@@ -1395,19 +1395,35 @@ pub mod tests {
         assert_eq!(i, 1360);
     }
 
-    async fn a(i: i32) -> i32 {
-        std::thread::sleep(Duration::from_secs(2));
+    async fn a(i: i32, rt_ref: Weak<EsRuntime>) -> i32 {
+        let rt = rt_ref.upgrade().unwrap();
+        let second_prom = rt
+            .eval(EsScript::new(
+                "o.es",
+                "(new Promise((resolve) => {resolve(321);}))",
+            ))
+            .await
+            .ok()
+            .expect("script failed");
+
+        let second_prom_res = second_prom.get_promise_result();
+        let res = second_prom_res.await.ok().expect("prom was rejected");
+
+        assert_eq!(res.get_i32(), 321);
+
+        std::thread::sleep(Duration::from_secs(1));
         i * 3
     }
 
     #[test]
     fn test_promise_async2() {
         let rt = EsRuntimeBuilder::new().build();
-
-        rt.set_function(vec!["com", "my"], "testasyncfunc", |_q_ctx, args| {
+        let rt_ref = Arc::downgrade(&rt);
+        rt.set_function(vec!["com", "my"], "testasyncfunc", move |_q_ctx, args| {
+            let rt_ref = rt_ref.clone();
             let input = args[0].get_i32();
             let prom = EsPromise::new_async(async move {
-                let i = a(input).await;
+                let i = a(input, rt_ref).await;
                 Ok(i.to_es_value_facade())
             });
             Ok(prom.to_es_value_facade())
