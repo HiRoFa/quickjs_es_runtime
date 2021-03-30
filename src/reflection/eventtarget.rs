@@ -4,6 +4,7 @@
 use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::objects::{create_object_q, set_property_q};
+use crate::quickjs_utils::primitives::from_bool;
 use crate::quickjs_utils::{functions, parse_args, primitives};
 use crate::quickjscontext::QuickJsContext;
 use crate::reflection::{get_proxy, get_proxy_instance_info, Proxy};
@@ -51,7 +52,7 @@ where
     })
 }
 
-fn add_listener_to_map(
+pub fn add_event_listener(
     q_ctx: &QuickJsContext,
     proxy_class_name: &str,
     event_id: &str,
@@ -70,7 +71,7 @@ fn add_listener_to_map(
     })
 }
 
-fn remove_listener_from_map(
+pub fn remove_event_listener(
     q_ctx: &QuickJsContext,
     proxy_class_name: &str,
     event_id: &str,
@@ -202,7 +203,7 @@ unsafe extern "C" fn ext_add_event_listener(
                 set_property_q(q_ctx, &options_obj, "capture", &args[2])?;
             }
 
-            add_listener_to_map(
+            add_event_listener(
                 q_ctx,
                 proxy_info.class_name.as_str(),
                 event_id.as_str(),
@@ -239,7 +240,7 @@ unsafe extern "C" fn ext_remove_event_listener(
             let event_id = primitives::to_string_q(q_ctx, &args[0])?;
             let listener_func = args[1].clone();
 
-            remove_listener_from_map(
+            remove_event_listener(
                 q_ctx,
                 proxy_info.class_name.as_str(),
                 event_id.as_str(),
@@ -279,13 +280,16 @@ unsafe extern "C" fn ext_dispatch_event(
 
             let proxy = get_proxy(q_ctx, proxy_info.class_name.as_str()).unwrap();
 
-            let _res = dispatch_event(q_ctx, &proxy, proxy_info.id, event_id.as_str(), evt_obj)?;
+            let res = dispatch_event(q_ctx, &proxy, proxy_info.id, event_id.as_str(), evt_obj)?;
 
-            Ok(())
+            Ok(res)
         }
     });
     match res {
-        Ok(_) => quickjs_utils::new_null(),
+        Ok(res) => {
+            let b_ref = from_bool(res);
+            b_ref.clone_value_incr_rc()
+        }
         Err(e) => QuickJsContext::report_ex_ctx(ctx, format!("{}", e).as_str()),
     }
 }
@@ -296,7 +300,7 @@ pub mod tests {
     use crate::esscript::EsScript;
     use crate::quickjs_utils::get_global_q;
     use crate::quickjs_utils::objects::{create_object_q, get_property_q};
-    use crate::quickjs_utils::primitives::to_bool;
+    use crate::quickjs_utils::primitives::to_i32;
     use crate::reflection::eventtarget::dispatch_event;
     use crate::reflection::{get_proxy, Proxy};
     use std::sync::{Arc, Mutex};
@@ -308,7 +312,7 @@ pub mod tests {
         let instance_ids2 = instance_ids.clone();
 
         let rt = init_test_rt();
-        let ok = rt.add_to_event_queue_sync(move |q_js_rt| {
+        let ct = rt.add_to_event_queue_sync(move |q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             Proxy::new()
                 .namespace(vec![])
@@ -332,8 +336,12 @@ pub mod tests {
                 "\
             this.called = false;\
             let test_proxy_eh_instance = new MyThing();\
-            let listener = (evt) => {this.called = true;};\
-            test_proxy_eh_instance.addEventListener('someEvent', listener);\
+            this.ct = 0;\
+            let listener1 = (evt) => {this.ct++;};\
+            let listener2 = (evt) => {this.ct++;};\
+            test_proxy_eh_instance.addEventListener('someEvent', listener1);\
+            test_proxy_eh_instance.addEventListener('someEvent', listener2);\
+            test_proxy_eh_instance.removeEventListener('someEvent', listener2);\
             ",
             )) {
                 Ok(_) => {}
@@ -352,19 +360,12 @@ pub mod tests {
                 .ok()
                 .expect("dispatch failed");
 
-            let called_ref = get_property_q(q_ctx, &global, "called").ok().unwrap();
-            let called = to_bool(&called_ref).ok().unwrap();
-            called
+            let ct_ref = get_property_q(q_ctx, &global, "ct").ok().unwrap();
+            let ct = to_i32(&ct_ref).ok().unwrap();
+            ct
         });
-        log::info!("ok was {}", ok);
-        assert!(ok);
-
-        rt.eval_sync(EsScript::new(
-            "test_fin.es",
-            "test_proxy_eh_instance = null;",
-        ))
-        .ok()
-        .expect("faile123");
+        log::info!("ok was {}", ct);
+        assert_eq!(ct, 1);
     }
 
     #[test]
