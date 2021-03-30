@@ -4,14 +4,14 @@ quickjs_runtime is a library for quickly getting started with embedding a javasc
 
 **DISCLAIMER: This project is far from what I would call "Battle Tested", use at your own risk.**
 
-quickjs_runtime focuses purely on making [quickjs](https://bellard.org/quickjs/) easy to use and does not add anny additional features, that where these projects come in:
-* A more feature-rich runtime can be found in [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime).
-* There is also a commandline client: [GreenCopperCmd](https://github.com/HiRoFa/GreenCopperCmd).
-* And last but not least there is GreenCopper which aspires to be a full fledged application platform: [GreenCopperServer](https://github.com/HiRoFa/GreenCopperServer).
+quickjs_runtime focuses purely on making [quickjs](https://bellard.org/quickjs/) easy to use and does not add any additional features, that's where these projects come in:
+* A more feature-rich runtime: [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime).
+* The commandline client: [GreenCopperCmd](https://github.com/HiRoFa/GreenCopperCmd).
+* And then there is GreenCopper which aspires to be a full fledged application platform: [GreenCopperServer](https://github.com/HiRoFa/GreenCopperServer).
 
 This project is heavily inspired by the awesome quickjs wrapper at [theduke/quickjs-rs](https://github.com/theduke/quickjs-rs) and still uses its low level bindings [libquickjs-sys](https://crates.io/crates/libquickjs-sys).
 
-The big difference to quickjs-rs is that quickjs_runtime executes all quickjs related code in a dedicated single-threaded EventQueue.
+The big difference to quickjs-rs is that quickjs_runtime executes all quickjs related code in a dedicated single-threaded EventLoop.
 
 Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/index.html) for all inner workings
 
@@ -123,7 +123,7 @@ fn main() {
     let res = rt.call_function(vec!["myAppUtils"], "some_func", es_args![8, 7]).await;
     match res {
         Ok(val) => log::info!("8*7 in JavaScript = {}", val.get_i32()),
-        Err(e) => println!("script failed: {}", e),
+        Err(e) => log::error!("script failed: {}", e),
     }
 ```
 

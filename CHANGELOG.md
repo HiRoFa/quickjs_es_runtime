@@ -5,6 +5,8 @@
   * Big thanks to [SreeniIO](https://github.com/SreeniIO) for helping out!
 * refactored the module loaders in qjsrt so we can differentiate between script and native... I need that for CommonJS and probably later for transpiling and such
 * added quickjs_utils::get_script_or_module_name to get the current scripts filename or module name
+* Proxy supports multiple finalizers
+* Proxy as EventTarget first working code. needs to mature, but the goal for now is minimal support for dispatching events from rust to JavaScript 
 
 # 0.2.2
 

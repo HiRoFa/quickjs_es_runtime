@@ -14,8 +14,20 @@ use std::rc::Rc;
 
 pub struct QuickJsContext {
     object_cache: RefCell<AutoIdMap<JSValueRef>>,
-    pub(crate) instance_id_mappings: RefCell<HashMap<usize, Box<ProxyInstanceInfo>>>,
+    pub(crate) proxy_instance_id_mappings: RefCell<HashMap<usize, Box<ProxyInstanceInfo>>>,
     pub(crate) proxy_registry: RefCell<HashMap<String, Rc<Proxy>>>, // todo is this Rc needed or can we just borrow the Proxy when needed?
+    pub(crate) proxy_event_listeners: RefCell<
+        HashMap<
+            String, /*proxy_class_name*/
+            HashMap<
+                usize, /*proxy_instance_id*/
+                HashMap<
+                    String, /*event_id*/
+                    HashMap<JSValueRef /*listener_func*/, JSValueRef /*options_obj*/>,
+                >,
+            >,
+        >,
+    >,
     pub id: String,
     pub context: *mut q::JSContext,
 }
@@ -26,6 +38,11 @@ thread_local! {
 
 impl QuickJsContext {
     pub(crate) fn free(&self) {
+        {
+            let proxy_event_listeners = &mut *self.proxy_event_listeners.borrow_mut();
+            proxy_event_listeners.clear();
+        }
+
         unsafe { q::JS_FreeContext(self.context) };
     }
     pub(crate) fn new(id: String, q_js_rt: &QuickJsRuntime) -> Self {
@@ -51,8 +68,9 @@ impl QuickJsContext {
             id,
             context,
             object_cache: RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize)),
-            instance_id_mappings: RefCell::new(HashMap::new()),
-            proxy_registry: RefCell::new(HashMap::new()),
+            proxy_instance_id_mappings: RefCell::new(Default::default()),
+            proxy_registry: RefCell::new(Default::default()),
+            proxy_event_listeners: RefCell::new(Default::default()),
         }
     }
     /// get the id of a QuickJsContext from a JSContext
@@ -252,7 +270,7 @@ impl Drop for QuickJsContext {
             proxies.clear();
         }
         {
-            let id_mappings = &mut *self.instance_id_mappings.borrow_mut();
+            let id_mappings = &mut *self.proxy_instance_id_mappings.borrow_mut();
             id_mappings.clear();
         }
 

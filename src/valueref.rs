@@ -1,4 +1,5 @@
 use libquickjs_sys as q;
+use std::hash::{Hash, Hasher};
 use std::ptr::null_mut;
 
 pub struct JSValueRef {
@@ -7,6 +8,37 @@ pub struct JSValueRef {
     ref_ct_decr_on_drop: bool,
     label: String,
 }
+
+impl Hash for JSValueRef {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let self_u = self.value.u;
+        if self.is_i32() || self.is_bool() {
+            unsafe { self_u.int32.hash(state) };
+        } else if self.is_f64() {
+            unsafe { (self_u.float64 as i32).hash(state) };
+        } else {
+            unsafe { self_u.ptr.hash(state) };
+        }
+    }
+}
+
+impl PartialEq for JSValueRef {
+    fn eq(&self, other: &Self) -> bool {
+        if self.get_tag() != other.get_tag() {
+            false
+        } else {
+            let self_u = self.value.u;
+            let other_u = other.value.u;
+            unsafe {
+                self_u.int32 == other_u.int32
+                    && self_u.float64 == other_u.float64
+                    && self_u.ptr == other_u.ptr
+            }
+        }
+    }
+}
+
+impl Eq for JSValueRef {}
 
 impl JSValueRef {
     #[allow(dead_code)]

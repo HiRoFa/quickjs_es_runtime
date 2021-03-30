@@ -269,13 +269,16 @@ impl QuickJsRuntime {
         })
     }
     pub fn drop_context(id: &str) {
+        log::debug!("QuickJSRuntime::drop_context: {}", id);
         QuickJsRuntime::do_with(|m_rt| {
             m_rt.gc();
         });
 
         QuickJsRuntime::do_with(|rt| {
             let q_ctx = rt.get_context(id);
+            log::trace!("QuickJSRuntime::q_ctx.free: {}", id);
             q_ctx.free();
+            log::trace!("after QuickJSRuntime::q_ctx.free: {}", id);
             rt.gc();
         });
 
@@ -510,22 +513,22 @@ pub mod tests {
         }
 
         fn load_module(&self, _absolute_path: &str) -> String {
-            println!("load_module");
+            log::debug!("load_module");
             "{}".to_string()
         }
     }
 
     #[test]
     fn test_script_load() {
-        println!("testing1");
+        log::debug!("testing1");
         let rt = EsRuntimeBuilder::new()
             .script_module_loader(Box::new(FooScriptModuleLoader {}))
             .build();
         rt.add_to_event_queue_sync(|q_js_rt| {
-            println!("testing2");
+            log::debug!("testing2");
             let script = q_js_rt.load_module_script_opt("", "test.mjs").unwrap();
             assert_eq!(script.as_str(), "{}");
-            println!("tested");
+            log::debug!("tested");
         });
     }
 }

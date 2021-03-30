@@ -3,38 +3,160 @@
 
 use crate::eserror::EsError;
 use crate::quickjs_utils;
-use crate::quickjs_utils::objects::{
-    create_object_q, get_property_q, set_property2_q, set_property_q,
-};
-use crate::quickjs_utils::{functions, maps, objects, parse_args, primitives};
+use crate::quickjs_utils::objects::{create_object_q, set_property_q};
+use crate::quickjs_utils::{functions, parse_args, primitives};
 use crate::quickjscontext::QuickJsContext;
-use crate::reflection::Proxy;
+use crate::reflection::{get_proxy, get_proxy_instance_info, Proxy};
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
+use std::collections::HashMap;
 
-pub fn _dispatch_event(_proxy: &Proxy, _instance_id: usize, _event: JSValueRef) {
-    // hmm... i'm afraid this means we need to store eventListeners in a map we can acces by id instead of the current put a map in proxy solution
-    // the problem is we need to drop the listeners when the proxy instance drops.. but if a listener has a ref to the instance.. well that will create a ref island.. which would be bad
-    // hmmz
-    unimplemented!()
+fn with_proxy_instances_map<C, R>(q_ctx: &QuickJsContext, proxy_class_name: &str, consumer: C) -> R
+where
+    C: FnOnce(&mut HashMap<usize, HashMap<String, HashMap<JSValueRef, JSValueRef>>>) -> R,
+{
+    let listeners = &mut *q_ctx.proxy_event_listeners.borrow_mut();
+    if !listeners.contains_key(proxy_class_name) {
+        listeners.insert(proxy_class_name.to_string(), HashMap::new());
+    }
+    let proxy_instance_map = listeners.get_mut(proxy_class_name).unwrap();
+
+    consumer(proxy_instance_map)
+}
+
+fn with_listener_map<C, R>(
+    q_ctx: &QuickJsContext,
+    proxy_class_name: &str,
+    instance_id: usize,
+    event_id: &str,
+    consumer: C,
+) -> R
+where
+    C: FnOnce(&mut HashMap<JSValueRef, JSValueRef>) -> R,
+{
+    with_proxy_instances_map(q_ctx, proxy_class_name, |proxy_instance_map| {
+        if !proxy_instance_map.contains_key(&instance_id) {
+            proxy_instance_map.insert(instance_id, HashMap::new());
+        }
+
+        let event_id_map = proxy_instance_map.get_mut(&instance_id).unwrap();
+
+        if !event_id_map.contains_key(event_id) {
+            event_id_map.insert(event_id.to_string(), HashMap::new());
+        }
+
+        let listener_map = event_id_map.get_mut(event_id).unwrap();
+
+        consumer(listener_map)
+    })
+}
+
+fn add_listener_to_map(
+    q_ctx: &QuickJsContext,
+    proxy_class_name: &str,
+    event_id: &str,
+    instance_id: usize,
+    listener_func: JSValueRef,
+    options_obj: JSValueRef,
+) {
+    log::trace!(
+        "eventtarget::add_listener_to_map p:{} e:{} i:{}",
+        proxy_class_name,
+        event_id,
+        instance_id
+    );
+    with_listener_map(q_ctx, proxy_class_name, instance_id, event_id, |map| {
+        let _ = map.insert(listener_func, options_obj);
+    })
+}
+
+fn remove_listener_from_map(
+    q_ctx: &QuickJsContext,
+    proxy_class_name: &str,
+    event_id: &str,
+    instance_id: usize,
+    listener_func: &JSValueRef,
+) {
+    log::trace!(
+        "eventtarget::remove_listener_from_map p:{} e:{} i:{}",
+        proxy_class_name,
+        event_id,
+        instance_id
+    );
+    with_listener_map(q_ctx, proxy_class_name, instance_id, event_id, |map| {
+        let _ = map.remove(listener_func);
+    })
+}
+
+fn remove_map(q_ctx: &QuickJsContext, proxy_class_name: &str, instance_id: usize) {
+    log::trace!(
+        "eventtarget::remove_map p:{} i:{}",
+        proxy_class_name,
+        instance_id
+    );
+    with_proxy_instances_map(q_ctx, proxy_class_name, |map| {
+        let _ = map.remove(&instance_id);
+    })
+}
+
+/// dispatch an Event on an instanc eof a Proxy class
+/// the return value is false if event is cancelable and at least one of the event listeners which received event called Event.preventDefault. Otherwise it returns true
+pub fn dispatch_event(
+    q_ctx: &QuickJsContext,
+    proxy: &Proxy,
+    instance_id: usize,
+    event_id: &str,
+    event: JSValueRef,
+) -> Result<bool, EsError> {
+    let proxy_class_name = proxy.get_class_name();
+
+    with_listener_map(
+        q_ctx,
+        proxy_class_name.as_str(),
+        instance_id,
+        event_id,
+        |listeners| {
+            for entry in listeners {
+                let listener = entry.0;
+                let _res = functions::call_function_q(q_ctx, listener, vec![event.clone()], None)?;
+                // todo chekc if _res is bool, for cancel and such
+                // and if event is cancelabble and preventDefault was called and such
+            }
+            Ok(())
+        },
+    )?;
+
+    Ok(true)
 }
 
 pub fn _set_event_bubble_target() {
     unimplemented!()
 }
 
+fn events_instance_finalizer(q_ctx: &QuickJsContext, proxy_class_name: &str, id: usize) {
+    // drop all listeners,
+    remove_map(q_ctx, proxy_class_name, id);
+}
+
 pub(crate) fn impl_event_target(proxy: Proxy) -> Proxy {
     // add (static)     addEventListener(), dispatchEvent(), removeEventListener()
     // a fn getEventsObj will be used to conditionally create and return an Object with Sets per eventId to store the listeners
+
+    let proxy_class_name = proxy.get_class_name();
 
     let mut proxy = proxy;
     if proxy.is_event_target {
         proxy = proxy
             .native_method("addEventListener", Some(ext_add_event_listener))
             .native_method("removeEventListener", Some(ext_remove_event_listener))
-            .native_method("dispatchEvent", Some(ext_dispatch_event));
+            .native_method("dispatchEvent", Some(ext_dispatch_event))
+            .finalizer(move |q_ctx, id| {
+                let n = proxy_class_name.as_str();
+                events_instance_finalizer(q_ctx, n, id);
+            });
     }
     if proxy.is_static_event_target {
+        // todo, these should be finalized before context is destroyed, we really need a hook in QuickJsContext for that
         proxy = proxy
             .static_native_method("addEventListener", Some(ext_add_event_listener))
             .static_native_method("removeEventListener", Some(ext_remove_event_listener))
@@ -42,30 +164,6 @@ pub(crate) fn impl_event_target(proxy: Proxy) -> Proxy {
     }
 
     proxy
-}
-
-fn get_events_obj_map(
-    q_ctx: &QuickJsContext,
-    obj: &JSValueRef,
-    event_id: &str,
-) -> Result<JSValueRef, EsError> {
-    let opt = get_property_q(q_ctx, obj, "___eventListeners___")?;
-    let events_obj = if opt.is_null_or_undefined() {
-        let new_obj = create_object_q(q_ctx)?;
-        set_property2_q(q_ctx, &obj, "___eventListeners___", &new_obj, 0)?;
-        new_obj
-    } else {
-        opt
-    };
-
-    let map_opt = get_property_q(q_ctx, &events_obj, event_id)?;
-    if map_opt.is_null_or_undefined() {
-        let new_map = maps::new_map_q(q_ctx)?;
-        set_property2_q(q_ctx, &events_obj, event_id, &new_map, 0)?;
-        Ok(new_map)
-    } else {
-        Ok(map_opt)
-    }
 }
 
 unsafe extern "C" fn ext_add_event_listener(
@@ -85,6 +183,8 @@ unsafe extern "C" fn ext_add_event_listener(
 
         let this_ref = JSValueRef::new(ctx, this_val, true, true, "add_event_listener_this");
 
+        let proxy_info = get_proxy_instance_info(this_ref.borrow_value());
+
         if args.len() < 2 || !args[0].is_string() || !functions::is_function_q(q_ctx, &args[1]) {
             Err(EsError::new_str("addEventListener requires at least 2 arguments (eventId: String and Listener: Function"))
         } else {
@@ -102,10 +202,14 @@ unsafe extern "C" fn ext_add_event_listener(
                 set_property_q(q_ctx, &options_obj, "capture", &args[2])?;
             }
 
-            // get the Map
-            let events_listeners_map = get_events_obj_map(q_ctx, &this_ref, event_id.as_str())?;
-            // add listener and options to the map
-            maps::set_q(q_ctx, &events_listeners_map, listener_func, options_obj)?;
+            add_listener_to_map(
+                q_ctx,
+                proxy_info.class_name.as_str(),
+                event_id.as_str(),
+                proxy_info.id,
+                listener_func,
+                options_obj,
+            );
 
             Ok(())
         }
@@ -127,16 +231,21 @@ unsafe extern "C" fn ext_remove_event_listener(
 
         let this_ref = JSValueRef::new(ctx, this_val, true, true, "remove_event_listener_this");
 
+        let proxy_info = get_proxy_instance_info(this_ref.borrow_value());
+
         if args.len() != 2 || !args[0].is_string() || !functions::is_function_q(q_ctx, &args[1]) {
             Err(EsError::new_str("removeEventListener requires at least 2 arguments (eventId: String and Listener: Function"))
         } else {
             let event_id = primitives::to_string_q(q_ctx, &args[0])?;
             let listener_func = args[1].clone();
 
-            // get the Map
-            let events_listeners_map = get_events_obj_map(q_ctx, &this_ref, event_id.as_str())?;
-            // add listener and options to the map
-            maps::delete_q(q_ctx, &events_listeners_map, listener_func)?;
+            remove_listener_from_map(
+                q_ctx,
+                proxy_info.class_name.as_str(),
+                event_id.as_str(),
+                proxy_info.id,
+                &listener_func,
+            );
 
             Ok(())
         }
@@ -158,6 +267,8 @@ unsafe extern "C" fn ext_dispatch_event(
 
         let this_ref = JSValueRef::new(ctx, this_val, true, true, "remove_event_listener_this");
 
+        let proxy_info = get_proxy_instance_info(this_ref.borrow_value());
+
         if args.len() != 2 || !args[0].is_string() {
             Err(EsError::new_str(
                 "dispatchEvent requires at least 2 arguments (eventId: String and eventObj: Object)",
@@ -166,19 +277,9 @@ unsafe extern "C" fn ext_dispatch_event(
             let event_id = primitives::to_string_q(q_ctx, &args[0])?;
             let evt_obj = args[1].clone();
 
-            // get the Map
-            let events_listeners_map = get_events_obj_map(q_ctx, &this_ref, event_id.as_str())?;
-            if evt_obj.is_object() {
-                objects::set_property(ctx, &evt_obj, "target", &this_ref)?;
-            }
-            let _results = maps::entries_q(q_ctx, &events_listeners_map, |key, _val| {
-                let _single_res = functions::call_function(ctx, &key, vec![evt_obj.clone()], None)?;
-                // key is a function
-                // val is an options obj todo: use it
-                // todo check if false was returned or evt_obj.stopImmediatePropagation was called
-                // todo in that case we need a way to stop the current iterate loop
-                Ok(())
-            })?;
+            let proxy = get_proxy(q_ctx, proxy_info.class_name.as_str()).unwrap();
+
+            let _res = dispatch_event(q_ctx, &proxy, proxy_info.id, event_id.as_str(), evt_obj)?;
 
             Ok(())
         }
@@ -186,5 +287,125 @@ unsafe extern "C" fn ext_dispatch_event(
     match res {
         Ok(_) => quickjs_utils::new_null(),
         Err(e) => QuickJsContext::report_ex_ctx(ctx, format!("{}", e).as_str()),
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::esruntime::tests::init_test_rt;
+    use crate::esscript::EsScript;
+    use crate::quickjs_utils::get_global_q;
+    use crate::quickjs_utils::objects::{create_object_q, get_property_q};
+    use crate::quickjs_utils::primitives::to_bool;
+    use crate::reflection::eventtarget::dispatch_event;
+    use crate::reflection::{get_proxy, Proxy};
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn test_proxy_eh() {
+        let instance_ids: Arc<Mutex<Vec<usize>>> = Arc::new(Mutex::new(vec![]));
+
+        let instance_ids2 = instance_ids.clone();
+
+        let rt = init_test_rt();
+        let ok = rt.add_to_event_queue_sync(move |q_js_rt| {
+            let q_ctx = q_js_rt.get_main_context();
+            Proxy::new()
+                .namespace(vec![])
+                .constructor(move |_q, id, _args| {
+                    log::debug!("construct id={}", id);
+                    let vec = &mut *instance_ids2.lock().unwrap();
+                    vec.push(id);
+                    Ok(())
+                })
+                .finalizer(|_q_ctx, id| {
+                    log::debug!("finalize id={}", id);
+                })
+                .name("MyThing")
+                .event_target()
+                .install(q_ctx, true)
+                .ok()
+                .expect("proxy failed");
+
+            match q_ctx.eval(EsScript::new(
+                "test_proxy_eh.es",
+                "\
+            this.called = false;\
+            let test_proxy_eh_instance = new MyThing();\
+            let listener = (evt) => {this.called = true;};\
+            test_proxy_eh_instance.addEventListener('someEvent', listener);\
+            ",
+            )) {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("script failed: {}", e);
+                    panic!("script failed: {}", e);
+                }
+            };
+            let global = get_global_q(q_ctx);
+
+            let proxy = get_proxy(q_ctx, "MyThing").unwrap();
+            let vec = &mut *instance_ids.lock().unwrap();
+            let id = vec[0];
+            let evt = create_object_q(q_ctx).ok().unwrap();
+            let _ = dispatch_event(q_ctx, &proxy, id, "someEvent", evt)
+                .ok()
+                .expect("dispatch failed");
+
+            let called_ref = get_property_q(q_ctx, &global, "called").ok().unwrap();
+            let called = to_bool(&called_ref).ok().unwrap();
+            called
+        });
+        log::info!("ok was {}", ok);
+        assert!(ok);
+
+        rt.eval_sync(EsScript::new(
+            "test_fin.es",
+            "test_proxy_eh_instance = null;",
+        ))
+        .ok()
+        .expect("faile123");
+    }
+
+    #[test]
+    fn test_proxy_eh_rcs() {
+        let rt = init_test_rt();
+        rt.add_to_event_queue_sync(|q_js_rt| {
+            let q_ctx = q_js_rt.get_main_context();
+            Proxy::new()
+                .namespace(vec![])
+                .constructor(move |_q, id, _args| {
+                    log::debug!("construct id={}", id);
+                    Ok(())
+                })
+                .finalizer(|_q_ctx, id| {
+                    log::debug!("finalize id={}", id);
+                })
+                .name("MyThing")
+                .event_target()
+                .install(q_ctx, true)
+                .ok()
+                .expect("proxy failed");
+
+            q_ctx
+                .eval(EsScript::new("e.es", "let target = new MyThing();"))
+                .ok()
+                .expect("constr failed");
+            let target_ref = q_ctx
+                .eval(EsScript::new("t.es", "(target);"))
+                .ok()
+                .expect("could not get target");
+            assert_eq!(target_ref.get_ref_count(), 2); // one for me one for global
+
+            q_ctx
+                .eval(EsScript::new(
+                    "r.es",
+                    "target.addEventListener('someEvent', (evt) => {console.log('got event');});",
+                ))
+                .ok()
+                .expect("addlistnrfailed");
+
+            assert_eq!(target_ref.get_ref_count(), 2); // one for me one for global
+        });
     }
 }

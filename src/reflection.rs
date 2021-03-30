@@ -117,7 +117,7 @@ thread_local! {
 const MAX_INSTANCE_NUM: usize = u32::MAX as usize;
 
 fn next_id(q_ctx: &QuickJsContext) -> usize {
-    let mappings = &*q_ctx.instance_id_mappings.borrow();
+    let mappings = &*q_ctx.proxy_instance_id_mappings.borrow();
     if mappings.len() == MAX_INSTANCE_NUM {
         panic!("too many instances"); // todo report ex
     }
@@ -220,7 +220,7 @@ pub struct Proxy {
     name: Option<String>,
     namespace: Option<Vec<String>>,
     constructor: Option<Box<ProxyConstructor>>,
-    finalizer: Option<Box<ProxyFinalizer>>,
+    finalizers: Vec<Box<ProxyFinalizer>>,
     methods: HashMap<String, Box<ProxyMethod>>,
     native_methods: HashMap<String, ProxyNativeMethod>,
     static_methods: HashMap<String, Box<ProxyStaticMethod>>,
@@ -250,7 +250,7 @@ impl Proxy {
             name: None,
             namespace: None,
             constructor: None,
-            finalizer: None,
+            finalizers: Default::default(),
             methods: Default::default(),
             native_methods: Default::default(),
             static_methods: Default::default(),
@@ -279,7 +279,11 @@ impl Proxy {
     /// let instance = new com.hirofa.SomeClass();
     /// ```
     pub fn namespace(mut self, namespace: Vec<&str>) -> Self {
-        self.namespace = Some(namespace.iter().map(|s| s.to_string()).collect());
+        if namespace.is_empty() {
+            self.namespace = None;
+        } else {
+            self.namespace = Some(namespace.iter().map(|s| s.to_string()).collect());
+        }
         self
     }
     /// get the canonical classname of a Proxy
@@ -317,7 +321,7 @@ impl Proxy {
     where
         C: Fn(&QuickJsContext, usize) + 'static,
     {
-        self.finalizer = Some(Box::new(finalizer));
+        self.finalizers.push(Box::new(finalizer));
         self
     }
     /// add a method to the Proxy class, this method will be available as a member of instances of the Proxy class
@@ -369,8 +373,9 @@ impl Proxy {
         self
     }
     /// indicate the Proxy class should implement the EventTarget interface, this will result in the addEventListener, removeEventListener and dispatchEvent methods to be available on instances of the Proxy class
-    pub fn event_target(mut self) {
-        self.is_event_target = true
+    pub fn event_target(mut self) -> Self {
+        self.is_event_target = true;
+        self
     }
     /// indicate the Proxy class should implement the EventTarget interface, this will result in the addEventListener, removeEventListener and dispatchEvent methods to be available
     pub fn static_event_target(mut self) {
@@ -551,7 +556,7 @@ pub(crate) fn new_instance3(
         };
     }
 
-    let mappings = &mut *q_ctx.instance_id_mappings.borrow_mut();
+    let mappings = &mut *q_ctx.proxy_instance_id_mappings.borrow_mut();
     assert!(!mappings.contains_key(&instance_id));
 
     let mut bx = Box::new(ProxyInstanceInfo {
@@ -678,7 +683,7 @@ unsafe extern "C" fn finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
         let registry = &*q_ctx.proxy_registry.borrow();
         let proxy = registry.get(&info.class_name).unwrap();
 
-        if let Some(finalizer) = &proxy.finalizer {
+        for finalizer in &proxy.finalizers {
             log::trace!("calling Proxy's finalizer");
             finalizer(q_ctx, info.id);
             log::trace!("after calling Proxy's finalizer");
@@ -686,7 +691,7 @@ unsafe extern "C" fn finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
 
         {
             log::trace!("reflection::finalizer: remove from INSTANCE_ID_MAPPINGS");
-            let id_map = &mut *q_ctx.instance_id_mappings.borrow_mut();
+            let id_map = &mut *q_ctx.proxy_instance_id_mappings.borrow_mut();
             let _ = id_map.remove(&info.id).expect("no such id to finalize");
             log::trace!("reflection::finalizer: remove from INSTANCE_ID_MAPPINGS -> done");
         }
