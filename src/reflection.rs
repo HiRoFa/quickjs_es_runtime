@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::os::raw::{c_char, c_void};
 use std::rc::Rc;
 
-mod eventtarget;
+pub mod eventtarget;
 
 pub type ProxyConstructor =
     dyn Fn(&QuickJsContext, usize, Vec<JSValueRef>) -> Result<(), EsError> + 'static;

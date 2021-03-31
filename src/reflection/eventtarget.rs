@@ -98,7 +98,7 @@ fn remove_map(q_ctx: &QuickJsContext, proxy_class_name: &str, instance_id: usize
     })
 }
 
-/// dispatch an Event on an instanc eof a Proxy class
+/// dispatch an Event on an instance of a Proxy class
 /// the return value is false if event is cancelable and at least one of the event listeners which received event called Event.preventDefault. Otherwise it returns true
 pub fn dispatch_event(
     q_ctx: &QuickJsContext,
