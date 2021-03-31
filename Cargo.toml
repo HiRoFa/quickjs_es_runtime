@@ -1,6 +1,6 @@
 [package]
 name = "quickjs_runtime"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Andries Hiemstra <info@hirofa.com>"]
 edition = "2018"
 description = "An API and Utils around the QuickJS script engine"

@@ -1,4 +1,6 @@
-# 0.2.3 (work in progress)
+# 0.3 (work in progress)
+
+# 0.2.3 
 
 * added a runtime_init_hook(hook) method to the EsRuntimeBuilder so we can add vars to the runtime when the builder is built
 * added EsPromise::new_async which can be used to instantiate a Promise with an async resolver
