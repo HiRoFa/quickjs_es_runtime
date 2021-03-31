@@ -12,22 +12,22 @@ use std::ffi::CString;
 use std::os::raw::c_void;
 use std::rc::Rc;
 
+type ProxyEventListenerMaps = HashMap<
+    String, /*proxy_class_name*/
+    HashMap<
+        usize, /*proxy_instance_id*/
+        HashMap<
+            String, /*event_id*/
+            HashMap<JSValueRef /*listener_func*/, JSValueRef /*options_obj*/>,
+        >,
+    >,
+>;
+
 pub struct QuickJsContext {
     object_cache: RefCell<AutoIdMap<JSValueRef>>,
     pub(crate) proxy_instance_id_mappings: RefCell<HashMap<usize, Box<ProxyInstanceInfo>>>,
     pub(crate) proxy_registry: RefCell<HashMap<String, Rc<Proxy>>>, // todo is this Rc needed or can we just borrow the Proxy when needed?
-    pub(crate) proxy_event_listeners: RefCell<
-        HashMap<
-            String, /*proxy_class_name*/
-            HashMap<
-                usize, /*proxy_instance_id*/
-                HashMap<
-                    String, /*event_id*/
-                    HashMap<JSValueRef /*listener_func*/, JSValueRef /*options_obj*/>,
-                >,
-            >,
-        >,
-    >,
+    pub(crate) proxy_event_listeners: RefCell<ProxyEventListenerMaps>,
     pub id: String,
     pub context: *mut q::JSContext,
 }

@@ -36,11 +36,9 @@ where
     C: FnOnce(&mut HashMap<JSValueRef, JSValueRef>) -> R,
 {
     with_proxy_instances_map(q_ctx, proxy_class_name, |proxy_instance_map| {
-        if !proxy_instance_map.contains_key(&instance_id) {
-            proxy_instance_map.insert(instance_id, HashMap::new());
-        }
-
-        let event_id_map = proxy_instance_map.get_mut(&instance_id).unwrap();
+        let event_id_map = proxy_instance_map
+            .entry(instance_id)
+            .or_insert_with(HashMap::new);
 
         if !event_id_map.contains_key(event_id) {
             event_id_map.insert(event_id.to_string(), HashMap::new());
