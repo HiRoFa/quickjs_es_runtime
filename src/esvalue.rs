@@ -1,5 +1,6 @@
 use crate::eserror::EsError;
 use crate::esruntime::EsRuntime;
+use crate::quickjs_utils::functions::new_function_q;
 use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjs_utils::{arrays, dates, functions, new_null_ref, promises};
 use crate::quickjscontext::QuickJsContext;
@@ -874,6 +875,53 @@ impl Drop for EsPromiseResolvableHandleInner {
     }
 }
 
+/// used to create a new Function
+/// # Example
+/// ```rust
+///    
+/// ```
+pub struct EsFunction {
+    method: Arc<dyn Fn(Vec<EsValueFacade>) -> Result<EsValueFacade, String> + Send + 'static>,
+    name: &'static str,
+}
+
+impl EsFunction {
+    /// create a new Promise based on a resolver
+    pub fn new<R>(name: &'static str, method: R) -> Self
+    where
+        R: Fn(Vec<EsValueFacade>) -> Result<EsValueFacade, String> + Send + 'static,
+    {
+        Self {
+            method: Arc::new(method),
+            name,
+        }
+    }
+    // todo new_async
+}
+
+impl EsValueConvertible for EsFunction {
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+        let func_arc = self.method.clone();
+
+        new_function_q(
+            q_ctx,
+            self.name,
+            move |q_ctx, _this_ref, args| {
+                let mut args_facades = vec![];
+
+                for arg_ref in args {
+                    args_facades.push(EsValueFacade::from_jsval(q_ctx, &arg_ref)?);
+                }
+
+                let mut res: EsValueFacade =
+                    func_arc(args_facades).map_err(|e| EsError::new_string(e))?;
+                res.as_js_value(q_ctx)
+            },
+            1,
+        )
+    }
+}
+
 /// can be used to create a new Promise which is resolved with the resolver function
 /// # Example
 /// ```rust
@@ -898,6 +946,7 @@ pub struct EsPromise {
 }
 
 impl EsPromise {
+    /// create a new Promise based on a resolver
     pub fn new<R>(resolver: R) -> Self
     where
         R: FnOnce() -> Result<EsValueFacade, String> + Send + 'static,
