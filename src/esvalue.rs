@@ -881,7 +881,10 @@ impl Drop for EsPromiseResolvableHandleInner {
 ///    
 /// ```
 pub struct EsFunction {
-    method: Arc<dyn Fn(Vec<EsValueFacade>) -> Result<EsValueFacade, String> + Send + 'static>,
+    // todo rebuild this to an Option which we'll move into the worker thread on to_js_val
+    // thus killing off the Mutex and such
+    method:
+        Arc<Mutex<dyn Fn(Vec<EsValueFacade>) -> Result<EsValueFacade, String> + Send + 'static>>,
     name: &'static str,
 }
 
@@ -907,26 +910,30 @@ impl EsFunction {
                 .to_es_value_facade())
             };
             Self {
-                method: Arc::new(wrapper),
+                method: Arc::new(Mutex::new(wrapper)),
                 name,
             }
         } else {
             Self {
-                method: Arc::new(method),
+                method: Arc::new(Mutex::new(method)),
                 name,
             }
         }
     }
     /// create a new Function based on a method
-    /// -- wip does not play nice yet --
     /// # Example
     /// ```rust
     /// use quickjs_runtime::esvalue::{EsFunction, EsValueConvertible, ES_NULL, EsValueFacade};
+    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::esscript::EsScript;
     /// async fn do_something(args: Vec<EsValueFacade>) -> Result<EsValueFacade, String> {
     ///     Ok(123.to_es_value_facade())
     /// }
     /// let func_esvf = EsFunction::new_async("my_callback", do_something).to_es_value_facade();
-    /// let ret = func_esvf.get_promise_result_sync().ok().expect("do_something returned err");
+    /// let rt = EsRuntimeBuilder::new().build();
+    /// rt.eval_sync(EsScript::new("new_async.es", "this.test_func = function(cb){return cb();};")).ok().expect("func invo failed");
+    /// let func_res = rt.call_function_sync(vec![], "test_func", vec![func_esvf]).ok().expect("func invo failed2");
+    /// let ret = func_res.get_promise_result_sync().ok().expect("do_something returned err");
     /// assert_eq!(ret.get_i32(), 123);
     /// ```
     pub fn new_async<R, F>(name: &'static str, method: R) -> Self
@@ -941,7 +948,7 @@ impl EsFunction {
         };
 
         Self {
-            method: Arc::new(wrapper),
+            method: Arc::new(Mutex::new(wrapper)),
             name,
         }
     }
@@ -949,7 +956,7 @@ impl EsFunction {
 
 impl EsValueConvertible for EsFunction {
     fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
-        let func_arc = self.method.clone();
+        let func_arc_mtx = self.method.clone();
 
         new_function_q(
             q_ctx,
@@ -961,8 +968,10 @@ impl EsValueConvertible for EsFunction {
                     args_facades.push(EsValueFacade::from_jsval(q_ctx, &arg_ref)?);
                 }
 
+                let func = &*func_arc_mtx.lock().unwrap();
+
                 let mut res: EsValueFacade =
-                    func_arc(args_facades).map_err(|e| EsError::new_string(e))?;
+                    func(args_facades).map_err(|e| EsError::new_string(e))?;
                 res.as_js_value(q_ctx)
             },
             1,
