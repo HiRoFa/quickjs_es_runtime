@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
 use std::future::Future;
 use std::rc::Rc;
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, Mutex, Weak};
 
 pub type EsValueFacadeFuture<R, E> = TaskFuture<Result<R, E>>;
 
@@ -886,17 +886,65 @@ pub struct EsFunction {
 }
 
 impl EsFunction {
-    /// create a new Promise based on a resolver
-    pub fn new<R>(name: &'static str, method: R) -> Self
+    /// create a new Function based on a method
+    pub fn new<R>(name: &'static str, method: R, async_function: bool) -> Self
     where
         R: Fn(Vec<EsValueFacade>) -> Result<EsValueFacade, String> + Send + 'static,
     {
+        if async_function {
+            // this is suboptimal because of the mutex but i have to make the method Sync
+            // todo: rebuild to move method to worker thread first instead of working with EsPromise (which requires method to be Send causing the Sync requirement)
+            let method_rc = Arc::new(Mutex::new(method));
+            let wrapper = move |args| {
+                // create new promise
+                let method_rc = method_rc.clone();
+
+                Ok(EsPromise::new(move || {
+                    //
+                    let method = &*method_rc.lock().unwrap();
+                    method(args)
+                })
+                .to_es_value_facade())
+            };
+            Self {
+                method: Arc::new(wrapper),
+                name,
+            }
+        } else {
+            Self {
+                method: Arc::new(method),
+                name,
+            }
+        }
+    }
+    /// create a new Function based on a method
+    /// -- wip does not play nice yet --
+    /// # Example
+    /// ```rust
+    /// use quickjs_runtime::esvalue::{EsFunction, EsValueConvertible, ES_NULL, EsValueFacade};
+    /// async fn do_something(args: Vec<EsValueFacade>) -> Result<EsValueFacade, String> {
+    ///     Ok(123.to_es_value_facade())
+    /// }
+    /// let func_esvf = EsFunction::new_async("my_callback", do_something).to_es_value_facade();
+    /// let ret = func_esvf.get_promise_result_sync().ok().expect("do_something returned err");
+    /// assert_eq!(ret.get_i32(), 123);
+    /// ```
+    pub fn new_async<R, F>(name: &'static str, method: R) -> Self
+    where
+        F: Future<Output = Result<EsValueFacade, String>> + Send + 'static,
+        R: Fn(Vec<EsValueFacade>) -> F + Send + 'static,
+    {
+        let wrapper = move |args| {
+            // create new promise
+            let fut = method(args);
+            Ok(EsPromise::new_async(fut).to_es_value_facade())
+        };
+
         Self {
-            method: Arc::new(method),
+            method: Arc::new(wrapper),
             name,
         }
     }
-    // todo new_async
 }
 
 impl EsValueConvertible for EsFunction {

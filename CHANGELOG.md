@@ -1,5 +1,9 @@
 # 0.3 (work in progress)
 
+# 0.2.4 (work in progress)
+
+* added EsFunction struct to create functions as EsValueFacade
+
 # 0.2.3 
 
 * added a runtime_init_hook(hook) method to the EsRuntimeBuilder so we can add vars to the runtime when the builder is built
