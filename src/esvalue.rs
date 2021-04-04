@@ -5,6 +5,7 @@ use crate::quickjs_utils::dates::is_date_q;
 use crate::quickjs_utils::functions::{is_function_q, new_function_q};
 use crate::quickjs_utils::json::stringify_q;
 use crate::quickjs_utils::objects::{get_property_names_q, get_property_q};
+use crate::quickjs_utils::primitives::to_string_q;
 use crate::quickjs_utils::promises::{is_promise_q, PromiseRef};
 use crate::quickjs_utils::{functions, new_null_ref, promises};
 use crate::quickjscontext::QuickJsContext;
@@ -125,7 +126,9 @@ pub trait EsValueConvertible {
     fn supports_stringify(&self) -> bool {
         false
     }
-    fn stringify(&self) -> Result<String, EsError> {}
+    fn stringify(&self) -> Result<String, EsError> {
+        unimplemented!()
+    }
 }
 
 pub struct EsUndefinedValue {}
@@ -664,7 +667,10 @@ impl EsValueConvertible for CachedJSValueRef {
     }
 
     fn stringify(&self) -> Result<String, EsError> {
-        self.do_with(|q_js_rt, q_ctx, obj_ref| stringify_q(q_ctx, obj_ref))
+        self.do_with(|_q_js_rt, q_ctx, obj_ref| {
+            let res = stringify_q(q_ctx, obj_ref, None)?;
+            to_string_q(q_ctx, &res)
+        })
     }
 }
 

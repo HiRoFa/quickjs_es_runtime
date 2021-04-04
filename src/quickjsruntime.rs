@@ -270,9 +270,6 @@ impl QuickJsRuntime {
     }
     pub fn remove_context(id: &str) {
         log::debug!("QuickJSRuntime::drop_context: {}", id);
-        QuickJsRuntime::do_with(|m_rt| {
-            //m_rt.gc();
-        });
 
         QuickJsRuntime::do_with(|rt| {
             let q_ctx = rt.get_context(id);
@@ -286,9 +283,6 @@ impl QuickJsRuntime {
             QuickJsRuntime::do_with_mut(|m_rt| m_rt.contexts.remove(id).expect("no such context"));
 
         drop(ctx);
-        QuickJsRuntime::do_with(|m_rt| {
-            //m_rt.gc();
-        });
     }
     pub(crate) fn get_context_ids() -> Vec<String> {
         QuickJsRuntime::do_with(|q_js_rt| q_js_rt.contexts.iter().map(|c| c.0.clone()).collect())
