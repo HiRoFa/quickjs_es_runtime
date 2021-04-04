@@ -1,7 +1,7 @@
-# 0.3 (work in progress)
+# 0.3.0 (work in progress)
 
-# 0.2.4 (work in progress)
-
+* EsValueFacade now links to live object when object is passed out of runtime
+* added EsValueFacade.stringify()
 * added EsFunction struct to create functions as EsValueFacade
 
 # 0.2.3 

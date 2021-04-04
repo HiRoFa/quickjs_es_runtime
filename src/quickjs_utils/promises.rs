@@ -413,13 +413,14 @@ pub mod tests {
             esvf_res = esvf_res.get_promise_result_sync().ok().expect("failure");
         }
         assert!(esvf_res.is_object());
-        let obj = esvf_res.get_object();
+        let obj = esvf_res.get_object().ok().expect("esvf to map failed");
         let b = obj.get("b").expect("got no b");
         assert!(b.is_i32());
         let i = b.get_i32();
         assert_eq!(i, 5 * 7);
+
         rt.exe_task(|| {
-            QuickJsRuntime::drop_context("test");
+            QuickJsRuntime::remove_context("test");
         })
     }
 }

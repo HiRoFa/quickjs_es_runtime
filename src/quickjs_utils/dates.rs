@@ -22,15 +22,18 @@ pub unsafe fn new_date(context: *mut q::JSContext) -> Result<JSValueRef, EsError
 }
 
 /// check if a JSValueRef is an instance of Date
-pub fn is_date_q(context: &QuickJsContext, obj_ref: &JSValueRef) -> Result<bool, EsError> {
+pub fn is_date_q(context: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
     unsafe { is_date(context.context, obj_ref) }
 }
 
 /// check if a JSValueRef is an instance of Date
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn is_date(context: *mut q::JSContext, obj_ref: &JSValueRef) -> Result<bool, EsError> {
-    objects::is_instance_of_by_name(context, obj_ref, "Date")
+pub unsafe fn is_date(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
+    match objects::is_instance_of_by_name(context, obj_ref, "Date") {
+        Ok(bln) => bln,
+        Err(_) => false,
+    }
 }
 
 /// set the timestamp for a Date object
@@ -89,9 +92,7 @@ pub mod tests {
         rt.add_to_event_queue_sync(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let date_ref = dates::new_date_q(q_ctx).ok().expect("new_date failed");
-            assert!(is_date_q(q_ctx, &date_ref)
-                .ok()
-                .expect("instanceof failed failed"));
+            assert!(is_date_q(q_ctx, &date_ref));
 
             set_time_q(q_ctx, &date_ref, 2147483648f64)
                 .ok()

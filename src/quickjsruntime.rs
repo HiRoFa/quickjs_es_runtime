@@ -268,10 +268,10 @@ impl QuickJsRuntime {
             Ok(())
         })
     }
-    pub fn drop_context(id: &str) {
+    pub fn remove_context(id: &str) {
         log::debug!("QuickJSRuntime::drop_context: {}", id);
         QuickJsRuntime::do_with(|m_rt| {
-            m_rt.gc();
+            //m_rt.gc();
         });
 
         QuickJsRuntime::do_with(|rt| {
@@ -287,7 +287,7 @@ impl QuickJsRuntime {
 
         drop(ctx);
         QuickJsRuntime::do_with(|m_rt| {
-            m_rt.gc();
+            //m_rt.gc();
         });
     }
     pub(crate) fn get_context_ids() -> Vec<String> {
@@ -480,6 +480,7 @@ impl Drop for QuickJsRuntime {
     fn drop(&mut self) {
         // drop contexts first, should be done when Dropping EsRuntime?
         log::trace!("drop QuickJsRuntime, dropping contexts");
+
         self.contexts.clear();
         log::trace!("drop QuickJsRuntime, after dropping contexts");
 

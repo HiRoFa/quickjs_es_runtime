@@ -249,9 +249,10 @@ pub mod tests {
         let res = res_prom.get_promise_result_sync();
         let obj = res.ok().expect("prom failed");
         assert!(obj.is_object());
-        let a = obj.get_object().get("a").expect("obj did not have a");
+        let map = obj.get_object().ok().expect("esvf to map failed");
+        let a = map.get("a").expect("obj did not have a");
         assert_eq!(a.get_i32(), 1234);
-        let b = obj.get_object().get("b").expect("obj did not have b");
+        let b = map.get("b").expect("obj did not have b");
         assert_eq!(b.get_i32(), 64834);
     }
 

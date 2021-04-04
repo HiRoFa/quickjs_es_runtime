@@ -14,7 +14,7 @@ use std::sync::Arc;
 pub mod request;
 pub mod response;
 
-pub(crate) fn init(es_rt: Arc<EsRuntime>) -> Result<(), EsError> {
+pub(crate) fn init(es_rt: &EsRuntime) -> Result<(), EsError> {
     es_rt.add_to_event_queue_sync(|q_js_rt| {
         q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| {
             log::trace!("fetch::init");

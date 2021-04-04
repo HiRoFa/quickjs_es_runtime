@@ -51,10 +51,11 @@ pub struct EsRuntime {
 
 impl EsRuntimeInner {
     pub(crate) fn clear_contexts(&self) {
+        log::trace!("EsRuntimeInner::clear_contexts");
         self.exe_task(|| {
             let context_ids = QuickJsRuntime::get_context_ids();
             for id in context_ids {
-                QuickJsRuntime::drop_context(id.as_str());
+                QuickJsRuntime::remove_context(id.as_str());
             }
         });
     }
@@ -154,7 +155,7 @@ impl EsRuntimeInner {
     pub(crate) fn drop_context(&self, id: &str) {
         let id = id.to_string();
         self.event_queue
-            .exe_task(move || QuickJsRuntime::drop_context(id.as_str()))
+            .exe_task(move || QuickJsRuntime::remove_context(id.as_str()))
     }
 }
 
@@ -186,7 +187,7 @@ impl EsRuntime {
 
         // run single job in eventQueue to init thread_local weak<rtref>
 
-        let res = features::init(ret.clone());
+        let res = features::init(&ret);
         if res.is_err() {
             panic!("could not init features: {}", res.err().unwrap());
         }
@@ -356,10 +357,6 @@ impl EsRuntime {
                 Err(e) => Err(e),
             }
         })
-    }
-
-    pub fn clone_inner(&self) -> Arc<EsRuntimeInner> {
-        self.inner.clone()
     }
 
     /// call a function in the engine asynchronously
@@ -609,6 +606,12 @@ impl EsRuntime {
     /// drop a context which was created earlier with a call to [create_context()](struct.EsRuntime.html#method.create_context)
     pub fn drop_context(&self, id: &str) {
         self.inner.drop_context(id)
+    }
+}
+
+impl Drop for EsRuntime {
+    fn drop(&mut self) {
+        log::trace!("EsRuntime::drop");
     }
 }
 

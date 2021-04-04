@@ -38,12 +38,23 @@ thread_local! {
 
 impl QuickJsContext {
     pub(crate) fn free(&self) {
+        log::trace!("QuickJsContext:free {}", self.id);
+        {
+            let cache_map = &mut *self.object_cache.borrow_mut();
+            log::trace!(
+                "QuickJsContext:free {}, dropping {} cached objects",
+                self.id,
+                cache_map.len()
+            );
+            cache_map.clear();
+        }
         {
             let proxy_event_listeners = &mut *self.proxy_event_listeners.borrow_mut();
             proxy_event_listeners.clear();
         }
 
         unsafe { q::JS_FreeContext(self.context) };
+        log::trace!("after QuickJsContext:free {}", self.id);
     }
     pub(crate) fn new(id: String, q_js_rt: &QuickJsRuntime) -> Self {
         let context = unsafe { q::JS_NewContext(q_js_rt.runtime) };
@@ -221,6 +232,18 @@ impl QuickJsContext {
         id
     }
 
+    pub fn remove_cached_obj_if_present(&self, id: i32) {
+        log::trace!(
+            "remove_cached_obj_if_present: id={}, thread={}",
+            id,
+            thread_id::get()
+        );
+        let cache_map = &mut *self.object_cache.borrow_mut();
+        if cache_map.contains_key(&(id as usize)) {
+            let _ = cache_map.remove(&(id as usize));
+        }
+    }
+
     pub fn consume_cached_obj(&self, id: i32) -> JSValueRef {
         log::trace!("consume_cached_obj: id={}, thread={}", id, thread_id::get());
         let cache_map = &mut *self.object_cache.borrow_mut();
@@ -252,7 +275,7 @@ impl QuickJsContext {
 
 impl Drop for QuickJsContext {
     fn drop(&mut self) {
-        log::trace!("before drop QuickJSContext");
+        log::trace!("before drop QuickJSContext {}", self.id);
 
         let id = &self.id;
         {
@@ -260,10 +283,6 @@ impl Drop for QuickJsContext {
                 let registry = &mut *rc.borrow_mut();
                 registry.remove(id);
             });
-        }
-        {
-            let cache_map = &mut *self.object_cache.borrow_mut();
-            cache_map.remove_values(|_v| true);
         }
         {
             let proxies = &mut *self.proxy_registry.borrow_mut();
@@ -274,7 +293,7 @@ impl Drop for QuickJsContext {
             id_mappings.clear();
         }
 
-        log::trace!("after drop QuickJSContext");
+        log::trace!("after drop QuickJSContext {}", self.id);
     }
 }
 
