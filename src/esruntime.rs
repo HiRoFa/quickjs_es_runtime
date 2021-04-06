@@ -625,9 +625,11 @@ pub mod tests {
     use crate::quickjscontext::QuickJsContext;
     use crate::quickjsruntime::{NativeModuleLoader, ScriptModuleLoader};
     use crate::valueref::JSValueRef;
+    use backtrace::Backtrace;
     use futures::executor::block_on;
     use log::debug;
     use log::LevelFilter;
+    use std::panic;
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -694,6 +696,15 @@ pub mod tests {
     }
 
     pub fn init_test_rt() -> Arc<EsRuntime> {
+        panic::set_hook(Box::new(|panic_info| {
+            let backtrace = Backtrace::new();
+            log::error!(
+                "thread panic occurred: {}\nbacktrace: {:?}",
+                panic_info,
+                backtrace
+            );
+        }));
+
         simple_logging::log_to_file("esruntime.log", LevelFilter::max())
             .ok()
             .expect("could not init logger");

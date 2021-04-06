@@ -173,6 +173,14 @@ impl EsValueConvertible for EsNullValue {
     fn is_null(&self) -> bool {
         true
     }
+
+    fn supports_stringify(&self) -> bool {
+        true
+    }
+
+    fn stringify(&self) -> Result<String, EsError> {
+        Ok("null".to_string())
+    }
 }
 
 impl EsValueConvertible for EsUndefinedValue {
@@ -182,6 +190,14 @@ impl EsValueConvertible for EsUndefinedValue {
 
     fn is_undefined(&self) -> bool {
         true
+    }
+
+    fn supports_stringify(&self) -> bool {
+        true
+    }
+
+    fn stringify(&self) -> Result<String, EsError> {
+        Ok("undefined".to_string())
     }
 }
 
@@ -205,6 +221,7 @@ struct CachedJSValueRef {
 
 impl CachedJSValueRef {
     fn new(q_ctx: &QuickJsContext, value_ref: &JSValueRef) -> Self {
+        log::trace!("> CachedJSValueRef::new");
         let es_rt = QuickJsRuntime::do_with(|q_js_rt| q_js_rt.get_rt_ref().unwrap());
         let cached_obj_id = q_ctx.cache_object(value_ref.clone());
 
@@ -222,17 +239,19 @@ impl CachedJSValueRef {
             EsType::Object
         };
 
-        Self {
+        let ret = Self {
             cached_obj_id,
             context_id: q_ctx.id.to_string(),
             es_rt: Arc::downgrade(&es_rt),
             es_type,
-        }
+        };
+        log::trace!("< CachedJSValueRef::new");
+        ret
     }
 
     fn do_with<C, R: Send + 'static>(&self, consumer: C) -> R
     where
-        C: FnOnce(&QuickJsRuntime, &QuickJsContext, &JSValueRef) -> R + Send + 'static,
+        C: FnOnce(&QuickJsRuntime, &QuickJsContext, JSValueRef) -> R + Send + 'static,
     {
         let cached_obj_id = self.cached_obj_id;
 
@@ -365,24 +384,16 @@ impl EsValueConvertible for CachedJSValueRef {
 
     fn invoke_function_sync(&self, mut args: Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> {
         assert!(self.is_function());
-        let cached_obj_id = self.cached_obj_id;
-        let context_id = self.context_id.clone();
-        if let Some(rt_arc) = self.es_rt.upgrade() {
-            rt_arc.add_to_event_queue_sync(move |q_js_rt| {
-                let q_ctx = q_js_rt.get_context(context_id.as_str());
-                q_ctx.with_cached_obj(cached_obj_id, move |obj_ref| {
-                    let mut ref_args = vec![];
-                    for arg in args.iter_mut() {
-                        ref_args.push(arg.as_js_value(q_ctx)?);
-                    }
 
-                    crate::quickjs_utils::functions::call_function_q(q_ctx, obj_ref, ref_args, None)
-                        .and_then(|js_val| EsValueFacade::from_jsval(q_ctx, &js_val))
-                })
-            })
-        } else {
-            Err(EsError::new_str("rt was dropped"))
-        }
+        self.do_with(move |_q_js_rt, q_ctx, obj_ref| {
+            let mut ref_args = vec![];
+            for arg in args.iter_mut() {
+                ref_args.push(arg.as_js_value(q_ctx)?);
+            }
+
+            crate::quickjs_utils::functions::call_function_q(q_ctx, &obj_ref, ref_args, None)
+                .and_then(|js_val| EsValueFacade::from_jsval(q_ctx, &js_val))
+        })
     }
 
     fn invoke_function(
@@ -390,38 +401,26 @@ impl EsValueConvertible for CachedJSValueRef {
         mut args: Vec<EsValueFacade>,
     ) -> EsValueFacadeFuture<EsValueFacade, EsError> {
         assert!(self.is_function());
-        let cached_obj_id = self.cached_obj_id;
-        let context_id = self.context_id.clone();
         let ret = EsValueFacadeFuture::new();
         let tx = ret.get_resolver();
-        if let Some(rt_arc) = self.es_rt.upgrade() {
-            rt_arc.add_to_event_queue_void(move |q_js_rt| {
-                let q_ctx = q_js_rt.get_context(context_id.as_str());
-                q_ctx.with_cached_obj(cached_obj_id, move |obj_ref| {
-                    let mut ref_args = vec![];
-                    for arg in args.iter_mut() {
-                        match arg.as_js_value(q_ctx) {
-                            Ok(j_arg) => ref_args.push(j_arg),
-                            Err(e) => {
-                                log::error!(
-                                    "arg conversion failed in esvalue::invoke_function: {}",
-                                    e
-                                );
-                                return;
-                            }
-                        }
+        self.do_with(move |_q_js_rt, q_ctx, obj_ref| {
+            let mut ref_args = vec![];
+            for arg in args.iter_mut() {
+                match arg.as_js_value(q_ctx) {
+                    Ok(j_arg) => ref_args.push(j_arg),
+                    Err(e) => {
+                        log::error!("arg conversion failed in esvalue::invoke_function: {}", e);
+                        return;
                     }
+                }
+            }
 
-                    let res = crate::quickjs_utils::functions::call_function_q(
-                        q_ctx, obj_ref, ref_args, None,
-                    )
+            let res =
+                crate::quickjs_utils::functions::call_function_q(q_ctx, &obj_ref, ref_args, None)
                     .and_then(|js_val| EsValueFacade::from_jsval(q_ctx, &js_val));
-                    let _ = tx.resolve(res);
-                });
-            });
-        } else {
-            let _ = tx.resolve(Err(EsError::new_str("rt was dropped")));
-        }
+            let _ = tx.resolve(res);
+        });
+
         ret
     }
 
@@ -430,74 +429,55 @@ impl EsValueConvertible for CachedJSValueRef {
         batch_args: Vec<Vec<EsValueFacade>>,
     ) -> Vec<Result<EsValueFacade, EsError>> {
         assert!(self.is_function());
-        let cached_obj_id = self.cached_obj_id;
-        let context_id = self.context_id.clone();
-        if let Some(rt_arc) = self.es_rt.upgrade() {
-            rt_arc.add_to_event_queue_sync(move |q_js_rt| {
-                let q_ctx = q_js_rt.get_context(context_id.as_str());
-                q_ctx.with_cached_obj(cached_obj_id, move |obj_ref| {
-                    let mut res_vec: Vec<Result<EsValueFacade, EsError>> = vec![];
-                    for mut args in batch_args {
-                        let mut ref_args = vec![];
-                        for arg in args.iter_mut() {
-                            ref_args.push(arg.as_js_value(q_ctx).ok().expect("to_js_value failed"));
-                        }
+        self.do_with(move |_q_js_rt, q_ctx, obj_ref| {
+            let mut res_vec: Vec<Result<EsValueFacade, EsError>> = vec![];
+            for mut args in batch_args {
+                let mut ref_args = vec![];
+                for arg in args.iter_mut() {
+                    ref_args.push(arg.as_js_value(q_ctx).ok().expect("to_js_value failed"));
+                }
 
-                        let res = crate::quickjs_utils::functions::call_function_q(
-                            q_ctx, obj_ref, ref_args, None,
-                        );
-                        match res {
-                            Ok(r) => {
-                                res_vec.push(EsValueFacade::from_jsval(q_ctx, &r));
-                            }
-                            Err(e) => {
-                                log::error!("invoke_func_sync failed: {}", e);
-                                res_vec.push(Err(e));
-                            }
-                        }
+                let res = crate::quickjs_utils::functions::call_function_q(
+                    q_ctx, &obj_ref, ref_args, None,
+                );
+                match res {
+                    Ok(r) => {
+                        res_vec.push(EsValueFacade::from_jsval(q_ctx, &r));
                     }
-                    res_vec
-                })
-            })
-        } else {
-            vec![Err(EsError::new_str("rt was dropped"))]
-        }
+                    Err(e) => {
+                        log::error!("invoke_func_sync failed: {}", e);
+                        res_vec.push(Err(e));
+                    }
+                }
+            }
+            res_vec
+        })
     }
 
     // todo rewrite to Future
     fn invoke_function_batch(&self, batch_args: Vec<Vec<EsValueFacade>>) -> Result<(), EsError> {
         assert!(self.is_function());
-        let cached_obj_id = self.cached_obj_id;
-        let context_id = self.context_id.clone();
-        if let Some(rt_arc) = self.es_rt.upgrade() {
-            rt_arc.add_to_event_queue_void(move |q_js_rt| {
-                let q_ctx = q_js_rt.get_context(context_id.as_str());
-                q_ctx.with_cached_obj(cached_obj_id, move |obj_ref| {
-                    for mut args in batch_args {
-                        let mut ref_args = vec![];
-                        for arg in args.iter_mut() {
-                            ref_args
-                                .push(arg.as_js_value(q_ctx).ok().expect("could not convert arg"));
-                        }
+        self.do_with(move |_q_js_rt, q_ctx, obj_ref| {
+            for mut args in batch_args {
+                let mut ref_args = vec![];
+                for arg in args.iter_mut() {
+                    ref_args.push(arg.as_js_value(q_ctx).ok().expect("could not convert arg"));
+                }
 
-                        let res = crate::quickjs_utils::functions::call_function_q(
-                            q_ctx, obj_ref, ref_args, None,
-                        );
-                        match res {
-                            Ok(_) => {
-                                log::trace!("async func ok");
-                            }
-                            Err(e) => {
-                                log::error!("async func failed: {}", e);
-                            }
-                        }
+                let res = crate::quickjs_utils::functions::call_function_q(
+                    q_ctx, &obj_ref, ref_args, None,
+                );
+                match res {
+                    Ok(_) => {
+                        log::trace!("async func ok");
                     }
-                })
-            });
-            Ok(())
-        } else {
-            Err(EsError::new_str("rt was dropped"))
-        }
+                    Err(e) => {
+                        log::error!("async func failed: {}", e);
+                    }
+                }
+            }
+        });
+        Ok(())
     }
 
     fn is_promise(&self) -> bool {
@@ -517,18 +497,9 @@ impl EsValueConvertible for CachedJSValueRef {
         assert!(self.is_promise());
         let fut = TaskFuture::new();
         let tx = fut.get_resolver();
-        let cached_obj_id = self.cached_obj_id;
-        let context_id = self.context_id.clone();
-        if let Some(es_rti) = self.es_rt.upgrade() {
-            es_rti.add_to_event_queue_void(move |q_js_rt| {
-                let q_ctx = q_js_rt.get_context(context_id.as_str());
-                q_ctx.with_cached_obj(cached_obj_id, |prom_obj_ref| {
-                    pipe_promise_resolution_to_sender(q_ctx, prom_obj_ref, tx);
-                });
-            });
-        } else {
-            log::error!("rt was dropped");
-        }
+        self.do_with(move |_q_js_rt, q_ctx, prom_obj_ref| {
+            pipe_promise_resolution_to_sender(q_ctx, &prom_obj_ref, tx);
+        });
 
         fut
     }
@@ -540,88 +511,69 @@ impl EsValueConvertible for CachedJSValueRef {
         finally: Option<Box<dyn Fn() + Send + 'static>>,
     ) -> Result<(), EsError> {
         assert!(self.is_promise());
-        let cached_obj_id = self.cached_obj_id;
+        self.do_with(move |_q_js_rt, q_ctx, prom_ref| {
+            let then_ref = if let Some(then_fn) = then {
+                let then_fn_rc = Rc::new(then_fn);
 
-        if let Some(es_rt) = self.es_rt.upgrade() {
-            let context_id_then = self.context_id.clone();
-            es_rt.add_to_event_queue_void(move |q_js_rt| {
-                let q_ctx = q_js_rt.get_context(context_id_then.as_str());
+                let then_fn_raw =
+                    move |q_ctx: &QuickJsContext,
+                          _this_ref: JSValueRef,
+                          mut args_ref: Vec<JSValueRef>| {
+                        let then_fn_rc = then_fn_rc.clone();
+                        let val_ref = args_ref.remove(0);
 
-                q_ctx.with_cached_obj(cached_obj_id, |prom_ref| {
-                    let then_ref = if let Some(then_fn) = then {
-                        let then_fn_rc = Rc::new(then_fn);
+                        let val_esvf = EsValueFacade::from_jsval(q_ctx, &val_ref)?;
 
-                        let then_fn_raw =
-                            move |q_ctx: &QuickJsContext,
-                                  _this_ref: JSValueRef,
-                                  mut args_ref: Vec<JSValueRef>| {
-                                let then_fn_rc = then_fn_rc.clone();
-                                let val_ref = args_ref.remove(0);
-
-                                let val_esvf = EsValueFacade::from_jsval(q_ctx, &val_ref)?;
-
-                                then_fn_rc(val_esvf)?;
-                                Ok(crate::quickjs_utils::new_null_ref())
-                            };
-                        let t = functions::new_function_q(q_ctx, "", then_fn_raw, 1)
-                            .ok()
-                            .expect("could not create function");
-                        Some(t)
-                    } else {
-                        None
+                        then_fn_rc(val_esvf)?;
+                        Ok(crate::quickjs_utils::new_null_ref())
                     };
-
-                    let catch_ref = if let Some(catch_fn) = catch {
-                        let catch_fn_rc = Rc::new(catch_fn);
-                        let catch_fn_raw =
-                            move |q_ctx: &QuickJsContext,
-                                  _this_ref,
-                                  mut args_ref: Vec<JSValueRef>| {
-                                let val_ref = args_ref.remove(0);
-                                let catch_fn_rc = catch_fn_rc.clone();
-
-                                let val_esvf = EsValueFacade::from_jsval(q_ctx, &val_ref)?;
-
-                                catch_fn_rc(val_esvf)?;
-                                Ok(crate::quickjs_utils::new_null_ref())
-                            };
-                        let t = functions::new_function_q(q_ctx, "", catch_fn_raw, 1)
-                            .ok()
-                            .expect("could not create function");
-                        Some(t)
-                    } else {
-                        None
-                    };
-
-                    let finally_ref = if let Some(finally_fn) = finally {
-                        let finally_fn_raw =
-                            move |_q_ctx: &QuickJsContext, _this_ref, _args_ref| {
-                                finally_fn();
-                                Ok(crate::quickjs_utils::new_null_ref())
-                            };
-                        let t = functions::new_function_q(q_ctx, "", finally_fn_raw, 0)
-                            .ok()
-                            .expect("could not create function");
-                        Some(t)
-                    } else {
-                        None
-                    };
-
-                    promises::add_promise_reactions_q(
-                        q_ctx,
-                        prom_ref,
-                        then_ref,
-                        catch_ref,
-                        finally_ref,
-                    )
+                let t = functions::new_function_q(q_ctx, "", then_fn_raw, 1)
                     .ok()
-                    .expect("could not add reactions")
-                });
-            });
-            Ok(())
-        } else {
-            Err(EsError::new_str("runtime was dropped"))
-        }
+                    .expect("could not create function");
+                Some(t)
+            } else {
+                None
+            };
+
+            let catch_ref = if let Some(catch_fn) = catch {
+                let catch_fn_rc = Rc::new(catch_fn);
+                let catch_fn_raw =
+                    move |q_ctx: &QuickJsContext, _this_ref, mut args_ref: Vec<JSValueRef>| {
+                        let val_ref = args_ref.remove(0);
+                        let catch_fn_rc = catch_fn_rc.clone();
+
+                        let val_esvf = EsValueFacade::from_jsval(q_ctx, &val_ref)?;
+
+                        catch_fn_rc(val_esvf)?;
+                        Ok(crate::quickjs_utils::new_null_ref())
+                    };
+                let t = functions::new_function_q(q_ctx, "", catch_fn_raw, 1)
+                    .ok()
+                    .expect("could not create function");
+                Some(t)
+            } else {
+                None
+            };
+
+            let finally_ref = if let Some(finally_fn) = finally {
+                let finally_fn_raw = move |_q_ctx: &QuickJsContext, _this_ref, _args_ref| {
+                    finally_fn();
+                    Ok(crate::quickjs_utils::new_null_ref())
+                };
+                let t = functions::new_function_q(q_ctx, "", finally_fn_raw, 0)
+                    .ok()
+                    .expect("could not create function");
+                Some(t)
+            } else {
+                None
+            };
+
+            promises::add_promise_reactions_q(q_ctx, &prom_ref, then_ref, catch_ref, finally_ref)
+                .ok()
+                .expect("could not add reactions")
+        });
+
+        Ok(())
     }
 
     fn is_object(&self) -> bool {
@@ -633,12 +585,13 @@ impl EsValueConvertible for CachedJSValueRef {
         self.do_with(|_q_js_rt, q_ctx, obj_ref| {
             let mut ret = HashMap::new();
 
-            for prop_name in get_property_names_q(q_ctx, obj_ref)? {
-                let prop_ref = get_property_q(q_ctx, obj_ref, prop_name.as_str())?;
+            for prop_name in get_property_names_q(q_ctx, &obj_ref)? {
+                log::trace!("EsValueConvertible::get_object > prop: {}", prop_name);
+                let prop_ref = get_property_q(q_ctx, &obj_ref, prop_name.as_str())?;
                 let prop_esvf = EsValueFacade::from_jsval(q_ctx, &prop_ref)?;
                 ret.insert(prop_name, prop_esvf);
             }
-
+            log::trace!("EsValueConvertible::get_object > return");
             Ok(ret)
         })
     }
@@ -653,8 +606,8 @@ impl EsValueConvertible for CachedJSValueRef {
         self.do_with(|_q_js_rt, q_ctx, obj_ref| {
             let mut ret = vec![];
 
-            for x in 0..get_length_q(q_ctx, obj_ref)? {
-                let item_ref = get_element_q(q_ctx, obj_ref, x)?;
+            for x in 0..get_length_q(q_ctx, &obj_ref)? {
+                let item_ref = get_element_q(q_ctx, &obj_ref, x)?;
                 let esvf = EsValueFacade::from_jsval(q_ctx, &item_ref)?;
                 ret.push(esvf)
             }
@@ -670,7 +623,7 @@ impl EsValueConvertible for CachedJSValueRef {
     fn stringify(&self) -> Result<String, EsError> {
         assert!(self.supports_stringify());
         self.do_with(|_q_js_rt, q_ctx, obj_ref| {
-            let res = stringify_q(q_ctx, obj_ref, None)?;
+            let res = stringify_q(q_ctx, &obj_ref, None)?;
             to_string_q(q_ctx, &res)
         })
     }
@@ -688,6 +641,14 @@ impl EsValueConvertible for String {
     fn get_str(&self) -> &str {
         self.as_str()
     }
+
+    fn supports_stringify(&self) -> bool {
+        true
+    }
+
+    fn stringify(&self) -> Result<String, EsError> {
+        Ok(format!("\"{}\"", self.as_str().replace('"', "\\\"")))
+    }
 }
 
 impl EsValueConvertible for i32 {
@@ -701,6 +662,14 @@ impl EsValueConvertible for i32 {
 
     fn get_i32(&self) -> i32 {
         *self
+    }
+
+    fn supports_stringify(&self) -> bool {
+        true
+    }
+
+    fn stringify(&self) -> Result<String, EsError> {
+        Ok(format!("{}", self))
     }
 }
 
@@ -716,6 +685,14 @@ impl EsValueConvertible for bool {
     fn get_bool(&self) -> bool {
         *self
     }
+
+    fn supports_stringify(&self) -> bool {
+        true
+    }
+
+    fn stringify(&self) -> Result<String, EsError> {
+        Ok(format!("{}", self))
+    }
 }
 
 impl EsValueConvertible for f64 {
@@ -728,6 +705,14 @@ impl EsValueConvertible for f64 {
 
     fn get_f64(&self) -> f64 {
         *self
+    }
+
+    fn supports_stringify(&self) -> bool {
+        true
+    }
+
+    fn stringify(&self) -> Result<String, EsError> {
+        Ok(format!("{}", self))
     }
 }
 
@@ -1557,5 +1542,39 @@ pub mod tests {
             .expect("script failed");
         let res_i32 = res_prom.get_promise_result_sync().expect("prom failed");
         assert_eq!(res_i32.get_i32(), 21);
+    }
+
+    #[test]
+    fn test_stringify() {
+        let rt = init_test_rt();
+        let esvf = rt
+            .eval_sync(EsScript::new(
+                "test_stringify.es",
+                "({a: 1, b: 'abc', c: true, d: {a: 1, b: 2}});",
+            ))
+            .ok()
+            .expect("script failed");
+
+        log::info!("test_stringify: before create map");
+        let map = match esvf.get_object() {
+            Ok(mp) => mp,
+            Err(e) => {
+                log::error!("could not create map due to {}", e);
+                panic!("could not create map due to {}", e);
+            }
+        };
+        log::info!("test_stringify: after create map");
+        let a = map.get("a").unwrap();
+        let b = map.get("b").unwrap();
+        let c = map.get("c").unwrap();
+        let d = map.get("d").unwrap();
+
+        assert_eq!(a.stringify().ok().unwrap(), "1");
+        assert_eq!(b.stringify().ok().unwrap(), "\"abc\"");
+        assert_eq!(c.stringify().ok().unwrap(), "true");
+        assert_eq!(d.stringify().ok().unwrap(), "{\"a\":1,\"b\":2}");
+        log::info!("test_stringify: drop rt");
+        drop(rt);
+        log::info!("test_stringify: after drop rt");
     }
 }

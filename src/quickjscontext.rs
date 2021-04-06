@@ -252,12 +252,18 @@ impl QuickJsContext {
 
     pub fn with_cached_obj<C, R>(&self, id: i32, consumer: C) -> R
     where
-        C: FnOnce(&JSValueRef) -> R,
+        C: FnOnce(JSValueRef) -> R,
     {
         log::trace!("with_cached_obj: id={}, thread={}", id, thread_id::get());
-        let cache_map = &*self.object_cache.borrow();
-        let opt = cache_map.get(&(id as usize));
-        consumer(opt.expect("no such obj in cache"))
+        let clone_ref = {
+            let cache_map = &*self.object_cache.borrow();
+            let opt = cache_map.get(&(id as usize));
+            let cached_ref = opt.expect("no such obj in cache");
+            cached_ref.clone()
+        };
+        // prevent running consumer while borrowed
+
+        consumer(clone_ref)
     }
     /// # Safety
     /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
