@@ -1202,14 +1202,17 @@ pub struct EsValueFacade {
 }
 
 impl EsValueFacade {
+    /// stringify the value
     pub fn stringify(&self) -> Result<String, EsError> {
         self.convertible.stringify()
     }
 
+    /// convert the value to a JSValueRef
     pub fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
         self.convertible.as_js_value(q_ctx)
     }
 
+    /// convert a JSValueRef to an EsValueFacade
     pub fn from_jsval(q_ctx: &QuickJsContext, value_ref: &JSValueRef) -> Result<Self, EsError> {
         log::trace!("EsValueFacade::from_jsval: tag:{}", value_ref.get_tag());
 
@@ -1331,9 +1334,12 @@ impl EsValueFacade {
         self.convertible.is_function()
     }
 
+    /// check if the value is null
     pub fn is_null(&self) -> bool {
         self.convertible.is_null()
     }
+
+    /// check if the value is undefined
     pub fn is_undefined(&self) -> bool {
         self.convertible.is_undefined()
     }
@@ -1352,12 +1358,16 @@ impl EsValueFacade {
     ) -> Result<EsValueFacade, EsError> {
         self.convertible.invoke_function(arguments).await
     }
+
+    /// invoke a function multiple times with a different set of arguments
     pub fn invoke_function_batch_sync(
         &self,
         arguments: Vec<Vec<EsValueFacade>>,
     ) -> Vec<Result<EsValueFacade, EsError>> {
         self.convertible.invoke_function_batch_sync(arguments)
     }
+
+    /// invoke a function multiple times with a different set of arguments
     pub fn invoke_function_batch(&self, arguments: Vec<Vec<EsValueFacade>>) -> Result<(), EsError> {
         self.convertible.invoke_function_batch(arguments)
     }
