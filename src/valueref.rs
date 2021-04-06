@@ -2,6 +2,7 @@ use libquickjs_sys as q;
 use std::hash::{Hash, Hasher};
 use std::ptr::null_mut;
 
+#[allow(clippy::upper_case_acronyms)]
 pub struct JSValueRef {
     pub(crate) context: *mut q::JSContext,
     value: q::JSValue,

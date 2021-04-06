@@ -30,10 +30,7 @@ pub fn is_date_q(context: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn is_date(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
-    match objects::is_instance_of_by_name(context, obj_ref, "Date") {
-        Ok(bln) => bln,
-        Err(_) => false,
-    }
+    objects::is_instance_of_by_name(context, obj_ref, "Date").unwrap_or(false)
 }
 
 /// set the timestamp for a Date object

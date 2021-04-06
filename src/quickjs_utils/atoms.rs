@@ -6,6 +6,7 @@ use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
 use std::ffi::CString;
 
+#[allow(clippy::upper_case_acronyms)]
 pub struct JSAtomRef {
     context: *mut q::JSContext,
     atom: q::JSAtom,
