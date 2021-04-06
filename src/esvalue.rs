@@ -374,8 +374,7 @@ fn pipe_promise_resolution_to_sender(
 
 impl EsValueConvertible for CachedJSValueRef {
     fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
-        let cloned_ref = q_ctx.with_cached_obj(self.cached_obj_id, |obj_ref| obj_ref.clone());
-        Ok(cloned_ref)
+        Ok(q_ctx.with_cached_obj(self.cached_obj_id, |obj_ref| obj_ref))
     }
 
     fn is_function(&self) -> bool {
