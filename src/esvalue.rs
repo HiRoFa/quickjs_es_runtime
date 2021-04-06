@@ -195,6 +195,7 @@ enum EsType {
     Function,
 }
 
+#[allow(clippy::upper_case_acronyms)]
 struct CachedJSValueRef {
     cached_obj_id: i32,
     context_id: String,
@@ -667,6 +668,7 @@ impl EsValueConvertible for CachedJSValueRef {
     }
 
     fn stringify(&self) -> Result<String, EsError> {
+        assert!(self.supports_stringify());
         self.do_with(|_q_js_rt, q_ctx, obj_ref| {
             let res = stringify_q(q_ctx, obj_ref, None)?;
             to_string_q(q_ctx, &res)
@@ -953,6 +955,7 @@ impl Drop for EsPromiseResolvableHandleInner {
 /// ```rust
 ///    
 /// ```
+#[allow(clippy::type_complexity)]
 pub struct EsFunction {
     // todo rebuild this to an Option which we'll move into the worker thread on to_js_val
     // thus killing off the Mutex and such
@@ -1043,8 +1046,7 @@ impl EsValueConvertible for EsFunction {
 
                 let func = &*func_arc_mtx.lock().unwrap();
 
-                let mut res: EsValueFacade =
-                    func(args_facades).map_err(|e| EsError::new_string(e))?;
+                let mut res: EsValueFacade = func(args_facades).map_err(EsError::new_string)?;
                 res.as_js_value(q_ctx)
             },
             1,

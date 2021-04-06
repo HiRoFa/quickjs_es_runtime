@@ -18,14 +18,14 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 # This lib serves two main goals:
 
 ## 1. Provide simple utils for working with quickjs (these are located in the quickjs_utils mod)
-* The QuickJSRuntime struct, this is to be used from a single thread 
+* The QuickJsRuntime struct, this is to be used from a single thread 
 * E.g. objects::set_property(), functions::invoke_func()
-* Wrap JSValue to provide reference counting (+1 on init, -1 on drop)
+* Wrap JSValue to provide reference counting (+1 on init, -1 on drop) ([JSValueRef](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/valueref/struct.JSValueRef.html))
 * Pass a module loader
 
 ## 2. Wrap quickjs for use as a ready to go JavaScript Runtime
-* This is the ESRuntime struct, it provides an EventQueue which has a thread_local QuickJSRuntime
-* All values are copied or abstracted in an ESValueFacade
+* This is the EsRuntime struct, it provides an EventQueue which has a thread_local QuickJsRuntime
+* All values are copied or abstracted in an EsValueFacade
 * So no need to worry about Garbage collection
 * evaluate script and invoke functions while waiting for results blocking or with async/await  
 * Get Promise result blocking or with async/await

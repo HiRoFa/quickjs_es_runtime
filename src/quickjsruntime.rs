@@ -269,13 +269,13 @@ impl QuickJsRuntime {
         })
     }
     pub fn remove_context(id: &str) {
-        log::debug!("QuickJSRuntime::drop_context: {}", id);
+        log::debug!("QuickJsRuntime::drop_context: {}", id);
 
         QuickJsRuntime::do_with(|rt| {
             let q_ctx = rt.get_context(id);
-            log::trace!("QuickJSRuntime::q_ctx.free: {}", id);
+            log::trace!("QuickJsRuntime::q_ctx.free: {}", id);
             q_ctx.free();
-            log::trace!("after QuickJSRuntime::q_ctx.free: {}", id);
+            log::trace!("after QuickJsRuntime::q_ctx.free: {}", id);
             rt.gc();
         });
 
