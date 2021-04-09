@@ -28,6 +28,9 @@ pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
     }
 }
 
+/// convert an instance of Error to EsError
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn error_to_eserror(context: *mut q::JSContext, exception_ref: &JSValueRef) -> EsError {
     let name_ref = objects::get_property(context, exception_ref, "name")
         .ok()

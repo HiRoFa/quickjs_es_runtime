@@ -1,4 +1,8 @@
-# 0.3.0 (work in progress)
+# 0.3.1 (work in progress)
+
+* todo
+
+# 0.3.0
 
 * EsValueFacade now links to live object when object is passed out of runtime
 * added EsValueFacade.stringify()
