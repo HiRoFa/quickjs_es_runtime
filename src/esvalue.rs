@@ -2,6 +2,7 @@ use crate::eserror::EsError;
 use crate::esruntime::EsRuntime;
 use crate::quickjs_utils::arrays::{get_element_q, get_length_q, is_array_q};
 use crate::quickjs_utils::dates::is_date_q;
+use crate::quickjs_utils::errors::{error_to_eserror, is_error_q};
 use crate::quickjs_utils::functions::{is_function_q, new_function_q};
 use crate::quickjs_utils::json::stringify_q;
 use crate::quickjs_utils::objects::{get_property_names_q, get_property_q};
@@ -129,6 +130,12 @@ pub trait EsValueConvertible {
     fn stringify(&self) -> Result<String, EsError> {
         unimplemented!()
     }
+    fn is_error(&self) -> bool {
+        false
+    }
+    fn get_error(&self) -> EsError {
+        unimplemented!()
+    }
 }
 
 pub struct EsUndefinedValue {}
@@ -209,6 +216,7 @@ enum EsType {
     Array,
     BigInt,
     Function,
+    Error,
 }
 
 #[allow(clippy::upper_case_acronyms)]
@@ -235,6 +243,8 @@ impl CachedJSValueRef {
             EsType::Function
         } else if is_promise_q(q_ctx, value_ref) {
             EsType::Promise
+        } else if is_error_q(q_ctx, value_ref) {
+            EsType::Error
         } else {
             EsType::Object
         };
@@ -624,6 +634,17 @@ impl EsValueConvertible for CachedJSValueRef {
         self.do_with(|_q_js_rt, q_ctx, obj_ref| {
             let res = stringify_q(q_ctx, &obj_ref, None)?;
             to_string_q(q_ctx, &res)
+        })
+    }
+
+    fn is_error(&self) -> bool {
+        self.es_type == EsType::Error
+    }
+
+    fn get_error(&self) -> EsError {
+        assert!(self.is_error());
+        self.do_with(|_q_js_rt, q_ctx, obj_ref| unsafe {
+            error_to_eserror(q_ctx.context, &obj_ref)
         })
     }
 }
@@ -1401,6 +1422,14 @@ impl EsValueFacade {
     pub fn get_promise_result(&self) -> impl Future<Output = Result<EsValueFacade, EsValueFacade>> {
         self.convertible.get_promise_result()
     }
+
+    pub fn is_error(&self) -> bool {
+        self.convertible.is_error()
+    }
+
+    pub fn get_error(&self) -> EsError {
+        self.convertible.get_error()
+    }
 }
 
 impl Debug for EsValueFacade {
@@ -1585,5 +1614,23 @@ pub mod tests {
         log::info!("test_stringify: drop rt");
         drop(rt);
         log::info!("test_stringify: after drop rt");
+    }
+
+    #[test]
+    fn test_error() {
+        let rt = init_test_rt();
+        let esvf = match rt.eval_sync(EsScript::new(
+            "test_err.es",
+            "((async function() {throw Error('poof')})());",
+        )) {
+            Ok(e) => e,
+            Err(ex) => panic!("script failed: {}", ex),
+        };
+        let res = esvf.get_promise_result_sync();
+        assert!(res.is_err());
+        let err_esvf = res.err().unwrap();
+        assert!(err_esvf.is_error());
+        let es_error = err_esvf.get_error();
+        assert!(es_error.get_message().contains("poof"));
     }
 }

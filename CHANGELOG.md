@@ -3,6 +3,7 @@
 * EsValueFacade now links to live object when object is passed out of runtime
 * added EsValueFacade.stringify()
 * added EsFunction struct to create functions as EsValueFacade
+* is/get_error for EsValueFacade used for when promise or async function is rejected with Error obj
 
 # 0.2.3 
 

@@ -2,6 +2,7 @@
 
 use crate::eserror::EsError;
 use crate::quickjs_utils::{objects, primitives};
+use crate::quickjscontext::QuickJsContext;
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use libquickjs_sys as q;
 
@@ -19,30 +20,34 @@ pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
         let err = if exception_ref.is_exception() {
             EsError::new_str("Could not get exception from runtime")
         } else if exception_ref.is_object() {
-            let name_ref = objects::get_property(context, &exception_ref, "name")
-                .ok()
-                .unwrap();
-            let name_string = primitives::to_string(context, &name_ref).ok().unwrap();
-            let message_ref = objects::get_property(context, &exception_ref, "message")
-                .ok()
-                .unwrap();
-            let message_string = primitives::to_string(context, &message_ref).ok().unwrap();
-            let stack_ref = objects::get_property(context, &exception_ref, "stack")
-                .ok()
-                .unwrap();
-            let stack_string;
-            if stack_ref.is_string() {
-                stack_string = primitives::to_string(context, &stack_ref).ok().unwrap();
-            } else {
-                stack_string = "".to_string();
-            }
-
-            EsError::new(name_string, message_string, stack_string)
+            error_to_eserror(context, &exception_ref)
         } else {
             EsError::new_str("no clue what happened")
         };
         Some(err)
     }
+}
+
+pub unsafe fn error_to_eserror(context: *mut q::JSContext, exception_ref: &JSValueRef) -> EsError {
+    let name_ref = objects::get_property(context, exception_ref, "name")
+        .ok()
+        .unwrap();
+    let name_string = primitives::to_string(context, &name_ref).ok().unwrap();
+    let message_ref = objects::get_property(context, exception_ref, "message")
+        .ok()
+        .unwrap();
+    let message_string = primitives::to_string(context, &message_ref).ok().unwrap();
+    let stack_ref = objects::get_property(context, exception_ref, "stack")
+        .ok()
+        .unwrap();
+    let stack_string;
+    if stack_ref.is_string() {
+        stack_string = primitives::to_string(context, &stack_ref).ok().unwrap();
+    } else {
+        stack_string = "".to_string();
+    }
+
+    EsError::new(name_string, message_string, stack_string)
 }
 
 /// Create a new Error object
@@ -83,7 +88,12 @@ pub unsafe fn new_error(
     Ok(obj_ref)
 }
 
-/// See if a JSValueRef is an Error objecte
+/// See if a JSValueRef is an Error object
+pub fn is_error_q(q_ctx: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
+    unsafe { is_error(q_ctx.context, obj_ref) }
+}
+
+/// See if a JSValueRef is an Error object
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn is_error(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
