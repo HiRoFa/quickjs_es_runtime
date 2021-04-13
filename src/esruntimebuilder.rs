@@ -1,5 +1,5 @@
 use crate::eserror::EsError;
-use crate::esruntime::{EsRuntime, FetchResponseProvider};
+use crate::esruntime::{EsRuntime, FetchResponseProvider, ScriptPreProcessor};
 use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
 use crate::quickjsruntime::{NativeModuleLoader, ScriptModuleLoader};
@@ -27,6 +27,7 @@ pub struct EsRuntimeBuilder {
     pub(crate) opt_max_stack_size: Option<u64>,
     pub(crate) opt_gc_interval: Option<Duration>,
     pub(crate) runtime_init_hooks: EsRuntimeInitHooks,
+    pub(crate) script_pre_processors: Vec<Box<dyn ScriptPreProcessor + Send>>,
 }
 
 impl EsRuntimeBuilder {
@@ -46,6 +47,7 @@ impl EsRuntimeBuilder {
             opt_max_stack_size: None,
             opt_gc_interval: None,
             runtime_init_hooks: vec![],
+            script_pre_processors: vec![],
         }
     }
 
@@ -77,6 +79,15 @@ impl EsRuntimeBuilder {
         loader: Box<M>,
     ) -> Self {
         self.script_module_loaders.push(loader);
+        self
+    }
+
+    /// add a ScriptPreProcessor which will be called for all scripts which are evaluated and compiled
+    pub fn script_pre_processor<S: ScriptPreProcessor + Send + 'static>(
+        mut self,
+        processor: S,
+    ) -> Self {
+        self.script_pre_processors.push(Box::new(processor));
         self
     }
 

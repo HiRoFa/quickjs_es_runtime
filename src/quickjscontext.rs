@@ -111,12 +111,14 @@ impl QuickJsContext {
     /// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
     pub unsafe fn eval_ctx(
         context: *mut q::JSContext,
-        script: EsScript,
+        mut script: EsScript,
     ) -> Result<JSValueRef, EsError> {
+        log::debug!("q_js_rt.eval file {}", script.get_path());
+
+        script = QuickJsRuntime::pre_process(script);
+
         let filename_c = make_cstring(script.get_path())?;
         let code_c = make_cstring(script.get_code())?;
-
-        log::debug!("q_js_rt.eval file {}", script.get_path());
 
         let value_raw = q::JS_Eval(
             context,
@@ -157,9 +159,11 @@ impl QuickJsContext {
     /// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
     pub unsafe fn eval_module_ctx(
         context: *mut q::JSContext,
-        script: EsScript,
+        mut script: EsScript,
     ) -> Result<JSValueRef, EsError> {
         log::debug!("q_js_rt.eval_module file {}", script.get_path());
+
+        script = QuickJsRuntime::pre_process(script);
 
         let filename_c = make_cstring(script.get_path())?;
         let code_c = make_cstring(script.get_code())?;

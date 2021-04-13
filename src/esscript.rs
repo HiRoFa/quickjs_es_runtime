@@ -16,6 +16,9 @@ impl EsScript {
     pub fn get_code(&self) -> &str {
         self.script_code.as_str()
     }
+    pub fn set_code(&mut self, code: String) {
+        self.script_code = code;
+    }
 }
 
 impl Clone for EsScript {

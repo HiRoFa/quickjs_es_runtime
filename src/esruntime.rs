@@ -24,6 +24,12 @@ lazy_static! {
 pub type FetchResponseProvider =
     dyn Fn(&FetchRequest) -> Box<dyn FetchResponse + Send> + Send + Sync + 'static;
 
+pub trait ScriptPreProcessor {
+    fn process(&self, script: EsScript) -> EsScript {
+        script
+    }
+}
+
 impl Drop for EsRuntime {
     fn drop(&mut self) {
         log::trace!("> EsRuntime::drop");
@@ -103,6 +109,7 @@ impl EsRuntime {
                         script_module_loader,
                     ));
                 }
+                q_js_rt.script_pre_processors = builder.script_pre_processors;
 
                 if let Some(limit) = builder.opt_memory_limit_bytes {
                     unsafe {

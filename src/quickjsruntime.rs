@@ -1,7 +1,7 @@
 // store in thread_local
 
 use crate::eserror::EsError;
-use crate::esruntime::EsRuntime;
+use crate::esruntime::{EsRuntime, ScriptPreProcessor};
 use crate::esscript::EsScript;
 use crate::quickjs_utils::modules::{
     add_module_export, compile_module, get_module_def, get_module_name, new_module,
@@ -74,8 +74,11 @@ impl ModuleLoader for ScriptModuleLoaderAdapter {
         absolute_path: &str,
     ) -> Result<*mut q::JSModuleDef, EsError> {
         let code = self.inner.load_module(absolute_path);
-        let compiled_module =
-            unsafe { compile_module(q_ctx.context, EsScript::new(absolute_path, code.as_str()))? };
+
+        let mut script = EsScript::new(absolute_path, code.as_str());
+        script = QuickJsRuntime::pre_process(script);
+
+        let compiled_module = unsafe { compile_module(q_ctx.context, script)? };
         Ok(get_module_def(&compiled_module))
     }
 
@@ -223,6 +226,7 @@ pub struct QuickJsRuntime {
     context_init_hooks: RefCell<ContextInitHooks>,
     script_module_loaders: Vec<ScriptModuleLoaderAdapter>,
     native_module_loaders: Vec<NativeModuleLoaderAdapter>,
+    pub(crate) script_pre_processors: Vec<Box<dyn ScriptPreProcessor + Send>>,
 }
 
 impl QuickJsRuntime {
@@ -230,6 +234,15 @@ impl QuickJsRuntime {
         QJS_RT.with(|rc| {
             let opt = &mut *rc.borrow_mut();
             opt.replace(rt);
+        })
+    }
+
+    pub(crate) fn pre_process(mut script: EsScript) -> EsScript {
+        Self::do_with(|q_js_rt| {
+            for pp in &q_js_rt.script_pre_processors {
+                script = pp.process(script);
+            }
+            script
         })
     }
 
@@ -339,6 +352,7 @@ impl QuickJsRuntime {
             context_init_hooks: RefCell::new(vec![]),
             script_module_loaders: vec![],
             native_module_loaders: vec![],
+            script_pre_processors: vec![],
         };
 
         modules::set_module_loader(&q_rt);
