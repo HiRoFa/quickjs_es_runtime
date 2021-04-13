@@ -337,7 +337,7 @@ impl CachedJSValueRef {
 
         if let Some(es_rt) = self.es_rt.upgrade() {
             let context_id_then = self.context_id.clone();
-            es_rt.add_to_event_queue_sync(move |q_js_rt| {
+            es_rt.exe_rt_task(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id_then.as_str());
 
                 q_ctx.with_cached_obj(cached_obj_id, |cached_obj_ref| {
@@ -357,7 +357,7 @@ impl CachedJSValueRef {
 
         if let Some(es_rt) = self.es_rt.upgrade() {
             let context_id_then = self.context_id.clone();
-            es_rt.add_to_event_queue_void(move |q_js_rt| {
+            es_rt.add_rt_task_void(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id_then.as_str());
 
                 q_ctx.with_cached_obj(cached_obj_id, |cached_obj_ref| {
@@ -375,7 +375,7 @@ impl Drop for CachedJSValueRef {
         if let Some(rt_arc) = self.es_rt.upgrade() {
             let cached_obj_id = self.cached_obj_id;
             let context_id = self.context_id.clone();
-            rt_arc.add_to_event_queue_void(move |q_js_rt| {
+            rt_arc.add_rt_task_void(move |q_js_rt| {
                 if q_js_rt.has_context(context_id.as_str()) {
                     let q_ctx = q_js_rt.get_context(context_id.as_str());
                     q_ctx.remove_cached_obj_if_present(cached_obj_id);
@@ -935,7 +935,7 @@ impl EsPromiseResolvableHandle {
             }
         });
         if let Some((es_rt, id, context_id, mut value)) = rt_opt {
-            es_rt.add_to_event_queue_void(move |q_js_rt| {
+            es_rt.add_rt_task_void(move |q_js_rt| {
                 log::trace!("resolving handle with val, stage 2: {:?}", value);
                 let q_ctx = q_js_rt.get_context(context_id.as_str());
                 ESPROMISE_REFS.with(move |rc| {
@@ -975,7 +975,7 @@ impl EsPromiseResolvableHandle {
             }
         });
         if let Some((es_rt, id, context_id, mut value)) = rt_opt {
-            es_rt.add_to_event_queue_void(move |q_js_rt| {
+            es_rt.add_rt_task_void(move |q_js_rt| {
                 log::trace!("rejecting handle with val, stage 2: {:?}", value);
                 let q_ctx = q_js_rt.get_context(context_id.as_str());
                 ESPROMISE_REFS.with(move |rc| {
@@ -1033,7 +1033,7 @@ impl Drop for EsPromiseResolvableHandleInner {
         if let Some(info) = &self.js_info {
             let id = info.id;
             if let Some(es_rt) = info.weak_es_rt.upgrade() {
-                es_rt.add_to_event_queue_void(move |_q_js_rt| {
+                es_rt.add_rt_task_void(move |_q_js_rt| {
                     ESPROMISE_REFS.with(move |rc| {
                         let map = &mut *rc.borrow_mut();
                         map.remove(&id);

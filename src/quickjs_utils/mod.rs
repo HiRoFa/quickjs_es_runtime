@@ -123,7 +123,7 @@ pub mod tests {
     #[test]
     fn test_global() {
         let rt = init_test_rt();
-        let _io = rt.add_to_event_queue_sync(|q_js_rt| {
+        let _io = rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
             let ct = get_global_q(q_ctx).get_ref_count();

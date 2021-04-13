@@ -160,7 +160,7 @@ fn next_id(q_ctx: &QuickJsContext) -> usize {
 /// let rt = EsRuntimeBuilder::new().build();
 ///
 /// // install our proxy class as com.hirofa.FunkyClass
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    Proxy::new()
 ///    .namespace(vec!["com", "hirofa"])
@@ -208,7 +208,7 @@ fn next_id(q_ctx: &QuickJsContext) -> usize {
 ///         let i_ct = INSTANCES.with(|rc| rc.borrow().len());
 ///         // assert instance was finalized
 ///         assert_eq!(i_ct, 0);
-///     },
+///     }
 ///     Err(e) => {
 ///         panic!("script failed: {}", e);
 ///     }
@@ -1080,7 +1080,7 @@ pub mod tests {
         log::info!("> test_proxy");
 
         let rt = init_test_rt();
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             q_js_rt.gc();
             let q_ctx = q_js_rt.get_main_context();
             let _ = Proxy::new()
@@ -1099,7 +1099,7 @@ pub mod tests {
         log::info!("> test_proxy");
 
         let rt = init_test_rt();
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = Proxy::new()
                 .name("TestClass1")

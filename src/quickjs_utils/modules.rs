@@ -269,7 +269,7 @@ pub mod tests {
         log::info!("> test_module_sandbox");
 
         let rt = init_test_rt();
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval_module(EsScript::new(
                 "test1.mes",
@@ -282,7 +282,7 @@ pub mod tests {
             res.ok().expect("parse module failed");
         });
 
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval_module(EsScript::new(
                 "test2.mes",
@@ -296,7 +296,7 @@ pub mod tests {
             res.ok().expect("parse module2 failed");
         });
 
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval_module(EsScript::new(
                 "test3.mes",
@@ -311,7 +311,7 @@ pub mod tests {
                 .contains("Module notfound.mes was not found"));
         });
 
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval_module(EsScript::new(
                 "test4.mes",
@@ -326,7 +326,7 @@ pub mod tests {
                 .contains("Module load failed for invalid.mes"));
         });
 
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval_module(EsScript::new(
                 "test2.mes",

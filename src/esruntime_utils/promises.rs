@@ -26,7 +26,7 @@ thread_local! {
 /// use quickjs_runtime::quickjsruntime::QuickJsRuntime;
 /// let rt = EsRuntimeBuilder::new().build();
 /// let rt_ref = rt.clone();
-/// rt.add_to_event_queue_sync(move |q_js_rt| {
+/// rt.exe_rt_task(move |q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///      // create rust function, please note that using new_native_function_data will be the faster option
 ///      let func_ref = functions::new_function_q(q_ctx, "asyncTest", move |q_ctx, _this_ref, _args| {
@@ -86,7 +86,7 @@ where
     EsRuntime::add_helper_task(move || {
         // in helper thread, produce result
         let produced_result = producer();
-        rti_ref.add_to_event_queue_void(move |q_js_rt| {
+        rti_ref.add_rt_task_to_event_loop_void(move |q_js_rt| {
             let q_ctx = q_js_rt.get_context(ctx_id.as_str());
             // in q_js_rt worker thread, resolve promise
             // retrieve promise
@@ -154,7 +154,7 @@ pub mod tests {
     fn test_resolving_prom() {
         let rt: Arc<EsRuntime> = init_test_rt();
         let rt_ref = rt.clone();
-        rt.add_to_event_queue_sync(move |q_js_rt| {
+        rt.exe_rt_task(move |q_js_rt| {
             // create rust function, please note that using new_native_function_data will be the faster option
             let q_ctx = q_js_rt.get_main_context();
             let func_ref = functions::new_function_q(
@@ -219,7 +219,7 @@ pub mod tests {
 
         // todo test with context_init_hooks disabled
 
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
 
             let q_ctx = q_js_rt.get_main_context();
              q_ctx.eval(EsScript::new(

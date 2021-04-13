@@ -25,7 +25,7 @@ pub type FetchResponseProvider =
     dyn Fn(&FetchRequest) -> Box<dyn FetchResponse + Send> + Send + Sync + 'static;
 
 pub struct EsRuntimeInner {
-    pub(crate) event_queue: EventLoop,
+    pub(crate) event_loop: EventLoop,
     pub(crate) fetch_response_provider: Option<Box<FetchResponseProvider>>,
 }
 
@@ -50,7 +50,7 @@ pub struct EsRuntime {
 impl EsRuntimeInner {
     pub(crate) fn clear_contexts(&self) {
         log::trace!("EsRuntimeInner::clear_contexts");
-        self.exe_task(|| {
+        self.exe_task_in_event_loop(|| {
             let context_ids = QuickJsRuntime::get_context_ids();
             for id in context_ids {
                 QuickJsRuntime::remove_context(id.as_str());
@@ -58,11 +58,11 @@ impl EsRuntimeInner {
         });
     }
 
-    pub fn add_task<C>(&self, task: C)
+    pub fn add_task_to_event_loop_void<C>(&self, task: C)
     where
         C: FnOnce() + Send + 'static,
     {
-        self.event_queue.add_void(move || {
+        self.event_loop.add_void(move || {
             task();
             EventLoop::add_local_void(|| {
                 QuickJsRuntime::do_with(|q_js_rt| {
@@ -72,11 +72,11 @@ impl EsRuntimeInner {
         });
     }
 
-    pub fn exe_task<C, R: Send + 'static>(&self, task: C) -> R
+    pub fn exe_task_in_event_loop<C, R: Send + 'static>(&self, task: C) -> R
     where
         C: FnOnce() -> R + Send + 'static,
     {
-        self.event_queue.exe(move || {
+        self.event_loop.exe(move || {
             let res = task();
             EventLoop::add_local_void(|| {
                 QuickJsRuntime::do_with(|q_js_rt| {
@@ -87,11 +87,11 @@ impl EsRuntimeInner {
         })
     }
 
-    pub fn async_task<C, R: Send + 'static>(&self, task: C) -> impl Future<Output = R>
+    pub fn add_task_to_event_loop<C, R: Send + 'static>(&self, task: C) -> impl Future<Output = R>
     where
         C: FnOnce() -> R + Send + 'static,
     {
-        self.event_queue.add(move || {
+        self.event_loop.add(move || {
             let res = task();
             EventLoop::add_local_void(|| {
                 QuickJsRuntime::do_with(|q_js_rt| {
@@ -102,21 +102,24 @@ impl EsRuntimeInner {
         })
     }
 
-    pub fn add_to_event_queue<C, R: Send + 'static>(&self, consumer: C) -> impl Future<Output = R>
+    pub fn add_rt_task_to_event_loop<C, R: Send + 'static>(
+        &self,
+        consumer: C,
+    ) -> impl Future<Output = R>
     where
         C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,
     {
-        self.async_task(|| QuickJsRuntime::do_with(consumer))
+        self.add_task_to_event_loop(|| QuickJsRuntime::do_with(consumer))
     }
 
-    pub fn add_to_event_queue_void<C>(&self, consumer: C)
+    pub fn add_rt_task_to_event_loop_void<C>(&self, consumer: C)
     where
         C: FnOnce(&QuickJsRuntime) + Send + 'static,
     {
-        self.add_task(|| QuickJsRuntime::do_with(consumer))
+        self.add_task_to_event_loop_void(|| QuickJsRuntime::do_with(consumer))
     }
 
-    pub(crate) fn add_to_event_queue_from_worker<C>(consumer: C)
+    pub(crate) fn add_local_task_to_event_loop<C>(consumer: C)
     where
         C: FnOnce(&QuickJsRuntime) + 'static,
     {
@@ -132,23 +135,23 @@ impl EsRuntimeInner {
         });
     }
 
-    pub fn add_to_event_queue_sync<C, R>(&self, consumer: C) -> R
+    pub fn exe_rt_task_in_event_loop<C, R>(&self, consumer: C) -> R
     where
         C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,
         R: Send + 'static,
     {
-        self.exe_task(|| QuickJsRuntime::do_with(consumer))
+        self.exe_task_in_event_loop(|| QuickJsRuntime::do_with(consumer))
     }
 
     pub(crate) fn create_context(&self, id: &str) -> Result<(), EsError> {
         let id = id.to_string();
-        self.event_queue
+        self.event_loop
             .exe(move || QuickJsRuntime::create_context(id.as_str()))
     }
 
     pub(crate) fn drop_context(&self, id: &str) {
         let id = id.to_string();
-        self.event_queue
+        self.event_loop
             .exe(move || QuickJsRuntime::remove_context(id.as_str()))
     }
 }
@@ -160,12 +163,12 @@ impl EsRuntime {
 
         let ret = Arc::new(Self {
             inner: Arc::new(EsRuntimeInner {
-                event_queue: EventLoop::new(),
+                event_loop: EventLoop::new(),
                 fetch_response_provider,
             }),
         });
 
-        ret.inner.event_queue.exe(|| {
+        ret.inner.event_loop.exe(|| {
             let rt_ptr = unsafe { q::JS_NewRuntime() };
             let rt = QuickJsRuntime::new(rt_ptr);
             QuickJsRuntime::init_rt_for_current_thread(rt);
@@ -173,7 +176,7 @@ impl EsRuntime {
 
         // init ref in q_js_rt
         let rt_ref = ret.clone();
-        ret.inner.event_queue.exe(move || {
+        ret.inner.event_loop.exe(move || {
             QuickJsRuntime::do_with_mut(move |m_q_js_rt| {
                 m_q_js_rt.init_rt_ref(rt_ref);
             })
@@ -201,7 +204,7 @@ impl EsRuntime {
 
         let init_hooks: Vec<_> = builder.runtime_init_hooks.drain(..).collect();
 
-        ret.inner.event_queue.exe(|| {
+        ret.inner.event_loop.exe(|| {
             QuickJsRuntime::do_with_mut(|q_js_rt| {
                 for native_module_loader in builder.native_module_loaders {
                     q_js_rt.add_native_module_loader(NativeModuleLoaderAdapter::new(
@@ -250,11 +253,11 @@ impl EsRuntime {
 
     /// this can be used to run a function in the event_queue thread for the QuickJSRuntime
     /// without borrowing the q_js_rt
-    pub fn add_task<C>(&self, task: C)
+    pub fn add_task_void<C>(&self, task: C)
     where
         C: FnOnce() + Send + 'static,
     {
-        self.inner.add_task(task);
+        self.inner.add_task_to_event_loop_void(task);
     }
 
     /// this can be used to run a function in the event_queue thread for the QuickJSRuntime
@@ -263,12 +266,12 @@ impl EsRuntime {
     where
         C: FnOnce() -> R + Send + 'static,
     {
-        self.inner.exe_task(task)
+        self.inner.exe_task_in_event_loop(task)
     }
 
     /// Evaluate a script asynchronously
     pub async fn eval(&self, script: EsScript) -> Result<EsValueFacade, EsError> {
-        self.add_to_event_queue(|q_js_rt| {
+        self.add_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval(script);
             match res {
@@ -290,7 +293,7 @@ impl EsRuntime {
     /// assert_eq!(res.get_i32(), 27);
     /// ```
     pub fn eval_sync(&self, script: EsScript) -> Result<EsValueFacade, EsError> {
-        self.add_to_event_queue_sync(move |q_js_rt| {
+        self.exe_rt_task(move |q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval(script);
             match res {
@@ -302,12 +305,12 @@ impl EsRuntime {
 
     /// run the garbage collector asynchronously
     pub async fn gc(&self) {
-        self.add_to_event_queue(|q_js_rt| q_js_rt.gc()).await
+        self.add_rt_task(|q_js_rt| q_js_rt.gc()).await
     }
 
     /// run the garbage collector and wait for it to be done
     pub fn gc_sync(&self) {
-        self.add_to_event_queue_sync(|q_js_rt| q_js_rt.gc())
+        self.exe_rt_task(|q_js_rt| q_js_rt.gc())
     }
 
     /// call a function in the engine and await the result
@@ -332,7 +335,7 @@ impl EsRuntime {
     ) -> Result<EsValueFacade, EsError> {
         let func_name_string = func_name.to_string();
 
-        self.add_to_event_queue_sync(move |q_js_rt| {
+        self.exe_rt_task(move |q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
             let mut q_args = vec![];
@@ -368,7 +371,7 @@ impl EsRuntime {
     ) -> Result<EsValueFacade, EsError> {
         let func_name_string = func_name.to_string();
 
-        self.add_to_event_queue(move |q_js_rt| {
+        self.add_rt_task(move |q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let mut q_args = vec![];
             for arg in &mut arguments {
@@ -421,7 +424,7 @@ impl EsRuntime {
     /// rt.eval_module(script);
     /// ```
     pub async fn eval_module(&self, script: EsScript) {
-        self.add_to_event_queue(|q_js_rt| {
+        self.add_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval_module(script);
             match res {
@@ -434,7 +437,7 @@ impl EsRuntime {
 
     /// evaluate a module and return result synchronously
     pub fn eval_module_sync(&self, script: EsScript) -> Result<EsValueFacade, EsError> {
-        self.add_to_event_queue_sync(move |q_js_rt| {
+        self.exe_rt_task(move |q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval_module(script);
             match res {
@@ -450,23 +453,23 @@ impl EsRuntime {
     /// ```rust
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
     /// let rt = EsRuntimeBuilder::new().build();
-    /// rt.add_to_event_queue(|q_js_rt| {
+    /// rt.add_rt_task(|q_js_rt| {
     ///     // here you are in the worker thread and you can use the quickjs_utils
     ///     q_js_rt.gc();
     /// });
     /// ```
-    pub fn add_to_event_queue<C, R: Send + 'static>(&self, consumer: C) -> impl Future<Output = R>
+    pub fn add_rt_task<C, R: Send + 'static>(&self, consumer: C) -> impl Future<Output = R>
     where
         C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,
     {
-        self.inner.add_to_event_queue(consumer)
+        self.inner.add_rt_task_to_event_loop(consumer)
     }
 
-    pub fn add_to_event_queue_void<C>(&self, consumer: C)
+    pub fn add_rt_task_void<C>(&self, consumer: C)
     where
         C: FnOnce(&QuickJsRuntime) + Send + 'static,
     {
-        self.inner.add_to_event_queue_void(consumer)
+        self.inner.add_rt_task_to_event_loop_void(consumer)
     }
 
     /// this is how you add a closure to the worker thread which has an instance of the QuickJsRuntime
@@ -477,7 +480,7 @@ impl EsRuntime {
     /// use quickjs_runtime::esscript::EsScript;
     /// use quickjs_runtime::quickjs_utils::primitives;
     /// let rt = EsRuntimeBuilder::new().build();
-    /// let res = rt.add_to_event_queue_sync(|q_js_rt| {
+    /// let res = rt.exe_rt_task(|q_js_rt| {
     ///     let q_ctx = q_js_rt.get_main_context();
     ///     // here you are in the worker thread and you can use the quickjs_utils
     ///     let val_ref = q_ctx.eval(EsScript::new("test.es", "(11 * 6);")).ok().expect("script failed");
@@ -485,12 +488,12 @@ impl EsRuntime {
     /// });
     /// assert_eq!(res, 66);
     /// ```
-    pub fn add_to_event_queue_sync<C, R>(&self, consumer: C) -> R
+    pub fn exe_rt_task<C, R>(&self, consumer: C) -> R
     where
         C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,
         R: Send + 'static,
     {
-        self.inner.add_to_event_queue_sync(consumer)
+        self.inner.exe_rt_task_in_event_loop(consumer)
     }
 
     /// this adds a rust function to JavaScript, it is added for all current and future contexts
@@ -521,7 +524,7 @@ impl EsRuntime {
             + 'static,
     {
         let name = name.to_string();
-        self.add_to_event_queue_sync(move |q_js_rt| {
+        self.exe_rt_task(move |q_js_rt| {
             let func_rc = Rc::new(function);
             let name = name.to_string();
 
@@ -583,7 +586,7 @@ impl EsRuntime {
     /// use quickjs_runtime::esscript::EsScript;
     /// let rt = EsRuntimeBuilder::new().build();
     /// rt.create_context("my_context");
-    /// rt.add_to_event_queue_sync(|q_js_rt| {
+    /// rt.exe_rt_task(|q_js_rt| {
     ///    let my_ctx = q_js_rt.get_context("my_context");
     ///    my_ctx.eval(EsScript::new("ctx_test.es", "this.myVar = 'only exists in my_context';"));
     /// });
@@ -769,7 +772,7 @@ pub mod tests {
         // test stack overflow
         let rt: Arc<EsRuntime> = init_test_rt();
 
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             //q_js_rt.run_pending_jobs_if_any();
             let q_ctx = q_js_rt.get_main_context();
             let r = q_ctx.eval(EsScript::new(
@@ -791,7 +794,7 @@ pub mod tests {
 
             //q_js_rt.run_pending_jobs_if_any();
         });
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             q_js_rt.run_pending_jobs_if_any();
         });
 

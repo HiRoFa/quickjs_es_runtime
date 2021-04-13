@@ -77,7 +77,7 @@ pub mod tests {
     #[test]
     fn test_bigint() {
         let rt: Arc<EsRuntime> = init_test_rt();
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let bi_ref =
                 new_bigint_str_q(q_ctx, "345346345645234564536345345345345456534783448567")

@@ -165,7 +165,7 @@ pub mod tests {
         // check if stacktrace is preserved when invoking native methods
 
         let rt = init_test_rt();
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
             q_ctx

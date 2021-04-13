@@ -235,7 +235,7 @@ pub mod tests {
         log::info!("> test_instance_of_prom");
 
         let rt = init_test_rt();
-        let io = rt.add_to_event_queue_sync(|q_js_rt| {
+        let io = rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval(EsScript::new(
                 "test_instance_of_prom.es",
@@ -268,7 +268,7 @@ pub mod tests {
         log::info!("> new_prom");
 
         let rt = init_test_rt();
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let func_ref = q_ctx
                 .eval(EsScript::new(
@@ -306,7 +306,7 @@ pub mod tests {
         log::info!("> new_prom2");
 
         let rt = init_test_rt();
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let func_ref = q_ctx
                 .eval(EsScript::new(
@@ -344,7 +344,7 @@ pub mod tests {
         log::info!("> test_promise_reactions");
 
         let rt = init_test_rt();
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let prom_ref = q_ctx
                 .eval(EsScript::new(

@@ -310,7 +310,7 @@ pub mod tests {
         let instance_ids2 = instance_ids.clone();
 
         let rt = init_test_rt();
-        let ct = rt.add_to_event_queue_sync(move |q_js_rt| {
+        let ct = rt.exe_rt_task(move |q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             Proxy::new()
                 .namespace(vec![])
@@ -369,7 +369,7 @@ pub mod tests {
     #[test]
     fn test_proxy_eh_rcs() {
         let rt = init_test_rt();
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             Proxy::new()
                 .namespace(vec![])

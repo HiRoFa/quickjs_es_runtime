@@ -316,7 +316,7 @@ pub mod tests {
         rt.create_context("a").ok().expect("could not create ctx a");
         rt.create_context("b").ok().expect("could not create ctx b");
 
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let ctx_a = q_js_rt.get_context("a");
             let ctx_b = q_js_rt.get_context("b");
             ctx_a
@@ -350,7 +350,7 @@ pub mod tests {
         });
         rt.drop_context("b");
 
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             q_js_rt.gc();
             let ctx_a = q_js_rt.get_context("a");
             let v = ctx_a
@@ -365,7 +365,7 @@ pub mod tests {
             .ok()
             .expect("could not create context c");
 
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let c_ctx = q_js_rt.get_context("c");
             let func = functions::new_function_q(
                 c_ctx,
@@ -381,7 +381,7 @@ pub mod tests {
                 .expect("could not set prop");
             q_js_rt.gc();
         });
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             q_js_rt.gc();
             let ctx_a = q_js_rt.get_context("a");
             let v = ctx_a
@@ -392,7 +392,7 @@ pub mod tests {
             q_js_rt.gc();
         });
         rt.drop_context("c");
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             q_js_rt.gc();
             let ctx_a = q_js_rt.get_context("a");
             let v = ctx_a

@@ -11,7 +11,7 @@ pub fn init(es_rt: &EsRuntime) -> Result<(), EsError> {
 
     fetch::init(es_rt)?;
 
-    es_rt.add_to_event_queue_sync(move |q_js_rt| {
+    es_rt.exe_rt_task(move |q_js_rt| {
         console::init(q_js_rt)?;
         setimmediate::init(q_js_rt)?;
         set_timeout::init(q_js_rt)?;

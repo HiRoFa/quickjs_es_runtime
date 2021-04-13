@@ -16,7 +16,7 @@ use libquickjs_sys as q;
 /// use quickjs_runtime::valueref::JSValueRef;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
 /// });
@@ -54,7 +54,7 @@ pub unsafe fn is_map(ctx: *mut q::JSContext, obj: &JSValueRef) -> Result<bool, E
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
@@ -92,7 +92,7 @@ pub unsafe fn set(
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
@@ -130,7 +130,7 @@ pub unsafe fn get(
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
@@ -168,7 +168,7 @@ pub unsafe fn delete(
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
@@ -203,7 +203,7 @@ pub unsafe fn has(
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
@@ -234,7 +234,7 @@ pub unsafe fn size(ctx: *mut q::JSContext, map: &JSValueRef) -> Result<i32, EsEr
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
@@ -266,7 +266,7 @@ pub unsafe fn clear(ctx: *mut q::JSContext, map: &JSValueRef) -> Result<(), EsEr
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
@@ -306,7 +306,7 @@ pub unsafe fn keys<C: Fn(JSValueRef) -> Result<R, EsError>, R>(
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
@@ -346,7 +346,7 @@ pub unsafe fn values<C: Fn(JSValueRef) -> Result<R, EsError>, R>(
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);

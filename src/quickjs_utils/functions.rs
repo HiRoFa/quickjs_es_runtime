@@ -513,7 +513,7 @@ thread_local! {
 /// use quickjs_runtime::quickjs_utils::objects::set_property_q;
 /// use quickjs_runtime::esscript::EsScript;
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     // create a function which always returns 1253
 ///     let func_obj = new_function_q(q_ctx, "myFunc7654", |_q_ctx, _this, _args|{Ok(from_i32(1253))}, 0).ok().unwrap();
@@ -628,7 +628,7 @@ pub mod tests {
     #[test]
     pub fn test_invoke() {
         let rt = init_test_rt();
-        let _io = rt.add_to_event_queue_sync(|q_js_rt| {
+        let _io = rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let obj_ref = q_ctx
                 .eval(EsScript::new(
@@ -659,7 +659,7 @@ pub mod tests {
     #[test]
     pub fn test_ret_refcount() {
         let rt = init_test_rt();
-        let io = rt.add_to_event_queue_sync(|q_js_rt| {
+        let io = rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let func_ref = q_ctx
                 .eval(EsScript::new(
@@ -710,7 +710,7 @@ pub mod tests {
     #[test]
     pub fn test_to_string() {
         let rt = init_test_rt();
-        let io = rt.add_to_event_queue_sync(|q_js_rt| {
+        let io = rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let i = primitives::from_i32(480);
             let i_s = call_to_string_q(q_ctx, &i)
@@ -733,7 +733,7 @@ pub mod tests {
     #[test]
     pub fn test_call() {
         let rt = init_test_rt();
-        let io = rt.add_to_event_queue_sync(|q_js_rt| {
+        let io = rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let func_ref = q_ctx
                 .eval(EsScript::new(
@@ -771,7 +771,7 @@ pub mod tests {
 
         rt.eval_sync(EsScript::new("test_callback1.es", "let test_callback_563 = function(cb){console.log('before invoke cb');let result = cb(1, true, 'foobar');console.log('after invoke cb. got:' + result);};")).ok().expect("script failed");
 
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let mut cb_ref = new_function_q(
                 q_ctx,
@@ -813,7 +813,7 @@ pub mod tests {
     fn test_callback_arg_ref_ct() {
         let rt = init_test_rt();
 
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
 
                 let q_ctx = q_js_rt.get_main_context();
 
@@ -847,7 +847,7 @@ pub mod tests {
         });
         log::trace!("done with cb");
         std::thread::sleep(Duration::from_secs(1));
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             q_js_rt.gc();
         });
         std::thread::sleep(Duration::from_secs(1));
@@ -930,7 +930,7 @@ pub mod tests2 {
     #[test]
     fn test_function() {
         let rt = EsRuntimeBuilder::new().build();
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let func = new_function_q(
                 q_ctx,

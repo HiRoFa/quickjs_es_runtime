@@ -519,7 +519,7 @@ pub mod tests {
         let rt = EsRuntimeBuilder::new()
             .script_module_loader(Box::new(FooScriptModuleLoader {}))
             .build();
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             log::debug!("testing2");
             let script = q_js_rt.load_module_script_opt("", "test.mjs").unwrap();
             assert_eq!(script.as_str(), "{}");

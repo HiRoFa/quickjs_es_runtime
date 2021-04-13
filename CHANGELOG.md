@@ -1,6 +1,7 @@
-# 0.3.1 (work in progress)
+# 0.4.0 (work in progress)
 
-* todo
+* EventLoop
+* Renamed a lot of public methods
 
 # 0.3.0
 

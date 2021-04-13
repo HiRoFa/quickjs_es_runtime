@@ -63,7 +63,7 @@ pub unsafe fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRe
 /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::{json, objects, primitives};
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     let obj_ref = objects::create_object_q(q_ctx).ok().unwrap();
 ///     objects::set_property_q(q_ctx, &obj_ref, "a", &primitives::from_i32(741)).ok().unwrap();
@@ -127,7 +127,7 @@ pub mod tests {
     #[test]
     fn test_json() {
         let rt = init_test_rt();
-        rt.add_to_event_queue_sync(|q_js_rt| {
+        rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
             let obj = objects::create_object_q(q_ctx).ok().unwrap();

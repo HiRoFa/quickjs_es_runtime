@@ -331,7 +331,7 @@ pub mod tests {
 
         std::thread::sleep(Duration::from_secs(6));
 
-        let i = rt.add_to_event_queue_sync(|q_js_rt| {
+        let i = rt.exe_rt_task(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let global = get_global_q(q_ctx);
             let ti_num = get_property_q(q_ctx, &global, "__ti_num__")

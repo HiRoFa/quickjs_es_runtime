@@ -16,7 +16,7 @@ use libquickjs_sys as q;
 /// use quickjs_runtime::quickjs_utils::sets::new_set_q;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
 /// });
@@ -54,7 +54,7 @@ pub unsafe fn is_set(ctx: *mut q::JSContext, obj: &JSValueRef) -> Result<bool, E
 /// use quickjs_runtime::quickjs_utils::sets::{new_set_q, add_q};
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
 ///    let value = primitives::from_i32(23);
@@ -89,7 +89,7 @@ pub unsafe fn add(
 /// use quickjs_runtime::quickjs_utils::sets::{add_q, new_set_q, delete_q};
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
 ///    let value = primitives::from_i32(23);
@@ -126,7 +126,7 @@ pub unsafe fn delete(
 /// use quickjs_runtime::quickjs_utils::sets::{new_set_q, add_q, has_q};
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
 ///    let value = primitives::from_i32(23);
@@ -160,7 +160,7 @@ pub unsafe fn has(
 /// use quickjs_runtime::quickjs_utils::sets::{add_q, new_set_q, size_q};
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
 ///    let value = primitives::from_i32(23);
@@ -190,7 +190,7 @@ pub unsafe fn size(ctx: *mut q::JSContext, set: &JSValueRef) -> Result<i32, EsEr
 /// use quickjs_runtime::quickjs_utils::sets::{size_q, clear_q, add_q, new_set_q};
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
 ///    let value = primitives::from_i32(23);
@@ -221,7 +221,7 @@ pub unsafe fn clear(ctx: *mut q::JSContext, set: &JSValueRef) -> Result<(), EsEr
 /// use quickjs_runtime::quickjs_utils::sets::{new_set_q, add_q, values_q};
 ///
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.add_to_event_queue_sync(|q_js_rt| {
+/// rt.exe_rt_task(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
 ///    let value = primitives::from_i32(23);
