@@ -235,6 +235,7 @@ impl EsRuntime {
         });
     }
 
+    #[allow(clippy::borrowed_box)]
     pub fn get_fetch_response_provider(&self) -> Option<&Box<FetchResponseProvider>> {
         self.fetch_response_provider.as_ref()
     }
