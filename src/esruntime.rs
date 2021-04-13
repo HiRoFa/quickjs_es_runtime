@@ -9,7 +9,7 @@ use crate::quickjs_utils::{functions, objects};
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::{NativeModuleLoaderAdapter, QuickJsRuntime, ScriptModuleLoaderAdapter};
 use crate::utils::single_threaded_event_queue::SingleThreadedEventQueue;
-use crate::utils::task_manager::TaskManager;
+use hirofa_utils::task_manager::TaskManager;
 use libquickjs_sys as q;
 use std::future::Future;
 use std::rc::Rc;

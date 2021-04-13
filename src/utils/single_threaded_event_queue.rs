@@ -1,6 +1,6 @@
-use crate::utils::auto_id_map::AutoIdMap;
-use crate::utils::debug_mutex::DebugMutex;
 use futures::task::Waker;
+use hirofa_utils::auto_id_map::AutoIdMap;
+use hirofa_utils::debug_mutex::DebugMutex;
 use log::trace;
 use std::cell::RefCell;
 use std::future::Future;

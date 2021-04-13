@@ -4,8 +4,8 @@ use crate::quickjs_utils::primitives;
 use crate::quickjs_utils::promises::new_promise_q;
 use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjscontext::QuickJsContext;
-use crate::utils::auto_id_map::AutoIdMap;
 use crate::valueref::JSValueRef;
+use hirofa_utils::auto_id_map::AutoIdMap;
 use std::cell::RefCell;
 thread_local! {
     static RESOLVING_PROMISES: RefCell<AutoIdMap<PromiseRef>> = RefCell::new(AutoIdMap::new());
