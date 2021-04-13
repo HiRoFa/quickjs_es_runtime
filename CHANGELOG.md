@@ -1,7 +1,9 @@
 # 0.4.0 (work in progress)
 
-* EventLoop
+* use EventLoop from hirofa_utils, cleaner code, much less Mutexes
 * Renamed a lot of public methods
+  * e.g. rt.add_to_es_event_queue_sync -> rt.exe_rt_task_in_event_loop()
+  * e.g. rt.add_to_es_event_queue -> rt.add_rt_task_to_event_loop()
 * Removed EsRuntime.inner Arc, was a duplicate solution to the same problem
 
 # 0.3.0
