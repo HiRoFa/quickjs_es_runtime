@@ -16,7 +16,7 @@ use std::collections::HashMap;
 /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::objects::get_namespace_q;
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.exe_rt_task(|q_js_rt| {
+/// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     let ns_obj = get_namespace_q(q_ctx, vec!["com", "hirofa", "examplepackage"], true).ok().unwrap();
 ///     assert!(ns_obj.is_object())
@@ -166,7 +166,7 @@ pub unsafe fn set_property(
 /// use quickjs_runtime::quickjs_utils::primitives::from_i32;
 /// use libquickjs_sys as q;
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.exe_rt_task(|q_js_rt| {
+/// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let obj = create_object_q(q_ctx).ok().unwrap();
 ///    let prop = from_i32(785);
@@ -598,7 +598,7 @@ pub mod tests {
     #[test]
     fn test_get_refs() {
         let rt = init_test_rt();
-        rt.exe_rt_task(|q_js_rt| {
+        rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let obj = create_object_q(q_ctx).ok().expect("a");
             let prop_ref = create_object_q(q_ctx).ok().expect("b");
@@ -633,7 +633,7 @@ pub mod tests {
         log::info!("> test_get_n_drop");
 
         let rt = init_test_rt();
-        rt.exe_rt_task(|q_js_rt| {
+        rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
             let obj_a = create_object_q(q_ctx).ok().unwrap();
@@ -666,7 +666,7 @@ pub mod tests {
         log::info!("> test_propnames");
 
         let rt = init_test_rt();
-        let io = rt.exe_rt_task(|q_js_rt| {
+        let io = rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
             let obj_ref = q_ctx
@@ -693,7 +693,7 @@ pub mod tests {
         log::info!("> test_set_prop");
 
         let rt = init_test_rt();
-        let io = rt.exe_rt_task(|q_js_rt| {
+        let io = rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
             let obj_ref = create_object_q(q_ctx).ok().unwrap();

@@ -1,5 +1,5 @@
 use crate::eserror::EsError;
-use crate::esruntime::EsRuntimeInner;
+use crate::esruntime::EsRuntime;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, get_global_q, objects, parse_args};
 use crate::quickjsruntime::QuickJsRuntime;
@@ -50,7 +50,7 @@ unsafe extern "C" fn set_immediate(
             return q_ctx.report_ex("setImmediate requires a functions as first arg");
         }
 
-        EsRuntimeInner::add_local_task_to_event_loop(move |_q_js_rt| {
+        EsRuntime::add_local_task_to_event_loop(move |_q_js_rt| {
             let func = args.remove(0);
 
             match functions::call_function(context, &func, args, None) {

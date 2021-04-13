@@ -86,7 +86,7 @@ pub mod tests {
     #[test]
     fn test_date() {
         let rt: Arc<EsRuntime> = init_test_rt();
-        rt.exe_rt_task(|q_js_rt| {
+        rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let date_ref = dates::new_date_q(q_ctx).ok().expect("new_date failed");
             assert!(is_date_q(q_ctx, &date_ref));

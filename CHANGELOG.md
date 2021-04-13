@@ -2,6 +2,7 @@
 
 * EventLoop
 * Renamed a lot of public methods
+* Removed EsRuntime.inner Arc, was a duplicate solution to the same problem
 
 # 0.3.0
 

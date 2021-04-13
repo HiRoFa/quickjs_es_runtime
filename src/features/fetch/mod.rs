@@ -15,7 +15,7 @@ pub mod request;
 pub mod response;
 
 pub(crate) fn init(es_rt: &EsRuntime) -> Result<(), EsError> {
-    es_rt.exe_rt_task(|q_js_rt| {
+    es_rt.exe_rt_task_in_event_loop(|q_js_rt| {
         q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| {
             log::trace!("fetch::init");
 
@@ -59,7 +59,7 @@ unsafe extern "C" fn fetch_func(
         let url = primitives::to_string(ctx, &url_arg).ok().unwrap();
 
         if let Some(rt_ref) = q_js_rt.get_rt_ref() {
-            if rt_ref.inner.fetch_response_provider.is_some() {
+            if rt_ref.get_fetch_response_provider().is_some() {
                 let rt_ref_weak = Arc::downgrade(&rt_ref);
                 // prevent accidental use
                 drop(rt_ref);
@@ -69,9 +69,7 @@ unsafe extern "C" fn fetch_func(
 
                     if let Some(rt_ref) = rt_ref_weak.upgrade() {
                         let provider = rt_ref
-                            .inner
-                            .fetch_response_provider
-                            .as_ref()
+                            .get_fetch_response_provider()
                             .expect("we really expected a fetch_response_provider here");
 
                         let request = FetchRequest::new(url.as_str(), HashMap::new());
@@ -86,7 +84,7 @@ unsafe extern "C" fn fetch_func(
                 let mapper = |q_ctx: &QuickJsContext, p_res: Box<dyn FetchResponse + Send>| {
                     response::new_response_ref(q_ctx, p_res)
                 };
-                let es_rt = &*q_js_rt.get_rt_ref().unwrap();
+                let es_rt = q_js_rt.get_rt_ref().unwrap();
 
                 let prom_res = promises::new_resolving_promise(q_ctx, producer, mapper, es_rt);
                 match prom_res {

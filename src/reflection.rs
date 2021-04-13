@@ -160,7 +160,7 @@ fn next_id(q_ctx: &QuickJsContext) -> usize {
 /// let rt = EsRuntimeBuilder::new().build();
 ///
 /// // install our proxy class as com.hirofa.FunkyClass
-/// rt.exe_rt_task(|q_js_rt| {
+/// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    Proxy::new()
 ///    .namespace(vec!["com", "hirofa"])
@@ -1080,7 +1080,7 @@ pub mod tests {
         log::info!("> test_proxy");
 
         let rt = init_test_rt();
-        rt.exe_rt_task(|q_js_rt| {
+        rt.exe_rt_task_in_event_loop(|q_js_rt| {
             q_js_rt.gc();
             let q_ctx = q_js_rt.get_main_context();
             let _ = Proxy::new()
@@ -1099,7 +1099,7 @@ pub mod tests {
         log::info!("> test_proxy");
 
         let rt = init_test_rt();
-        rt.exe_rt_task(|q_js_rt| {
+        rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = Proxy::new()
                 .name("TestClass1")

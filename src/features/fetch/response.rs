@@ -30,8 +30,7 @@ fn response_text(
     _args: Vec<JSValueRef>,
 ) -> Result<JSValueRef, EsError> {
     QuickJsRuntime::do_with(|q_js_rt| {
-        let es_rt_arc_opt = q_js_rt.get_rt_ref();
-        let es_rt = &*es_rt_arc_opt.unwrap();
+        let es_rt = q_js_rt.get_rt_ref().unwrap();
 
         let resp_arc: FetchResponseMapType = RESPONSES.with(move |rrc| {
             let responses_map = &*rrc.borrow();
@@ -61,7 +60,7 @@ fn response_text(
             primitives::from_string_q(q_ctx, res.as_str())
         };
 
-        new_resolving_promise(q_ctx, producer, mapper, &es_rt)
+        new_resolving_promise(q_ctx, producer, mapper, es_rt)
     })
 }
 
@@ -71,8 +70,7 @@ fn response_json(
     _args: Vec<JSValueRef>,
 ) -> Result<JSValueRef, EsError> {
     QuickJsRuntime::do_with(|q_js_rt| {
-        let es_rt_arc_opt = q_js_rt.get_rt_ref();
-        let es_rt = &*es_rt_arc_opt.unwrap();
+        let es_rt = q_js_rt.get_rt_ref().unwrap();
 
         let resp_arc: FetchResponseMapType = RESPONSES.with(move |rrc| {
             let responses_map = &*rrc.borrow();
@@ -104,7 +102,7 @@ fn response_json(
             json::parse_q(q_ctx, res.as_str())
         };
 
-        new_resolving_promise(q_ctx, producer, mapper, &es_rt)
+        new_resolving_promise(q_ctx, producer, mapper, es_rt)
     })
 }
 

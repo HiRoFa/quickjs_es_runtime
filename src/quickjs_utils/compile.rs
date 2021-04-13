@@ -17,7 +17,7 @@ use std::os::raw::c_void;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::compile::{compile, run_compiled_function};
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.exe_rt_task(|q_js_rt| {
+/// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     unsafe {
 ///         let q_ctx = q_js_rt.get_main_context();
 ///         let func_res = compile(q_ctx.context, EsScript::new("test_func.es", "let a = 7; let b = 5; a * b;"));
@@ -102,7 +102,7 @@ pub unsafe fn run_compiled_function(
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::compile::{compile, run_compiled_function, to_bytecode, from_bytecode};
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.exe_rt_task(|q_js_rt| {
+/// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     unsafe {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     let func_res = compile(q_ctx.context, EsScript::new("test_func.es", "let a = 7; let b = 5; a * b;"));
@@ -187,7 +187,7 @@ pub mod tests {
     fn test_compile() {
         let rt: Arc<EsRuntime> = init_test_rt();
 
-        rt.exe_rt_task(|q_js_rt| {
+        rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let func_res = unsafe {
                 compile(
@@ -221,7 +221,7 @@ pub mod tests {
     #[test]
     fn test_bytecode() {
         let rt: Arc<EsRuntime> = init_test_rt();
-        rt.exe_rt_task(|q_js_rt| unsafe {
+        rt.exe_rt_task_in_event_loop(|q_js_rt| unsafe {
             let q_ctx = q_js_rt.get_main_context();
             let func_res = compile(
                 q_ctx.context,
@@ -254,7 +254,7 @@ pub mod tests {
     #[test]
     fn test_bytecode_bad_compile() {
         let rt = EsRuntimeBuilder::new().build();
-        rt.exe_rt_task(|q_js_rt| {
+        rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
             let func_res = unsafe {
@@ -273,7 +273,7 @@ pub mod tests {
     #[test]
     fn test_bytecode_bad_run() {
         let rt = EsRuntimeBuilder::new().build();
-        rt.exe_rt_task(|q_js_rt| unsafe {
+        rt.exe_rt_task_in_event_loop(|q_js_rt| unsafe {
             let q_ctx = q_js_rt.get_main_context();
 
             let func_res = compile(
