@@ -22,9 +22,7 @@ simple-logging = "2.0.2"
 num_cpus = "1.13.0"
 rand = "0.7.3"
 thread-id = "3.3.0"
-uuid = {version = "0.8.1", features =["v4"]}
 futures = "0.3"
-
 tokio = {version = "1.4.0", features = ["full"]}
 
 [dev-dependencies.cargo-husky]

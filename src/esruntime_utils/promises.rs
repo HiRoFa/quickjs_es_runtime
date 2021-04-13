@@ -37,7 +37,7 @@ thread_local! {
 ///                   Ok(135)
 ///               }, |_ctx, res|{
 ///                   Ok(primitives::from_i32(res))
-///               }, &rt_ref);
+///               }, rt_ref);
 ///               prom
 ///      }, 1).ok().expect("could not create func");
 ///
