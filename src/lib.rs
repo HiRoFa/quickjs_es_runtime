@@ -74,7 +74,6 @@ pub mod quickjs_utils;
 pub mod quickjscontext;
 pub mod quickjsruntime;
 pub mod reflection;
-pub mod utils;
 pub mod valueref;
 
 #[cfg(test)]

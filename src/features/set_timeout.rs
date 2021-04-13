@@ -2,6 +2,7 @@ use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, get_global, objects, parse_args, primitives};
 use crate::quickjsruntime::QuickJsRuntime;
+use hirofa_utils::eventloop::EventLoop;
 use libquickjs_sys as q;
 use std::time::Duration;
 
@@ -81,30 +82,25 @@ unsafe extern "C" fn set_timeout(
 
         let q_ctx_id = q_ctx.id.clone();
 
-        if let Some(rt) = q_js_rt.get_rt_ref() {
-            let id = rt.inner.event_queue.schedule_task_from_worker(
-                move || {
-                    QuickJsRuntime::do_with(|q_js_rt| {
-                        let mut args = args.clone();
-                        let func = args.remove(0);
-                        let q_ctx = q_js_rt.get_context(q_ctx_id.as_str());
-                        match functions::call_function_q(q_ctx, &func, args, None) {
-                            Ok(_) => {}
-                            Err(e) => {
-                                log::error!("setTimeout func failed: {}", e);
-                            }
-                        };
-                        q_js_rt.run_pending_jobs_if_any();
-                    })
-                },
-                None,
-                Duration::from_millis(delay_ms),
-            );
-            log::trace!("set_timeout: {}", id);
-            primitives::from_i32(id).clone_value_incr_rc()
-        } else {
-            quickjs_utils::new_null()
-        }
+        let id = EventLoop::add_timeout(
+            move || {
+                QuickJsRuntime::do_with(|q_js_rt| {
+                    let mut args = args.clone();
+                    let func = args.remove(0);
+                    let q_ctx = q_js_rt.get_context(q_ctx_id.as_str());
+                    match functions::call_function_q(q_ctx, &func, args, None) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            log::error!("setTimeout func failed: {}", e);
+                        }
+                    };
+                    q_js_rt.run_pending_jobs_if_any();
+                })
+            },
+            Duration::from_millis(delay_ms),
+        );
+        log::trace!("set_timeout: {}", id);
+        primitives::from_i32(id).clone_value_incr_rc()
     })
 }
 
@@ -144,33 +140,29 @@ unsafe extern "C" fn set_interval(
 
         let q_ctx_id = q_ctx.id.clone();
 
-        if let Some(rt) = q_js_rt.get_rt_ref() {
-            let id = rt.inner.event_queue.schedule_task_from_worker(
-                move || {
-                    QuickJsRuntime::do_with(|q_js_rt| {
-                        let q_ctx = q_js_rt.get_context(q_ctx_id.as_str());
-                        let mut args = args.clone();
+        let id = EventLoop::add_interval(
+            move || {
+                QuickJsRuntime::do_with(|q_js_rt| {
+                    let q_ctx = q_js_rt.get_context(q_ctx_id.as_str());
+                    let mut args = args.clone();
 
-                        let func = args.remove(0);
+                    let func = args.remove(0);
 
-                        match functions::call_function_q(q_ctx, &func, args, None) {
-                            Ok(_) => {}
-                            Err(e) => {
-                                log::error!("setInterval func failed: {}", e);
-                            }
-                        };
+                    match functions::call_function_q(q_ctx, &func, args, None) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            log::error!("setInterval func failed: {}", e);
+                        }
+                    };
 
-                        q_js_rt.run_pending_jobs_if_any();
-                    })
-                },
-                Some(Duration::from_millis(delay_ms)),
-                Duration::from_millis(delay_ms),
-            );
-            log::trace!("set_interval: {}", id);
-            primitives::from_i32(id).clone_value_incr_rc()
-        } else {
-            quickjs_utils::new_null()
-        }
+                    q_js_rt.run_pending_jobs_if_any();
+                })
+            },
+            Duration::from_millis(delay_ms),
+            Duration::from_millis(delay_ms),
+        );
+        log::trace!("set_interval: {}", id);
+        primitives::from_i32(id).clone_value_incr_rc()
     })
 }
 
@@ -193,9 +185,7 @@ unsafe extern "C" fn clear_interval(
         }
         let id = primitives::to_i32(&args[0]).ok().unwrap();
         log::trace!("clear_interval: {}", id);
-        if let Some(rt) = q_js_rt.get_rt_ref() {
-            rt.inner.event_queue.remove_schedule_task_from_worker(id);
-        };
+        EventLoop::clear_interval(id);
         quickjs_utils::new_null()
     })
 }
@@ -221,9 +211,7 @@ unsafe extern "C" fn clear_timeout(
         let id = primitives::to_i32(&args[0]).ok().unwrap();
         log::trace!("clear_timeout: {}", id);
 
-        if let Some(rt) = q_js_rt.get_rt_ref() {
-            rt.inner.event_queue.remove_schedule_task_from_worker(id);
-        };
+        EventLoop::clear_timeout(id);
 
         quickjs_utils::new_null()
     })

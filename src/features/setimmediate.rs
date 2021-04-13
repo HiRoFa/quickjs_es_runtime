@@ -1,4 +1,5 @@
 use crate::eserror::EsError;
+use crate::esruntime::EsRuntimeInner;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, get_global_q, objects, parse_args};
 use crate::quickjsruntime::QuickJsRuntime;
@@ -49,18 +50,17 @@ unsafe extern "C" fn set_immediate(
             return q_ctx.report_ex("setImmediate requires a functions as first arg");
         }
 
-        if let Some(rt) = q_js_rt.get_rt_ref() {
-            rt.inner.add_to_event_queue_from_worker(move |_q_js_rt| {
-                let func = args.remove(0);
+        EsRuntimeInner::add_to_event_queue_from_worker(move |_q_js_rt| {
+            let func = args.remove(0);
 
-                match functions::call_function(context, &func, args, None) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        log::error!("setImmediate failed: {}", e);
-                    }
-                };
-            });
-        }
+            match functions::call_function(context, &func, args, None) {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("setImmediate failed: {}", e);
+                }
+            };
+        });
+
         quickjs_utils::new_null()
     })
 }

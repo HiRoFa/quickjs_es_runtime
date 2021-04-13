@@ -8,7 +8,7 @@ use crate::features::fetch::response::FetchResponse;
 use crate::quickjs_utils::{functions, objects};
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::{NativeModuleLoaderAdapter, QuickJsRuntime, ScriptModuleLoaderAdapter};
-use crate::utils::single_threaded_event_queue::SingleThreadedEventQueue;
+use hirofa_utils::eventloop::EventLoop;
 use hirofa_utils::task_manager::TaskManager;
 use libquickjs_sys as q;
 use std::future::Future;
@@ -25,15 +25,13 @@ pub type FetchResponseProvider =
     dyn Fn(&FetchRequest) -> Box<dyn FetchResponse + Send> + Send + Sync + 'static;
 
 pub struct EsRuntimeInner {
-    pub(crate) event_queue: Arc<SingleThreadedEventQueue>,
+    pub(crate) event_queue: EventLoop,
     pub(crate) fetch_response_provider: Option<Box<FetchResponseProvider>>,
 }
 
 impl Drop for EsRuntimeInner {
     fn drop(&mut self) {
-        // shutdown the queue and wait for thread to end
         self.clear_contexts();
-        self.event_queue.shutdown();
     }
 }
 
@@ -64,10 +62,9 @@ impl EsRuntimeInner {
     where
         C: FnOnce() + Send + 'static,
     {
-        let eq_arc = self.event_queue.clone();
-        self.event_queue.add_task(move || {
+        self.event_queue.add_void(move || {
             task();
-            eq_arc.add_task_from_worker(|| {
+            EventLoop::add_local_void(|| {
                 QuickJsRuntime::do_with(|q_js_rt| {
                     q_js_rt.run_pending_jobs_if_any();
                 })
@@ -79,10 +76,9 @@ impl EsRuntimeInner {
     where
         C: FnOnce() -> R + Send + 'static,
     {
-        let eq_arc = self.event_queue.clone();
-        self.event_queue.exe_task(move || {
+        self.event_queue.exe(move || {
             let res = task();
-            eq_arc.add_task_from_worker(|| {
+            EventLoop::add_local_void(|| {
                 QuickJsRuntime::do_with(|q_js_rt| {
                     q_js_rt.run_pending_jobs_if_any();
                 })
@@ -95,13 +91,12 @@ impl EsRuntimeInner {
     where
         C: FnOnce() -> R + Send + 'static,
     {
-        let eq_arc = self.event_queue.clone();
-        self.event_queue.async_task(move || {
+        self.event_queue.add(move || {
             let res = task();
-            eq_arc.add_task_from_worker(|| {
+            EventLoop::add_local_void(|| {
                 QuickJsRuntime::do_with(|q_js_rt| {
                     q_js_rt.run_pending_jobs_if_any();
-                })
+                });
             });
             res
         })
@@ -121,16 +116,15 @@ impl EsRuntimeInner {
         self.add_task(|| QuickJsRuntime::do_with(consumer))
     }
 
-    pub(crate) fn add_to_event_queue_from_worker<C>(&self, consumer: C)
+    pub(crate) fn add_to_event_queue_from_worker<C>(consumer: C)
     where
         C: FnOnce(&QuickJsRuntime) + 'static,
     {
-        let eq_arc = self.event_queue.clone();
-        self.event_queue.add_task_from_worker(move || {
+        EventLoop::add_local_void(move || {
             QuickJsRuntime::do_with(|q_js_rt| {
                 consumer(q_js_rt);
             });
-            eq_arc.add_task_from_worker(|| {
+            EventLoop::add_local_void(|| {
                 QuickJsRuntime::do_with(|q_js_rt| {
                     q_js_rt.run_pending_jobs_if_any();
                 })
@@ -149,13 +143,13 @@ impl EsRuntimeInner {
     pub(crate) fn create_context(&self, id: &str) -> Result<(), EsError> {
         let id = id.to_string();
         self.event_queue
-            .exe_task(move || QuickJsRuntime::create_context(id.as_str()))
+            .exe(move || QuickJsRuntime::create_context(id.as_str()))
     }
 
     pub(crate) fn drop_context(&self, id: &str) {
         let id = id.to_string();
         self.event_queue
-            .exe_task(move || QuickJsRuntime::remove_context(id.as_str()))
+            .exe(move || QuickJsRuntime::remove_context(id.as_str()))
     }
 }
 
@@ -166,12 +160,12 @@ impl EsRuntime {
 
         let ret = Arc::new(Self {
             inner: Arc::new(EsRuntimeInner {
-                event_queue: SingleThreadedEventQueue::new(),
+                event_queue: EventLoop::new(),
                 fetch_response_provider,
             }),
         });
 
-        ret.inner.event_queue.exe_task(|| {
+        ret.inner.event_queue.exe(|| {
             let rt_ptr = unsafe { q::JS_NewRuntime() };
             let rt = QuickJsRuntime::new(rt_ptr);
             QuickJsRuntime::init_rt_for_current_thread(rt);
@@ -179,8 +173,8 @@ impl EsRuntime {
 
         // init ref in q_js_rt
         let rt_ref = ret.clone();
-        ret.inner.event_queue.exe_task(move || {
-            QuickJsRuntime::do_with_mut(|m_q_js_rt| {
+        ret.inner.event_queue.exe(move || {
+            QuickJsRuntime::do_with_mut(move |m_q_js_rt| {
                 m_q_js_rt.init_rt_ref(rt_ref);
             })
         });
@@ -207,7 +201,7 @@ impl EsRuntime {
 
         let init_hooks: Vec<_> = builder.runtime_init_hooks.drain(..).collect();
 
-        ret.inner.event_queue.exe_task(|| {
+        ret.inner.event_queue.exe(|| {
             QuickJsRuntime::do_with_mut(|q_js_rt| {
                 for native_module_loader in builder.native_module_loaders {
                     q_js_rt.add_native_module_loader(NativeModuleLoaderAdapter::new(
@@ -248,11 +242,6 @@ impl EsRuntime {
         }
 
         ret
-    }
-
-    /// get the number of todos in the event queue
-    pub fn get_todo_count(&self) -> usize {
-        self.inner.event_queue.todo_count()
     }
 
     pub fn builder() -> EsRuntimeBuilder {

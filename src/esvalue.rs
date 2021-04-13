@@ -12,17 +12,93 @@ use crate::quickjs_utils::{functions, new_null_ref, promises};
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::reflection;
-use crate::utils::single_threaded_event_queue::{TaskFuture, TaskFutureResolver};
 use crate::valueref::*;
 use futures::executor::block_on;
+use futures::task::{Context, Poll};
 use hirofa_utils::auto_id_map::AutoIdMap;
 use hirofa_utils::debug_mutex::DebugMutex;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
 use std::future::Future;
+use std::pin::Pin;
 use std::rc::Rc;
+use std::sync::mpsc::{channel, Receiver, SendError, Sender};
 use std::sync::{Arc, Mutex, Weak};
+use std::task::Waker;
+
+pub struct TaskFutureResolver<R> {
+    sender: Mutex<Sender<R>>,
+    waker: Mutex<Option<Waker>>,
+}
+
+impl<R> TaskFutureResolver<R> {
+    pub fn new(tx: Sender<R>) -> Self {
+        Self {
+            sender: Mutex::new(tx),
+            waker: Mutex::new(None),
+        }
+    }
+    pub fn resolve(&self, resolution: R) -> Result<(), SendError<R>> {
+        log::trace!("TaskFutureResolver.resolve");
+        let lck = self.sender.lock().unwrap();
+        let sender = &*lck;
+        sender.send(resolution)?;
+        drop(lck);
+
+        let waker_opt = &mut *self.waker.lock().unwrap();
+        if let Some(waker) = waker_opt.take() {
+            waker.wake();
+        }
+        Ok(())
+    }
+}
+
+pub struct TaskFuture<R> {
+    result: Receiver<R>,
+    resolver: Arc<TaskFutureResolver<R>>,
+}
+impl<R> TaskFuture<R> {
+    pub fn new() -> Self {
+        let (tx, rx) = channel();
+
+        Self {
+            result: rx,
+            resolver: Arc::new(TaskFutureResolver {
+                sender: Mutex::new(tx),
+                waker: Mutex::new(None),
+            }),
+        }
+    }
+    pub fn get_resolver(&self) -> Arc<TaskFutureResolver<R>> {
+        self.resolver.clone()
+    }
+}
+impl<R> Default for TaskFuture<R> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl<R> Future for TaskFuture<R> {
+    type Output = R;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        log::trace!("TaskFuture::poll");
+        match self.result.try_recv() {
+            Ok(res) => {
+                log::trace!("TaskFuture::poll -> Ready");
+                Poll::Ready(res)
+            }
+            Err(_) => {
+                log::trace!("TaskFuture::poll -> Pending");
+                let mtx = &self.resolver.waker;
+                let waker_opt = &mut *mtx.lock().unwrap();
+                let _ = waker_opt.replace(cx.waker().clone());
+                Poll::Pending
+            }
+        }
+    }
+}
 
 pub type EsValueFacadeFuture<R, E> = TaskFuture<Result<R, E>>;
 
@@ -259,7 +335,7 @@ impl CachedJSValueRef {
         ret
     }
 
-    fn do_with<C, R: Send + 'static>(&self, consumer: C) -> R
+    fn do_with_sync<C, R: Send + 'static>(&self, consumer: C) -> R
     where
         C: FnOnce(&QuickJsRuntime, &QuickJsContext, JSValueRef) -> R + Send + 'static,
     {
@@ -274,6 +350,26 @@ impl CachedJSValueRef {
                     consumer(q_js_rt, q_ctx, cached_obj_ref)
                 })
             })
+        } else {
+            panic!("rt was dropped");
+        }
+    }
+
+    fn do_with_async<C>(&self, consumer: C)
+    where
+        C: FnOnce(&QuickJsRuntime, &QuickJsContext, JSValueRef) + Send + 'static,
+    {
+        let cached_obj_id = self.cached_obj_id;
+
+        if let Some(es_rt) = self.es_rt.upgrade() {
+            let context_id_then = self.context_id.clone();
+            es_rt.add_to_event_queue_void(move |q_js_rt| {
+                let q_ctx = q_js_rt.get_context(context_id_then.as_str());
+
+                q_ctx.with_cached_obj(cached_obj_id, |cached_obj_ref| {
+                    consumer(q_js_rt, q_ctx, cached_obj_ref);
+                });
+            });
         } else {
             panic!("rt was dropped");
         }
@@ -394,7 +490,7 @@ impl EsValueConvertible for CachedJSValueRef {
     fn invoke_function_sync(&self, mut args: Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> {
         assert!(self.is_function());
 
-        self.do_with(move |_q_js_rt, q_ctx, obj_ref| {
+        self.do_with_sync(move |_q_js_rt, q_ctx, obj_ref| {
             let mut ref_args = vec![];
             for arg in args.iter_mut() {
                 ref_args.push(arg.as_js_value(q_ctx)?);
@@ -412,7 +508,7 @@ impl EsValueConvertible for CachedJSValueRef {
         assert!(self.is_function());
         let ret = EsValueFacadeFuture::new();
         let tx = ret.get_resolver();
-        self.do_with(move |_q_js_rt, q_ctx, obj_ref| {
+        self.do_with_sync(move |_q_js_rt, q_ctx, obj_ref| {
             let mut ref_args = vec![];
             for arg in args.iter_mut() {
                 match arg.as_js_value(q_ctx) {
@@ -438,7 +534,7 @@ impl EsValueConvertible for CachedJSValueRef {
         batch_args: Vec<Vec<EsValueFacade>>,
     ) -> Vec<Result<EsValueFacade, EsError>> {
         assert!(self.is_function());
-        self.do_with(move |_q_js_rt, q_ctx, obj_ref| {
+        self.do_with_sync(move |_q_js_rt, q_ctx, obj_ref| {
             let mut res_vec: Vec<Result<EsValueFacade, EsError>> = vec![];
             for mut args in batch_args {
                 let mut ref_args = vec![];
@@ -466,7 +562,7 @@ impl EsValueConvertible for CachedJSValueRef {
     // todo rewrite to Future
     fn invoke_function_batch(&self, batch_args: Vec<Vec<EsValueFacade>>) -> Result<(), EsError> {
         assert!(self.is_function());
-        self.do_with(move |_q_js_rt, q_ctx, obj_ref| {
+        self.do_with_sync(move |_q_js_rt, q_ctx, obj_ref| {
             for mut args in batch_args {
                 let mut ref_args = vec![];
                 for arg in args.iter_mut() {
@@ -506,10 +602,9 @@ impl EsValueConvertible for CachedJSValueRef {
         assert!(self.is_promise());
         let fut = TaskFuture::new();
         let tx = fut.get_resolver();
-        self.do_with(move |_q_js_rt, q_ctx, prom_obj_ref| {
+        self.do_with_async(move |_q_js_rt, q_ctx, prom_obj_ref| {
             pipe_promise_resolution_to_sender(q_ctx, &prom_obj_ref, tx);
         });
-
         fut
     }
 
@@ -520,7 +615,7 @@ impl EsValueConvertible for CachedJSValueRef {
         finally: Option<Box<dyn Fn() + Send + 'static>>,
     ) -> Result<(), EsError> {
         assert!(self.is_promise());
-        self.do_with(move |_q_js_rt, q_ctx, prom_ref| {
+        self.do_with_sync(move |_q_js_rt, q_ctx, prom_ref| {
             let then_ref = if let Some(then_fn) = then {
                 let then_fn_rc = Rc::new(then_fn);
 
@@ -591,7 +686,7 @@ impl EsValueConvertible for CachedJSValueRef {
 
     fn get_object(&self) -> Result<HashMap<String, EsValueFacade>, EsError> {
         assert!(self.is_object());
-        self.do_with(|_q_js_rt, q_ctx, obj_ref| {
+        self.do_with_sync(|_q_js_rt, q_ctx, obj_ref| {
             let mut ret = HashMap::new();
 
             for prop_name in get_property_names_q(q_ctx, &obj_ref)? {
@@ -612,7 +707,7 @@ impl EsValueConvertible for CachedJSValueRef {
     fn get_array(&self) -> Result<Vec<EsValueFacade>, EsError> {
         assert!(self.is_array());
 
-        self.do_with(|_q_js_rt, q_ctx, obj_ref| {
+        self.do_with_sync(|_q_js_rt, q_ctx, obj_ref| {
             let mut ret = vec![];
 
             for x in 0..get_length_q(q_ctx, &obj_ref)? {
@@ -631,7 +726,7 @@ impl EsValueConvertible for CachedJSValueRef {
 
     fn stringify(&self) -> Result<String, EsError> {
         assert!(self.supports_stringify());
-        self.do_with(|_q_js_rt, q_ctx, obj_ref| {
+        self.do_with_sync(|_q_js_rt, q_ctx, obj_ref| {
             let res = stringify_q(q_ctx, &obj_ref, None)?;
             to_string_q(q_ctx, &res)
         })
@@ -643,7 +738,7 @@ impl EsValueConvertible for CachedJSValueRef {
 
     fn get_error(&self) -> EsError {
         assert!(self.is_error());
-        self.do_with(|_q_js_rt, q_ctx, obj_ref| unsafe {
+        self.do_with_sync(|_q_js_rt, q_ctx, obj_ref| unsafe {
             error_to_eserror(q_ctx.context, &obj_ref)
         })
     }
