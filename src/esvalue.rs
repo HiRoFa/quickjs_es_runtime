@@ -23,30 +23,27 @@ use std::fmt::{Debug, Error, Formatter};
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
-use std::sync::mpsc::{channel, Receiver, SendError, Sender};
+use std::sync::mpsc::{sync_channel, Receiver, SendError, SyncSender};
 use std::sync::{Arc, Mutex, Weak};
 use std::task::Waker;
 
 pub struct TaskFutureResolver<R> {
-    sender: Mutex<Sender<R>>,
-    waker: Mutex<Option<Waker>>,
+    sender: SyncSender<R>,
+    waker: DebugMutex<Option<Waker>>,
 }
 
 impl<R> TaskFutureResolver<R> {
-    pub fn new(tx: Sender<R>) -> Self {
+    pub fn new(tx: SyncSender<R>) -> Self {
         Self {
-            sender: Mutex::new(tx),
-            waker: Mutex::new(None),
+            sender: tx,
+            waker: DebugMutex::new(None, "TaskFutureResolver::waker"),
         }
     }
     pub fn resolve(&self, resolution: R) -> Result<(), SendError<R>> {
         log::trace!("TaskFutureResolver.resolve");
-        let lck = self.sender.lock().unwrap();
-        let sender = &*lck;
-        sender.send(resolution)?;
-        drop(lck);
+        self.sender.send(resolution)?;
 
-        let waker_opt = &mut *self.waker.lock().unwrap();
+        let waker_opt = &mut *self.waker.lock("resolve2").unwrap();
         if let Some(waker) = waker_opt.take() {
             waker.wake();
         }
@@ -60,14 +57,11 @@ pub struct TaskFuture<R> {
 }
 impl<R> TaskFuture<R> {
     pub fn new() -> Self {
-        let (tx, rx) = channel();
+        let (tx, rx) = sync_channel(1);
 
         Self {
             result: rx,
-            resolver: Arc::new(TaskFutureResolver {
-                sender: Mutex::new(tx),
-                waker: Mutex::new(None),
-            }),
+            resolver: Arc::new(TaskFutureResolver::new(tx)),
         }
     }
     pub fn get_resolver(&self) -> Arc<TaskFutureResolver<R>> {
@@ -92,7 +86,7 @@ impl<R> Future for TaskFuture<R> {
             Err(_) => {
                 log::trace!("TaskFuture::poll -> Pending");
                 let mtx = &self.resolver.waker;
-                let waker_opt = &mut *mtx.lock().unwrap();
+                let waker_opt = &mut *mtx.lock("poll").unwrap();
                 let _ = waker_opt.replace(cx.waker().clone());
                 Poll::Pending
             }
