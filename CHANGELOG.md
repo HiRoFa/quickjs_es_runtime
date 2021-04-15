@@ -2,6 +2,7 @@
 
 * altered tokio dep, full is now optional (prevents valgrind errors)
 * altered utils dep to 0.1
+* added debug log for when eval/evalmodule fails
 
 # 0.4.0
 

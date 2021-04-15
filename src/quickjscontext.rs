@@ -141,6 +141,7 @@ impl QuickJsContext {
         if ret.is_exception() {
             let ex_opt = Self::get_exception(context);
             if let Some(ex) = ex_opt {
+                log::debug!("eval_ctx failed: {}", ex);
                 Err(ex)
             } else {
                 Err(EsError::new_str("eval failed and could not get exception"))
@@ -191,6 +192,7 @@ impl QuickJsContext {
         if ret.is_exception() {
             let ex_opt = Self::get_exception(context);
             if let Some(ex) = ex_opt {
+                log::debug!("eval_module_ctx failed: {}", ex);
                 Err(ex)
             } else {
                 Err(EsError::new_str(
