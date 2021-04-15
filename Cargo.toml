@@ -12,6 +12,9 @@ documentation = "https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/ind
 readme = "README.md"
 categories = ["development-tools"]
 
+[features]
+tokio_full = ["tokio/full"]
+
 [dependencies]
 hirofa_utils = "0.1"
 #hirofa_utils = {git = "https://github.com/HiRoFa/utils"}
