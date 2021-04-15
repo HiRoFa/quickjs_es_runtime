@@ -13,7 +13,8 @@ readme = "README.md"
 categories = ["development-tools"]
 
 [dependencies]
-hirofa_utils = "0.1.0"
+hirofa_utils = "0.1"
+#hirofa_utils = {git = "https://github.com/HiRoFa/utils"}
 backtrace = "0.3.56"
 libquickjs-sys = "0.9.0"
 lazy_static = "1.4.0"
@@ -23,7 +24,7 @@ num_cpus = "1.13.0"
 rand = "0.7.3"
 thread-id = "3.3.0"
 futures = "0.3"
-tokio = {version = "1.4.0", features = ["full"]}
+tokio = {version = "1.4", features = ["rt-multi-thread", "rt", "bytes", "fs", "io-std", "io-util", "libc", "macros", "memchr", "winapi", "tracing", "time", "tokio-macros", "test-util", "sync", "parking_lot", "once_cell", "mio", "net", "num_cpus"]}
 
 [dev-dependencies.cargo-husky]
 version = "1.5.0"
