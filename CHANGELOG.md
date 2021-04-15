@@ -1,5 +1,8 @@
 # 0.4.1 (work in progress)
 
+* altered tokio dep, full is now optional (prevents valgrind errors)
+* altered utils dep to 0.1
+
 # 0.4.0
 
 * use EventLoop from hirofa_utils, cleaner code, much less Mutexes
