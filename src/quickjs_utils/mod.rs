@@ -65,9 +65,15 @@ pub fn get_script_or_module_name_q(ctx: &QuickJsContext) -> Result<String, EsErr
 /// # Safety
 /// ensure the QuickJsContext has not been dropped
 pub unsafe fn get_script_or_module_name(context: *mut q::JSContext) -> Result<String, EsError> {
-    let atom = q::JS_GetScriptOrModuleName(context, 0);
-    let atom_ref = JSAtomRef::new(context, atom);
-    atoms::to_string(context, &atom_ref)
+    for x in 0..100 {
+        let atom = q::JS_GetScriptOrModuleName(context, x);
+        let atom_ref = JSAtomRef::new(context, atom);
+        let r = atoms::to_string(context, &atom_ref)?;
+        if !r.is_empty() {
+            return Ok(r);
+        }
+    }
+    Ok("".to_string())
 }
 
 pub fn get_global_q(context: &QuickJsContext) -> JSValueRef {
@@ -144,9 +150,20 @@ pub mod tests {
         .ok()
         .expect("func set failed");
         let name_esvf = rt
-            .eval_sync(EsScript::new("the_name.es", "(testName())"))
+            .eval_sync(EsScript::new(
+                "the_name.es",
+                "(function(){return(testName());}())",
+            ))
             .ok()
             .expect("script failed");
         assert_eq!(name_esvf.get_str(), "the_name.es");
+        let name_esvf = rt
+            .eval_sync(EsScript::new(
+                "https://githubstuff.org/tes.js",
+                "(testName())",
+            ))
+            .ok()
+            .expect("script failed");
+        assert_eq!(name_esvf.get_str(), "https://githubstuff.org/tes.js");
     }
 }

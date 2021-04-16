@@ -654,6 +654,10 @@ pub mod tests {
     pub fn init_test_rt() -> Arc<EsRuntime> {
         panic::set_hook(Box::new(|panic_info| {
             let backtrace = Backtrace::new();
+            println!(
+                "thread panic occurred: {}\nbacktrace: {:?}",
+                panic_info, backtrace
+            );
             log::error!(
                 "thread panic occurred: {}\nbacktrace: {:?}",
                 panic_info,
