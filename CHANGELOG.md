@@ -1,4 +1,8 @@
-# 0.4.1 (work in progress)
+# 0.4.2 (work in progress)
+
+* 
+
+# 0.4.1 
 
 * altered tokio dep, full is now optional (prevents valgrind errors)
 * altered utils dep to 0.1
