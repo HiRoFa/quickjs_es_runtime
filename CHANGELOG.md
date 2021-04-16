@@ -4,6 +4,7 @@
 * altered utils dep to 0.1
 * added debug log for when eval/evalmodule fails
 * scriptpreproc returns Result instead of just script
+* q_js_rt.load_module_script_opt now returns EsScript instead of String
 
 # 0.4.0
 

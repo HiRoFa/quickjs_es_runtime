@@ -472,11 +472,12 @@ impl QuickJsRuntime {
     }
 
     /// this method tries to load a module script using the runtimes script_module loaders
-    pub fn load_module_script_opt(&self, ref_path: &str, path: &str) -> Option<String> {
+    pub fn load_module_script_opt(&self, ref_path: &str, path: &str) -> Option<EsScript> {
         for loader in &self.script_module_loaders {
             let i = &loader.inner;
             if let Some(normalized) = i.normalize_path(ref_path, path) {
-                return Some(i.load_module(normalized.as_str()));
+                let code = i.load_module(normalized.as_str());
+                return Some(EsScript::new(normalized.as_str(), code.as_str()));
             }
         }
 
@@ -536,7 +537,7 @@ pub mod tests {
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             log::debug!("testing2");
             let script = q_js_rt.load_module_script_opt("", "test.mjs").unwrap();
-            assert_eq!(script.as_str(), "{}");
+            assert_eq!(script.get_code(), "{}");
             log::debug!("tested");
         });
     }
