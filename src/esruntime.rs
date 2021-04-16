@@ -25,8 +25,8 @@ pub type FetchResponseProvider =
     dyn Fn(&FetchRequest) -> Box<dyn FetchResponse + Send> + Send + Sync + 'static;
 
 pub trait ScriptPreProcessor {
-    fn process(&self, script: EsScript) -> EsScript {
-        script
+    fn process(&self, script: EsScript) -> Result<EsScript, EsError> {
+        Ok(script)
     }
 }
 

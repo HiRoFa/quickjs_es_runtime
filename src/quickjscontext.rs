@@ -115,7 +115,7 @@ impl QuickJsContext {
     ) -> Result<JSValueRef, EsError> {
         log::debug!("q_js_rt.eval file {}", script.get_path());
 
-        script = QuickJsRuntime::pre_process(script);
+        script = QuickJsRuntime::pre_process(script)?;
 
         let filename_c = make_cstring(script.get_path())?;
         let code_c = make_cstring(script.get_code())?;
@@ -164,7 +164,7 @@ impl QuickJsContext {
     ) -> Result<JSValueRef, EsError> {
         log::debug!("q_js_rt.eval_module file {}", script.get_path());
 
-        script = QuickJsRuntime::pre_process(script);
+        script = QuickJsRuntime::pre_process(script)?;
 
         let filename_c = make_cstring(script.get_path())?;
         let code_c = make_cstring(script.get_code())?;

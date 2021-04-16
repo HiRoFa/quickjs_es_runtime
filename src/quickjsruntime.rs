@@ -76,7 +76,7 @@ impl ModuleLoader for ScriptModuleLoaderAdapter {
         let code = self.inner.load_module(absolute_path);
 
         let mut script = EsScript::new(absolute_path, code.as_str());
-        script = QuickJsRuntime::pre_process(script);
+        script = QuickJsRuntime::pre_process(script)?;
 
         let compiled_module = unsafe { compile_module(q_ctx.context, script)? };
         Ok(get_module_def(&compiled_module))
@@ -237,12 +237,12 @@ impl QuickJsRuntime {
         })
     }
 
-    pub(crate) fn pre_process(mut script: EsScript) -> EsScript {
+    pub(crate) fn pre_process(mut script: EsScript) -> Result<EsScript, EsError> {
         Self::do_with(|q_js_rt| {
             for pp in &q_js_rt.script_pre_processors {
-                script = pp.process(script);
+                script = pp.process(script)?;
             }
-            script
+            Ok(script)
         })
     }
 
