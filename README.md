@@ -42,6 +42,7 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 * fetch api ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntimebuilder/struct.EsRuntimeBuilder.html#method.fetch_response_provider))
 * setImmediate
 * setTimeout/Interval (and clear)
+* script preprocessing (impls for ifdef/macro's/typescript can be found in [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime))
 
 ## Rust-Script interoperability
 
@@ -57,8 +58,6 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 
 * Worker support
 * WebAssembly support
-* Macro / IFDef support
-* Pre processing (for e.g. typescript)
 
 # goals
 
