@@ -383,13 +383,27 @@ impl Proxy {
     }
     /// install the Proxy class in a QuickJsContext, this is always needed as a final step to actually make the Proxy class work
     pub fn install(
-        self,
+        mut self,
         q_ctx: &QuickJsContext,
         add_variable_to_global: bool,
     ) -> Result<JSValueRef, EsError> {
         if self.name.is_none() {
             return Err(EsError::new_str("Proxy needs a name"));
         }
+
+        let prim_cn = self.get_class_name();
+        self = self.method("Symbol.toPrimitive", move |q_ctx, id, _args| {
+            let prim = primitives::from_string_q(
+                q_ctx,
+                format!("Proxy::instance({})::{}", id, prim_cn).as_str(),
+            )?;
+            Ok(prim)
+        });
+        let prim_cn = self.get_class_name();
+        self = self.static_method("Symbol.toPrimitive", move |q_ctx, _args| {
+            let prim = primitives::from_string_q(q_ctx, format!("Proxy::{}", prim_cn).as_str())?;
+            Ok(prim)
+        });
 
         let class_ref = self.install_class_prop(q_ctx, add_variable_to_global)?;
         eventtarget::impl_event_target(self).install_move_to_registry(q_ctx);
@@ -1091,6 +1105,34 @@ pub mod tests {
                 .eval(EsScript::new("test.es", "let t = new Test();"))
                 .ok()
                 .expect("script failed");
+        });
+    }
+
+    #[test]
+    pub fn test_to_string() {
+        log::info!("> test_proxy");
+
+        let rt = init_test_rt();
+        rt.exe_rt_task_in_event_loop(|q_js_rt| {
+            q_js_rt.gc();
+            let q_ctx = q_js_rt.get_main_context();
+            let _ = Proxy::new()
+                .constructor(|_q_ctx, _id, _args| Ok(()))
+                .namespace(vec!["com", "company"])
+                .name("Test")
+                .install(q_ctx, true);
+            let res = q_ctx
+                .eval(EsScript::new(
+                    "test_tostring.es",
+                    "com.company.Test + '-' + new com.company.Test()",
+                ))
+                .ok()
+                .expect("script failed");
+            let str = primitives::to_string_q(q_ctx, &res)
+                .ok()
+                .expect("could not tostring");
+            assert!(str.starts_with("Proxy::com.company.Test-Proxy::instance("));
+            assert!(str.ends_with(")::com.company.Test"));
         });
     }
 
