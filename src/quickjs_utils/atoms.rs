@@ -4,7 +4,7 @@ use crate::quickjs_utils::primitives;
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 
 #[allow(clippy::upper_case_acronyms)]
 pub struct JSAtomRef {
@@ -60,6 +60,16 @@ pub unsafe fn to_string2(context: *mut q::JSContext, atom: &q::JSAtom) -> Result
     let val = q::JS_AtomToString(context, *atom);
     let val_ref = JSValueRef::new(context, val, false, true, "atoms::to_string");
     primitives::to_string(context, &val_ref)
+}
+
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn to_str(context: *mut q::JSContext, atom: &q::JSAtom) -> Result<&str, EsError> {
+    let c_string = q::JS_AtomToCString(context, *atom);
+    let c_str = CStr::from_ptr(c_string);
+    c_str
+        .to_str()
+        .map_err(|e| EsError::new_string(format!("{}", e)))
 }
 
 pub fn from_string_q(q_ctx: &QuickJsContext, string: &str) -> Result<JSAtomRef, EsError> {

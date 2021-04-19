@@ -1,13 +1,12 @@
 //! Utils for working with objects
 
-use crate::droppable_value::DroppableValue;
 use crate::eserror::EsError;
+use crate::quickjs_utils::properties::JSPropertyEnumRef;
 use crate::quickjs_utils::{atoms, functions, get_constructor, get_global};
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
-use std::collections::HashMap;
 
 /// get a namespace object
 /// this is used to get nested object properties which are used as namespaces
@@ -370,6 +369,7 @@ pub unsafe fn get_property(
     Ok(prop_ref)
 }
 
+/// get the names of all properties of an object
 pub fn get_property_names_q(
     q_ctx: &QuickJsContext,
     obj_ref: &JSValueRef,
@@ -377,12 +377,15 @@ pub fn get_property_names_q(
     unsafe { get_property_names(q_ctx.context, obj_ref) }
 }
 
+/// get the names of all properties of an object
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn get_property_names(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
 ) -> Result<Vec<String>, EsError> {
+    // todo wrap this in a get_own_property_names which returns the JSPropertyEnumRef
+
     let mut properties: *mut q::JSPropertyEnum = std::ptr::null_mut();
     let mut count: u32 = 0;
 
@@ -398,43 +401,25 @@ pub unsafe fn get_property_names(
         return Err(EsError::new_str("Could not get object properties"));
     }
 
-    let properties = DroppableValue::new(properties, |&mut properties| {
-        for index in 0..count {
-            let prop = properties.offset(index as isize);
+    let enum_ref = JSPropertyEnumRef::new(context, properties, count);
 
-            q::JS_FreeAtom(context, (*prop).atom);
-        }
+    let mut names = vec![];
 
-        q::js_free(context, properties as *mut std::ffi::c_void);
-    });
-
-    let mut res: Vec<String> = vec![];
     for index in 0..count {
-        let prop = (*properties).offset(index as isize);
+        let atom = enum_ref.get_atom_raw(index) as q::JSAtom;
+        let name = atoms::to_str(context, &atom)?;
 
-        let key_value = q::JS_AtomToString(context, (*prop).atom);
-        let key_ref = JSValueRef::new(
-            context,
-            key_value,
-            false,
-            true,
-            "objects::get_property_names key_value",
-        );
-        if key_ref.is_exception() {
-            return Err(EsError::new_str("Could not get object property name"));
-        }
-
-        let key_str = crate::quickjs_utils::primitives::to_string(context, &key_ref)?;
-        res.push(key_str);
+        names.push(name.to_string());
     }
-    Ok(res)
+
+    Ok(names)
 }
 
 pub fn traverse_properties_q<V, R>(
     q_ctx: &QuickJsContext,
     obj_ref: &JSValueRef,
     visitor: V,
-) -> Result<HashMap<String, R>, EsError>
+) -> Result<Vec<R>, EsError>
 where
     V: Fn(&str, JSValueRef) -> Result<R, EsError>,
 {
@@ -447,7 +432,7 @@ pub unsafe fn traverse_properties<V, R>(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     visitor: V,
-) -> Result<HashMap<String, R>, EsError>
+) -> Result<Vec<R>, EsError>
 where
     V: Fn(&str, JSValueRef) -> Result<R, EsError>,
 {
@@ -466,24 +451,18 @@ where
         return Err(EsError::new_str("Could not get object properties"));
     }
 
-    let properties = DroppableValue::new(properties, |&mut properties| {
-        for index in 0..count {
-            let prop = properties.offset(index as isize);
+    let enum_ref = JSPropertyEnumRef::new(context, properties, count);
 
-            q::JS_FreeAtom(context, (*prop).atom);
-        }
-
-        q::js_free(context, properties as *mut std::ffi::c_void);
-    });
-
-    let mut map = HashMap::new();
+    let mut result = vec![];
 
     for index in 0..count {
-        let prop = (*properties).offset(index as isize);
+        let atom = enum_ref.get_atom_raw(index) as q::JSAtom;
+        let prop_name = atoms::to_str(context, &atom)?;
+
         let raw_value = q::JS_GetPropertyInternal(
             context,
             *obj_ref.borrow_value(),
-            (*prop).atom,
+            atom,
             *obj_ref.borrow_value(),
             0,
         );
@@ -498,25 +477,12 @@ where
             return Err(EsError::new_str("Could not get object property"));
         }
 
-        let key_value = q::JS_AtomToString(context, (*prop).atom);
-        let key_ref = JSValueRef::new(
-            context,
-            key_value,
-            false,
-            true,
-            "objects::traverse_properties key_value",
-        );
-        if key_ref.is_exception() {
-            return Err(EsError::new_str("Could not get object property name"));
-        }
+        let r = visitor(prop_name, prop_val_ref)?;
 
-        let key_str = crate::quickjs_utils::primitives::to_string(context, &key_ref)?;
-        let r = visitor(key_str.as_str(), prop_val_ref)?;
-
-        map.insert(key_str, r);
+        result.push(r);
     }
 
-    Ok(map)
+    Ok(result)
 }
 
 pub fn is_instance_of_q(

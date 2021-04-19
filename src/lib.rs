@@ -62,7 +62,6 @@ macro_rules! es_args {
     };
 }
 
-mod droppable_value;
 pub mod eserror;
 pub mod esruntime;
 pub mod esruntime_utils;
