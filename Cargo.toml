@@ -3,7 +3,7 @@ name = "quickjs_runtime"
 version = "0.4.1"
 authors = ["Andries Hiemstra <info@hirofa.com>"]
 edition = "2018"
-description = "An API and Utils around the QuickJS script engine"
+description = "Wrapper API and utils for the QuickJS JavaScript engine"
 homepage = "https://github.com/HiRoFa/quickjs_es_runtime"
 keywords = ["quickjs", "javascript", "runtime", "engine", "js"]
 repository = "https://github.com/HiRoFa/quickjs_es_runtime"
@@ -17,7 +17,6 @@ tokio_full = ["tokio/full"]
 
 [dependencies]
 hirofa_utils = "0.1"
-#hirofa_utils = {git = "https://github.com/HiRoFa/utils"}
 backtrace = "0.3.56"
 libquickjs-sys = "0.9.0"
 lazy_static = "1.4.0"
@@ -32,4 +31,4 @@ tokio = {version = "1.4", features = ["rt-multi-thread", "rt", "bytes", "fs", "i
 [dev-dependencies.cargo-husky]
 version = "1.5.0"
 default-features = false # Disable features which are enabled by default
-#features = ["precommit-hook", "run-cargo-test", "run-cargo-clippy"]
+features = ["precommit-hook", "run-cargo-test", "run-cargo-clippy"]

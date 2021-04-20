@@ -369,23 +369,21 @@ pub unsafe fn get_property(
     Ok(prop_ref)
 }
 
-/// get the names of all properties of an object
-pub fn get_property_names_q(
+/// get the property names of an object
+pub fn get_own_property_names_q(
     q_ctx: &QuickJsContext,
     obj_ref: &JSValueRef,
-) -> Result<Vec<String>, EsError> {
-    unsafe { get_property_names(q_ctx.context, obj_ref) }
+) -> Result<JSPropertyEnumRef, EsError> {
+    unsafe { get_own_property_names(q_ctx.context, obj_ref) }
 }
 
-/// get the names of all properties of an object
+/// get the property names of an object
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn get_property_names(
+pub unsafe fn get_own_property_names(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
-) -> Result<Vec<String>, EsError> {
-    // todo wrap this in a get_own_property_names which returns the JSPropertyEnumRef
-
+) -> Result<JSPropertyEnumRef, EsError> {
     let mut properties: *mut q::JSPropertyEnum = std::ptr::null_mut();
     let mut count: u32 = 0;
 
@@ -402,14 +400,31 @@ pub unsafe fn get_property_names(
     }
 
     let enum_ref = JSPropertyEnumRef::new(context, properties, count);
+    Ok(enum_ref)
+}
+
+/// get the names of all properties of an object
+pub fn get_property_names_q(
+    q_ctx: &QuickJsContext,
+    obj_ref: &JSValueRef,
+) -> Result<Vec<String>, EsError> {
+    unsafe { get_property_names(q_ctx.context, obj_ref) }
+}
+
+/// get the names of all properties of an object
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn get_property_names(
+    context: *mut q::JSContext,
+    obj_ref: &JSValueRef,
+) -> Result<Vec<String>, EsError> {
+    let enum_ref = get_own_property_names(context, obj_ref)?;
 
     let mut names = vec![];
 
-    for index in 0..count {
-        let atom = enum_ref.get_atom_raw(index) as q::JSAtom;
-        let name = atoms::to_str(context, &atom)?;
-
-        names.push(name.to_string());
+    for index in 0..enum_ref.len() {
+        let name = enum_ref.get_name(index)?;
+        names.push(name);
     }
 
     Ok(names)
@@ -436,26 +451,11 @@ pub unsafe fn traverse_properties<V, R>(
 where
     V: Fn(&str, JSValueRef) -> Result<R, EsError>,
 {
-    let mut properties: *mut q::JSPropertyEnum = std::ptr::null_mut();
-    let mut count: u32 = 0;
-
-    let flags = (q::JS_GPN_STRING_MASK | q::JS_GPN_SYMBOL_MASK | q::JS_GPN_ENUM_ONLY) as i32;
-    let ret = q::JS_GetOwnPropertyNames(
-        context,
-        &mut properties,
-        &mut count,
-        *obj_ref.borrow_value(),
-        flags,
-    );
-    if ret != 0 {
-        return Err(EsError::new_str("Could not get object properties"));
-    }
-
-    let enum_ref = JSPropertyEnumRef::new(context, properties, count);
+    let enum_ref = get_own_property_names(context, obj_ref)?;
 
     let mut result = vec![];
 
-    for index in 0..count {
+    for index in 0..enum_ref.len() {
         let atom = enum_ref.get_atom_raw(index) as q::JSAtom;
         let prop_name = atoms::to_str(context, &atom)?;
 

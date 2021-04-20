@@ -3,6 +3,8 @@
 * moved reflection code to reflection/mod.rs (should not affect api)
 * toPrimitive for Proxy classes (do stuff like console.log('got: ' + MyProxyInstanceOrClass))
 * removed droppablevalue, replaced with JSPropertyEnumRef
+* added is_enumerable(index) fn to JSPropertyEnumRef  
+* added get_name(index) fn to JSPropertyEnumRef
 
 # 0.4.1 
 
