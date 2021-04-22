@@ -2,7 +2,7 @@ use crate::eserror::EsError;
 use crate::esruntime::{EsRuntime, FetchResponseProvider, ScriptPreProcessor};
 use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
-use crate::quickjsruntime::{NativeModuleLoader, ScriptModuleLoader};
+use crate::quickjsruntime::{NativeModuleLoader, QuickJsRuntime, ScriptModuleLoader};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -28,6 +28,7 @@ pub struct EsRuntimeBuilder {
     pub(crate) opt_gc_interval: Option<Duration>,
     pub(crate) runtime_init_hooks: EsRuntimeInitHooks,
     pub(crate) script_pre_processors: Vec<Box<dyn ScriptPreProcessor + Send>>,
+    pub(crate) interrupt_handler: Option<Box<dyn Fn(&QuickJsRuntime) -> bool + Send>>,
 }
 
 impl EsRuntimeBuilder {
@@ -48,6 +49,7 @@ impl EsRuntimeBuilder {
             opt_gc_interval: None,
             runtime_init_hooks: vec![],
             script_pre_processors: vec![],
+            interrupt_handler: None,
         }
     }
 
@@ -231,8 +233,18 @@ impl EsRuntimeBuilder {
         self
     }
 
+    /// set a Garbage Collection interval, this will start a timer thread which will trigger a full GC every set interval
     pub fn gc_interval(mut self, interval: Duration) -> Self {
         self.opt_gc_interval = Some(interval);
+        self
+    }
+
+    /// add an interrupt handler, this will be called several times during script execution and may be used to cancel a running script
+    pub fn set_interrupt_handler<I: Fn(&QuickJsRuntime) -> bool + Send + 'static>(
+        &mut self,
+        interrupt_handler: I,
+    ) -> &mut Self {
+        self.interrupt_handler = Some(Box::new(interrupt_handler));
         self
     }
 }

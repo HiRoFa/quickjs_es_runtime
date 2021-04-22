@@ -126,6 +126,9 @@ impl EsRuntime {
                         q::JS_SetMaxStackSize(q_js_rt.runtime, stack_size as _);
                     }
                 }
+                if let Some(interrupt_handler) = builder.interrupt_handler {
+                    q_js_rt.set_interrupt_handler(interrupt_handler);
+                }
             })
         });
 

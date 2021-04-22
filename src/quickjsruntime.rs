@@ -7,7 +7,7 @@ use crate::quickjs_utils::modules::{
     add_module_export, compile_module, get_module_def, get_module_name, new_module,
     set_module_export,
 };
-use crate::quickjs_utils::{gc, modules, promises};
+use crate::quickjs_utils::{gc, interrupthandler, modules, promises};
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
 use libquickjs_sys as q;
@@ -227,6 +227,7 @@ pub struct QuickJsRuntime {
     script_module_loaders: Vec<ScriptModuleLoaderAdapter>,
     native_module_loaders: Vec<NativeModuleLoaderAdapter>,
     pub(crate) script_pre_processors: Vec<Box<dyn ScriptPreProcessor + Send>>,
+    pub(crate) interrupt_handler: Option<Box<dyn Fn(&QuickJsRuntime) -> bool>>,
 }
 
 impl QuickJsRuntime {
@@ -353,15 +354,28 @@ impl QuickJsRuntime {
             script_module_loaders: vec![],
             native_module_loaders: vec![],
             script_pre_processors: vec![],
+            interrupt_handler: None,
         };
 
         modules::set_module_loader(&q_rt);
         promises::init_promise_rejection_tracker(&q_rt);
 
+        if q_rt.interrupt_handler.is_some() {
+            interrupthandler::init(&q_rt);
+        }
+
         let main_ctx = QuickJsContext::new("__main__".to_string(), &q_rt);
         q_rt.contexts.insert("__main__".to_string(), main_ctx);
 
         q_rt
+    }
+
+    pub fn set_interrupt_handler<I: Fn(&QuickJsRuntime) -> bool + 'static>(
+        &mut self,
+        interrupt_handler: I,
+    ) -> &mut Self {
+        self.interrupt_handler = Some(Box::new(interrupt_handler));
+        self
     }
 
     pub fn add_script_module_loader(&mut self, sml: ScriptModuleLoaderAdapter) {

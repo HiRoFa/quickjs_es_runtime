@@ -5,6 +5,7 @@
 * removed droppablevalue, replaced with JSPropertyEnumRef
 * added is_enumerable(index) fn to JSPropertyEnumRef  
 * added get_name(index) fn to JSPropertyEnumRef
+* added interrupt_handler
 
 # 0.4.1 
 
