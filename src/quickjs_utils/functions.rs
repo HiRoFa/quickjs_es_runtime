@@ -375,9 +375,9 @@ pub unsafe fn new_native_function(
         context,
         func,
         cname.as_ptr(),
-        arg_count as c_int,
+        arg_count as _,
         cproto,
-        magic as c_int,
+        magic as _,
     );
 
     log::trace!("functions::new_native_function / 3");
