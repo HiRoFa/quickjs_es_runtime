@@ -32,10 +32,8 @@ jobs:
         cargo build
     - name: Test (windows)
       run: |
-        cargo test test_proxy
-        cargo test test_compile
-        cargo test test_bytecode
-    
+        cargo test -- --test-threads 1
+
   build:
     if: ${{ false }}
     runs-on: ubuntu-latest
