@@ -347,7 +347,7 @@ pub mod tests {
                     .expect("could not convert ti num to num"),
                 to_i32(&it_num)
                     .ok()
-                    .expect("could not convert ti num to num"),
+                    .expect("could not convert it num to num"),
             )
         });
         assert_eq!(i.1, 5);
