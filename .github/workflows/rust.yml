@@ -32,7 +32,68 @@ jobs:
         cargo build
     - name: Test (windows)
       run: |
-        cargo test -- --test-threads 1
+        cargo test esruntime::tests::t1234
+        cargo test esruntime::tests::test_async
+        cargo test esruntime::tests::test_eval_await
+        cargo test esruntime::tests::test_eval_sync
+        cargo test esruntime::tests::test_func
+        cargo test esruntime::tests::test_macro
+        cargo test esruntime::tests::test_module_sync
+        cargo test esruntime::tests::test_promise
+        cargo test esruntime::tests::test_rt_drop
+        cargo test esruntime_utils::promises::tests::test_resolving_prom
+        cargo test esruntime_utils::promises::tests::test_simple_prom
+        cargo test esruntimebuilder::tests::test_module_loader
+        cargo test esvalue::tests::test_async_func
+        cargo test esvalue::tests::test_error
+        cargo test esvalue::tests::test_promise
+        cargo test esvalue::tests::test_promise_async
+        cargo test esvalue::tests::test_promise_async2
+        cargo test esvalue::tests::test_stringify
+        cargo test features::console::tests::test_console
+        cargo test features::fetch::tests::test_fetch
+        cargo test features::set_timeout::tests::test_set_timeout
+        cargo test features::set_timeout::tests::test_set_timeout_prom_res
+        cargo test quickjs_utils::arrays::tests::test_array
+        cargo test quickjs_utils::bigints::tests::test_bigint
+        cargo test quickjs_utils::compile::tests::test_bytecode
+        cargo test quickjs_utils::compile::tests::test_bytecode_bad_compile
+        cargo test quickjs_utils::compile::tests::test_bytecode_bad_run
+        cargo test quickjs_utils::compile::tests::test_compile
+        cargo test quickjs_utils::dates::tests::test_date
+        cargo test quickjs_utils::errors::tests::test_ex
+        cargo test quickjs_utils::errors::tests::test_ex2
+        cargo test quickjs_utils::functions::tests2::test_function
+        cargo test quickjs_utils::functions::tests::test_call
+        cargo test quickjs_utils::functions::tests::test_callback
+        cargo test quickjs_utils::functions::tests::test_callback_arg_ref_ct
+        cargo test quickjs_utils::functions::tests::test_invoke
+        cargo test quickjs_utils::functions::tests::test_ret_refcount
+        cargo test quickjs_utils::functions::tests::test_to_string
+        cargo test quickjs_utils::json::tests::test_json
+        cargo test quickjs_utils::modules::tests::test_detect
+        cargo test quickjs_utils::modules::tests::test_module_sandbox
+        cargo test quickjs_utils::modules::tests::test_native_modules
+        cargo test quickjs_utils::objects::tests::test_get_n_drop
+        cargo test quickjs_utils::objects::tests::test_get_refs
+        cargo test quickjs_utils::objects::tests::test_propnames
+        cargo test quickjs_utils::objects::tests::test_set_prop
+        cargo test quickjs_utils::promises::tests::new_prom
+        cargo test quickjs_utils::promises::tests::new_prom2
+        cargo test quickjs_utils::promises::tests::test_instance_of_prom
+        cargo test quickjs_utils::promises::tests::test_promise_nested
+        cargo test quickjs_utils::promises::tests::test_promise_reactions
+        cargo test quickjs_utils::tests::test_global
+        cargo test quickjs_utils::tests::test_script_name
+        cargo test quickjscontext::tests::test_multi_ctx
+        cargo test quickjsruntime::tests::test_script_load
+        cargo test reflection::eventtarget::tests::test_proxy_eh
+        cargo test reflection::eventtarget::tests::test_proxy_eh_rcs
+        cargo test reflection::tests::test_proxy
+        cargo test reflection::tests::test_proxy1
+        cargo test reflection::tests::test_to_string
+        cargo test tests::test_macro
+
 
   build:
     if: ${{ false }}
