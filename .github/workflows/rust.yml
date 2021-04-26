@@ -32,7 +32,7 @@ jobs:
         cargo build
     - name: Test (windows)
       run: |
-        cargo test test_callback
+        cargo test test_proxy1
     
   build:
     if: ${{ false }}
