@@ -32,9 +32,10 @@ jobs:
         cargo build
     - name: Test (windows)
       run: |
-        cargo test
+        cargo test test_callback
     
   build:
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -101,6 +102,7 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
 
   test-and-valgrind:
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
