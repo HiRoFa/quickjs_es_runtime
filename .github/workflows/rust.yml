@@ -32,7 +32,9 @@ jobs:
         cargo build
     - name: Test (windows)
       run: |
-        cargo test test_proxy1
+        cargo test test_proxy
+        cargo test test_compile
+        cargo test test_bytecode
     
   build:
     if: ${{ false }}
