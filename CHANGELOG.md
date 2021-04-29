@@ -1,4 +1,6 @@
-# 0.4.2 (work in progress)
+# 0.5 (work in progress)
+
+# 0.4.2
 
 * moved reflection code to reflection/mod.rs (should not affect api)
 * toPrimitive for Proxy classes (do stuff like console.log('got: ' + MyProxyInstanceOrClass))
