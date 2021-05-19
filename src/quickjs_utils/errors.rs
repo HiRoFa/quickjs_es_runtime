@@ -1,15 +1,15 @@
 //! utils for getting and reporting exceptions
 
-use crate::eserror::EsError;
 use crate::quickjs_utils::{objects, primitives};
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
+use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 
-/// Get the last exception from the runtime, and if present, convert it to an EsError.
+/// Get the last exception from the runtime, and if present, convert it to an JsError.
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
+pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<JsError> {
     let exception_val = q::JS_GetException(context);
     let exception_ref =
         JSValueRef::new(context, exception_val, false, true, "errors::get_exception");
@@ -18,20 +18,20 @@ pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
         None
     } else {
         let err = if exception_ref.is_exception() {
-            EsError::new_str("Could not get exception from runtime")
+            JsError::new_str("Could not get exception from runtime")
         } else if exception_ref.is_object() {
-            error_to_eserror(context, &exception_ref)
+            error_to_js_error(context, &exception_ref)
         } else {
-            EsError::new_str("no clue what happened")
+            JsError::new_str("no clue what happened")
         };
         Some(err)
     }
 }
 
-/// convert an instance of Error to EsError
+/// convert an instance of Error to JsError
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn error_to_eserror(context: *mut q::JSContext, exception_ref: &JSValueRef) -> EsError {
+pub unsafe fn error_to_js_error(context: *mut q::JSContext, exception_ref: &JSValueRef) -> JsError {
     let name_ref = objects::get_property(context, exception_ref, "name")
         .ok()
         .unwrap();
@@ -50,7 +50,7 @@ pub unsafe fn error_to_eserror(context: *mut q::JSContext, exception_ref: &JSVal
         stack_string = "".to_string();
     }
 
-    EsError::new(name_string, message_string, stack_string)
+    JsError::new(name_string, message_string, stack_string)
 }
 
 /// Create a new Error object
@@ -61,7 +61,7 @@ pub unsafe fn new_error(
     name: &str,
     message: &str,
     stack: &str,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     let obj = q::JS_NewError(context);
     let obj_ref = JSValueRef::new(
         context,

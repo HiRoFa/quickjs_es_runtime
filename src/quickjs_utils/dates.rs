@@ -1,21 +1,21 @@
 //! Utils for working with Date objects
 
-use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, objects, primitives};
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
+use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 
 /// create a new instance of a Date object
-pub fn new_date_q(context: &QuickJsContext) -> Result<JSValueRef, EsError> {
+pub fn new_date_q(context: &QuickJsContext) -> Result<JSValueRef, JsError> {
     unsafe { new_date(context.context) }
 }
 
 /// create a new instance of a Date object
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn new_date(context: *mut q::JSContext) -> Result<JSValueRef, EsError> {
+pub unsafe fn new_date(context: *mut q::JSContext) -> Result<JSValueRef, JsError> {
     let constructor = quickjs_utils::get_constructor(context, "Date")?;
     let date_ref = functions::call_constructor(context, &constructor, &[])?;
     Ok(date_ref)
@@ -38,7 +38,7 @@ pub fn set_time_q(
     context: &QuickJsContext,
     date_ref: &JSValueRef,
     timestamp: f64,
-) -> Result<(), EsError> {
+) -> Result<(), JsError> {
     unsafe { set_time(context.context, date_ref, timestamp) }
 }
 
@@ -49,7 +49,7 @@ pub unsafe fn set_time(
     context: *mut q::JSContext,
     date_ref: &JSValueRef,
     timestamp: f64,
-) -> Result<(), EsError> {
+) -> Result<(), JsError> {
     functions::invoke_member_function(
         context,
         date_ref,
@@ -59,13 +59,13 @@ pub unsafe fn set_time(
     Ok(())
 }
 /// get the timestamp from a Date object
-pub fn get_time_q(context: &QuickJsContext, date_ref: &JSValueRef) -> Result<f64, EsError> {
+pub fn get_time_q(context: &QuickJsContext, date_ref: &JSValueRef) -> Result<f64, JsError> {
     unsafe { get_time(context.context, date_ref) }
 }
 /// get the timestamp from a Date object
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn get_time(context: *mut q::JSContext, date_ref: &JSValueRef) -> Result<f64, EsError> {
+pub unsafe fn get_time(context: *mut q::JSContext, date_ref: &JSValueRef) -> Result<f64, JsError> {
     let time_ref = functions::invoke_member_function(context, date_ref, "getTime", vec![])?;
     if time_ref.is_f64() {
         primitives::to_f64(&time_ref)

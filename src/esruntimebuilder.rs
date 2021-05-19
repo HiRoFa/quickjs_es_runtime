@@ -1,14 +1,14 @@
-use crate::eserror::EsError;
 use crate::esruntime::{EsRuntime, FetchResponseProvider};
 use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
 use crate::quickjsruntime::{NativeModuleLoader, QuickJsRuntime, ScriptModuleLoader};
+use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::ScriptPreProcessor;
 use std::sync::Arc;
 use std::time::Duration;
 
 pub type EsRuntimeInitHooks =
-    Vec<Box<dyn FnOnce(&EsRuntime) -> Result<(), EsError> + Send + 'static>>;
+    Vec<Box<dyn FnOnce(&EsRuntime) -> Result<(), JsError> + Send + 'static>>;
 
 /// the EsRuntimeBuilder is used to init an EsRuntime
 /// # Example
@@ -96,7 +96,7 @@ impl EsRuntimeBuilder {
 
     pub fn runtime_init_hook<H>(mut self, hook: H) -> Self
     where
-        H: FnOnce(&EsRuntime) -> Result<(), EsError> + Send + 'static,
+        H: FnOnce(&EsRuntime) -> Result<(), JsError> + Send + 'static,
     {
         self.runtime_init_hooks.push(Box::new(hook));
         self

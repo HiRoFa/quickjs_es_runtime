@@ -1,10 +1,10 @@
-use crate::eserror::EsError;
 use crate::esruntime_utils::promises::new_resolving_promise;
 use crate::quickjs_utils::{json, primitives};
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::reflection;
 use crate::valueref::JSValueRef;
+use hirofa_utils::js_utils::JsError;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -28,7 +28,7 @@ fn response_text(
     q_ctx: &QuickJsContext,
     instance_id: &usize,
     _args: Vec<JSValueRef>,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     QuickJsRuntime::do_with(|q_js_rt| {
         let es_rt = q_js_rt.get_rt_ref().unwrap();
 
@@ -68,7 +68,7 @@ fn response_json(
     q_ctx: &QuickJsContext,
     instance_id: &usize,
     _args: Vec<JSValueRef>,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     QuickJsRuntime::do_with(|q_js_rt| {
         let es_rt = q_js_rt.get_rt_ref().unwrap();
 
@@ -106,7 +106,7 @@ fn response_json(
     })
 }
 
-pub(crate) fn init_response_proxy(q_ctx: &QuickJsContext) -> Result<(), EsError> {
+pub(crate) fn init_response_proxy(q_ctx: &QuickJsContext) -> Result<(), JsError> {
     reflection::Proxy::new()
         .name(RESPONSE_PROXY_NAME)
         // todo native_methods
@@ -144,7 +144,7 @@ pub(crate) fn init_response_proxy(q_ctx: &QuickJsContext) -> Result<(), EsError>
 pub(crate) fn new_response_ref(
     q_ctx: &QuickJsContext,
     fetch_response: Box<dyn FetchResponse + Send>,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     let res = reflection::new_instance(RESPONSE_PROXY_NAME, q_ctx)?;
 
     log::trace!("created new FetchResponse: {}", res.0);

@@ -1,10 +1,10 @@
-use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions;
 use crate::quickjs_utils::objects::is_instance_of_by_name;
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::JSValueRef;
+use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 
 pub fn is_promise_q(context: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
@@ -31,7 +31,7 @@ impl PromiseRef {
         self.promise_obj_ref.clone()
     }
 
-    pub fn resolve_q(&self, q_ctx: &QuickJsContext, value: JSValueRef) -> Result<(), EsError> {
+    pub fn resolve_q(&self, q_ctx: &QuickJsContext, value: JSValueRef) -> Result<(), JsError> {
         unsafe { self.resolve(q_ctx.context, value) }
     }
     /// # Safety
@@ -40,7 +40,7 @@ impl PromiseRef {
         &self,
         context: *mut q::JSContext,
         value: JSValueRef,
-    ) -> Result<(), EsError> {
+    ) -> Result<(), JsError> {
         log::trace!("PromiseRef.resolve()");
         crate::quickjs_utils::functions::call_function(
             context,
@@ -50,7 +50,7 @@ impl PromiseRef {
         )?;
         Ok(())
     }
-    pub fn reject_q(&self, q_ctx: &QuickJsContext, value: JSValueRef) -> Result<(), EsError> {
+    pub fn reject_q(&self, q_ctx: &QuickJsContext, value: JSValueRef) -> Result<(), JsError> {
         unsafe { self.reject(q_ctx.context, value) }
     }
     /// # Safety
@@ -59,7 +59,7 @@ impl PromiseRef {
         &self,
         context: *mut q::JSContext,
         value: JSValueRef,
-    ) -> Result<(), EsError> {
+    ) -> Result<(), JsError> {
         log::trace!("PromiseRef.reject()");
         crate::quickjs_utils::functions::call_function(
             context,
@@ -71,7 +71,7 @@ impl PromiseRef {
     }
 }
 
-pub fn new_promise_q(q_ctx: &QuickJsContext) -> Result<PromiseRef, EsError> {
+pub fn new_promise_q(q_ctx: &QuickJsContext) -> Result<PromiseRef, JsError> {
     unsafe { new_promise(q_ctx.context) }
 }
 
@@ -79,7 +79,7 @@ pub fn new_promise_q(q_ctx: &QuickJsContext) -> Result<PromiseRef, EsError> {
 /// you can use this to respond asynchronously to method calls from JavaScript by returning a Promise
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn new_promise(context: *mut q::JSContext) -> Result<PromiseRef, EsError> {
+pub unsafe fn new_promise(context: *mut q::JSContext) -> Result<PromiseRef, JsError> {
     log::trace!("promises::new_promise()");
 
     let mut promise_resolution_functions = [quickjs_utils::new_null(), quickjs_utils::new_null()];
@@ -139,7 +139,7 @@ pub fn add_promise_reactions_q(
     then_func_obj_ref_opt: Option<JSValueRef>,
     catch_func_obj_ref_opt: Option<JSValueRef>,
     finally_func_obj_ref_opt: Option<JSValueRef>,
-) -> Result<(), EsError> {
+) -> Result<(), JsError> {
     unsafe {
         add_promise_reactions(
             context.context,
@@ -160,7 +160,7 @@ pub unsafe fn add_promise_reactions(
     then_func_obj_ref_opt: Option<JSValueRef>,
     catch_func_obj_ref_opt: Option<JSValueRef>,
     finally_func_obj_ref_opt: Option<JSValueRef>,
-) -> Result<(), EsError> {
+) -> Result<(), JsError> {
     debug_assert!(is_promise(context, promise_obj_ref));
 
     if let Some(then_func_obj_ref) = then_func_obj_ref_opt {

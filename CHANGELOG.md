@@ -2,6 +2,7 @@
 
 * replaced EsScript with js_utils::Script
 * replaced ScriptPreProcessor with js_utils::ScriptPreProcessor
+* replaced EsError with js_utils::JsError
 
 # 0.4.2
 

@@ -1,4 +1,3 @@
-use crate::eserror::EsError;
 use crate::esruntime::EsRuntime;
 use crate::quickjs_utils::primitives;
 use crate::quickjs_utils::promises::new_promise_q;
@@ -6,6 +5,7 @@ use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
 use hirofa_utils::auto_id_map::AutoIdMap;
+use hirofa_utils::js_utils::JsError;
 use std::cell::RefCell;
 use std::sync::Arc;
 thread_local! {
@@ -64,11 +64,11 @@ pub fn new_resolving_promise<P, R, M>(
     producer: P,
     mapper: M,
     es_rt: Arc<EsRuntime>,
-) -> Result<JSValueRef, EsError>
+) -> Result<JSValueRef, JsError>
 where
     R: Send + 'static,
     P: FnOnce() -> Result<R, String> + Send + 'static,
-    M: FnOnce(&QuickJsContext, R) -> Result<JSValueRef, EsError> + Send + 'static,
+    M: FnOnce(&QuickJsContext, R) -> Result<JSValueRef, JsError> + Send + 'static,
 {
     // create promise
     let promise_ref = new_promise_q(q_ctx)?;

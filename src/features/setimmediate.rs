@@ -1,8 +1,8 @@
-use crate::eserror::EsError;
 use crate::esruntime::EsRuntime;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, get_global_q, objects, parse_args};
 use crate::quickjsruntime::QuickJsRuntime;
+use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 
 /// provides the setImmediate methods for the runtime
@@ -16,7 +16,7 @@ use libquickjs_sys as q;
 /// std::thread::sleep(Duration::from_secs(1));
 /// ```
 
-pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
+pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), JsError> {
     log::trace!("setimmediate::init");
 
     q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| {

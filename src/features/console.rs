@@ -41,7 +41,6 @@
 //! which will result in a log entry like
 //! ```[00:00:00.012] (7f44e7d24700) INFO   the quick brown fox jumped over 32 fences with a accuracy of 0.51```
 
-use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions::call_to_string;
 use crate::quickjs_utils::{functions, json, parse_args, primitives};
@@ -49,15 +48,16 @@ use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::reflection::Proxy;
 use crate::valueref::JSValueRef;
+use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 use log::LevelFilter;
 use std::str::FromStr;
 
-pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
+pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), JsError> {
     q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| init_ctx(q_ctx))
 }
 
-pub(crate) fn init_ctx(q_ctx: &QuickJsContext) -> Result<(), EsError> {
+pub(crate) fn init_ctx(q_ctx: &QuickJsContext) -> Result<(), JsError> {
     Proxy::new()
         .name("console")
         .static_native_method("log", Some(console_log))

@@ -1,7 +1,6 @@
 //! EventTarget utils
 //!
 
-use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::objects::{create_object_q, set_property_q};
 use crate::quickjs_utils::primitives::from_bool;
@@ -9,6 +8,7 @@ use crate::quickjs_utils::{functions, parse_args, primitives};
 use crate::quickjscontext::QuickJsContext;
 use crate::reflection::{get_proxy, get_proxy_instance_info, Proxy};
 use crate::valueref::JSValueRef;
+use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 use std::collections::HashMap;
 
@@ -106,7 +106,7 @@ pub fn dispatch_event(
     instance_id: usize,
     event_id: &str,
     event: JSValueRef,
-) -> Result<bool, EsError> {
+) -> Result<bool, JsError> {
     let proxy_class_name = proxy.get_class_name();
 
     with_listener_map(
@@ -114,7 +114,7 @@ pub fn dispatch_event(
         proxy_class_name.as_str(),
         instance_id,
         event_id,
-        |listeners| -> Result<(), EsError> {
+        |listeners| -> Result<(), JsError> {
             for entry in listeners {
                 let listener = entry.0;
                 let _res = functions::call_function_q(q_ctx, listener, vec![event.clone()], None)?;
@@ -186,7 +186,7 @@ unsafe extern "C" fn ext_add_event_listener(
         let proxy_info = get_proxy_instance_info(this_ref.borrow_value());
 
         if args.len() < 2 || !args[0].is_string() || !functions::is_function_q(q_ctx, &args[1]) {
-            Err(EsError::new_str("addEventListener requires at least 2 arguments (eventId: String and Listener: Function"))
+            Err(JsError::new_str("addEventListener requires at least 2 arguments (eventId: String and Listener: Function"))
         } else {
             let event_id = primitives::to_string_q(q_ctx, &args[0])?;
             let listener_func = args[1].clone();
@@ -234,7 +234,7 @@ unsafe extern "C" fn ext_remove_event_listener(
         let proxy_info = get_proxy_instance_info(this_ref.borrow_value());
 
         if args.len() != 2 || !args[0].is_string() || !functions::is_function_q(q_ctx, &args[1]) {
-            Err(EsError::new_str("removeEventListener requires at least 2 arguments (eventId: String and Listener: Function"))
+            Err(JsError::new_str("removeEventListener requires at least 2 arguments (eventId: String and Listener: Function"))
         } else {
             let event_id = primitives::to_string_q(q_ctx, &args[0])?;
             let listener_func = args[1].clone();
@@ -270,7 +270,7 @@ unsafe extern "C" fn ext_dispatch_event(
         let proxy_info = get_proxy_instance_info(this_ref.borrow_value());
 
         if args.len() != 2 || !args[0].is_string() {
-            Err(EsError::new_str(
+            Err(JsError::new_str(
                 "dispatchEvent requires at least 2 arguments (eventId: String and eventObj: Object)",
             ))
         } else {

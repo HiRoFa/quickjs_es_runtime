@@ -1,9 +1,9 @@
 //! Utils to compile script to bytecode and run script from bytecode
 
-use crate::eserror::EsError;
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::make_cstring;
 use crate::valueref::JSValueRef;
+use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
 use std::os::raw::c_void;
@@ -32,7 +32,7 @@ use std::os::raw::c_void;
 /// ```
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn compile(context: *mut q::JSContext, script: Script) -> Result<JSValueRef, EsError> {
+pub unsafe fn compile(context: *mut q::JSContext, script: Script) -> Result<JSValueRef, JsError> {
     let filename_c = make_cstring(script.get_path())?;
     let code_c = make_cstring(script.get_code())?;
 
@@ -61,7 +61,7 @@ pub unsafe fn compile(context: *mut q::JSContext, script: Script) -> Result<JSVa
         if let Some(ex) = ex_opt {
             Err(ex)
         } else {
-            Err(EsError::new_str(
+            Err(JsError::new_str(
                 "compile failed and could not get exception",
             ))
         }
@@ -76,7 +76,7 @@ pub unsafe fn compile(context: *mut q::JSContext, script: Script) -> Result<JSVa
 pub unsafe fn run_compiled_function(
     context: *mut q::JSContext,
     compiled_func: &JSValueRef,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     assert!(compiled_func.is_compiled_function());
     let val = q::JS_EvalFunction(context, compiled_func.clone_value_incr_rc());
     let val_ref = JSValueRef::new(context, val, false, true, "run_compiled_function result");
@@ -85,7 +85,7 @@ pub unsafe fn run_compiled_function(
         if let Some(ex) = ex_opt {
             Err(ex)
         } else {
-            Err(EsError::new_str(
+            Err(JsError::new_str(
                 "run_compiled_function failed and could not get exception",
             ))
         }
@@ -147,7 +147,7 @@ pub unsafe fn to_bytecode(context: *mut q::JSContext, compiled_func: &JSValueRef
 pub unsafe fn from_bytecode(
     context: *mut q::JSContext,
     bytecode: Vec<u8>,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     assert!(!bytecode.is_empty());
     {
         let len = bytecode.len();
@@ -161,7 +161,7 @@ pub unsafe fn from_bytecode(
             if let Some(ex) = ex_opt {
                 Err(ex)
             } else {
-                Err(EsError::new_str(
+                Err(JsError::new_str(
                     "from_bytecode failed and could not get exception",
                 ))
             }

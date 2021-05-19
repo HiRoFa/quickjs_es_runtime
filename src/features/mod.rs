@@ -1,12 +1,12 @@
-use crate::eserror::EsError;
 use crate::esruntime::EsRuntime;
+use hirofa_utils::js_utils::JsError;
 
 pub mod console;
 pub mod fetch;
 pub mod set_timeout;
 pub mod setimmediate;
 
-pub fn init(es_rt: &EsRuntime) -> Result<(), EsError> {
+pub fn init(es_rt: &EsRuntime) -> Result<(), JsError> {
     log::trace!("features::init");
 
     fetch::init(es_rt)?;

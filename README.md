@@ -131,7 +131,7 @@ fn main() {
 ```rust
     rt.set_function(vec!["nl", "my", "utils"], "methodA", |args| {
         if args.len() != 2 || !args.get(0).unwrap().is_i32() || !args.get(1).unwrap().is_i32() {
-            Err(EsError::new_str(
+            Err(JsError::new_str(
                 "i'd really like 2 args of the int32 kind please",
             ))
         } else {
@@ -195,7 +195,7 @@ fn main() {
 ```rust
     rt.set_function(vec!["nl", "my", "utils"], "methodB", |mut args| {
         if args.len() != 1 || !args[0].is_function() {
-            Err(EsError::new_str(
+            Err(JsError::new_str(
                 "i'd really like 1 arg of the function kind please",
             ))
         } else {

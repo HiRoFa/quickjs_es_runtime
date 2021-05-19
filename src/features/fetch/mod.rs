@@ -1,4 +1,3 @@
-use crate::eserror::EsError;
 use crate::esruntime::EsRuntime;
 use crate::esruntime_utils::promises;
 use crate::features::fetch::request::FetchRequest;
@@ -7,6 +6,7 @@ use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, objects, parse_args, primitives};
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
+use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -14,7 +14,7 @@ use std::sync::Arc;
 pub mod request;
 pub mod response;
 
-pub(crate) fn init(es_rt: &EsRuntime) -> Result<(), EsError> {
+pub(crate) fn init(es_rt: &EsRuntime) -> Result<(), JsError> {
     es_rt.exe_rt_task_in_event_loop(|q_js_rt| {
         q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| {
             log::trace!("fetch::init");

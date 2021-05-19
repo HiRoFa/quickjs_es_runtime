@@ -1,11 +1,11 @@
 //! Set utils, these methods can be used to manage Set objects from rust
 //! see [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Sap) for more on Sets
 
-use crate::eserror::EsError;
 use crate::quickjs_utils::objects::{construct_object, is_instance_of_by_name};
 use crate::quickjs_utils::{functions, get_constructor, iterators, objects, primitives};
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
+use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 
 /// create new instance of Set
@@ -21,27 +21,27 @@ use libquickjs_sys as q;
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
 /// });
 /// ```
-pub fn new_set_q(q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+pub fn new_set_q(q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
     unsafe { new_set(q_ctx.context) }
 }
 
 /// create new instance of Set
 /// # Safety
 /// please ensure the passed JSContext is still valid
-pub unsafe fn new_set(ctx: *mut q::JSContext) -> Result<JSValueRef, EsError> {
+pub unsafe fn new_set(ctx: *mut q::JSContext) -> Result<JSValueRef, JsError> {
     let map_constructor = get_constructor(ctx, "Set")?;
     construct_object(ctx, &map_constructor, vec![])
 }
 
 /// see if a JSValueRef is an instance of Set
-pub fn is_set_q(q_ctx: &QuickJsContext, obj: &JSValueRef) -> Result<bool, EsError> {
+pub fn is_set_q(q_ctx: &QuickJsContext, obj: &JSValueRef) -> Result<bool, JsError> {
     unsafe { is_set(q_ctx.context, obj) }
 }
 
 /// see if a JSValueRef is an instance of Set
 /// # Safety
 /// please ensure the passed JSContext is still valid
-pub unsafe fn is_set(ctx: *mut q::JSContext, obj: &JSValueRef) -> Result<bool, EsError> {
+pub unsafe fn is_set(ctx: *mut q::JSContext, obj: &JSValueRef) -> Result<bool, JsError> {
     is_instance_of_by_name(ctx, obj, "Set")
 }
 
@@ -65,7 +65,7 @@ pub fn add_q(
     q_ctx: &QuickJsContext,
     set: &JSValueRef,
     val: JSValueRef,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     unsafe { add(q_ctx.context, set, val) }
 }
 
@@ -76,7 +76,7 @@ pub unsafe fn add(
     ctx: *mut q::JSContext,
     set: &JSValueRef,
     val: JSValueRef,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     functions::invoke_member_function(ctx, set, "add", vec![val])
 }
 
@@ -101,7 +101,7 @@ pub fn delete_q(
     q_ctx: &QuickJsContext,
     set: &JSValueRef,
     value: JSValueRef,
-) -> Result<bool, EsError> {
+) -> Result<bool, JsError> {
     unsafe { delete(q_ctx.context, set, value) }
 }
 
@@ -112,7 +112,7 @@ pub unsafe fn delete(
     ctx: *mut q::JSContext,
     set: &JSValueRef,
     value: JSValueRef,
-) -> Result<bool, EsError> {
+) -> Result<bool, JsError> {
     let res = functions::invoke_member_function(ctx, set, "delete", vec![value])?;
     primitives::to_bool(&res)
 }
@@ -135,7 +135,7 @@ pub unsafe fn delete(
 ///    assert!(bln_has);
 /// });
 /// ```
-pub fn has_q(q_ctx: &QuickJsContext, set: &JSValueRef, key: JSValueRef) -> Result<bool, EsError> {
+pub fn has_q(q_ctx: &QuickJsContext, set: &JSValueRef, key: JSValueRef) -> Result<bool, JsError> {
     unsafe { has(q_ctx.context, set, key) }
 }
 
@@ -146,7 +146,7 @@ pub unsafe fn has(
     ctx: *mut q::JSContext,
     set: &JSValueRef,
     key: JSValueRef,
-) -> Result<bool, EsError> {
+) -> Result<bool, JsError> {
     let res = functions::invoke_member_function(ctx, set, "has", vec![key])?;
     primitives::to_bool(&res)
 }
@@ -169,14 +169,14 @@ pub unsafe fn has(
 ///    assert_eq!(i_size, 1);
 /// });
 /// ```
-pub fn size_q(q_ctx: &QuickJsContext, set: &JSValueRef) -> Result<i32, EsError> {
+pub fn size_q(q_ctx: &QuickJsContext, set: &JSValueRef) -> Result<i32, JsError> {
     unsafe { size(q_ctx.context, set) }
 }
 
 /// get the number of entries in a Set
 /// # Safety
 /// please ensure the passed JSContext is still valid
-pub unsafe fn size(ctx: *mut q::JSContext, set: &JSValueRef) -> Result<i32, EsError> {
+pub unsafe fn size(ctx: *mut q::JSContext, set: &JSValueRef) -> Result<i32, JsError> {
     let res = objects::get_property(ctx, &set, "size")?;
     primitives::to_i32(&res)
 }
@@ -200,14 +200,14 @@ pub unsafe fn size(ctx: *mut q::JSContext, set: &JSValueRef) -> Result<i32, EsEr
 ///    assert_eq!(i_size, 0);
 /// });
 /// ```
-pub fn clear_q(q_ctx: &QuickJsContext, map: &JSValueRef) -> Result<(), EsError> {
+pub fn clear_q(q_ctx: &QuickJsContext, map: &JSValueRef) -> Result<(), JsError> {
     unsafe { clear(q_ctx.context, map) }
 }
 
 /// remove all entries from a Set
 /// # Safety
 /// please ensure the passed JSContext is still valid
-pub unsafe fn clear(ctx: *mut q::JSContext, set: &JSValueRef) -> Result<(), EsError> {
+pub unsafe fn clear(ctx: *mut q::JSContext, set: &JSValueRef) -> Result<(), JsError> {
     let _ = functions::invoke_member_function(ctx, &set, "clear", vec![])?;
     Ok(())
 }
@@ -230,22 +230,22 @@ pub unsafe fn clear(ctx: *mut q::JSContext, set: &JSValueRef) -> Result<(), EsEr
 ///    assert_eq!(mapped_values.len(), 1);
 /// });
 /// ```
-pub fn values_q<C: Fn(JSValueRef) -> Result<R, EsError>, R>(
+pub fn values_q<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
     q_ctx: &QuickJsContext,
     set: &JSValueRef,
     consumer_producer: C,
-) -> Result<Vec<R>, EsError> {
+) -> Result<Vec<R>, JsError> {
     unsafe { values(q_ctx.context, set, consumer_producer) }
 }
 
 /// iterate over all values of a Set
 /// # Safety
 /// please ensure the passed JSContext is still valid
-pub unsafe fn values<C: Fn(JSValueRef) -> Result<R, EsError>, R>(
+pub unsafe fn values<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
     ctx: *mut q::JSContext,
     set: &JSValueRef,
     consumer_producer: C,
-) -> Result<Vec<R>, EsError> {
+) -> Result<Vec<R>, JsError> {
     let iter_ref = functions::invoke_member_function(ctx, &set, "values", vec![])?;
 
     iterators::iterate(ctx, &iter_ref, consumer_producer)

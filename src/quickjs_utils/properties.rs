@@ -1,6 +1,6 @@
-use crate::eserror::EsError;
 use crate::quickjs_utils::atoms;
 use crate::quickjs_utils::atoms::JSAtomRef;
+use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 use std::os::raw::c_int;
 
@@ -42,7 +42,7 @@ impl JSPropertyEnumRef {
         atom_ref.increment_ref_ct();
         atom_ref
     }
-    pub fn get_name(&self, index: u32) -> Result<String, EsError> {
+    pub fn get_name(&self, index: u32) -> Result<String, JsError> {
         let atom: *mut q::JSAtom = unsafe { self.get_atom_raw(index) };
         let atom = atom as q::JSAtom;
         unsafe { Ok(atoms::to_str(self.context, &atom)?.to_string()) }

@@ -1,8 +1,8 @@
-use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, get_global, objects, parse_args, primitives};
 use crate::quickjsruntime::QuickJsRuntime;
 use hirofa_utils::eventloop::EventLoop;
+use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 use std::time::Duration;
 
@@ -17,7 +17,7 @@ use std::time::Duration;
 /// std::thread::sleep(Duration::from_secs(2));
 /// ```
 
-pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), EsError> {
+pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), JsError> {
     log::trace!("set_timeout::init");
 
     q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| {

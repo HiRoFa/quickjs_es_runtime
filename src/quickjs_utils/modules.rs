@@ -1,12 +1,12 @@
 //! utils for working with ES6 Modules
 
-use crate::eserror::EsError;
 use crate::quickjs_utils::atoms;
 use crate::quickjs_utils::atoms::JSAtomRef;
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::JSValueRef;
 use core::ptr;
+use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
 use std::ffi::{CStr, CString};
@@ -17,7 +17,7 @@ use std::ffi::{CStr, CString};
 pub unsafe fn compile_module(
     context: *mut q::JSContext,
     script: Script,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     let code = script.get_code();
     let code_c = CString::new(code).ok().unwrap();
     let filename_c = CString::new(script.get_path()).ok().unwrap();
@@ -46,7 +46,7 @@ pub unsafe fn compile_module(
         if let Some(ex) = ex_opt {
             Err(ex)
         } else {
-            Err(EsError::new_str(
+            Err(JsError::new_str(
                 "compile_module failed and could not get exception",
             ))
         }
@@ -86,8 +86,8 @@ pub unsafe fn new_module(
     ctx: *mut q::JSContext,
     name: &str,
     init_func: q::JSModuleInitFunc,
-) -> Result<*mut q::JSModuleDef, EsError> {
-    let name_cstr = CString::new(name).map_err(|_e| EsError::new_str("CString failed"))?;
+) -> Result<*mut q::JSModuleDef, JsError> {
+    let name_cstr = CString::new(name).map_err(|_e| JsError::new_str("CString failed"))?;
     Ok(q::JS_NewCModule(ctx, name_cstr.as_ptr(), init_func))
 }
 
@@ -100,8 +100,8 @@ pub unsafe fn set_module_export(
     module: *mut q::JSModuleDef,
     export_name: &str,
     js_val: JSValueRef,
-) -> Result<(), EsError> {
-    let name_cstr = CString::new(export_name).map_err(|_e| EsError::new_str("CString failed"))?;
+) -> Result<(), JsError> {
+    let name_cstr = CString::new(export_name).map_err(|_e| JsError::new_str("CString failed"))?;
     let res = q::JS_SetModuleExport(
         ctx,
         module,
@@ -111,7 +111,7 @@ pub unsafe fn set_module_export(
     if res == 0 {
         Ok(())
     } else {
-        Err(EsError::new_str("JS_SetModuleExport failed"))
+        Err(JsError::new_str("JS_SetModuleExport failed"))
     }
 }
 
@@ -122,13 +122,13 @@ pub unsafe fn add_module_export(
     ctx: *mut q::JSContext,
     module: *mut q::JSModuleDef,
     export_name: &str,
-) -> Result<(), EsError> {
-    let name_cstr = CString::new(export_name).map_err(|_e| EsError::new_str("CString failed"))?;
+) -> Result<(), JsError> {
+    let name_cstr = CString::new(export_name).map_err(|_e| JsError::new_str("CString failed"))?;
     let res = q::JS_AddModuleExport(ctx, module, name_cstr.as_ptr());
     if res == 0 {
         Ok(())
     } else {
-        Err(EsError::new_str("JS_SetModuleExport failed"))
+        Err(JsError::new_str("JS_SetModuleExport failed"))
     }
 }
 
@@ -138,7 +138,7 @@ pub unsafe fn add_module_export(
 pub unsafe fn get_module_name(
     ctx: *mut q::JSContext,
     module: *mut q::JSModuleDef,
-) -> Result<String, EsError> {
+) -> Result<String, JsError> {
     let atom_raw = q::JS_GetModuleName(ctx, module);
     let atom_ref = JSAtomRef::new(ctx, atom_raw);
     atoms::to_string(ctx, &atom_ref)

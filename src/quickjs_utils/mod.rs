@@ -19,11 +19,11 @@ pub mod properties;
 pub mod sets;
 pub mod typedarrays;
 
-use crate::eserror::EsError;
 use crate::quickjs_utils::atoms::JSAtomRef;
 use crate::quickjs_utils::objects::get_property;
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::{JSValueRef, TAG_NULL, TAG_UNDEFINED};
+use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 
 // todo
@@ -59,14 +59,14 @@ pub fn new_null_ref() -> JSValueRef {
 }
 
 /// get the current filename
-pub fn get_script_or_module_name_q(ctx: &QuickJsContext) -> Result<String, EsError> {
+pub fn get_script_or_module_name_q(ctx: &QuickJsContext) -> Result<String, JsError> {
     unsafe { get_script_or_module_name(ctx.context) }
 }
 
 /// get the current filename
 /// # Safety
 /// ensure the QuickJsContext has not been dropped
-pub unsafe fn get_script_or_module_name(context: *mut q::JSContext) -> Result<String, EsError> {
+pub unsafe fn get_script_or_module_name(context: *mut q::JSContext) -> Result<String, JsError> {
     for x in 0..100 {
         let atom = q::JS_GetScriptOrModuleName(context, x);
         let atom_ref = JSAtomRef::new(context, atom);
@@ -92,13 +92,13 @@ pub unsafe fn get_global(context: *mut q::JSContext) -> JSValueRef {
 pub unsafe fn get_constructor(
     context: *mut q::JSContext,
     constructor_name: &str,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     let global_ref = get_global(context);
 
     let constructor_ref = get_property(context, &global_ref, constructor_name)?;
 
     if constructor_ref.is_null_or_undefined() {
-        Err(EsError::new_string(format!(
+        Err(JsError::new_string(format!(
             "not found: {}",
             constructor_name
         )))

@@ -1,6 +1,5 @@
 // store in thread_local
 
-use crate::eserror::EsError;
 use crate::esruntime::EsRuntime;
 use crate::quickjs_utils::modules::{
     add_module_export, compile_module, get_module_def, get_module_name, new_module,
@@ -9,6 +8,7 @@ use crate::quickjs_utils::modules::{
 use crate::quickjs_utils::{gc, interrupthandler, modules, promises};
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
+use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use hirofa_utils::js_utils::ScriptPreProcessor;
 use libquickjs_sys as q;
@@ -29,7 +29,7 @@ pub trait ModuleLoader {
         &self,
         q_ctx: &QuickJsContext,
         absolute_path: &str,
-    ) -> Result<*mut q::JSModuleDef, EsError>;
+    ) -> Result<*mut q::JSModuleDef, JsError>;
     /// has module is used to check if a loader can provide a certain module, this is currently used to check which loader should init a native module
     fn has_module(&self, q_ctx: &QuickJsContext, absolute_path: &str) -> bool;
     /// init a module, currently used to init native modules
@@ -39,7 +39,7 @@ pub trait ModuleLoader {
         &self,
         q_ctx: &QuickJsContext,
         module: *mut q::JSModuleDef,
-    ) -> Result<(), EsError>;
+    ) -> Result<(), JsError>;
 }
 
 // these are the external (util) loaders (todo move these to esruntime?)
@@ -73,7 +73,7 @@ impl ModuleLoader for ScriptModuleLoaderAdapter {
         &self,
         q_ctx: &QuickJsContext,
         absolute_path: &str,
-    ) -> Result<*mut q::JSModuleDef, EsError> {
+    ) -> Result<*mut q::JSModuleDef, JsError> {
         let code = self.inner.load_module(absolute_path);
 
         let mut script = Script::new(absolute_path, code.as_str());
@@ -92,7 +92,7 @@ impl ModuleLoader for ScriptModuleLoaderAdapter {
         &self,
         _q_ctx: &QuickJsContext,
         _module: *mut q::JSModuleDef,
-    ) -> Result<(), EsError> {
+    ) -> Result<(), JsError> {
         Ok(())
     }
 }
@@ -125,7 +125,7 @@ impl ModuleLoader for NativeModuleLoaderAdapter {
         &self,
         q_ctx: &QuickJsContext,
         absolute_path: &str,
-    ) -> Result<*mut q::JSModuleDef, EsError> {
+    ) -> Result<*mut q::JSModuleDef, JsError> {
         // create module
         let module = unsafe { new_module(q_ctx.context, absolute_path, Some(native_module_init))? };
 
@@ -145,7 +145,7 @@ impl ModuleLoader for NativeModuleLoaderAdapter {
         &self,
         q_ctx: &QuickJsContext,
         module: *mut q::JSModuleDef,
-    ) -> Result<(), EsError> {
+    ) -> Result<(), JsError> {
         let module_name = get_module_name(q_ctx.context, module)?;
 
         for (name, val) in self.inner.get_module_exports(q_ctx, module_name.as_str()) {
@@ -217,7 +217,7 @@ thread_local! {
 }
 
 pub type ContextInitHooks =
-    Vec<Box<dyn Fn(&QuickJsRuntime, &QuickJsContext) -> Result<(), EsError>>>;
+    Vec<Box<dyn Fn(&QuickJsRuntime, &QuickJsContext) -> Result<(), JsError>>>;
 
 pub struct QuickJsRuntime {
     pub(crate) runtime: *mut q::JSRuntime,
@@ -239,7 +239,7 @@ impl QuickJsRuntime {
         })
     }
 
-    pub(crate) fn pre_process(mut script: Script) -> Result<Script, EsError> {
+    pub(crate) fn pre_process(mut script: Script) -> Result<Script, JsError> {
         Self::do_with(|q_js_rt| {
             for pp in &q_js_rt.script_pre_processors {
                 pp.process(&mut script)?;
@@ -248,9 +248,9 @@ impl QuickJsRuntime {
         })
     }
 
-    pub fn add_context_init_hook<H>(&self, hook: H) -> Result<(), EsError>
+    pub fn add_context_init_hook<H>(&self, hook: H) -> Result<(), JsError>
     where
-        H: Fn(&QuickJsRuntime, &QuickJsContext) -> Result<(), EsError> + 'static,
+        H: Fn(&QuickJsRuntime, &QuickJsContext) -> Result<(), JsError> + 'static,
     {
         for ctx in self.contexts.values() {
             hook(self, ctx)?;
@@ -264,7 +264,7 @@ impl QuickJsRuntime {
     // so actually needs to be called in a plain job to inner.TaskManager and not by add_to_esEventquueue
     // EsRuntime should have a util to do that
     // EsRuntime should have extra methods like eval_sync_ctx(ctx: &str, script: &Script) etc
-    pub fn create_context(id: &str) -> Result<(), EsError> {
+    pub fn create_context(id: &str) -> Result<(), JsError> {
         let ctx = Self::do_with(|q_js_rt| {
             assert!(!q_js_rt.has_context(id));
             QuickJsContext::new(id.to_string(), q_js_rt)
@@ -468,7 +468,7 @@ impl QuickJsRuntime {
         flag > 0
     }
 
-    pub fn run_pending_job(&self) -> Result<(), EsError> {
+    pub fn run_pending_job(&self) -> Result<(), JsError> {
         let mut ctx: *mut q::JSContext = std::ptr::null_mut();
         let flag = unsafe {
             // ctx is a return arg here
@@ -476,7 +476,7 @@ impl QuickJsRuntime {
         };
         if flag < 0 {
             let e = unsafe { QuickJsContext::get_exception(ctx) }
-                .unwrap_or_else(|| EsError::new_str("Unknown exception while running pending job"));
+                .unwrap_or_else(|| JsError::new_str("Unknown exception while running pending job"));
             return Err(e);
         }
         Ok(())
@@ -515,11 +515,11 @@ impl Drop for QuickJsRuntime {
 }
 
 /// Helper for creating CStrings.
-pub(crate) fn make_cstring(value: &str) -> Result<CString, EsError> {
+pub(crate) fn make_cstring(value: &str) -> Result<CString, JsError> {
     let res = CString::new(value);
     match res {
         Ok(val) => Ok(val),
-        Err(_) => Err(EsError::new_string(format!(
+        Err(_) => Err(JsError::new_string(format!(
             "could not create cstring from {}",
             value
         ))),

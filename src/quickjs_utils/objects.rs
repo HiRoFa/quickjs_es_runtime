@@ -1,11 +1,11 @@
 //! Utils for working with objects
 
-use crate::eserror::EsError;
 use crate::quickjs_utils::properties::JSPropertyEnumRef;
 use crate::quickjs_utils::{atoms, functions, get_constructor, get_global};
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::valueref::JSValueRef;
+use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 
 /// get a namespace object
@@ -25,7 +25,7 @@ pub fn get_namespace_q(
     context: &QuickJsContext,
     namespace: Vec<&str>,
     create_if_absent: bool,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     unsafe { get_namespace(context.context, namespace, create_if_absent) }
 }
 
@@ -35,7 +35,7 @@ pub unsafe fn get_namespace(
     context: *mut q::JSContext,
     namespace: Vec<&str>,
     create_if_absent: bool,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     log::trace!("objects::get_namespace({})", namespace.join("."));
 
     let mut obj = get_global(context);
@@ -51,7 +51,7 @@ pub unsafe fn get_namespace(
                 set_property2(context, &obj, p_name, &sub, 0)?;
             } else {
                 log::trace!("objects::get_namespace -> is null -> err");
-                return Err(EsError::new_string(format!(
+                return Err(JsError::new_string(format!(
                     "could not find namespace part: {}",
                     p_name
                 )));
@@ -73,7 +73,7 @@ pub unsafe fn construct_object(
     ctx: *mut q::JSContext,
     constructor_ref: &JSValueRef,
     args: Vec<JSValueRef>,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     let arg_count = args.len() as i32;
 
     let mut qargs = args.iter().map(|a| *a.borrow_value()).collect::<Vec<_>>();
@@ -91,7 +91,7 @@ pub unsafe fn construct_object(
         if let Some(ex) = QuickJsContext::get_exception(ctx) {
             Err(ex)
         } else {
-            Err(EsError::new_str(
+            Err(JsError::new_str(
                 "construct_object failed but could not get ex",
             ))
         }
@@ -101,18 +101,18 @@ pub unsafe fn construct_object(
 }
 
 /// create a new simple object, e.g. `let obj = {};`
-pub fn create_object_q(q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+pub fn create_object_q(q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
     unsafe { create_object(q_ctx.context) }
 }
 
 /// create a new simple object, e.g. `let obj = {};`
 /// # Safety
 /// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
-pub unsafe fn create_object(context: *mut q::JSContext) -> Result<JSValueRef, EsError> {
+pub unsafe fn create_object(context: *mut q::JSContext) -> Result<JSValueRef, JsError> {
     let obj = q::JS_NewObject(context);
     let obj_ref = JSValueRef::new(context, obj, false, true, "objects::create_object");
     if obj_ref.is_exception() {
-        return Err(EsError::new_str("Could not create object"));
+        return Err(JsError::new_str("Could not create object"));
     }
     Ok(obj_ref)
 }
@@ -123,7 +123,7 @@ pub fn set_property_q(
     obj_ref: &JSValueRef,
     prop_name: &str,
     prop_ref: &JSValueRef,
-) -> Result<(), EsError> {
+) -> Result<(), JsError> {
     unsafe { set_property(q_ctx.context, obj_ref, prop_name, prop_ref) }
 }
 
@@ -135,7 +135,7 @@ pub unsafe fn set_property(
     obj_ref: &JSValueRef,
     prop_name: &str,
     prop_ref: &JSValueRef,
-) -> Result<(), EsError> {
+) -> Result<(), JsError> {
     set_property2(
         context,
         obj_ref,
@@ -179,7 +179,7 @@ pub fn set_property2_q(
     prop_name: &str,
     prop_ref: &JSValueRef,
     flags: i32,
-) -> Result<(), EsError> {
+) -> Result<(), JsError> {
     unsafe { set_property2(q_ctx.context, obj_ref, prop_name, prop_ref, flags) }
 }
 
@@ -192,7 +192,7 @@ pub unsafe fn set_property2(
     prop_name: &str,
     prop_ref: &JSValueRef,
     flags: i32,
-) -> Result<(), EsError> {
+) -> Result<(), JsError> {
     log::trace!("set_property2: {}", prop_name);
 
     let ckey = make_cstring(prop_name)?;
@@ -221,7 +221,7 @@ pub unsafe fn set_property2(
     );
     log::trace!("set_property2 / 3");
     if ret < 0 {
-        return Err(EsError::new_str("Could not add property to object"));
+        return Err(JsError::new_str("Could not add property to object"));
     }
     log::trace!("set_property2 / 4");
     Ok(())
@@ -236,7 +236,7 @@ pub unsafe fn set_property2(
 /// use quickjs_runtime::quickjs_utils::primitives::from_i32;
 /// use quickjs_runtime::quickjs_utils::{new_null_ref, get_global_q};
 /// use hirofa_utils::js_utils::Script;
-/// use quickjs_runtime::eserror::EsError;
+/// use quickjs_runtime::JsError::JsError;
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
@@ -261,7 +261,7 @@ pub fn define_getter_setter_q(
     prop_name: &str,
     getter_func_ref: &JSValueRef,
     setter_func_ref: &JSValueRef,
-) -> Result<(), EsError> {
+) -> Result<(), JsError> {
     unsafe {
         define_getter_setter(
             q_ctx.context,
@@ -283,7 +283,7 @@ pub unsafe fn define_getter_setter(
     prop_name: &str,
     getter_func_ref: &JSValueRef,
     setter_func_ref: &JSValueRef,
-) -> Result<(), EsError> {
+) -> Result<(), JsError> {
     /*
      pub fn JS_DefinePropertyGetSet(
         ctx: *mut JSContext,
@@ -321,7 +321,7 @@ pub unsafe fn define_getter_setter(
         if let Some(err) = QuickJsContext::get_exception(context) {
             Err(err)
         } else {
-            Err(EsError::new_str(
+            Err(JsError::new_str(
                 "Unknown error while creating getter setter",
             ))
         }
@@ -335,7 +335,7 @@ pub fn get_property_q(
     q_ctx: &QuickJsContext,
     obj_ref: &JSValueRef,
     prop_name: &str,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     unsafe { get_property(q_ctx.context, obj_ref, prop_name) }
 }
 
@@ -346,9 +346,9 @@ pub unsafe fn get_property(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     prop_name: &str,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     if obj_ref.is_null() || obj_ref.is_undefined() {
-        return Err(EsError::new_str(
+        return Err(JsError::new_str(
             "could not get prop from null or undefined",
         ));
     }
@@ -373,7 +373,7 @@ pub unsafe fn get_property(
 pub fn get_own_property_names_q(
     q_ctx: &QuickJsContext,
     obj_ref: &JSValueRef,
-) -> Result<JSPropertyEnumRef, EsError> {
+) -> Result<JSPropertyEnumRef, JsError> {
     unsafe { get_own_property_names(q_ctx.context, obj_ref) }
 }
 
@@ -383,7 +383,7 @@ pub fn get_own_property_names_q(
 pub unsafe fn get_own_property_names(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
-) -> Result<JSPropertyEnumRef, EsError> {
+) -> Result<JSPropertyEnumRef, JsError> {
     let mut properties: *mut q::JSPropertyEnum = std::ptr::null_mut();
     let mut count: u32 = 0;
 
@@ -396,7 +396,7 @@ pub unsafe fn get_own_property_names(
         flags,
     );
     if ret != 0 {
-        return Err(EsError::new_str("Could not get object properties"));
+        return Err(JsError::new_str("Could not get object properties"));
     }
 
     let enum_ref = JSPropertyEnumRef::new(context, properties, count);
@@ -407,7 +407,7 @@ pub unsafe fn get_own_property_names(
 pub fn get_property_names_q(
     q_ctx: &QuickJsContext,
     obj_ref: &JSValueRef,
-) -> Result<Vec<String>, EsError> {
+) -> Result<Vec<String>, JsError> {
     unsafe { get_property_names(q_ctx.context, obj_ref) }
 }
 
@@ -417,7 +417,7 @@ pub fn get_property_names_q(
 pub unsafe fn get_property_names(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
-) -> Result<Vec<String>, EsError> {
+) -> Result<Vec<String>, JsError> {
     let enum_ref = get_own_property_names(context, obj_ref)?;
 
     let mut names = vec![];
@@ -434,9 +434,9 @@ pub fn traverse_properties_q<V, R>(
     q_ctx: &QuickJsContext,
     obj_ref: &JSValueRef,
     visitor: V,
-) -> Result<Vec<R>, EsError>
+) -> Result<Vec<R>, JsError>
 where
-    V: Fn(&str, JSValueRef) -> Result<R, EsError>,
+    V: Fn(&str, JSValueRef) -> Result<R, JsError>,
 {
     unsafe { traverse_properties(q_ctx.context, obj_ref, visitor) }
 }
@@ -447,9 +447,9 @@ pub unsafe fn traverse_properties<V, R>(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     visitor: V,
-) -> Result<Vec<R>, EsError>
+) -> Result<Vec<R>, JsError>
 where
-    V: Fn(&str, JSValueRef) -> Result<R, EsError>,
+    V: Fn(&str, JSValueRef) -> Result<R, JsError>,
 {
     let enum_ref = get_own_property_names(context, obj_ref)?;
 
@@ -474,7 +474,7 @@ where
             "objects::traverse_properties raw_value",
         );
         if prop_val_ref.is_exception() {
-            return Err(EsError::new_str("Could not get object property"));
+            return Err(JsError::new_str("Could not get object property"));
         }
 
         let r = visitor(prop_name, prop_val_ref)?;
@@ -515,7 +515,7 @@ pub fn is_instance_of_by_name_q(
     context: &QuickJsContext,
     obj_ref: &JSValueRef,
     constructor_name: &str,
-) -> Result<bool, EsError> {
+) -> Result<bool, JsError> {
     unsafe { is_instance_of_by_name(context.context, obj_ref, constructor_name) }
 }
 
@@ -525,7 +525,7 @@ pub unsafe fn is_instance_of_by_name(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
     constructor_name: &str,
-) -> Result<bool, EsError> {
+) -> Result<bool, JsError> {
     if !obj_ref.is_object() {
         return Ok(false);
     }

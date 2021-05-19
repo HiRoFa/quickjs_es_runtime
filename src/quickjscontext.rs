@@ -1,9 +1,9 @@
-use crate::eserror::EsError;
 use crate::quickjs_utils::{errors, functions, objects};
 use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::reflection::{Proxy, ProxyInstanceInfo};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
+use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
 use std::cell::RefCell;
@@ -98,13 +98,13 @@ impl QuickJsContext {
         namespace: Vec<&str>,
         func_name: &str,
         arguments: Vec<JSValueRef>,
-    ) -> Result<JSValueRef, EsError> {
+    ) -> Result<JSValueRef, JsError> {
         let namespace_ref = unsafe { objects::get_namespace(self.context, namespace, false) }?;
         functions::invoke_member_function_q(self, &namespace_ref, func_name, arguments)
     }
     /// evaluate a script
 
-    pub fn eval(&self, script: Script) -> Result<JSValueRef, EsError> {
+    pub fn eval(&self, script: Script) -> Result<JSValueRef, JsError> {
         unsafe { Self::eval_ctx(self.context, script) }
     }
     /// # Safety
@@ -112,7 +112,7 @@ impl QuickJsContext {
     pub unsafe fn eval_ctx(
         context: *mut q::JSContext,
         mut script: Script,
-    ) -> Result<JSValueRef, EsError> {
+    ) -> Result<JSValueRef, JsError> {
         log::debug!("q_js_rt.eval file {}", script.get_path());
 
         script = QuickJsRuntime::pre_process(script)?;
@@ -144,7 +144,7 @@ impl QuickJsContext {
                 log::debug!("eval_ctx failed: {}", ex);
                 Err(ex)
             } else {
-                Err(EsError::new_str("eval failed and could not get exception"))
+                Err(JsError::new_str("eval failed and could not get exception"))
             }
         } else {
             Ok(ret)
@@ -152,7 +152,7 @@ impl QuickJsContext {
     }
 
     /// evaluate a Module
-    pub fn eval_module(&self, script: Script) -> Result<JSValueRef, EsError> {
+    pub fn eval_module(&self, script: Script) -> Result<JSValueRef, JsError> {
         unsafe { Self::eval_module_ctx(self.context, script) }
     }
 
@@ -161,7 +161,7 @@ impl QuickJsContext {
     pub unsafe fn eval_module_ctx(
         context: *mut q::JSContext,
         mut script: Script,
-    ) -> Result<JSValueRef, EsError> {
+    ) -> Result<JSValueRef, JsError> {
         log::debug!("q_js_rt.eval_module file {}", script.get_path());
 
         script = QuickJsRuntime::pre_process(script)?;
@@ -195,7 +195,7 @@ impl QuickJsContext {
                 log::debug!("eval_module_ctx failed: {}", ex);
                 Err(ex)
             } else {
-                Err(EsError::new_str(
+                Err(JsError::new_str(
                     "eval_module failed and could not get exception",
                 ))
             }
@@ -219,15 +219,15 @@ impl QuickJsContext {
         }
     }
 
-    /// Get the last exception from the runtime, and if present, convert it to a EsError.
-    pub fn get_exception_ctx(&self) -> Option<EsError> {
+    /// Get the last exception from the runtime, and if present, convert it to a JsError.
+    pub fn get_exception_ctx(&self) -> Option<JsError> {
         unsafe { errors::get_exception(self.context) }
     }
 
-    /// Get the last exception from the runtime, and if present, convert it to a EsError.
+    /// Get the last exception from the runtime, and if present, convert it to a JsError.
     /// # Safety
     /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-    pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<EsError> {
+    pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<JsError> {
         errors::get_exception(context)
     }
 

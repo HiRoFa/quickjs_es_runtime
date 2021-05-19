@@ -1,4 +1,3 @@
-use crate::eserror::EsError;
 use crate::esruntimebuilder::EsRuntimeBuilder;
 use crate::esvalue::EsValueFacade;
 use crate::features;
@@ -8,6 +7,7 @@ use crate::quickjs_utils::{functions, objects};
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::{NativeModuleLoaderAdapter, QuickJsRuntime, ScriptModuleLoaderAdapter};
 use hirofa_utils::eventloop::EventLoop;
+use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use hirofa_utils::task_manager::TaskManager;
 use libquickjs_sys as q;
@@ -258,7 +258,7 @@ impl EsRuntime {
     }
 
     /// Evaluate a script asynchronously
-    pub async fn eval(&self, script: Script) -> Result<EsValueFacade, EsError> {
+    pub async fn eval(&self, script: Script) -> Result<EsValueFacade, JsError> {
         self.add_rt_task_to_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval(script);
@@ -280,7 +280,7 @@ impl EsRuntime {
     /// let res = rt.eval_sync(script).ok().expect("script failed");
     /// assert_eq!(res.get_i32(), 27);
     /// ```
-    pub fn eval_sync(&self, script: Script) -> Result<EsValueFacade, EsError> {
+    pub fn eval_sync(&self, script: Script) -> Result<EsValueFacade, JsError> {
         self.exe_rt_task_in_event_loop(move |q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval(script);
@@ -320,7 +320,7 @@ impl EsRuntime {
         namespace: Vec<&'static str>,
         func_name: &str,
         mut arguments: Vec<EsValueFacade>,
-    ) -> Result<EsValueFacade, EsError> {
+    ) -> Result<EsValueFacade, JsError> {
         let func_name_string = func_name.to_string();
 
         self.exe_rt_task_in_event_loop(move |q_js_rt| {
@@ -356,7 +356,7 @@ impl EsRuntime {
         namespace: Vec<&'static str>,
         func_name: String,
         mut arguments: Vec<EsValueFacade>,
-    ) -> Result<EsValueFacade, EsError> {
+    ) -> Result<EsValueFacade, JsError> {
         let func_name_string = func_name.to_string();
 
         self.add_rt_task_to_event_loop(move |q_js_rt| {
@@ -424,7 +424,7 @@ impl EsRuntime {
     }
 
     /// evaluate a module and return result synchronously
-    pub fn eval_module_sync(&self, script: Script) -> Result<EsValueFacade, EsError> {
+    pub fn eval_module_sync(&self, script: Script) -> Result<EsValueFacade, JsError> {
         self.exe_rt_task_in_event_loop(move |q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval_module(script);
@@ -480,9 +480,9 @@ impl EsRuntime {
         namespace: Vec<&'static str>,
         name: &str,
         function: F,
-    ) -> Result<(), EsError>
+    ) -> Result<(), JsError>
     where
-        F: Fn(&QuickJsContext, Vec<EsValueFacade>) -> Result<EsValueFacade, EsError>
+        F: Fn(&QuickJsContext, Vec<EsValueFacade>) -> Result<EsValueFacade, JsError>
             + Send
             + 'static,
     {
@@ -554,7 +554,7 @@ impl EsRuntime {
     ///    my_ctx.eval(Script::new("ctx_test.es", "this.myVar = 'only exists in my_context';"));
     /// });
     /// ```
-    pub fn create_context(&self, id: &str) -> Result<(), EsError> {
+    pub fn create_context(&self, id: &str) -> Result<(), JsError> {
         let id = id.to_string();
         self.event_loop
             .exe(move || QuickJsRuntime::create_context(id.as_str()))
@@ -570,7 +570,6 @@ impl EsRuntime {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::eserror::EsError;
     use crate::esruntime::EsRuntime;
     use crate::esvalue::{EsValueConvertible, EsValueFacade};
     use crate::quickjs_utils::{primitives, promises};
@@ -579,6 +578,7 @@ pub mod tests {
     use crate::valueref::JSValueRef;
     use backtrace::Backtrace;
     use futures::executor::block_on;
+    use hirofa_utils::js_utils::JsError;
     use hirofa_utils::js_utils::Script;
     use log::debug;
     use log::LevelFilter;
@@ -679,7 +679,7 @@ pub mod tests {
         let rt = init_test_rt();
         let res = rt.set_function(vec!["nl", "my", "utils"], "methodA", |_q_ctx, args| {
             if args.len() != 2 || !args.get(0).unwrap().is_i32() || !args.get(1).unwrap().is_i32() {
-                Err(EsError::new_str(
+                Err(JsError::new_str(
                     "i'd realy like 2 args of the int32 kind please",
                 ))
             } else {
@@ -814,7 +814,7 @@ pub mod tests {
 
         let rt = init_test_rt();
         debug!("test static import");
-        let res: Result<EsValueFacade, EsError> = rt.eval_module_sync(Script::new(
+        let res: Result<EsValueFacade, JsError> = rt.eval_module_sync(Script::new(
             "test.es",
             "import {foo} from 'test_module.mes';\n console.log('static imp foo = ' + foo);",
         ));
@@ -829,7 +829,7 @@ pub mod tests {
         }
 
         debug!("test dynamic import");
-        let res: Result<EsValueFacade, EsError> = rt.eval_sync(Script::new(
+        let res: Result<EsValueFacade, JsError> = rt.eval_sync(Script::new(
             "test_dyn.es",
             "console.log('about to load dynamic module');let dyn_p = import('test_module.mes');dyn_p.then(function (some) {console.log('after dyn');console.log('after dyn ' + typeof some);console.log('mltpl 5, 7 = ' + some.mltpl(5, 7));});dyn_p.catch(function (x) {console.log('imp.cat x=' + x);});console.log('dyn done');",
         ));

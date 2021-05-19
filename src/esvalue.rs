@@ -1,8 +1,7 @@
-use crate::eserror::EsError;
 use crate::esruntime::EsRuntime;
 use crate::quickjs_utils::arrays::{get_element_q, get_length_q, is_array_q};
 use crate::quickjs_utils::dates::is_date_q;
-use crate::quickjs_utils::errors::{error_to_eserror, is_error_q};
+use crate::quickjs_utils::errors::{error_to_js_error, is_error_q};
 use crate::quickjs_utils::functions::{is_function_q, new_function_q};
 use crate::quickjs_utils::json::stringify_q;
 use crate::quickjs_utils::objects::{get_property_names_q, get_property_q};
@@ -17,6 +16,7 @@ use futures::executor::block_on;
 use futures::task::{Context, Poll};
 use hirofa_utils::auto_id_map::AutoIdMap;
 use hirofa_utils::debug_mutex::DebugMutex;
+use hirofa_utils::js_utils::JsError;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
@@ -97,10 +97,10 @@ impl<R> Future for TaskFuture<R> {
 pub type EsValueFacadeFuture<R, E> = TaskFuture<Result<R, E>>;
 
 pub type PromiseReactionType =
-    Option<Box<dyn Fn(EsValueFacade) -> Result<EsValueFacade, EsError> + Send + 'static>>;
+    Option<Box<dyn Fn(EsValueFacade) -> Result<EsValueFacade, JsError> + Send + 'static>>;
 
 pub trait EsValueConvertible {
-    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError>;
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError>;
 
     #[allow(clippy::wrong_self_convention)]
     fn to_es_value_facade(self) -> EsValueFacade
@@ -147,22 +147,22 @@ pub trait EsValueConvertible {
     fn is_function(&self) -> bool {
         false
     }
-    fn invoke_function_sync(&self, _args: Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> {
+    fn invoke_function_sync(&self, _args: Vec<EsValueFacade>) -> Result<EsValueFacade, JsError> {
         panic!("i am not a function");
     }
     fn invoke_function(
         &self,
         _args: Vec<EsValueFacade>,
-    ) -> EsValueFacadeFuture<EsValueFacade, EsError> {
+    ) -> EsValueFacadeFuture<EsValueFacade, JsError> {
         panic!("i am not a function");
     }
     fn invoke_function_batch_sync(
         &self,
         _args: Vec<Vec<EsValueFacade>>,
-    ) -> Vec<Result<EsValueFacade, EsError>> {
+    ) -> Vec<Result<EsValueFacade, JsError>> {
         panic!("i am not a function");
     }
-    fn invoke_function_batch(&self, _args: Vec<Vec<EsValueFacade>>) -> Result<(), EsError> {
+    fn invoke_function_batch(&self, _args: Vec<Vec<EsValueFacade>>) -> Result<(), JsError> {
         panic!("i am not a function");
     }
     fn is_promise(&self) -> bool {
@@ -179,31 +179,31 @@ pub trait EsValueConvertible {
         _then: PromiseReactionType,
         _catch: PromiseReactionType,
         _finally: Option<Box<dyn Fn() + Send + 'static>>,
-    ) -> Result<(), EsError> {
+    ) -> Result<(), JsError> {
         panic!("i am not a promise")
     }
     fn is_object(&self) -> bool {
         false
     }
-    fn get_object(&self) -> Result<HashMap<String, EsValueFacade>, EsError> {
+    fn get_object(&self) -> Result<HashMap<String, EsValueFacade>, JsError> {
         panic!("i am not an object");
     }
     fn is_array(&self) -> bool {
         false
     }
-    fn get_array(&self) -> Result<Vec<EsValueFacade>, EsError> {
+    fn get_array(&self) -> Result<Vec<EsValueFacade>, JsError> {
         panic!("i am not an array");
     }
     fn supports_stringify(&self) -> bool {
         false
     }
-    fn stringify(&self) -> Result<String, EsError> {
+    fn stringify(&self) -> Result<String, JsError> {
         unimplemented!()
     }
     fn is_error(&self) -> bool {
         false
     }
-    fn get_error(&self) -> EsError {
+    fn get_error(&self) -> JsError {
         unimplemented!()
     }
 }
@@ -229,12 +229,12 @@ impl EsProxyInstance {
 }
 
 impl EsValueConvertible for EsProxyInstance {
-    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
         let proxy_opt = reflection::get_proxy(q_ctx, self.class_name);
         if let Some(proxy) = proxy_opt {
             reflection::new_instance3(&proxy, self.instance_id, q_ctx)
         } else {
-            Err(EsError::new_string(format!(
+            Err(JsError::new_string(format!(
                 "no such proxy: {}",
                 self.class_name
             )))
@@ -243,7 +243,7 @@ impl EsValueConvertible for EsProxyInstance {
 }
 
 impl EsValueConvertible for EsNullValue {
-    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
         Ok(crate::quickjs_utils::new_null_ref())
     }
 
@@ -255,13 +255,13 @@ impl EsValueConvertible for EsNullValue {
         true
     }
 
-    fn stringify(&self) -> Result<String, EsError> {
+    fn stringify(&self) -> Result<String, JsError> {
         Ok("null".to_string())
     }
 }
 
 impl EsValueConvertible for EsUndefinedValue {
-    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
         Ok(crate::quickjs_utils::new_undefined_ref())
     }
 
@@ -273,7 +273,7 @@ impl EsValueConvertible for EsUndefinedValue {
         true
     }
 
-    fn stringify(&self) -> Result<String, EsError> {
+    fn stringify(&self) -> Result<String, JsError> {
         Ok("undefined".to_string())
     }
 }
@@ -473,7 +473,7 @@ fn pipe_promise_resolution_to_sender(
 }
 
 impl EsValueConvertible for CachedJSValueRef {
-    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
         Ok(q_ctx.with_cached_obj(self.cached_obj_id, |obj_ref| obj_ref))
     }
 
@@ -481,7 +481,7 @@ impl EsValueConvertible for CachedJSValueRef {
         self.es_type == EsType::Function
     }
 
-    fn invoke_function_sync(&self, mut args: Vec<EsValueFacade>) -> Result<EsValueFacade, EsError> {
+    fn invoke_function_sync(&self, mut args: Vec<EsValueFacade>) -> Result<EsValueFacade, JsError> {
         assert!(self.is_function());
 
         self.do_with_sync(move |_q_js_rt, q_ctx, obj_ref| {
@@ -498,7 +498,7 @@ impl EsValueConvertible for CachedJSValueRef {
     fn invoke_function(
         &self,
         mut args: Vec<EsValueFacade>,
-    ) -> EsValueFacadeFuture<EsValueFacade, EsError> {
+    ) -> EsValueFacadeFuture<EsValueFacade, JsError> {
         assert!(self.is_function());
         let ret = EsValueFacadeFuture::new();
         let tx = ret.get_resolver();
@@ -526,10 +526,10 @@ impl EsValueConvertible for CachedJSValueRef {
     fn invoke_function_batch_sync(
         &self,
         batch_args: Vec<Vec<EsValueFacade>>,
-    ) -> Vec<Result<EsValueFacade, EsError>> {
+    ) -> Vec<Result<EsValueFacade, JsError>> {
         assert!(self.is_function());
         self.do_with_sync(move |_q_js_rt, q_ctx, obj_ref| {
-            let mut res_vec: Vec<Result<EsValueFacade, EsError>> = vec![];
+            let mut res_vec: Vec<Result<EsValueFacade, JsError>> = vec![];
             for mut args in batch_args {
                 let mut ref_args = vec![];
                 for arg in args.iter_mut() {
@@ -554,7 +554,7 @@ impl EsValueConvertible for CachedJSValueRef {
     }
 
     // todo rewrite to Future
-    fn invoke_function_batch(&self, batch_args: Vec<Vec<EsValueFacade>>) -> Result<(), EsError> {
+    fn invoke_function_batch(&self, batch_args: Vec<Vec<EsValueFacade>>) -> Result<(), JsError> {
         assert!(self.is_function());
         self.do_with_sync(move |_q_js_rt, q_ctx, obj_ref| {
             for mut args in batch_args {
@@ -607,7 +607,7 @@ impl EsValueConvertible for CachedJSValueRef {
         then: PromiseReactionType,
         catch: PromiseReactionType,
         finally: Option<Box<dyn Fn() + Send + 'static>>,
-    ) -> Result<(), EsError> {
+    ) -> Result<(), JsError> {
         assert!(self.is_promise());
         self.do_with_sync(move |_q_js_rt, q_ctx, prom_ref| {
             let then_ref = if let Some(then_fn) = then {
@@ -678,7 +678,7 @@ impl EsValueConvertible for CachedJSValueRef {
         self.es_type == EsType::Object
     }
 
-    fn get_object(&self) -> Result<HashMap<String, EsValueFacade>, EsError> {
+    fn get_object(&self) -> Result<HashMap<String, EsValueFacade>, JsError> {
         assert!(self.is_object());
         self.do_with_sync(|_q_js_rt, q_ctx, obj_ref| {
             let mut ret = HashMap::new();
@@ -698,7 +698,7 @@ impl EsValueConvertible for CachedJSValueRef {
         self.es_type == EsType::Array
     }
 
-    fn get_array(&self) -> Result<Vec<EsValueFacade>, EsError> {
+    fn get_array(&self) -> Result<Vec<EsValueFacade>, JsError> {
         assert!(self.is_array());
 
         self.do_with_sync(|_q_js_rt, q_ctx, obj_ref| {
@@ -718,7 +718,7 @@ impl EsValueConvertible for CachedJSValueRef {
         true
     }
 
-    fn stringify(&self) -> Result<String, EsError> {
+    fn stringify(&self) -> Result<String, JsError> {
         assert!(self.supports_stringify());
         self.do_with_sync(|_q_js_rt, q_ctx, obj_ref| {
             let res = stringify_q(q_ctx, &obj_ref, None)?;
@@ -730,16 +730,16 @@ impl EsValueConvertible for CachedJSValueRef {
         self.es_type == EsType::Error
     }
 
-    fn get_error(&self) -> EsError {
+    fn get_error(&self) -> JsError {
         assert!(self.is_error());
         self.do_with_sync(|_q_js_rt, q_ctx, obj_ref| unsafe {
-            error_to_eserror(q_ctx.context, &obj_ref)
+            error_to_js_error(q_ctx.context, &obj_ref)
         })
     }
 }
 
 impl EsValueConvertible for String {
-    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
         crate::quickjs_utils::primitives::from_string_q(q_ctx, self.as_str())
     }
 
@@ -755,13 +755,13 @@ impl EsValueConvertible for String {
         true
     }
 
-    fn stringify(&self) -> Result<String, EsError> {
+    fn stringify(&self) -> Result<String, JsError> {
         Ok(format!("\"{}\"", self.as_str().replace('"', "\\\"")))
     }
 }
 
 impl EsValueConvertible for i32 {
-    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
         Ok(crate::quickjs_utils::primitives::from_i32(*self))
     }
 
@@ -777,13 +777,13 @@ impl EsValueConvertible for i32 {
         true
     }
 
-    fn stringify(&self) -> Result<String, EsError> {
+    fn stringify(&self) -> Result<String, JsError> {
         Ok(format!("{}", self))
     }
 }
 
 impl EsValueConvertible for bool {
-    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
         Ok(crate::quickjs_utils::primitives::from_bool(*self))
     }
 
@@ -799,13 +799,13 @@ impl EsValueConvertible for bool {
         true
     }
 
-    fn stringify(&self) -> Result<String, EsError> {
+    fn stringify(&self) -> Result<String, JsError> {
         Ok(format!("{}", self))
     }
 }
 
 impl EsValueConvertible for f64 {
-    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
         Ok(crate::quickjs_utils::primitives::from_f64(*self))
     }
     fn is_f64(&self) -> bool {
@@ -820,13 +820,13 @@ impl EsValueConvertible for f64 {
         true
     }
 
-    fn stringify(&self) -> Result<String, EsError> {
+    fn stringify(&self) -> Result<String, JsError> {
         Ok(format!("{}", self))
     }
 }
 
 impl EsValueConvertible for Vec<EsValueFacade> {
-    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
         // create the array
 
         let arr = crate::quickjs_utils::arrays::create_array_q(q_ctx)
@@ -846,7 +846,7 @@ impl EsValueConvertible for Vec<EsValueFacade> {
 }
 
 impl EsValueConvertible for HashMap<String, EsValueFacade> {
-    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
         // create new obj
         let obj_ref = crate::quickjs_utils::objects::create_object_q(q_ctx)
             .ok()
@@ -993,11 +993,11 @@ impl EsPromiseResolvableHandle {
             });
         }
     }
-    fn set_info(&self, es_rt: &Arc<EsRuntime>, id: usize, context_id: &str) -> Result<(), EsError> {
+    fn set_info(&self, es_rt: &Arc<EsRuntime>, id: usize, context_id: &str) -> Result<(), JsError> {
         let resolution_opt: Option<Result<EsValueFacade, EsValueFacade>> =
             self.with_inner(|inner| {
                 if inner.js_info.is_some() {
-                    Err(EsError::new_str("info was already set"))
+                    Err(JsError::new_str("info was already set"))
                 } else {
                     // set info
                     inner.js_info = Some(EsPromiseResolvableHandleInfo {
@@ -1125,7 +1125,7 @@ impl EsFunction {
 }
 
 impl EsValueConvertible for EsFunction {
-    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
         let func_arc_mtx = self.method.clone();
 
         new_function_q(
@@ -1140,7 +1140,7 @@ impl EsValueConvertible for EsFunction {
 
                 let func = &*func_arc_mtx.lock().unwrap();
 
-                let mut res: EsValueFacade = func(args_facades).map_err(EsError::new_string)?;
+                let mut res: EsValueFacade = func(args_facades).map_err(JsError::new_string)?;
                 res.as_js_value(q_ctx)
             },
             1,
@@ -1289,7 +1289,7 @@ impl EsPromise {
 }
 
 impl EsValueConvertible for EsPromise {
-    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
         log::trace!("EsPromise::to_js_value");
 
         let prom_ref = promises::new_promise_q(q_ctx)?;
@@ -1313,17 +1313,17 @@ pub struct EsValueFacade {
 
 impl EsValueFacade {
     /// stringify the value
-    pub fn stringify(&self) -> Result<String, EsError> {
+    pub fn stringify(&self) -> Result<String, JsError> {
         self.convertible.stringify()
     }
 
     /// convert the value to a JSValueRef
-    pub fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+    pub fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
         self.convertible.as_js_value(q_ctx)
     }
 
     /// convert a JSValueRef to an EsValueFacade
-    pub fn from_jsval(q_ctx: &QuickJsContext, value_ref: &JSValueRef) -> Result<Self, EsError> {
+    pub fn from_jsval(q_ctx: &QuickJsContext, value_ref: &JSValueRef) -> Result<Self, JsError> {
         log::trace!("EsValueFacade::from_jsval: tag:{}", value_ref.get_tag());
 
         let r = value_ref.borrow_value();
@@ -1367,7 +1367,7 @@ impl EsValueFacade {
             ,
             // BigIn
             TAG_BIG_INT => Ok(CachedJSValueRef::new(q_ctx, value_ref).to_es_value_facade()),
-            x => Err(EsError::new_string(format!(
+            x => Err(JsError::new_string(format!(
                 "Unhandled JS_TAG value: {}",
                 x
             ))),
@@ -1395,12 +1395,12 @@ impl EsValueFacade {
     }
 
     /// get the array value
-    pub fn get_array(&self) -> Result<Vec<EsValueFacade>, EsError> {
+    pub fn get_array(&self) -> Result<Vec<EsValueFacade>, JsError> {
         self.convertible.get_array()
     }
 
     /// get the object value
-    pub fn get_object(&self) -> Result<HashMap<String, EsValueFacade>, EsError> {
+    pub fn get_object(&self) -> Result<HashMap<String, EsValueFacade>, JsError> {
         self.convertible.get_object()
     }
 
@@ -1458,14 +1458,14 @@ impl EsValueFacade {
     pub fn invoke_function_sync(
         &self,
         arguments: Vec<EsValueFacade>,
-    ) -> Result<EsValueFacade, EsError> {
+    ) -> Result<EsValueFacade, JsError> {
         self.convertible.invoke_function_sync(arguments)
     }
     /// invoke the Function represented by this EsValueFacade
     pub async fn invoke_function(
         &self,
         arguments: Vec<EsValueFacade>,
-    ) -> Result<EsValueFacade, EsError> {
+    ) -> Result<EsValueFacade, JsError> {
         self.convertible.invoke_function(arguments).await
     }
 
@@ -1473,12 +1473,12 @@ impl EsValueFacade {
     pub fn invoke_function_batch_sync(
         &self,
         arguments: Vec<Vec<EsValueFacade>>,
-    ) -> Vec<Result<EsValueFacade, EsError>> {
+    ) -> Vec<Result<EsValueFacade, JsError>> {
         self.convertible.invoke_function_batch_sync(arguments)
     }
 
     /// invoke a function multiple times with a different set of arguments
-    pub fn invoke_function_batch(&self, arguments: Vec<Vec<EsValueFacade>>) -> Result<(), EsError> {
+    pub fn invoke_function_batch(&self, arguments: Vec<Vec<EsValueFacade>>) -> Result<(), JsError> {
         self.convertible.invoke_function_batch(arguments)
     }
 
@@ -1516,7 +1516,7 @@ impl EsValueFacade {
         self.convertible.is_error()
     }
 
-    pub fn get_error(&self) -> EsError {
+    pub fn get_error(&self) -> JsError {
         self.convertible.get_error()
     }
 }

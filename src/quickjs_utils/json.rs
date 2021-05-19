@@ -1,9 +1,9 @@
 //! serialize and stringify JavaScript objects
 
-use crate::eserror::EsError;
 use crate::quickjs_utils;
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
+use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 use std::ffi::CString;
 
@@ -30,14 +30,14 @@ use std::ffi::CString;
 /// });
 /// rt.gc_sync();
 /// ```
-pub fn parse_q(q_ctx: &QuickJsContext, input: &str) -> Result<JSValueRef, EsError> {
+pub fn parse_q(q_ctx: &QuickJsContext, input: &str) -> Result<JSValueRef, JsError> {
     unsafe { parse(q_ctx.context, input) }
 }
 
 /// Parse a JSON string into an Object
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRef, EsError> {
+pub unsafe fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRef, JsError> {
     let s = CString::new(input).ok().unwrap();
     let f_n = CString::new("JSON.parse").ok().unwrap();
 
@@ -51,7 +51,7 @@ pub unsafe fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRe
         if let Some(ex) = QuickJsContext::get_exception(context) {
             Err(ex)
         } else {
-            Err(EsError::new_str("unknown error while parsing json"))
+            Err(JsError::new_str("unknown error while parsing json"))
         }
     } else {
         Ok(ret)
@@ -77,7 +77,7 @@ pub fn stringify_q(
     q_ctx: &QuickJsContext,
     input: &JSValueRef,
     opt_space: Option<JSValueRef>,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     unsafe { stringify(q_ctx.context, input, opt_space) }
 }
 
@@ -87,7 +87,7 @@ pub unsafe fn stringify(
     context: *mut q::JSContext,
     input: &JSValueRef,
     opt_space: Option<JSValueRef>,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     //pub fn JS_JSONStringify(
     //         ctx: *mut JSContext,
     //         obj: JSValue,
@@ -112,7 +112,7 @@ pub unsafe fn stringify(
         if let Some(ex) = QuickJsContext::get_exception(context) {
             Err(ex)
         } else {
-            Err(EsError::new_str("unknown error in json::stringify"))
+            Err(JsError::new_str("unknown error in json::stringify"))
         }
     } else {
         Ok(ret)

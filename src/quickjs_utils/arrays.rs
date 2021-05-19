@@ -1,6 +1,6 @@
-use crate::eserror::EsError;
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
+use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 
 /// Check whether an object is an array
@@ -45,14 +45,14 @@ pub unsafe fn is_array(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool
 ///     assert_eq!(len, 3);
 /// });
 /// ```
-pub fn get_length_q(q_ctx: &QuickJsContext, arr_ref: &JSValueRef) -> Result<u32, EsError> {
+pub fn get_length_q(q_ctx: &QuickJsContext, arr_ref: &JSValueRef) -> Result<u32, JsError> {
     unsafe { get_length(q_ctx.context, arr_ref) }
 }
 
 /// Get the length of an Array
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Result<u32, EsError> {
+pub unsafe fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Result<u32, JsError> {
     let len_ref = crate::quickjs_utils::objects::get_property(context, arr_ref, "length")?;
 
     let len = crate::quickjs_utils::primitives::to_i32(&len_ref)?;
@@ -87,17 +87,17 @@ pub unsafe fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Re
 /// });
 /// ```
 
-pub fn create_array_q(q_ctx: &QuickJsContext) -> Result<JSValueRef, EsError> {
+pub fn create_array_q(q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
     unsafe { create_array(q_ctx.context) }
 }
 
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn create_array(context: *mut q::JSContext) -> Result<JSValueRef, EsError> {
+pub unsafe fn create_array(context: *mut q::JSContext) -> Result<JSValueRef, JsError> {
     let arr = q::JS_NewArray(context);
     let arr_ref = JSValueRef::new(context, arr, false, true, "create_array");
     if arr_ref.is_exception() {
-        return Err(EsError::new_str("Could not create array in runtime"));
+        return Err(JsError::new_str("Could not create array in runtime"));
     }
     Ok(arr_ref)
 }
@@ -128,7 +128,7 @@ pub fn set_element_q(
     array_ref: &JSValueRef,
     index: u32,
     entry_value_ref: JSValueRef,
-) -> Result<(), EsError> {
+) -> Result<(), JsError> {
     unsafe { set_element(q_ctx.context, array_ref, index, entry_value_ref) }
 }
 
@@ -139,7 +139,7 @@ pub unsafe fn set_element(
     array_ref: &JSValueRef,
     index: u32,
     entry_value_ref: JSValueRef,
-) -> Result<(), EsError> {
+) -> Result<(), JsError> {
     let entry_value_ref = entry_value_ref;
 
     let ret = q::JS_DefinePropertyValueUint32(
@@ -150,7 +150,7 @@ pub unsafe fn set_element(
         q::JS_PROP_C_W_E as i32,
     );
     if ret < 0 {
-        return Err(EsError::new_str("Could not append element to array"));
+        return Err(JsError::new_str("Could not append element to array"));
     }
     Ok(())
 }
@@ -179,7 +179,7 @@ pub fn get_element_q(
     q_ctx: &QuickJsContext,
     array_ref: &JSValueRef,
     index: u32,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     unsafe { get_element(q_ctx.context, array_ref, index) }
 }
 
@@ -189,7 +189,7 @@ pub unsafe fn get_element(
     context: *mut q::JSContext,
     array_ref: &JSValueRef,
     index: u32,
-) -> Result<JSValueRef, EsError> {
+) -> Result<JSValueRef, JsError> {
     let value_raw = q::JS_GetPropertyUint32(context, *array_ref.borrow_value(), index);
     let ret = JSValueRef::new(
         context,
@@ -199,7 +199,7 @@ pub unsafe fn get_element(
         format!("get_element[{}]", index).as_str(),
     );
     if ret.is_exception() {
-        return Err(EsError::new_str("Could not build array"));
+        return Err(JsError::new_str("Could not build array"));
     }
     Ok(ret)
 }
