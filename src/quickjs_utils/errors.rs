@@ -124,9 +124,9 @@ pub unsafe fn throw(context: *mut q::JSContext, error: JSValueRef) -> q::JSValue
 pub mod tests {
     use crate::esruntime::tests::init_test_rt;
     use crate::esruntime::EsRuntime;
-    use crate::esscript::EsScript;
     use crate::esvalue::EsValueConvertible;
     use crate::quickjs_utils::functions;
+    use hirofa_utils::js_utils::Script;
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -143,7 +143,7 @@ pub mod tests {
         })
         .ok()
         .expect("could not set function");
-        let s_res = rt.eval_sync(EsScript::new(
+        let s_res = rt.eval_sync(Script::new(
             "test_ex.es",
             "let consumer = function() {\n
         console.log('consuming');\n
@@ -169,7 +169,7 @@ pub mod tests {
             let q_ctx = q_js_rt.get_main_context();
 
             q_ctx
-                .eval(EsScript::new(
+                .eval(Script::new(
                     "test_ex2_pre.es",
                     "console.log('before ex test');",
                 ))
@@ -177,7 +177,7 @@ pub mod tests {
                 .expect("test_ex2_pre failed");
             {
                 let func_ref1 = q_ctx
-                    .eval(EsScript::new(
+                    .eval(Script::new(
                         "test_ex2f1.es",
                         "(function(){\nconsole.log('running f1');});",
                     ))
@@ -194,7 +194,7 @@ pub mod tests {
             }
             // why the f does this fail with a stack overflow if i remove the block above?
             let func_ref2 = q_ctx
-                .eval(EsScript::new(
+                .eval(Script::new(
                     "test_ex2.es",
                     "(function(){\nconsole.log('running f2');\nthrow Error('poof');\n});",
                 ))

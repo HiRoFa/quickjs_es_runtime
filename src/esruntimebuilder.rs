@@ -1,8 +1,9 @@
 use crate::eserror::EsError;
-use crate::esruntime::{EsRuntime, FetchResponseProvider, ScriptPreProcessor};
+use crate::esruntime::{EsRuntime, FetchResponseProvider};
 use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
 use crate::quickjsruntime::{NativeModuleLoader, QuickJsRuntime, ScriptModuleLoader};
+use hirofa_utils::js_utils::ScriptPreProcessor;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -56,7 +57,7 @@ impl EsRuntimeBuilder {
     /// add a script loaders which will be used to load modules when they are imported from script
     /// # Example
     /// ```rust
-    /// use quickjs_runtime::esscript::EsScript;
+    /// use hirofa_utils::js_utils::Script;
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
     /// use quickjs_runtime::quickjscontext::QuickJsContext;
     /// use quickjs_runtime::quickjsruntime::ScriptModuleLoader;
@@ -74,7 +75,7 @@ impl EsRuntimeBuilder {
     /// let rt = EsRuntimeBuilder::new()
     ///     .script_module_loader(Box::new(MyModuleLoader{}))
     ///     .build();
-    /// rt.eval_module_sync(EsScript::new("test_module.es", "import {foo} from 'some_module.mes';\nconsole.log('foo = %s', foo);")).ok().unwrap();
+    /// rt.eval_module_sync(Script::new("test_module.es", "import {foo} from 'some_module.mes';\nconsole.log('foo = %s', foo);")).ok().unwrap();
     /// ```
     pub fn script_module_loader<M: ScriptModuleLoader + Send + 'static>(
         mut self,
@@ -111,7 +112,7 @@ impl EsRuntimeBuilder {
     /// use quickjs_runtime::quickjs_utils::functions;
     /// use quickjs_runtime::quickjs_utils::primitives::{from_bool, from_i32};
     /// use quickjs_runtime::reflection::Proxy;
-    /// use quickjs_runtime::esscript::EsScript;
+    /// use hirofa_utils::js_utils::Script;
     ///
     /// struct MyModuleLoader{}
     /// impl NativeModuleLoader for MyModuleLoader {
@@ -148,7 +149,7 @@ impl EsRuntimeBuilder {
     /// .native_module_loader(Box::new(MyModuleLoader{}))
     /// .build();
     ///
-    /// rt.eval_module_sync(EsScript::new("test_native_mod.es", "import {someVal, someFunc, SomeClass} from 'my_module';\nlet i = (someVal + someFunc() + SomeClass.doIt());\nif (i !== 2087){throw Error('i was not 2087');}")).ok().expect("script failed");
+    /// rt.eval_module_sync(Script::new("test_native_mod.es", "import {someVal, someFunc, SomeClass} from 'my_module';\nlet i = (someVal + someFunc() + SomeClass.doIt());\nif (i !== 2087){throw Error('i was not 2087');}")).ok().expect("script failed");
     /// ```
     pub fn native_module_loader<M: NativeModuleLoader + Send + 'static>(
         mut self,
@@ -165,7 +166,7 @@ impl EsRuntimeBuilder {
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
     /// use quickjs_runtime::features::fetch::response::FetchResponse;
     /// use quickjs_runtime::features::fetch::request::FetchRequest;
-    /// use quickjs_runtime::esscript::EsScript;
+    /// use hirofa_utils::js_utils::Script;
     /// use std::time::Duration;   
     ///
     /// struct SimpleResponse{
@@ -201,7 +202,7 @@ impl EsRuntimeBuilder {
     /// .fetch_response_provider(|req| {Box::new(SimpleResponse::new(req))})
     /// .build();
     ///
-    /// let res_prom = rt.eval_sync(EsScript::new("test_fetch.es", "(fetch('something')).then((fetchRes) => {return fetchRes.text();});")).ok().expect("script failed");
+    /// let res_prom = rt.eval_sync(Script::new("test_fetch.es", "(fetch('something')).then((fetchRes) => {return fetchRes.text();});")).ok().expect("script failed");
     /// let res = res_prom.get_promise_result_sync();
     /// let str_esvf = res.ok().expect("promise did not resolve ok");
     /// assert_eq!(str_esvf.get_str(), "Hello world");
@@ -258,8 +259,8 @@ impl Default for EsRuntimeBuilder {
 #[cfg(test)]
 pub mod tests {
     use crate::esruntimebuilder::EsRuntimeBuilder;
-    use crate::esscript::EsScript;
     use crate::quickjsruntime::ScriptModuleLoader;
+    use hirofa_utils::js_utils::Script;
 
     #[test]
     fn test_module_loader() {
@@ -277,7 +278,7 @@ pub mod tests {
         let rt = EsRuntimeBuilder::new()
             .script_module_loader(Box::new(MyModuleLoader {}))
             .build();
-        match rt.eval_module_sync(EsScript::new(
+        match rt.eval_module_sync(Script::new(
             "test_module.es",
             "import {foo} from 'some_module.mes';\nconsole.log('foo = %s', foo);",
         )) {

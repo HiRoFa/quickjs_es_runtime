@@ -1,3 +1,4 @@
+use hirofa_utils::js_utils::JsError;
 use std::fmt::{Error, Formatter};
 
 /// The EsError struct is used throughout this crate to represent errors
@@ -34,6 +35,16 @@ impl EsError {
     }
     pub fn get_name(&self) -> &str {
         self.name.as_str()
+    }
+}
+
+impl From<JsError> for EsError {
+    fn from(js_error: JsError) -> Self {
+        EsError {
+            name: js_error.get_name().to_string(),
+            message: js_error.get_message().to_string(),
+            stack: js_error.get_stack().to_string(),
+        }
     }
 }
 

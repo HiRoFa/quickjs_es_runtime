@@ -1095,13 +1095,13 @@ impl EsFunction {
     /// ```rust
     /// use quickjs_runtime::esvalue::{EsFunction, EsValueConvertible, ES_NULL, EsValueFacade};
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_runtime::esscript::EsScript;
+    /// use hirofa_utils::js_utils::Script;
     /// async fn do_something(args: Vec<EsValueFacade>) -> Result<EsValueFacade, String> {
     ///     Ok(123.to_es_value_facade())
     /// }
     /// let func_esvf = EsFunction::new_async("my_callback", do_something).to_es_value_facade();
     /// let rt = EsRuntimeBuilder::new().build();
-    /// rt.eval_sync(EsScript::new("new_async.es", "this.test_func = function(cb){return cb();};")).ok().expect("func invo failed");
+    /// rt.eval_sync(Script::new("new_async.es", "this.test_func = function(cb){return cb();};")).ok().expect("func invo failed");
     /// let func_res = rt.call_function_sync(vec![], "test_func", vec![func_esvf]).ok().expect("func invo failed2");
     /// let ret = func_res.get_promise_result_sync().ok().expect("do_something returned err");
     /// assert_eq!(ret.get_i32(), 123);
@@ -1154,7 +1154,7 @@ impl EsValueConvertible for EsFunction {
 /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
 /// use quickjs_runtime::esvalue::{EsPromise, EsValueConvertible};
 /// use std::time::Duration;
-/// use quickjs_runtime::esscript::EsScript;
+/// use hirofa_utils::js_utils::Script;
 /// use log::LevelFilter;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
@@ -1164,7 +1164,7 @@ impl EsValueConvertible for EsFunction {
 ///         Ok(9463.to_es_value_facade())
 ///     }).to_es_value_facade())
 /// });
-/// rt.eval_sync(EsScript::new("test_prom.es", "let p765 = my.comp.create_prom(); p765.then((p_res) => {console.log('got ' + p_res)});")).ok().expect("script failed");
+/// rt.eval_sync(Script::new("test_prom.es", "let p765 = my.comp.create_prom(); p765.then((p_res) => {console.log('got ' + p_res)});")).ok().expect("script failed");
 /// std::thread::sleep(Duration::from_secs(2));
 /// ```
 pub struct EsPromise {
@@ -1201,7 +1201,7 @@ impl EsPromise {
     /// ```rust
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
     /// use quickjs_runtime::esvalue::{EsPromise, EsValueConvertible};
-    /// use quickjs_runtime::esscript::EsScript;
+    /// use hirofa_utils::js_utils::Script;
     /// use std::time::Duration;
     ///
     /// async fn a(i: i32) -> i32 {
@@ -1223,7 +1223,7 @@ impl EsPromise {
     /// .expect("setfunction failed");
     ///
     /// let res_prom = rt
-    ///     .eval_sync(EsScript::new("testasync2.es", "(com.my.testasyncfunc(7))"))
+    ///     .eval_sync(Script::new("testasync2.es", "(com.my.testasyncfunc(7))"))
     ///     .ok()
     ///     .expect("script failed");
     /// let res_i32 = res_prom.get_promise_result_sync().expect("prom failed");
@@ -1256,12 +1256,12 @@ impl EsPromise {
     /// # Example
     /// ```rust
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_runtime::esscript::EsScript;
+    /// use hirofa_utils::js_utils::Script;
     /// use std::time::Duration;
     /// use quickjs_runtime::esvalue::{EsPromise, EsValueConvertible};
     /// let rt = EsRuntimeBuilder::new().build();
     /// // prep a function which reacts to a promise
-    /// rt.eval_sync(EsScript::new("new_unresolving.es", "this.new_unresolving = function(prom){prom.then((res) => {console.log('promise resolved to %s', res);});};")).ok().expect("script failed");
+    /// rt.eval_sync(Script::new("new_unresolving.es", "this.new_unresolving = function(prom){prom.then((res) => {console.log('promise resolved to %s', res);});};")).ok().expect("script failed");
     /// // prep a EsPromise object
     /// let prom = EsPromise::new_unresolving();
     /// // get the handle
@@ -1493,7 +1493,7 @@ impl EsValueFacade {
     /// # Example
     /// ```rust
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_runtime::esscript::EsScript;
+    /// use hirofa_utils::js_utils::Script;
     /// use futures::executor::block_on;
     /// use quickjs_runtime::esvalue::EsValueFacade;
     /// pub async fn test_async(esvf: EsValueFacade) -> i32 {
@@ -1503,7 +1503,7 @@ impl EsValueFacade {
     /// }
     ///
     /// let rt = EsRuntimeBuilder::new().build();
-    /// let esvf = rt.eval_sync(EsScript::new("test_async_prom,es", "(new Promise((resolve, reject) => {setTimeout(() => {resolve(1360)}, 1000);}));")).ok().expect("script failed");
+    /// let esvf = rt.eval_sync(Script::new("test_async_prom,es", "(new Promise((resolve, reject) => {setTimeout(() => {resolve(1360)}, 1000);}));")).ok().expect("script failed");
     /// let i = block_on(test_async(esvf));
     /// assert_eq!(i, 1360);
     ///
@@ -1554,9 +1554,9 @@ pub mod tests {
     use crate::esruntime::tests::init_test_rt;
     use crate::esruntime::EsRuntime;
     use crate::esruntimebuilder::EsRuntimeBuilder;
-    use crate::esscript::EsScript;
     use crate::esvalue::{EsPromise, EsValueConvertible, EsValueFacade};
     use futures::executor::block_on;
+    use hirofa_utils::js_utils::Script;
     use std::sync::{Arc, Weak};
     use std::time::Duration;
 
@@ -1570,7 +1570,7 @@ pub mod tests {
     fn test_async_func() {
         let rt: Arc<EsRuntime> = init_test_rt();
         let func_esvf = rt
-            .eval_sync(EsScript::new(
+            .eval_sync(Script::new(
                 "test_async_func.es",
                 "(function someFunc(){return 147;});",
             ))
@@ -1583,7 +1583,7 @@ pub mod tests {
     #[test]
     fn test_promise() {
         let rt: Arc<EsRuntime> = init_test_rt();
-        let res = rt.eval_sync(EsScript::new(
+        let res = rt.eval_sync(Script::new(
             "test_promise.es",
             "(new Promise(function(resolve, reject){resolve(537);}));",
         ));
@@ -1617,7 +1617,7 @@ pub mod tests {
 
         let rt = EsRuntimeBuilder::new().build();
         let esvf = rt
-            .eval_sync(EsScript::new(
+            .eval_sync(Script::new(
                 "test_async_prom,es",
                 "(new Promise((resolve, reject) => {setTimeout(() => {resolve(1360)}, 1000);}));",
             ))
@@ -1630,7 +1630,7 @@ pub mod tests {
     async fn a(i: i32, rt_ref: Weak<EsRuntime>) -> i32 {
         let rt = rt_ref.upgrade().unwrap();
         let second_prom = rt
-            .eval(EsScript::new(
+            .eval(Script::new(
                 "o.es",
                 "(new Promise((resolve) => {resolve(321);}))",
             ))
@@ -1664,7 +1664,7 @@ pub mod tests {
         .expect("setfunction failed");
 
         let res_prom = rt
-            .eval_sync(EsScript::new("testasync2.es", "(com.my.testasyncfunc(7))"))
+            .eval_sync(Script::new("testasync2.es", "(com.my.testasyncfunc(7))"))
             .ok()
             .expect("script failed");
         let res_i32 = res_prom.get_promise_result_sync().expect("prom failed");
@@ -1675,7 +1675,7 @@ pub mod tests {
     fn test_stringify() {
         let rt = init_test_rt();
         let esvf = rt
-            .eval_sync(EsScript::new(
+            .eval_sync(Script::new(
                 "test_stringify.es",
                 "({a: 1, b: 'abc', c: true, d: {a: 1, b: 2}});",
             ))
@@ -1708,7 +1708,7 @@ pub mod tests {
     #[test]
     fn test_error() {
         let rt = init_test_rt();
-        let esvf = match rt.eval_sync(EsScript::new(
+        let esvf = match rt.eval_sync(Script::new(
             "test_err.es",
             "((async function() {throw Error('poof')})());",
         )) {

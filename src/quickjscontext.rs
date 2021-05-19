@@ -1,10 +1,10 @@
 use crate::eserror::EsError;
-use crate::esscript::EsScript;
 use crate::quickjs_utils::{errors, functions, objects};
 use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::reflection::{Proxy, ProxyInstanceInfo};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
+use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -104,14 +104,14 @@ impl QuickJsContext {
     }
     /// evaluate a script
 
-    pub fn eval(&self, script: EsScript) -> Result<JSValueRef, EsError> {
+    pub fn eval(&self, script: Script) -> Result<JSValueRef, EsError> {
         unsafe { Self::eval_ctx(self.context, script) }
     }
     /// # Safety
     /// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
     pub unsafe fn eval_ctx(
         context: *mut q::JSContext,
-        mut script: EsScript,
+        mut script: Script,
     ) -> Result<JSValueRef, EsError> {
         log::debug!("q_js_rt.eval file {}", script.get_path());
 
@@ -152,7 +152,7 @@ impl QuickJsContext {
     }
 
     /// evaluate a Module
-    pub fn eval_module(&self, script: EsScript) -> Result<JSValueRef, EsError> {
+    pub fn eval_module(&self, script: Script) -> Result<JSValueRef, EsError> {
         unsafe { Self::eval_module_ctx(self.context, script) }
     }
 
@@ -160,7 +160,7 @@ impl QuickJsContext {
     /// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
     pub unsafe fn eval_module_ctx(
         context: *mut q::JSContext,
-        mut script: EsScript,
+        mut script: Script,
     ) -> Result<JSValueRef, EsError> {
         log::debug!("q_js_rt.eval_module file {}", script.get_path());
 
@@ -312,9 +312,9 @@ impl Drop for QuickJsContext {
 #[cfg(test)]
 pub mod tests {
     use crate::esruntimebuilder::EsRuntimeBuilder;
-    use crate::esscript::EsScript;
     use crate::quickjs_utils;
     use crate::quickjs_utils::{functions, get_global_q, objects};
+    use hirofa_utils::js_utils::Script;
 
     #[test]
     fn test_multi_ctx() {
@@ -326,30 +326,30 @@ pub mod tests {
             let ctx_a = q_js_rt.get_context("a");
             let ctx_b = q_js_rt.get_context("b");
             ctx_a
-                .eval(EsScript::new("a.es", "this.a = 1"))
+                .eval(Script::new("a.es", "this.a = 1"))
                 .ok()
                 .expect("script failed");
             ctx_b
-                .eval(EsScript::new("a.es", "this.b = 1"))
+                .eval(Script::new("a.es", "this.b = 1"))
                 .ok()
                 .expect("script failed");
             let v = ctx_a
-                .eval(EsScript::new("a2.es", "this.a;"))
+                .eval(Script::new("a2.es", "this.a;"))
                 .ok()
                 .expect("script failed");
             assert!(v.is_i32());
             let v2 = ctx_b
-                .eval(EsScript::new("b2.es", "this.a;"))
+                .eval(Script::new("b2.es", "this.a;"))
                 .ok()
                 .expect("script failed");
             assert!(v2.is_null_or_undefined());
             let v3 = ctx_a
-                .eval(EsScript::new("a2.es", "this.b;"))
+                .eval(Script::new("a2.es", "this.b;"))
                 .ok()
                 .expect("script failed");
             assert!(v3.is_null_or_undefined());
             let v4 = ctx_b
-                .eval(EsScript::new("b2.es", "this.b;"))
+                .eval(Script::new("b2.es", "this.b;"))
                 .ok()
                 .expect("script failed");
             assert!(v4.is_i32());
@@ -360,7 +360,7 @@ pub mod tests {
             q_js_rt.gc();
             let ctx_a = q_js_rt.get_context("a");
             let v = ctx_a
-                .eval(EsScript::new("a2.es", "this.a;"))
+                .eval(Script::new("a2.es", "this.a;"))
                 .ok()
                 .expect("script failed");
             assert!(v.is_i32());
@@ -391,7 +391,7 @@ pub mod tests {
             q_js_rt.gc();
             let ctx_a = q_js_rt.get_context("a");
             let v = ctx_a
-                .eval(EsScript::new("a2.es", "this.a;"))
+                .eval(Script::new("a2.es", "this.a;"))
                 .ok()
                 .expect("script failed");
             assert!(v.is_i32());
@@ -402,7 +402,7 @@ pub mod tests {
             q_js_rt.gc();
             let ctx_a = q_js_rt.get_context("a");
             let v = ctx_a
-                .eval(EsScript::new("a2.es", "this.a;"))
+                .eval(Script::new("a2.es", "this.a;"))
                 .ok()
                 .expect("script failed");
             assert!(v.is_i32());

@@ -1,6 +1,5 @@
 use crate::eserror::EsError;
 use crate::esruntimebuilder::EsRuntimeBuilder;
-use crate::esscript::EsScript;
 use crate::esvalue::EsValueFacade;
 use crate::features;
 use crate::features::fetch::request::FetchRequest;
@@ -9,6 +8,7 @@ use crate::quickjs_utils::{functions, objects};
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::{NativeModuleLoaderAdapter, QuickJsRuntime, ScriptModuleLoaderAdapter};
 use hirofa_utils::eventloop::EventLoop;
+use hirofa_utils::js_utils::Script;
 use hirofa_utils::task_manager::TaskManager;
 use libquickjs_sys as q;
 use std::future::Future;
@@ -23,12 +23,6 @@ lazy_static! {
 
 pub type FetchResponseProvider =
     dyn Fn(&FetchRequest) -> Box<dyn FetchResponse + Send> + Send + Sync + 'static;
-
-pub trait ScriptPreProcessor {
-    fn process(&self, script: EsScript) -> Result<EsScript, EsError> {
-        Ok(script)
-    }
-}
 
 impl Drop for EsRuntime {
     fn drop(&mut self) {
@@ -264,7 +258,7 @@ impl EsRuntime {
     }
 
     /// Evaluate a script asynchronously
-    pub async fn eval(&self, script: EsScript) -> Result<EsValueFacade, EsError> {
+    pub async fn eval(&self, script: Script) -> Result<EsValueFacade, EsError> {
         self.add_rt_task_to_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval(script);
@@ -280,13 +274,13 @@ impl EsRuntime {
     /// # example
     /// ```rust
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_runtime::esscript::EsScript;
+    /// use hirofa_utils::js_utils::Script;
     /// let rt = EsRuntimeBuilder::new().build();
-    /// let script = EsScript::new("my_file.es", "(9 * 3);");
+    /// let script = Script::new("my_file.es", "(9 * 3);");
     /// let res = rt.eval_sync(script).ok().expect("script failed");
     /// assert_eq!(res.get_i32(), 27);
     /// ```
-    pub fn eval_sync(&self, script: EsScript) -> Result<EsValueFacade, EsError> {
+    pub fn eval_sync(&self, script: Script) -> Result<EsValueFacade, EsError> {
         self.exe_rt_task_in_event_loop(move |q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval(script);
@@ -311,12 +305,12 @@ impl EsRuntime {
     /// # example
     /// ```rust
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_runtime::esscript::EsScript;
     /// use quickjs_runtime::es_args;
     /// use quickjs_runtime::esvalue::EsValueConvertible;
     /// use quickjs_runtime::esvalue::EsValueFacade;
+    /// use hirofa_utils::js_utils::Script;
     /// let rt = EsRuntimeBuilder::new().build();
-    /// let script = EsScript::new("my_file.es", "this.com = {my: {methodA: function(a, b, someStr, someBool){return a*b;}}};");
+    /// let script = Script::new("my_file.es", "this.com = {my: {methodA: function(a, b, someStr, someBool){return a*b;}}};");
     /// rt.eval_sync(script).ok().expect("script failed");
     /// let res = rt.call_function_sync(vec!["com", "my"], "methodA", vec![7i32.to_es_value_facade(), 5i32.to_es_value_facade(), "abc".to_string().to_es_value_facade(), true.to_es_value_facade()]).ok().expect("func failed");
     /// assert_eq!(res.get_i32(), 35);
@@ -350,10 +344,10 @@ impl EsRuntime {
     /// # example
     /// ```rust
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_runtime::esscript::EsScript;
     /// use quickjs_runtime::esvalue::EsValueConvertible;
+    /// use hirofa_utils::js_utils::Script;
     /// let rt = EsRuntimeBuilder::new().build();
-    /// let script = EsScript::new("my_file.es", "this.com = {my: {methodA: function(a, b){return a*b;}}};");
+    /// let script = Script::new("my_file.es", "this.com = {my: {methodA: function(a, b){return a*b;}}};");
     /// rt.eval_sync(script).ok().expect("script failed");
     /// rt.call_function(vec!["com", "my"], "methodA".to_string(), vec![7.to_es_value_facade(), 5.to_es_value_facade()]);
     /// ```
@@ -393,13 +387,13 @@ impl EsRuntime {
     /// import {util} from 'file.mes';
     /// console.log(util(1, 2, 3));
     /// ```
-    /// please note that the module is cached under the absolute path you passed in the EsScript object
+    /// please note that the module is cached under the absolute path you passed in the Script object
     /// and thus you should take care to make the path unique (hence the absolute_ name)
     /// also to use this you need to build the EsRuntime with a module loader closure
     /// # example
     /// ```rust
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_runtime::esscript::EsScript;
+    /// use hirofa_utils::js_utils::Script;
     /// use quickjs_runtime::esvalue::EsValueConvertible;
     /// use quickjs_runtime::quickjsruntime::ScriptModuleLoader;
     /// struct TestModuleLoader {}
@@ -413,11 +407,11 @@ impl EsRuntime {
     ///     }
     /// }
     /// let rt = EsRuntimeBuilder::new().script_module_loader(Box::new(TestModuleLoader{})).build();
-    /// let script = EsScript::new("/opt/files/my_module.mes", "import {util} from 'other_module.mes';\n
+    /// let script = Script::new("/opt/files/my_module.mes", "import {util} from 'other_module.mes';\n
     /// console.log(util(1, 2, 3));");
     /// rt.eval_module(script);
     /// ```
-    pub async fn eval_module(&self, script: EsScript) {
+    pub async fn eval_module(&self, script: Script) {
         self.add_rt_task_to_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval_module(script);
@@ -430,7 +424,7 @@ impl EsRuntime {
     }
 
     /// evaluate a module and return result synchronously
-    pub fn eval_module_sync(&self, script: EsScript) -> Result<EsValueFacade, EsError> {
+    pub fn eval_module_sync(&self, script: Script) -> Result<EsValueFacade, EsError> {
         self.exe_rt_task_in_event_loop(move |q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let res = q_ctx.eval_module(script);
@@ -446,13 +440,13 @@ impl EsRuntime {
     /// # example
     /// ```rust
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_runtime::esscript::EsScript;
+    /// use hirofa_utils::js_utils::Script;
     /// use quickjs_runtime::quickjs_utils::primitives;
     /// let rt = EsRuntimeBuilder::new().build();
     /// let res = rt.exe_rt_task_in_event_loop(|q_js_rt| {
     ///     let q_ctx = q_js_rt.get_main_context();
     ///     // here you are in the worker thread and you can use the quickjs_utils
-    ///     let val_ref = q_ctx.eval(EsScript::new("test.es", "(11 * 6);")).ok().expect("script failed");
+    ///     let val_ref = q_ctx.eval(Script::new("test.es", "(11 * 6);")).ok().expect("script failed");
     ///     primitives::to_i32(&val_ref).ok().expect("could not get i32")
     /// });
     /// assert_eq!(res, 66);
@@ -469,7 +463,7 @@ impl EsRuntime {
     /// # Example
     /// ```rust
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_runtime::esscript::EsScript;
+    /// use hirofa_utils::js_utils::Script;
     /// use quickjs_runtime::quickjs_utils::primitives;
     /// use quickjs_runtime::esvalue::{EsValueFacade, EsValueConvertible};
     /// let rt = EsRuntimeBuilder::new().build();
@@ -478,7 +472,7 @@ impl EsRuntime {
     ///     let b = args[1].get_i32();
     ///     Ok((a * b).to_es_value_facade())
     /// });
-    /// let res = rt.eval_sync(EsScript::new("test.es", "let a = com.mycompany.util.methodA(13, 17); a * 2;")).ok().expect("script failed");
+    /// let res = rt.eval_sync(Script::new("test.es", "let a = com.mycompany.util.methodA(13, 17); a * 2;")).ok().expect("script failed");
     /// assert_eq!(res.get_i32(), (13*17*2));
     /// ```
     pub fn set_function<F>(
@@ -552,12 +546,12 @@ impl EsRuntime {
     /// # Example
     /// ```
     /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_runtime::esscript::EsScript;
+    /// use hirofa_utils::js_utils::Script;
     /// let rt = EsRuntimeBuilder::new().build();
     /// rt.create_context("my_context");
     /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
     ///    let my_ctx = q_js_rt.get_context("my_context");
-    ///    my_ctx.eval(EsScript::new("ctx_test.es", "this.myVar = 'only exists in my_context';"));
+    ///    my_ctx.eval(Script::new("ctx_test.es", "this.myVar = 'only exists in my_context';"));
     /// });
     /// ```
     pub fn create_context(&self, id: &str) -> Result<(), EsError> {
@@ -578,7 +572,6 @@ impl EsRuntime {
 pub mod tests {
     use crate::eserror::EsError;
     use crate::esruntime::EsRuntime;
-    use crate::esscript::EsScript;
     use crate::esvalue::{EsValueConvertible, EsValueFacade};
     use crate::quickjs_utils::{primitives, promises};
     use crate::quickjscontext::QuickJsContext;
@@ -586,6 +579,7 @@ pub mod tests {
     use crate::valueref::JSValueRef;
     use backtrace::Backtrace;
     use futures::executor::block_on;
+    use hirofa_utils::js_utils::Script;
     use log::debug;
     use log::LevelFilter;
     use std::panic;
@@ -702,7 +696,7 @@ pub mod tests {
             }
         }
 
-        let res = rt.eval_sync(EsScript::new(
+        let res = rt.eval_sync(Script::new(
             "test_func.es",
             "(nl.my.utils.methodA(13, 56));",
         ));
@@ -721,7 +715,7 @@ pub mod tests {
     #[test]
     fn test_eval_sync() {
         let rt: Arc<EsRuntime> = init_test_rt();
-        let res = rt.eval_sync(EsScript::new("test.es", "console.log('foo bar');"));
+        let res = rt.eval_sync(Script::new("test.es", "console.log('foo bar');"));
 
         match res {
             Ok(_) => {}
@@ -731,7 +725,7 @@ pub mod tests {
         }
 
         let res = rt
-            .eval_sync(EsScript::new("test.es", "(2 * 7);"))
+            .eval_sync(Script::new("test.es", "(2 * 7);"))
             .ok()
             .expect("script failed");
 
@@ -746,7 +740,7 @@ pub mod tests {
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             //q_js_rt.run_pending_jobs_if_any();
             let q_ctx = q_js_rt.get_main_context();
-            let r = q_ctx.eval(EsScript::new(
+            let r = q_ctx.eval(Script::new(
                 "test_async.es",
                 "let f = async function(){let p = new Promise((resolve, reject) => {resolve(12345);}); const p2 = await p; return p2}; f();",
             )).ok().unwrap();
@@ -776,7 +770,7 @@ pub mod tests {
     fn test_eval_await() {
         let rt: Arc<EsRuntime> = init_test_rt();
 
-        let res = rt.eval_sync(EsScript::new(
+        let res = rt.eval_sync(Script::new(
             "test_async.es",
             "{let f = async function(){let p = new Promise((resolve, reject) => {resolve(12345);}); const p2 = await p; return p2}; f()};",
         ));
@@ -802,7 +796,7 @@ pub mod tests {
     fn test_promise() {
         let rt: Arc<EsRuntime> = init_test_rt();
 
-        let res = rt.eval_sync(EsScript::new(
+        let res = rt.eval_sync(Script::new(
             "testp2.es",
             "let test_promise_P = (new Promise(function(res, rej) {console.log('before res');res(123);console.log('after res');}).then(function (a) {console.log('prom ressed to ' + a);}).catch(function(x) {console.log('p.ca ex=' + x);}))",
         ));
@@ -820,7 +814,7 @@ pub mod tests {
 
         let rt = init_test_rt();
         debug!("test static import");
-        let res: Result<EsValueFacade, EsError> = rt.eval_module_sync(EsScript::new(
+        let res: Result<EsValueFacade, EsError> = rt.eval_module_sync(Script::new(
             "test.es",
             "import {foo} from 'test_module.mes';\n console.log('static imp foo = ' + foo);",
         ));
@@ -835,7 +829,7 @@ pub mod tests {
         }
 
         debug!("test dynamic import");
-        let res: Result<EsValueFacade, EsError> = rt.eval_sync(EsScript::new(
+        let res: Result<EsValueFacade, EsError> = rt.eval_sync(Script::new(
             "test_dyn.es",
             "console.log('about to load dynamic module');let dyn_p = import('test_module.mes');dyn_p.then(function (some) {console.log('after dyn');console.log('after dyn ' + typeof some);console.log('mltpl 5, 7 = ' + some.mltpl(5, 7));});dyn_p.catch(function (x) {console.log('imp.cat x=' + x);});console.log('dyn done');",
         ));
@@ -855,7 +849,7 @@ pub mod tests {
 
     async fn test_async1() -> i32 {
         let rt = init_test_rt();
-        let a = rt.eval(EsScript::new("test_async.es", "122 + 1;")).await;
+        let a = rt.eval(Script::new("test_async.es", "122 + 1;")).await;
         a.ok().expect("script failed").get_i32()
     }
 

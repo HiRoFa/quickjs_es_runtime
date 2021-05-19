@@ -1,10 +1,10 @@
 //! Utils to compile script to bytecode and run script from bytecode
 
 use crate::eserror::EsError;
-use crate::esscript::EsScript;
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::make_cstring;
 use crate::valueref::JSValueRef;
+use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
 use std::os::raw::c_void;
 
@@ -13,14 +13,14 @@ use std::os::raw::c_void;
 /// # Example
 /// ```rust
 /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_runtime::esscript::EsScript;
+/// use hirofa_utils::js_utils::Script;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::compile::{compile, run_compiled_function};
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     unsafe {
 ///         let q_ctx = q_js_rt.get_main_context();
-///         let func_res = compile(q_ctx.context, EsScript::new("test_func.es", "let a = 7; let b = 5; a * b;"));
+///         let func_res = compile(q_ctx.context, Script::new("test_func.es", "let a = 7; let b = 5; a * b;"));
 ///         let func = func_res.ok().expect("func compile failed");
 ///         let run_res = run_compiled_function(q_ctx.context, &func);
 ///         let res = run_res.ok().expect("run_compiled_function failed");
@@ -32,7 +32,7 @@ use std::os::raw::c_void;
 /// ```
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn compile(context: *mut q::JSContext, script: EsScript) -> Result<JSValueRef, EsError> {
+pub unsafe fn compile(context: *mut q::JSContext, script: Script) -> Result<JSValueRef, EsError> {
     let filename_c = make_cstring(script.get_path())?;
     let code_c = make_cstring(script.get_code())?;
 
@@ -98,14 +98,14 @@ pub unsafe fn run_compiled_function(
 /// # Example
 /// ```rust
 /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_runtime::esscript::EsScript;
+/// use hirofa_utils::js_utils::Script;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::compile::{compile, run_compiled_function, to_bytecode, from_bytecode};
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     unsafe {
 ///     let q_ctx = q_js_rt.get_main_context();
-///     let func_res = compile(q_ctx.context, EsScript::new("test_func.es", "let a = 7; let b = 5; a * b;"));
+///     let func_res = compile(q_ctx.context, Script::new("test_func.es", "let a = 7; let b = 5; a * b;"));
 ///     let func = func_res.ok().expect("func compile failed");
 ///     let bytecode: Vec<u8> = to_bytecode(q_ctx.context, &func);
 ///     drop(func);
@@ -176,11 +176,11 @@ pub mod tests {
     use crate::esruntime::tests::init_test_rt;
     use crate::esruntime::EsRuntime;
     use crate::esruntimebuilder::EsRuntimeBuilder;
-    use crate::esscript::EsScript;
     use crate::quickjs_utils::compile::{
         compile, from_bytecode, run_compiled_function, to_bytecode,
     };
     use crate::quickjs_utils::primitives;
+    use hirofa_utils::js_utils::Script;
     use std::sync::Arc;
 
     #[test]
@@ -192,7 +192,7 @@ pub mod tests {
             let func_res = unsafe {
                 compile(
                     q_ctx.context,
-                    EsScript::new(
+                    Script::new(
                         "test_func.es",
                         "let a_tb3 = 7; let b_tb3 = 5; a_tb3 * b_tb3;",
                     ),
@@ -225,7 +225,7 @@ pub mod tests {
             let q_ctx = q_js_rt.get_main_context();
             let func_res = compile(
                 q_ctx.context,
-                EsScript::new(
+                Script::new(
                     "test_func.es",
                     "let a_tb4 = 7; let b_tb4 = 5; a_tb4 * b_tb4;",
                 ),
@@ -260,7 +260,7 @@ pub mod tests {
             let func_res = unsafe {
                 compile(
                     q_ctx.context,
-                    EsScript::new(
+                    Script::new(
                         "test_func_fail.es",
                         "{the changes of me compil1ng a're slim to 0-0}",
                     ),
@@ -278,7 +278,7 @@ pub mod tests {
 
             let func_res = compile(
                 q_ctx.context,
-                EsScript::new("test_func_runfail.es", "let abcdef = 1;"),
+                Script::new("test_func_runfail.es", "let abcdef = 1;"),
             );
             let func = func_res.ok().expect("func compile failed");
             assert_eq!(1, func.get_ref_count());

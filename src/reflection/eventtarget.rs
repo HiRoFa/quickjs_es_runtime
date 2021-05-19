@@ -114,10 +114,11 @@ pub fn dispatch_event(
         proxy_class_name.as_str(),
         instance_id,
         event_id,
-        |listeners| {
+        |listeners| -> Result<(), EsError> {
             for entry in listeners {
                 let listener = entry.0;
                 let _res = functions::call_function_q(q_ctx, listener, vec![event.clone()], None)?;
+
                 // todo chekc if _res is bool, for cancel and such
                 // and if event is cancelabble and preventDefault was called and such
             }
@@ -295,12 +296,12 @@ unsafe extern "C" fn ext_dispatch_event(
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::tests::init_test_rt;
-    use crate::esscript::EsScript;
     use crate::quickjs_utils::get_global_q;
     use crate::quickjs_utils::objects::{create_object_q, get_property_q};
     use crate::quickjs_utils::primitives::to_i32;
     use crate::reflection::eventtarget::dispatch_event;
     use crate::reflection::{get_proxy, Proxy};
+    use hirofa_utils::js_utils::Script;
     use std::sync::{Arc, Mutex};
 
     #[test]
@@ -329,7 +330,7 @@ pub mod tests {
                 .ok()
                 .expect("proxy failed");
 
-            match q_ctx.eval(EsScript::new(
+            match q_ctx.eval(Script::new(
                 "test_proxy_eh.es",
                 "\
             this.called = false;\
@@ -387,17 +388,17 @@ pub mod tests {
                 .expect("proxy failed");
 
             q_ctx
-                .eval(EsScript::new("e.es", "let target = new MyThing();"))
+                .eval(Script::new("e.es", "let target = new MyThing();"))
                 .ok()
                 .expect("constr failed");
             let target_ref = q_ctx
-                .eval(EsScript::new("t.es", "(target);"))
+                .eval(Script::new("t.es", "(target);"))
                 .ok()
                 .expect("could not get target");
             assert_eq!(target_ref.get_ref_count(), 2); // one for me one for global
 
             q_ctx
-                .eval(EsScript::new(
+                .eval(Script::new(
                     "r.es",
                     "target.addEventListener('someEvent', (evt) => {console.log('got event');});",
                 ))

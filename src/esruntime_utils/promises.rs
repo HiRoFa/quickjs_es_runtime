@@ -21,7 +21,7 @@ thread_local! {
 /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::{functions, objects, primitives};
 /// use quickjs_runtime::quickjs_utils;
-/// use quickjs_runtime::esscript::EsScript;
+/// use hirofa_utils::js_utils::Script;
 /// use std::time::Duration;
 /// use quickjs_runtime::esruntime_utils::promises;
 /// use quickjs_runtime::quickjsruntime::QuickJsRuntime;
@@ -47,7 +47,7 @@ thread_local! {
 ///             .expect("could not set prop");;
 ///            
 /// });
-/// rt.eval_sync(EsScript::new("test_async.es", "console.log('async test');\n
+/// rt.eval_sync(Script::new("test_async.es", "console.log('async test');\n
 /// let p = this.asyncTest(123); \n
 /// console.log('p instanceof Promise = ' + p instanceof Promise);\n
 /// p.then((res) => {\n
@@ -143,9 +143,9 @@ pub mod tests {
     use crate::esruntime::EsRuntime;
     use crate::esruntime_utils::promises;
     use crate::esruntime_utils::promises::RESOLVING_PROMISES;
-    use crate::esscript::EsScript;
     use crate::quickjs_utils;
     use crate::quickjs_utils::{functions, objects, primitives};
+    use hirofa_utils::js_utils::Script;
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -192,7 +192,7 @@ pub mod tests {
         log::trace!("running gc after resolving promise init");
         //rt.gc_sync();
 
-        rt.eval_sync(EsScript::new(
+        rt.eval_sync(Script::new(
             "test_async.es",
             "console.log('async test');\n
          let p = this.asyncTest(123); \n
@@ -221,7 +221,7 @@ pub mod tests {
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
 
             let q_ctx = q_js_rt.get_main_context();
-             q_ctx.eval(EsScript::new(
+             q_ctx.eval(Script::new(
                 "test_simple_prom.es",
                 "this.test = function(){return new Promise((resolve, reject) => {resolve('abc');}).then((a) => {return(a.toUpperCase());})}",
             )).ok().expect("p1");

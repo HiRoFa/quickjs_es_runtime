@@ -1,12 +1,12 @@
 //! utils to create and invoke functions
 
 use crate::eserror::EsError;
-use crate::esscript::EsScript;
 use crate::quickjs_utils::{atoms, errors, objects, parse_args, primitives};
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::valueref::JSValueRef;
 use hirofa_utils::auto_id_map::AutoIdMap;
+use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
 use log::trace;
 use std::cell::RefCell;
@@ -59,7 +59,7 @@ pub unsafe fn parse_function(
 
     let file_name = format!("compile_func_{}.es", name);
 
-    let ret = QuickJsContext::eval_ctx(context, EsScript::new(&file_name, &src))?;
+    let ret = QuickJsContext::eval_ctx(context, Script::new(&file_name, &src))?;
 
     debug_assert!(is_function(context, &ret));
 
@@ -511,7 +511,7 @@ thread_local! {
 /// use quickjs_runtime::quickjs_utils::primitives::from_i32;
 /// use quickjs_runtime::quickjs_utils::get_global_q;
 /// use quickjs_runtime::quickjs_utils::objects::set_property_q;
-/// use quickjs_runtime::esscript::EsScript;
+/// use hirofa_utils::js_utils::Script;
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
@@ -521,7 +521,7 @@ thread_local! {
 ///     let global = get_global_q(q_ctx);
 ///     set_property_q(q_ctx, &global, "myFunc7654", &func_obj);
 /// });
-/// rt.eval_sync(EsScript::new("new_function_q.es", "let a = myFunc7654(); if (a !== 1253) {throw Error('a was not 1253')}")).ok().expect("script failed");
+/// rt.eval_sync(Script::new("new_function_q.es", "let a = myFunc7654(); if (a !== 1253) {throw Error('a was not 1253')}")).ok().expect("script failed");
 /// ```
 pub fn new_function_q<F>(
     q_ctx: &QuickJsContext,
@@ -618,11 +618,11 @@ where
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::tests::init_test_rt;
-    use crate::esscript::EsScript;
     use crate::quickjs_utils::functions::{
         call_function_q, call_to_string_q, invoke_member_function_q, new_function_q,
     };
     use crate::quickjs_utils::{functions, objects, primitives};
+    use hirofa_utils::js_utils::Script;
     use std::time::Duration;
 
     #[test]
@@ -631,7 +631,7 @@ pub mod tests {
         let _io = rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let obj_ref = q_ctx
-                .eval(EsScript::new(
+                .eval(Script::new(
                     "test_to_invoke.es",
                     "({func: function(a, b) {return a*b}});",
                 ))
@@ -662,7 +662,7 @@ pub mod tests {
         let io = rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let func_ref = q_ctx
-                .eval(EsScript::new(
+                .eval(Script::new(
                     "test_ret_refcount.es",
                     "this.test = {q: {}}; let global = this; (function(a, b){global.test.a = a; return {a: 1};});",
                 ))
@@ -685,21 +685,21 @@ pub mod tests {
             assert_eq!(2, a.get_ref_count());
             assert_eq!(1, b.get_ref_count());
 
-            let q_ref = q_ctx.eval(EsScript::new("test_ret_refcount2.es", "test.q;")).ok().expect("get q failed");
+            let q_ref = q_ctx.eval(Script::new("test_ret_refcount2.es", "test.q;")).ok().expect("get q failed");
             assert_eq!(2, q_ref.get_ref_count());
             let _ = call_function_q(q_ctx, &func_ref, vec![primitives::from_i32(123), q_ref], None)
                 .ok()
                 .expect("b");
-            let q_ref = q_ctx.eval(EsScript::new("test_ret_refcount2.es", "test.q;")).ok().expect("get q failed");
+            let q_ref = q_ctx.eval(Script::new("test_ret_refcount2.es", "test.q;")).ok().expect("get q failed");
             assert_eq!(2, q_ref.get_ref_count());
             let _ = call_function_q(q_ctx, &func_ref, vec![q_ref, primitives::from_i32(123)], None)
                 .ok()
                 .expect("b");
-            let q_ref = q_ctx.eval(EsScript::new("test_ret_refcount2.es", "test.q;")).ok().expect("get q failed");
+            let q_ref = q_ctx.eval(Script::new("test_ret_refcount2.es", "test.q;")).ok().expect("get q failed");
             assert_eq!(3, q_ref.get_ref_count());
 
             // cleanup
-            q_ctx.eval(EsScript::new("cleanup.es", "this.test = null;")).ok().unwrap();
+            q_ctx.eval(Script::new("cleanup.es", "this.test = null;")).ok().unwrap();
 
             true
         });
@@ -736,7 +736,7 @@ pub mod tests {
         let io = rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let func_ref = q_ctx
-                .eval(EsScript::new(
+                .eval(Script::new(
                     "test_call.es",
                     "(function(a, b){return ((a || 7)*(b || 7));});",
                 ))
@@ -769,7 +769,7 @@ pub mod tests {
     fn test_callback() {
         let rt = init_test_rt();
 
-        rt.eval_sync(EsScript::new("test_callback1.es", "let test_callback_563 = function(cb){console.log('before invoke cb');let result = cb(1, true, 'foobar');console.log('after invoke cb. got:' + result);};")).ok().expect("script failed");
+        rt.eval_sync(Script::new("test_callback1.es", "let test_callback_563 = function(cb){console.log('before invoke cb');let result = cb(1, true, 'foobar');console.log('after invoke cb. got:' + result);};")).ok().expect("script failed");
 
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
@@ -790,7 +790,7 @@ pub mod tests {
             cb_ref.label("cb_ref at test_callback");
 
             let func_ref = q_ctx
-                .eval(EsScript::new("", "(test_callback_563);"))
+                .eval(Script::new("", "(test_callback_563);"))
                 .ok()
                 .expect("could not get function");
 
@@ -817,7 +817,7 @@ pub mod tests {
 
                 let q_ctx = q_js_rt.get_main_context();
 
-            let func_ref = q_ctx.eval(EsScript::new(
+            let func_ref = q_ctx.eval(Script::new(
                 "test_callback845.es",
                 "let test_callback_845 = function(cb){let obj = {}; cb(obj);cb(obj);cb(obj);}; test_callback_845;",
             ))

@@ -106,8 +106,8 @@ pub mod tests {
     use crate::esruntime::tests::init_test_rt;
     use crate::esruntime::EsRuntime;
     use crate::esruntimebuilder::EsRuntimeBuilder;
-    use crate::esscript::EsScript;
     use crate::features::fetch::FetchResponse;
+    use hirofa_utils::js_utils::Script;
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -145,7 +145,7 @@ pub mod tests {
                 Box::new(res)
             })
             .build();
-        let res = rt.eval_sync(EsScript::new(
+        let res = rt.eval_sync(Script::new(
             "test_fetch.es",
             "{let res = fetch('https://httpbin.org/get'); console.log('fetch res was: ' + res); res.then((fetch_resp) => {console.log('fetch response .ok = ' + fetch_resp.ok); fetch_resp.text().then((txt) => {console.log('fetch_resp.text() resolved into ' + txt);});}); res = null;}",
         ));
@@ -157,7 +157,7 @@ pub mod tests {
                 panic!("script failed: {}", e);
             }
         }
-        let res2 = rt.eval_sync(EsScript::new(
+        let res2 = rt.eval_sync(Script::new(
             "test_fetch2.es",
             "{let res2 = fetch('https://httpbin.org/get'); console.log('fetch res2 was: ' + res2); res2.then((fetch_resp) => {console.log('fetch response .ok = ' + fetch_resp.ok); fetch_resp.json().then((js_obj) => {console.log('fetch_resp.json() resolved into ' + js_obj);}).catch((ex) => {console.log('fetch_resp.caught ' + ex);});;}); res2 = null;}",
         ));
@@ -172,7 +172,7 @@ pub mod tests {
         std::thread::sleep(Duration::from_secs(2));
         rt.gc_sync();
         std::thread::sleep(Duration::from_secs(2));
-        rt.eval_sync(EsScript::new("test_fetch2.es", "1+1;"))
+        rt.eval_sync(Script::new("test_fetch2.es", "1+1;"))
             .ok()
             .expect("foo");
 

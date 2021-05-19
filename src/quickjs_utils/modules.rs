@@ -1,13 +1,13 @@
 //! utils for working with ES6 Modules
 
 use crate::eserror::EsError;
-use crate::esscript::EsScript;
 use crate::quickjs_utils::atoms;
 use crate::quickjs_utils::atoms::JSAtomRef;
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::JSValueRef;
 use core::ptr;
+use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
 use std::ffi::{CStr, CString};
 
@@ -16,7 +16,7 @@ use std::ffi::{CStr, CString};
 /// please ensure the corresponding QuickJSContext is still valid
 pub unsafe fn compile_module(
     context: *mut q::JSContext,
-    script: EsScript,
+    script: Script,
 ) -> Result<JSValueRef, EsError> {
     let code = script.get_code();
     let code_c = CString::new(code).ok().unwrap();
@@ -229,14 +229,14 @@ unsafe extern "C" fn js_module_loader(
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::tests::init_test_rt;
-    use crate::esscript::EsScript;
     use crate::quickjs_utils::modules::detect_module;
+    use hirofa_utils::js_utils::Script;
     use std::time::Duration;
 
     #[test]
     fn test_native_modules() {
         let rt = init_test_rt();
-        let mres = rt.eval_module_sync(EsScript::new(
+        let mres = rt.eval_module_sync(Script::new(
             "test.mes",
             "import {a, b, c} from 'greco://testmodule1';\nconsole.log('testmodule1.a = %s, testmodule1.b = %s, testmodule1.c = %s', a, b, c);",
         ));
@@ -245,7 +245,7 @@ pub mod tests {
             Err(e) => panic!("test_native_modules failed: {}", e),
         }
 
-        let res_prom = rt.eval_sync(EsScript::new("test_mod_nat_async.es", "(import('greco://someMod').then((module) => {return {a: module.a, b: module.b, c: module.c};}));")).ok().unwrap();
+        let res_prom = rt.eval_sync(Script::new("test_mod_nat_async.es", "(import('greco://someMod').then((module) => {return {a: module.a, b: module.b, c: module.c};}));")).ok().unwrap();
         let res = res_prom.get_promise_result_sync();
         let obj = res.ok().expect("prom failed");
         assert!(obj.is_object());
@@ -271,7 +271,7 @@ pub mod tests {
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
-            let res = q_ctx.eval_module(EsScript::new(
+            let res = q_ctx.eval_module(Script::new(
                 "test1.mes",
                 "export const name = 'foobar';\nconsole.log('evalling module');",
             ));
@@ -284,7 +284,7 @@ pub mod tests {
 
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
-            let res = q_ctx.eval_module(EsScript::new(
+            let res = q_ctx.eval_module(Script::new(
                 "test2.mes",
                 "import {name} from 'test1.mes';\n\nconsole.log('imported name: ' + name);",
             ));
@@ -298,7 +298,7 @@ pub mod tests {
 
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
-            let res = q_ctx.eval_module(EsScript::new(
+            let res = q_ctx.eval_module(Script::new(
                 "test3.mes",
                 "import {name} from 'notfound.mes';\n\nconsole.log('imported name: ' + name);",
             ));
@@ -313,7 +313,7 @@ pub mod tests {
 
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
-            let res = q_ctx.eval_module(EsScript::new(
+            let res = q_ctx.eval_module(Script::new(
                 "test4.mes",
                 "import {name} from 'invalid.mes';\n\nconsole.log('imported name: ' + name);",
             ));
@@ -328,7 +328,7 @@ pub mod tests {
 
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
-            let res = q_ctx.eval_module(EsScript::new(
+            let res = q_ctx.eval_module(Script::new(
                 "test2.mes",
                 "import {name} from 'test1.mes';\n\nconsole.log('imported name: ' + name);",
             ));

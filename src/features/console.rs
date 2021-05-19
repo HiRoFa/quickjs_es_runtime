@@ -26,13 +26,13 @@
 //! # Example
 //! ```rust
 //! use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-//! use quickjs_runtime::esscript::EsScript;
+//! use hirofa_utils::js_utils::Script;
 //! use log::LevelFilter;
 //! simple_logging::log_to_file("console_test.log", LevelFilter::max())
 //!             .ok()
 //!             .expect("could not init logger");
 //! let rt = EsRuntimeBuilder::new().build();
-//! rt.eval_sync(EsScript::new(
+//! rt.eval_sync(Script::new(
 //! "console.es",
 //! "console.log('the %s %s %s jumped over %i fences with a accuracy of %.2f', 'quick', 'brown', 'fox', 32, 0.512);"
 //! ));
@@ -285,14 +285,14 @@ unsafe extern "C" fn console_error(
 pub mod tests {
     use crate::esruntime::tests::init_test_rt;
     use crate::esruntime::EsRuntime;
-    use crate::esscript::EsScript;
+    use hirofa_utils::js_utils::Script;
     use std::sync::Arc;
 
     #[test]
     pub fn test_console() {
         log::info!("> test_console");
         let rt: Arc<EsRuntime> = init_test_rt();
-        rt.eval_sync(EsScript::new(
+        rt.eval_sync(Script::new(
             "test_console.es",
             "console.log('one %s %s', 'two', 3)",
         ))

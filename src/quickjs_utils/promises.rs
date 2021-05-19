@@ -223,11 +223,11 @@ unsafe extern "C" fn promise_rejection_tracker(
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::tests::init_test_rt;
-    use crate::esscript::EsScript;
     use crate::esvalue::EsValueFacade;
     use crate::quickjs_utils::promises::{add_promise_reactions_q, is_promise_q, new_promise_q};
     use crate::quickjs_utils::{functions, new_null_ref, primitives};
     use crate::quickjsruntime::QuickJsRuntime;
+    use hirofa_utils::js_utils::Script;
     use std::time::Duration;
 
     #[test]
@@ -237,7 +237,7 @@ pub mod tests {
         let rt = init_test_rt();
         let io = rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
-            let res = q_ctx.eval(EsScript::new(
+            let res = q_ctx.eval(Script::new(
                 "test_instance_of_prom.es",
                 "(new Promise((res, rej) => {}));",
             ));
@@ -271,7 +271,7 @@ pub mod tests {
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let func_ref = q_ctx
-                .eval(EsScript::new(
+                .eval(Script::new(
                     "new_prom.es",
                     "(function(p){p.then((res) => {console.log('prom resolved to ' + res);});});",
                 ))
@@ -309,7 +309,7 @@ pub mod tests {
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let func_ref = q_ctx
-                .eval(EsScript::new(
+                .eval(Script::new(
                     "new_prom.es",
                     "(function(p){p.catch((res) => {console.log('prom rejected to ' + res);});});",
                 ))
@@ -347,7 +347,7 @@ pub mod tests {
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let prom_ref = q_ctx
-                .eval(EsScript::new(
+                .eval(Script::new(
                     "test_promise_reactions.es",
                     "(new Promise(function(resolve, reject) {resolve(364);}));",
                 ))
@@ -401,7 +401,7 @@ pub mod tests {
 
                 let script = "(new Promise((resolve, reject) => {resolve({a: 7});}).then((obj) => {return {b: obj.a * 5}}));";
                 let esvf_res = q_ctx
-                    .eval(EsScript::new("test_promise_nested.es", script))
+                    .eval(Script::new("test_promise_nested.es", script))
                     .ok()
                     .expect("script failed");
 

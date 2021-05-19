@@ -7,13 +7,13 @@ use libquickjs_sys as q;
 /// # Example
 /// ```rust
 /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_runtime::esscript::EsScript;
+/// use hirofa_utils::js_utils::Script;
 /// use quickjs_runtime::quickjs_utils::arrays;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
-///     let obj_ref = q_ctx.eval(EsScript::new("is_array_test.es", "([1, 2, 3]);")).ok().expect("script failed");
+///     let obj_ref = q_ctx.eval(Script::new("is_array_test.es", "([1, 2, 3]);")).ok().expect("script failed");
 ///     let is_array = arrays::is_array_q(q_ctx, &obj_ref);
 ///     assert!(is_array);
 /// });
@@ -34,13 +34,13 @@ pub unsafe fn is_array(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool
 /// # Example
 /// ```rust
 /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_runtime::esscript::EsScript;
+/// use hirofa_utils::js_utils::Script;
 /// use quickjs_runtime::quickjs_utils::arrays;
 ///
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
-///     let obj_ref = q_ctx.eval(EsScript::new("get_length_test.es", "([1, 2, 3]);")).ok().expect("script failed");
+///     let obj_ref = q_ctx.eval(Script::new("get_length_test.es", "([1, 2, 3]);")).ok().expect("script failed");
 ///     let len = arrays::get_length_q(q_ctx, &obj_ref).ok().expect("could not get length");
 ///     assert_eq!(len, 3);
 /// });
@@ -64,7 +64,7 @@ pub unsafe fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Re
 /// # Example
 /// ```rust
 /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_runtime::esscript::EsScript;
+/// use hirofa_utils::js_utils::Script;
 /// use quickjs_runtime::quickjs_utils::{arrays, primitives, functions};
 /// use quickjs_runtime::quickjs_utils;
 ///
@@ -72,7 +72,7 @@ pub unsafe fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Re
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     // create a method to pass our new array to
-///     q_ctx.eval(EsScript::new("create_array_test.es", "this.create_array_func = function(arr){return arr.length;};")).ok().expect("script failed");
+///     q_ctx.eval(Script::new("create_array_test.es", "this.create_array_func = function(arr){return arr.length;};")).ok().expect("script failed");
 ///     // create a new array
 ///     let arr_ref = arrays::create_array_q(q_ctx).ok().expect("could not create array");
 ///     // add some values
@@ -106,7 +106,7 @@ pub unsafe fn create_array(context: *mut q::JSContext) -> Result<JSValueRef, EsE
 /// # Example
 /// ```rust
 /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_runtime::esscript::EsScript;
+/// use hirofa_utils::js_utils::Script;
 /// use quickjs_runtime::quickjs_utils::{arrays, primitives};
 /// use quickjs_runtime::quickjs_utils;
 ///
@@ -114,7 +114,7 @@ pub unsafe fn create_array(context: *mut q::JSContext) -> Result<JSValueRef, EsE
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     // get an Array from script
-///     let arr_ref = q_ctx.eval(EsScript::new("set_element_test.es", "([1, 2, 3]);")).ok().expect("script failed");
+///     let arr_ref = q_ctx.eval(Script::new("set_element_test.es", "([1, 2, 3]);")).ok().expect("script failed");
 ///     // add some values
 ///     arrays::set_element_q(q_ctx, &arr_ref, 3, primitives::from_i32(12));
 ///     arrays::set_element_q(q_ctx, &arr_ref, 4, primitives::from_i32(17));
@@ -159,7 +159,7 @@ pub unsafe fn set_element(
 /// # Example
 /// ```rust
 /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_runtime::esscript::EsScript;
+/// use hirofa_utils::js_utils::Script;
 /// use quickjs_runtime::quickjs_utils::{arrays, primitives};
 /// use quickjs_runtime::quickjs_utils;
 ///
@@ -167,7 +167,7 @@ pub unsafe fn set_element(
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     // get an Array from script
-///     let arr_ref = q_ctx.eval(EsScript::new("get_element_test.es", "([1, 2, 3]);")).ok().expect("script failed");
+///     let arr_ref = q_ctx.eval(Script::new("get_element_test.es", "([1, 2, 3]);")).ok().expect("script failed");
 ///     // get a value, the 3 in this case
 ///     let val_ref = arrays::get_element_q(q_ctx, &arr_ref, 2).ok().unwrap();
 ///     let val_i32 = primitives::to_i32(&val_ref).ok().unwrap();

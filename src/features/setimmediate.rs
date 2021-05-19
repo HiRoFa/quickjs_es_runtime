@@ -9,10 +9,10 @@ use libquickjs_sys as q;
 /// # Example
 /// ```rust
 /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// use quickjs_runtime::esscript::EsScript;
+/// use hirofa_utils::js_utils::Script;
 /// use std::time::Duration;
 /// let rt = EsRuntimeBuilder::new().build();
-/// rt.eval(EsScript::new("test_immediate.es", "setImmediate(() => {console.log('immediate logging')});"));
+/// rt.eval(Script::new("test_immediate.es", "setImmediate(() => {console.log('immediate logging')});"));
 /// std::thread::sleep(Duration::from_secs(1));
 /// ```
 

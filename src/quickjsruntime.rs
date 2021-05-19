@@ -1,8 +1,7 @@
 // store in thread_local
 
 use crate::eserror::EsError;
-use crate::esruntime::{EsRuntime, ScriptPreProcessor};
-use crate::esscript::EsScript;
+use crate::esruntime::EsRuntime;
 use crate::quickjs_utils::modules::{
     add_module_export, compile_module, get_module_def, get_module_name, new_module,
     set_module_export,
@@ -10,6 +9,8 @@ use crate::quickjs_utils::modules::{
 use crate::quickjs_utils::{gc, interrupthandler, modules, promises};
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
+use hirofa_utils::js_utils::Script;
+use hirofa_utils::js_utils::ScriptPreProcessor;
 use libquickjs_sys as q;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -75,7 +76,7 @@ impl ModuleLoader for ScriptModuleLoaderAdapter {
     ) -> Result<*mut q::JSModuleDef, EsError> {
         let code = self.inner.load_module(absolute_path);
 
-        let mut script = EsScript::new(absolute_path, code.as_str());
+        let mut script = Script::new(absolute_path, code.as_str());
         script = QuickJsRuntime::pre_process(script)?;
 
         let compiled_module = unsafe { compile_module(q_ctx.context, script)? };
@@ -238,10 +239,10 @@ impl QuickJsRuntime {
         })
     }
 
-    pub(crate) fn pre_process(mut script: EsScript) -> Result<EsScript, EsError> {
+    pub(crate) fn pre_process(mut script: Script) -> Result<Script, EsError> {
         Self::do_with(|q_js_rt| {
             for pp in &q_js_rt.script_pre_processors {
-                script = pp.process(script)?;
+                pp.process(&mut script)?;
             }
             Ok(script)
         })
@@ -262,7 +263,7 @@ impl QuickJsRuntime {
     // todo, this needs to be static, create a context, then borrowmut and add it (do not borrow mut while instantiating context)
     // so actually needs to be called in a plain job to inner.TaskManager and not by add_to_esEventquueue
     // EsRuntime should have a util to do that
-    // EsRuntime should have extra methods like eval_sync_ctx(ctx: &str, script: &EsScript) etc
+    // EsRuntime should have extra methods like eval_sync_ctx(ctx: &str, script: &Script) etc
     pub fn create_context(id: &str) -> Result<(), EsError> {
         let ctx = Self::do_with(|q_js_rt| {
             assert!(!q_js_rt.has_context(id));
@@ -486,12 +487,12 @@ impl QuickJsRuntime {
     }
 
     /// this method tries to load a module script using the runtimes script_module loaders
-    pub fn load_module_script_opt(&self, ref_path: &str, path: &str) -> Option<EsScript> {
+    pub fn load_module_script_opt(&self, ref_path: &str, path: &str) -> Option<Script> {
         for loader in &self.script_module_loaders {
             let i = &loader.inner;
             if let Some(normalized) = i.normalize_path(ref_path, path) {
                 let code = i.load_module(normalized.as_str());
-                return Some(EsScript::new(normalized.as_str(), code.as_str()));
+                return Some(Script::new(normalized.as_str(), code.as_str()));
             }
         }
 

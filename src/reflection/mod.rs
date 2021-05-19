@@ -139,7 +139,7 @@ fn next_id(q_ctx: &QuickJsContext) -> usize {
 /// use std::cell::RefCell;
 /// use std::collections::HashMap;
 /// use quickjs_runtime::quickjs_utils::primitives;
-/// use quickjs_runtime::esscript::EsScript;
+/// use hirofa_utils::js_utils::Script;
 /// use quickjs_runtime::esvalue::EsValueFacade;
 /// use quickjs_runtime::eserror::EsError;
 ///
@@ -199,7 +199,7 @@ fn next_id(q_ctx: &QuickJsContext) -> usize {
 ///    .install(q_ctx, true);      
 /// });
 ///
-/// match rt.eval_sync(EsScript::new("test_proxy.es",
+/// match rt.eval_sync(Script::new("test_proxy.es",
 ///     "{let inst = new com.hirofa.FunkyClass('FooBar'); let name = inst.getName(); inst = null; name;}"
 /// )) {
 ///     Ok(name_esvf) => {
@@ -1077,9 +1077,9 @@ unsafe extern "C" fn proxy_instance_set_prop(
 pub mod tests {
     use crate::eserror::EsError;
     use crate::esruntime::tests::init_test_rt;
-    use crate::esscript::EsScript;
     use crate::quickjs_utils::{functions, primitives};
     use crate::reflection::Proxy;
+    use hirofa_utils::js_utils::Script;
     use log::trace;
     use std::cell::RefCell;
     use std::collections::HashMap;
@@ -1102,7 +1102,7 @@ pub mod tests {
                 .name("Test")
                 .install(q_ctx, true);
             q_ctx
-                .eval(EsScript::new("test.es", "let t = new Test();"))
+                .eval(Script::new("test.es", "let t = new Test();"))
                 .ok()
                 .expect("script failed");
         });
@@ -1122,7 +1122,7 @@ pub mod tests {
                 .name("Test")
                 .install(q_ctx, true);
             let res = q_ctx
-                .eval(EsScript::new(
+                .eval(Script::new(
                     "test_tostring.es",
                     "com.company.Test + '-' + new com.company.Test()",
                 ))
@@ -1194,7 +1194,7 @@ pub mod tests {
             }
         });
 
-        let i2_res = rt.eval_sync(EsScript::new(
+        let i2_res = rt.eval_sync(Script::new(
             "test_proxy.es",
             "let tc2 = new TestClass1(1, true, 'abc'); let r2 = tc2.doIt(1, true, 'abc'); console.log('< setting tc2 to null'); tc2 = null; console.log('> setting tc2 to null'); r2;"
             ,
@@ -1211,7 +1211,7 @@ pub mod tests {
             }
         }
 
-        let i = rt.eval_sync(EsScript::new(
+        let i = rt.eval_sync(Script::new(
             "test_proxy2.es",
             "let tc1 = new TestClass1(1, true, 'abc'); let r = tc1.doIt(1, true, 'abc'); r = tc1.doIt(1, true, 'abc'); tc1 = null; r;"
         ))
@@ -1221,7 +1221,7 @@ pub mod tests {
         assert!(i.is_i32());
         assert_eq!(i.get_i32(), 531);
 
-        let i3_res = rt.eval_sync(EsScript::new("test_proxy.es", "TestClass1.sDoIt();"));
+        let i3_res = rt.eval_sync(Script::new("test_proxy.es", "TestClass1.sDoIt();"));
 
         if i3_res.is_err() {
             panic!("script failed: {}", i3_res.err().unwrap());
@@ -1232,7 +1232,7 @@ pub mod tests {
         assert_eq!(i3.get_i32(), 9876);
 
         let i4 = rt
-            .eval_sync(EsScript::new(
+            .eval_sync(Script::new(
                 "test_proxy.es",
                 "TestClass1.someThing = 1; TestClass1.someThing;",
             ))
@@ -1243,7 +1243,7 @@ pub mod tests {
         assert_eq!(i4.get_i32(), 754);
 
         let i5 = rt
-            .eval_sync(EsScript::new(
+            .eval_sync(Script::new(
                 "test_proxy.es",
                 "let tc5 = new TestClass1(); let r5 = tc5.gVar; tc5 = null; r5;",
             ))
@@ -1253,7 +1253,7 @@ pub mod tests {
         assert!(i5.is_i32());
         assert_eq!(i5.get_i32(), 147);
 
-        let i6_res = rt.eval_sync(EsScript::new(
+        let i6_res = rt.eval_sync(Script::new(
             "test_proxy.es",
             "let tc6 = new TestClass1(); let r6 = tc6.doIt2(); tc6 = null; r6;",
         ));

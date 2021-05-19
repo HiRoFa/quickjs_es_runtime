@@ -66,7 +66,6 @@ pub mod eserror;
 pub mod esruntime;
 pub mod esruntime_utils;
 pub mod esruntimebuilder;
-pub mod esscript;
 pub mod esvalue;
 pub mod features;
 pub mod quickjs_utils;

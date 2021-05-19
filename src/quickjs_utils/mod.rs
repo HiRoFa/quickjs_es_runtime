@@ -124,9 +124,9 @@ pub unsafe fn parse_args(
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::tests::init_test_rt;
-    use crate::esscript::EsScript;
     use crate::esvalue::EsValueConvertible;
     use crate::quickjs_utils::{get_global_q, get_script_or_module_name_q};
+    use hirofa_utils::js_utils::Script;
 
     #[test]
     fn test_global() {
@@ -152,7 +152,7 @@ pub mod tests {
         .ok()
         .expect("func set failed");
         let name_esvf = rt
-            .eval_sync(EsScript::new(
+            .eval_sync(Script::new(
                 "the_name.es",
                 "(function(){return(testName());}())",
             ))
@@ -160,7 +160,7 @@ pub mod tests {
             .expect("script failed");
         assert_eq!(name_esvf.get_str(), "the_name.es");
         let name_esvf = rt
-            .eval_sync(EsScript::new(
+            .eval_sync(Script::new(
                 "https://githubstuff.org/tes.js",
                 "(testName())",
             ))

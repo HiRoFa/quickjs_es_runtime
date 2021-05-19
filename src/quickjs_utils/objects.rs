@@ -235,7 +235,7 @@ pub unsafe fn set_property2(
 /// use quickjs_runtime::quickjs_utils::functions::new_function_q;
 /// use quickjs_runtime::quickjs_utils::primitives::from_i32;
 /// use quickjs_runtime::quickjs_utils::{new_null_ref, get_global_q};
-/// use quickjs_runtime::esscript::EsScript;
+/// use hirofa_utils::js_utils::Script;
 /// use quickjs_runtime::eserror::EsError;
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
@@ -253,7 +253,7 @@ pub unsafe fn set_property2(
 ///     let global = get_global_q(q_ctx);
 ///     set_property_q(q_ctx, &global, "testObj431", &obj).ok().expect("set prop on global failed");
 /// });
-/// rt.eval_sync(EsScript::new("define_getter_setter_q.es", "testObj431.someProperty = 'hello prop';")).ok().expect("script failed");
+/// rt.eval_sync(Script::new("define_getter_setter_q.es", "testObj431.someProperty = 'hello prop';")).ok().expect("script failed");
 /// ```
 pub fn define_getter_setter_q(
     q_ctx: &QuickJsContext,
@@ -554,12 +554,12 @@ pub unsafe fn is_instance_of_by_name(
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::tests::init_test_rt;
-    use crate::esscript::EsScript;
     use crate::quickjs_utils::objects::{
         create_object_q, get_property_names_q, get_property_q, set_property_q,
     };
     use crate::quickjs_utils::primitives::{from_i32, to_i32};
     use crate::quickjs_utils::{get_global_q, primitives};
+    use hirofa_utils::js_utils::Script;
 
     #[test]
     fn test_get_refs() {
@@ -636,7 +636,7 @@ pub mod tests {
             let q_ctx = q_js_rt.get_main_context();
 
             let obj_ref = q_ctx
-                .eval(EsScript::new("test_propnames.es", "({one: 1, two: 2});"))
+                .eval(Script::new("test_propnames.es", "({one: 1, two: 2});"))
                 .ok()
                 .expect("could not get test obj");
             let prop_names = get_property_names_q(q_ctx, &obj_ref)
@@ -686,13 +686,13 @@ pub mod tests {
             q_js_rt.gc();
 
             let a = q_ctx
-                .eval(EsScript::new("test_set_prop.es", "(test_obj);"))
+                .eval(Script::new("test_set_prop.es", "(test_obj);"))
                 .ok()
                 .unwrap()
                 .is_object();
             assert!(a);
             let b = q_ctx
-                .eval(EsScript::new("test_set_prop.es", "(test_obj.test_prop);"))
+                .eval(Script::new("test_set_prop.es", "(test_obj.test_prop);"))
                 .ok()
                 .unwrap()
                 .is_i32();

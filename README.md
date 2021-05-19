@@ -90,14 +90,14 @@ main.rs
 
 ```rust
 use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-use quickjs_runtime::esscript::EsScript;
+use hirofa_utils::js_utils::Script
 use log::LevelFilter;
 use futures::executor::block_on;
 use std::sync::Arc;
 use quickjs_runtime::esruntime::EsRuntime;
 
 async fn test(rt: Arc<EsRuntime>){
-    let res = rt.eval(EsScript::new(
+    let res = rt.eval(Script::new(
         "basics.es",
         "7 * 12;",
     )).await.ok().unwrap();
@@ -144,7 +144,7 @@ fn main() {
     .ok()
     .expect("set_function failed");
 
-    let method_a_res = rt.eval(EsScript::new(
+    let method_a_res = rt.eval(Script::new(
         "test_func.es",
         "(nl.my.utils.methodA(13, 56));",
     )).await;
@@ -162,7 +162,7 @@ fn main() {
 ## eval a module
 
 ```rust
-    rt.eval_module(EsScript::new(
+    rt.eval_module(Script::new(
         "my_app.mes",
         "\
     import {foo} from 'example.mes';\
@@ -177,7 +177,7 @@ fn main() {
 
 ```rust
     
-    rt.eval_module(EsScript::new(
+    rt.eval_module(Script::new(
         "my_app2.es",
         "\
     import('example.mes')\
@@ -215,7 +215,7 @@ fn main() {
     .ok()
     .expect("set_function failed");
 
-    rt.eval(EsScript::new(
+    rt.eval(Script::new(
         "test_func2.es",
         "(nl.my.utils.methodB(function(a, b){console.log('consumer was called with ' +a + ', ' + b);}));",
     )).await.ok().expect("test_func2.es failed");
