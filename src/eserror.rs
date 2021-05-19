@@ -48,6 +48,16 @@ impl From<JsError> for EsError {
     }
 }
 
+impl From<EsError> for JsError {
+    fn from(es_error: EsError) -> Self {
+        JsError::new(
+            es_error.get_name().to_string(),
+            es_error.get_message().to_string(),
+            es_error.get_stack().to_string(),
+        )
+    }
+}
+
 impl std::fmt::Display for EsError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         let e = format!("{}: {} at{}", self.name, self.message, self.stack);
