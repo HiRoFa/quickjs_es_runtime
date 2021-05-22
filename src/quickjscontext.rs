@@ -313,8 +313,23 @@ impl Drop for QuickJsContext {
 pub mod tests {
     use crate::esruntimebuilder::EsRuntimeBuilder;
     use crate::quickjs_utils;
+    use crate::quickjs_utils::primitives::to_i32;
     use crate::quickjs_utils::{functions, get_global_q, objects};
     use hirofa_utils::js_utils::Script;
+
+    #[test]
+    fn test_eval() {
+        let rt = EsRuntimeBuilder::new().build();
+        rt.exe_rt_task_in_event_loop(|q_js_rt| {
+            let q_ctx = q_js_rt.get_main_context();
+            let res = q_ctx
+                .eval(Script::new("test_eval.es", "1 + 1;"))
+                .ok()
+                .expect("script failed");
+            assert!(res.is_i32());
+            assert_eq!(to_i32(&res).ok().expect("conversion failed"), 2);
+        });
+    }
 
     #[test]
     fn test_multi_ctx() {
