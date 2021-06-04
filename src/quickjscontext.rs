@@ -319,8 +319,8 @@ impl JsContextAdapter for QuickJsContext {
 
     fn js_install_function<
         F: Fn(
-            <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsContextAdapterType,
-            <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+            &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsContextAdapterType,
+            &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
             Vec<<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType>,
         ) -> Result<<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType, JsError>,
     >(&self, _namespace: Vec<&str>, _name: &str, _js_function: F, _arg_count: u32) -> Result<(), JsError>{
