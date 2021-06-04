@@ -1,3 +1,4 @@
+use crate::quickjs_utils::primitives::{from_bool, from_f64, from_i32, from_string_q};
 use crate::quickjs_utils::{errors, functions, objects};
 use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::reflection::{Proxy, ProxyInstanceInfo};
@@ -391,7 +392,7 @@ impl JsContextAdapter for QuickJsContext {
         objects::get_property_q(self, object, property_name)
     }
 
-    fn js_object_create_new(&self) -> Result<JSValueRef, JsError> {
+    fn js_object_create(&self) -> Result<JSValueRef, JsError> {
         todo!()
     }
 
@@ -426,8 +427,28 @@ impl JsContextAdapter for QuickJsContext {
         todo!()
     }
 
-    fn js_array_create_new(&self) -> Result<JSValueRef, JsError> {
+    fn js_array_create(&self) -> Result<JSValueRef, JsError> {
         todo!()
+    }
+
+    fn js_null_create(&self) -> Result<JSValueRef, JsError> {
+        Ok(crate::quickjs_utils::new_null_ref())
+    }
+
+    fn js_i32_create(&self, val: i32) -> Result<JSValueRef, JsError> {
+        Ok(from_i32(val))
+    }
+
+    fn js_string_create(&self, val: &str) -> Result<JSValueRef, JsError> {
+        from_string_q(self, val)
+    }
+
+    fn js_boolean_create(&self, val: bool) -> Result<JSValueRef, JsError> {
+        Ok(from_bool(val))
+    }
+
+    fn js_f64_create(&self, val: f64) -> Result<JSValueRef, JsError> {
+        Ok(from_f64(val))
     }
 }
 
