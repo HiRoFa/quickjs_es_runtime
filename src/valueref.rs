@@ -1,3 +1,6 @@
+use crate::quickjs_utils::{functions, primitives};
+use crate::quickjsruntime::QuickJsRuntime;
+use hirofa_utils::js_utils::adapters::JsValueAdapter;
 use libquickjs_sys as q;
 use std::hash::{Hash, Hasher};
 use std::ptr::null_mut;
@@ -255,3 +258,107 @@ pub(crate) const TAG_NULL: i64 = 2;
 pub(crate) const TAG_UNDEFINED: i64 = 3;
 pub(crate) const TAG_EXCEPTION: i64 = 6;
 pub(crate) const TAG_FLOAT64: i64 = 7;
+
+impl JsValueAdapter for JSValueRef {
+    type JsRuntimeAdapterType = QuickJsRuntime;
+
+    fn js_is_bool(&self) -> bool {
+        self.is_bool()
+    }
+
+    fn js_is_i32(&self) -> bool {
+        self.is_i32()
+    }
+
+    fn js_is_f64(&self) -> bool {
+        self.is_f64()
+    }
+
+    fn js_is_object(&self) -> bool {
+        self.is_object()
+    }
+
+    fn js_is_string(&self) -> bool {
+        self.is_string()
+    }
+
+    fn js_is_function(&self) -> bool {
+        self.is_object() && unsafe { functions::is_function(self.context, &self) }
+    }
+
+    fn js_is_bigint(&self) -> bool {
+        // todo
+        false
+    }
+
+    fn js_is_null(&self) -> bool {
+        self.is_null()
+    }
+
+    fn js_is_undefined(&self) -> bool {
+        self.is_undefined()
+    }
+
+    fn js_type_of(&self) -> &'static str {
+        match self.get_tag() {
+            TAG_BIG_INT => "bigint",
+            TAG_STRING => "string",
+            TAG_MODULE => "module",
+            TAG_FUNCTION_BYTECODE => "function",
+            TAG_OBJECT => {
+                if self.js_is_function() {
+                    "function"
+                } else {
+                    "object"
+                }
+            }
+            TAG_INT => "number",
+            TAG_BOOL => "boolean",
+            TAG_NULL => "object",
+            TAG_UNDEFINED => "undefined",
+            TAG_EXCEPTION => "object",
+            TAG_FLOAT64 => "number",
+            _ => "unknown",
+        }
+    }
+
+    fn js_to_bool(&self) -> bool {
+        if self.js_is_bool() {
+            primitives::to_bool(self)
+                .ok()
+                .expect("could not convert bool to bool")
+        } else {
+            panic!("not a boolean");
+        }
+    }
+
+    fn js_to_i32(&self) -> i32 {
+        if self.is_i32() {
+            primitives::to_i32(self)
+                .ok()
+                .expect("could not convert to i32")
+        } else {
+            panic!("not an i32");
+        }
+    }
+
+    fn js_to_f64(&self) -> f64 {
+        if self.is_f64() {
+            primitives::to_f64(self)
+                .ok()
+                .expect("could not convert to f64")
+        } else {
+            panic!("not a f64");
+        }
+    }
+
+    fn js_to_string(&self) -> String {
+        if self.is_string() {
+            unsafe { primitives::to_string(self.context, self) }
+                .ok()
+                .expect("could not convert to string")
+        } else {
+            panic!("not a string");
+        }
+    }
+}

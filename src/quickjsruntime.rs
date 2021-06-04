@@ -8,6 +8,7 @@ use crate::quickjs_utils::modules::{
 use crate::quickjs_utils::{gc, interrupthandler, modules, promises};
 use crate::quickjscontext::QuickJsContext;
 use crate::valueref::JSValueRef;
+use hirofa_utils::js_utils::adapters::JsRuntimeAdapter;
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use hirofa_utils::js_utils::ScriptPreProcessor;
@@ -511,6 +512,23 @@ impl Drop for QuickJsRuntime {
         log::trace!("before JS_FreeRuntime");
         unsafe { q::JS_FreeRuntime(self.runtime) };
         log::trace!("after JS_FreeRuntime");
+    }
+}
+
+impl JsRuntimeAdapter for QuickJsRuntime {
+    type JsValueAdapterType = JSValueRef;
+    type JsContextAdapterType = QuickJsContext;
+
+    fn js_create_context(&self, _id: &str) -> Result<Box<Self::JsContextAdapterType>, JsError> {
+        todo!()
+    }
+
+    fn js_get_context(&self, _id: &str) -> Option<Box<Self::JsContextAdapterType>> {
+        todo!()
+    }
+
+    fn js_get_main_context(&self) -> &Self::JsContextAdapterType {
+        self.get_main_context()
     }
 }
 

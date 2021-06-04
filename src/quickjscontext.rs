@@ -3,6 +3,7 @@ use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::reflection::{Proxy, ProxyInstanceInfo};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
+use hirofa_utils::js_utils::adapters::{JsContextAdapter, JsRuntimeAdapter};
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
@@ -309,8 +310,129 @@ impl Drop for QuickJsContext {
     }
 }
 
+impl JsContextAdapter for QuickJsContext {
+    type JsRuntimeAdapterType = QuickJsRuntime;
+
+    fn js_eval(&self, script: Script) -> Result<JSValueRef, JsError> {
+        self.eval(script)
+    }
+
+    fn js_install_function<
+        F: Fn(
+            <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+            Vec<<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType>,
+        ) -> Result<<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType, JsError>,
+    >(&self, _namespace: Vec<&str>, _name: &str, _js_function: F, _arg_count: u32) -> Result<(), JsError>{
+        todo!()
+    }
+
+    fn js_eval_module(&self, script: Script) -> Result<JSValueRef, JsError> {
+        self.eval_module(script)
+    }
+
+    fn js_get_namespace(&self, _namespace: &[&str]) -> Result<JSValueRef, JsError> {
+        todo!()
+    }
+
+    fn js_function_invoke(
+        &self,
+        namespace: &[&str],
+        method_name: &str,
+        args: &[&JSValueRef],
+    ) -> Result<JSValueRef, JsError> {
+        // todo see if we want to alter call_function
+        let ns_vec = namespace.to_vec();
+        let args_vec = args.to_vec().into_iter().cloned().collect();
+
+        self.call_function(ns_vec, method_name, args_vec)
+    }
+
+    fn js_function_invoke2(
+        &self,
+        _this_obj: &JSValueRef,
+        _method_name: &str,
+        _args: &[&JSValueRef],
+    ) -> Result<JSValueRef, JsError> {
+        todo!()
+    }
+
+    fn js_function_invoke3(
+        &self,
+        _this_obj: Option<&JSValueRef>,
+        _function_obj: &JSValueRef,
+        _args: &[&JSValueRef],
+    ) -> Result<JSValueRef, JsError> {
+        todo!()
+    }
+
+    fn js_object_delete_property(
+        &self,
+        _object: &JSValueRef,
+        _property_name: &str,
+    ) -> Result<(), JsError> {
+        todo!()
+    }
+
+    fn js_object_set_property(
+        &self,
+        object: &JSValueRef,
+        property_name: &str,
+        property: &JSValueRef,
+    ) -> Result<(), JsError> {
+        objects::set_property_q(self, object, property_name, property)
+    }
+
+    fn js_object_get_property(
+        &self,
+        object: &JSValueRef,
+        property_name: &str,
+    ) -> Result<JSValueRef, JsError> {
+        objects::get_property_q(self, object, property_name)
+    }
+
+    fn js_object_create_new(&self) -> Result<JSValueRef, JsError> {
+        todo!()
+    }
+
+    fn js_object_get_properties(&self, object: &JSValueRef) -> Result<Vec<String>, JsError> {
+        let props = objects::get_own_property_names_q(self, object)?;
+        let mut ret = vec![];
+        for x in 0..props.len() {
+            let prop = props.get_name(x)?;
+            ret.push(prop);
+        }
+        Ok(ret)
+    }
+
+    fn js_array_get_element(
+        &self,
+        _array: &JSValueRef,
+        _index: u32,
+    ) -> Result<JSValueRef, JsError> {
+        todo!()
+    }
+
+    fn js_array_set_element(
+        &self,
+        _array: &JSValueRef,
+        _index: u32,
+        _element: JSValueRef,
+    ) -> Result<(), JsError> {
+        todo!()
+    }
+
+    fn js_array_get_length(&self, _array: &JSValueRef) -> Result<u32, JsError> {
+        todo!()
+    }
+
+    fn js_array_create_new(&self) -> Result<JSValueRef, JsError> {
+        todo!()
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
+    use crate::esruntime::tests::init_test_rt;
     use crate::esruntimebuilder::EsRuntimeBuilder;
     use crate::quickjs_utils;
     use crate::quickjs_utils::primitives::to_i32;
@@ -319,15 +441,22 @@ pub mod tests {
 
     #[test]
     fn test_eval() {
-        let rt = EsRuntimeBuilder::new().build();
+        let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
-            let res = q_ctx
-                .eval(Script::new("test_eval.es", "1 + 1;"))
-                .ok()
-                .expect("script failed");
-            assert!(res.is_i32());
-            assert_eq!(to_i32(&res).ok().expect("conversion failed"), 2);
+            let res = q_ctx.eval(Script::new("test_eval.es", "(1 + 1);"));
+
+            match res {
+                Ok(res) => {
+                    log::info!("script ran ok: {:?}", res);
+                    assert!(res.is_i32());
+                    assert_eq!(to_i32(&res).ok().expect("conversion failed"), 2);
+                }
+                Err(e) => {
+                    log::error!("script failed: {}", e);
+                    panic!("script failed");
+                }
+            }
         });
     }
 
