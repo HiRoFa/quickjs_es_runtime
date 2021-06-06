@@ -1,10 +1,10 @@
 use crate::quickjs_utils::primitives::{from_bool, from_f64, from_i32, from_string_q};
-use crate::quickjs_utils::{errors, functions, objects};
+use crate::quickjs_utils::{arrays, errors, functions, new_null_ref, objects};
 use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::reflection::{Proxy, ProxyInstanceInfo};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
-use hirofa_utils::js_utils::adapters::{JsContextAdapter, JsRuntimeAdapter};
+use hirofa_utils::js_utils::adapters::JsContextAdapter;
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
@@ -319,21 +319,29 @@ impl JsContextAdapter for QuickJsContext {
     }
 
     fn js_install_function<
-        F: Fn(
-            &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsContextAdapterType,
-            &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-            Vec<<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType>,
-        ) -> Result<<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType, JsError>,
-    >(&self, _namespace: Vec<&str>, _name: &str, _js_function: F, _arg_count: u32) -> Result<(), JsError>{
-        todo!()
+        F: Fn(&Self, JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, JsError> + 'static,
+    >(
+        &self,
+        namespace: Vec<&str>,
+        name: &str,
+        js_function: F,
+        arg_count: u32,
+    ) -> Result<(), JsError> {
+        // todo namespace as slice?
+        let ns = self.js_get_namespace(&namespace)?;
+
+        let func = functions::new_function_q(self, name, js_function, arg_count)?;
+        self.js_object_set_property(&ns, name, &func)?;
+        Ok(())
     }
 
     fn js_eval_module(&self, script: Script) -> Result<JSValueRef, JsError> {
         self.eval_module(script)
     }
 
-    fn js_get_namespace(&self, _namespace: &[&str]) -> Result<JSValueRef, JsError> {
-        todo!()
+    fn js_get_namespace(&self, namespace: &[&str]) -> Result<JSValueRef, JsError> {
+        let namespace_vec = namespace.to_vec();
+        objects::get_namespace_q(self, namespace_vec, true)
     }
 
     fn js_function_invoke(
@@ -369,10 +377,11 @@ impl JsContextAdapter for QuickJsContext {
 
     fn js_object_delete_property(
         &self,
-        _object: &JSValueRef,
-        _property_name: &str,
+        object: &JSValueRef,
+        property_name: &str,
     ) -> Result<(), JsError> {
-        todo!()
+        // todo impl a real delete_prop
+        objects::set_property_q(self, object, property_name, &new_null_ref())
     }
 
     fn js_object_set_property(
@@ -393,7 +402,7 @@ impl JsContextAdapter for QuickJsContext {
     }
 
     fn js_object_create(&self) -> Result<JSValueRef, JsError> {
-        todo!()
+        objects::create_object_q(self)
     }
 
     fn js_object_get_properties(&self, object: &JSValueRef) -> Result<Vec<String>, JsError> {
@@ -406,29 +415,25 @@ impl JsContextAdapter for QuickJsContext {
         Ok(ret)
     }
 
-    fn js_array_get_element(
-        &self,
-        _array: &JSValueRef,
-        _index: u32,
-    ) -> Result<JSValueRef, JsError> {
-        todo!()
+    fn js_array_get_element(&self, array: &JSValueRef, index: u32) -> Result<JSValueRef, JsError> {
+        arrays::get_element_q(self, array, index)
     }
 
     fn js_array_set_element(
         &self,
-        _array: &JSValueRef,
-        _index: u32,
-        _element: JSValueRef,
+        array: &JSValueRef,
+        index: u32,
+        element: JSValueRef,
     ) -> Result<(), JsError> {
-        todo!()
+        arrays::set_element_q(self, array, index, element)
     }
 
-    fn js_array_get_length(&self, _array: &JSValueRef) -> Result<u32, JsError> {
-        todo!()
+    fn js_array_get_length(&self, array: &JSValueRef) -> Result<u32, JsError> {
+        arrays::get_length_q(self, array)
     }
 
     fn js_array_create(&self) -> Result<JSValueRef, JsError> {
-        todo!()
+        arrays::create_array_q(self)
     }
 
     fn js_null_create(&self) -> Result<JSValueRef, JsError> {
