@@ -359,20 +359,22 @@ impl JsContextAdapter for QuickJsContext {
 
     fn js_function_invoke2(
         &self,
-        _this_obj: &JSValueRef,
-        _method_name: &str,
-        _args: &[&JSValueRef],
+        this_obj: &JSValueRef,
+        method_name: &str,
+        args: &[&JSValueRef],
     ) -> Result<JSValueRef, JsError> {
-        todo!()
+        let args_vec = args.to_vec().into_iter().cloned().collect();
+        functions::invoke_member_function_q(self, this_obj, method_name, args_vec)
     }
 
     fn js_function_invoke3(
         &self,
-        _this_obj: Option<&JSValueRef>,
-        _function_obj: &JSValueRef,
-        _args: &[&JSValueRef],
+        this_obj: Option<&JSValueRef>,
+        function_obj: &JSValueRef,
+        args: &[&JSValueRef],
     ) -> Result<JSValueRef, JsError> {
-        todo!()
+        let args_vec = args.to_vec().into_iter().cloned().collect();
+        functions::call_function_q(self, function_obj, args_vec, this_obj)
     }
 
     fn js_object_delete_property(
