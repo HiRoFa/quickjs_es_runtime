@@ -377,6 +377,17 @@ impl JsContextAdapter for QuickJsContext {
         functions::call_function_q(self, function_obj, args_vec, this_obj)
     }
 
+    fn js_function_create<
+        F: Fn(&Self, JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, JsError> + 'static,
+    >(
+        &self,
+        _name: &str,
+        _js_function: F,
+        _arg_count: u32,
+    ) -> Result<JSValueRef, JsError> {
+        todo!()
+    }
+
     fn js_object_delete_property(
         &self,
         object: &JSValueRef,
@@ -417,6 +428,13 @@ impl JsContextAdapter for QuickJsContext {
         Ok(ret)
     }
 
+    fn js_object_traverse<F, R>(&self, _object: &JSValueRef, _visitor: F) -> Result<Vec<R>, JsError>
+    where
+        F: Fn(&str, &JSValueRef) -> Result<R, JsError>,
+    {
+        todo!()
+    }
+
     fn js_array_get_element(&self, array: &JSValueRef, index: u32) -> Result<JSValueRef, JsError> {
         arrays::get_element_q(self, array, index)
     }
@@ -436,6 +454,13 @@ impl JsContextAdapter for QuickJsContext {
 
     fn js_array_create(&self) -> Result<JSValueRef, JsError> {
         arrays::create_array_q(self)
+    }
+
+    fn js_array_traverse<F, R>(&self, _array: &JSValueRef, _visitor: F) -> Result<Vec<R>, JsError>
+    where
+        F: Fn(u32, &JSValueRef) -> Result<R, JsError>,
+    {
+        todo!()
     }
 
     fn js_null_create(&self) -> Result<JSValueRef, JsError> {
