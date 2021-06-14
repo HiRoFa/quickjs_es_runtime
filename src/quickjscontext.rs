@@ -4,7 +4,7 @@ use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::reflection::{Proxy, ProxyInstanceInfo};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
-use hirofa_utils::js_utils::adapters::JsContextAdapter;
+use hirofa_utils::js_utils::adapters::{JsContextAdapter, JsRuntimeAdapter};
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
@@ -418,6 +418,14 @@ impl JsContextAdapter for QuickJsContext {
         objects::create_object_q(self)
     }
 
+    fn js_object_construct(
+        &self,
+        _constructor: &JSValueRef,
+        _args: &[&JSValueRef],
+    ) -> Result<JSValueRef, JsError> {
+        unimplemented!()
+    }
+
     fn js_object_get_properties(&self, object: &JSValueRef) -> Result<Vec<String>, JsError> {
         let props = objects::get_own_property_names_q(self, object)?;
         let mut ret = vec![];
@@ -481,6 +489,50 @@ impl JsContextAdapter for QuickJsContext {
 
     fn js_f64_create(&self, val: f64) -> Result<JSValueRef, JsError> {
         Ok(from_f64(val))
+    }
+
+    fn js_promise_create(&self) -> Result<JSValueRef, JsError> {
+        unimplemented!()
+    }
+
+    fn js_promise_resolve(
+        &self,
+        _promise: &JSValueRef,
+        _resolution: &JSValueRef,
+    ) -> Result<(), JsError> {
+        unimplemented!()
+    }
+
+    fn js_promise_reject(
+        &self,
+        _promise: &JSValueRef,
+        _rejection: &JSValueRef,
+    ) -> Result<(), JsError> {
+        unimplemented!()
+    }
+
+fn js_promise_add_reactions<F>(&self, _promise: &JSValueRef, _then: Option<F>, _catch: Option<F>, _finally: Option<F>) -> Result<(), JsError> where F: Fn(&Self, <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType){
+        unimplemented!()
+    }
+
+    fn js_cache_add(&self, _object: JSValueRef) -> usize {
+        unimplemented!()
+    }
+
+    fn js_cache_dispose(&self, _id: usize) {
+        unimplemented!()
+    }
+
+    fn js_cache_borrow(&self, _id: usize) -> &JSValueRef {
+        unimplemented!()
+    }
+
+    fn js_cache_consume(&self, _id: usize) -> JSValueRef {
+        unimplemented!()
+    }
+
+    fn js_instance_of(&self, _object: &JSValueRef, _constructor: &JSValueRef) -> bool {
+        unimplemented!()
     }
 }
 
