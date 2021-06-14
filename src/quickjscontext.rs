@@ -511,7 +511,7 @@ impl JsContextAdapter for QuickJsContext {
         unimplemented!()
     }
 
-fn js_promise_add_reactions<F>(&self, _promise: &JSValueRef, _then: Option<F>, _catch: Option<F>, _finally: Option<F>) -> Result<(), JsError> where F: Fn(&Self, <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType){
+    fn js_promise_add_reactions<F>(&self, _promise: &JSValueRef, _then: Option<F>, _catch: Option<F>, _finally: Option<F>) -> Result<(), JsError> where F: Fn(&Self, <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType){
         unimplemented!()
     }
 
