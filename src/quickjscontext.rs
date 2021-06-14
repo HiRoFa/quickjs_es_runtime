@@ -1,10 +1,11 @@
 use crate::quickjs_utils::primitives::{from_bool, from_f64, from_i32, from_string_q};
+use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjs_utils::{arrays, errors, functions, new_null_ref, objects};
 use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::reflection::{Proxy, ProxyInstanceInfo};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
-use hirofa_utils::js_utils::adapters::{JsContextAdapter, JsRuntimeAdapter};
+use hirofa_utils::js_utils::adapters::JsContextAdapter;
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
@@ -381,11 +382,11 @@ impl JsContextAdapter for QuickJsContext {
         F: Fn(&Self, JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, JsError> + 'static,
     >(
         &self,
-        _name: &str,
-        _js_function: F,
-        _arg_count: u32,
+        name: &str,
+        js_function: F,
+        arg_count: u32,
     ) -> Result<JSValueRef, JsError> {
-        todo!()
+        functions::new_function_q(self, name, js_function, arg_count)
     }
 
     fn js_object_delete_property(
@@ -436,11 +437,11 @@ impl JsContextAdapter for QuickJsContext {
         Ok(ret)
     }
 
-    fn js_object_traverse<F, R>(&self, _object: &JSValueRef, _visitor: F) -> Result<Vec<R>, JsError>
+    fn js_object_traverse<F, R>(&self, object: &JSValueRef, visitor: F) -> Result<Vec<R>, JsError>
     where
         F: Fn(&str, &JSValueRef) -> Result<R, JsError>,
     {
-        todo!()
+        objects::traverse_properties_q(self, object, visitor)
     }
 
     fn js_array_get_element(&self, array: &JSValueRef, index: u32) -> Result<JSValueRef, JsError> {
@@ -464,11 +465,17 @@ impl JsContextAdapter for QuickJsContext {
         arrays::create_array_q(self)
     }
 
-    fn js_array_traverse<F, R>(&self, _array: &JSValueRef, _visitor: F) -> Result<Vec<R>, JsError>
+    fn js_array_traverse<F, R>(&self, array: &JSValueRef, visitor: F) -> Result<Vec<R>, JsError>
     where
         F: Fn(u32, &JSValueRef) -> Result<R, JsError>,
     {
-        todo!()
+        // todo impl real traverse methods
+        let mut ret = vec![];
+        for x in 0..arrays::get_length_q(self, array)? {
+            let val = arrays::get_element_q(self, array, x)?;
+            ret.push(visitor(x, &val)?)
+        }
+        Ok(ret)
     }
 
     fn js_null_create(&self) -> Result<JSValueRef, JsError> {
@@ -491,28 +498,8 @@ impl JsContextAdapter for QuickJsContext {
         Ok(from_f64(val))
     }
 
-    fn js_promise_create(&self) -> Result<JSValueRef, JsError> {
-        unimplemented!()
-    }
-
-    fn js_promise_resolve(
-        &self,
-        _promise: &JSValueRef,
-        _resolution: &JSValueRef,
-    ) -> Result<(), JsError> {
-        unimplemented!()
-    }
-
-    fn js_promise_reject(
-        &self,
-        _promise: &JSValueRef,
-        _rejection: &JSValueRef,
-    ) -> Result<(), JsError> {
-        unimplemented!()
-    }
-
-    fn js_promise_add_reactions<F>(&self, _promise: &JSValueRef, _then: Option<F>, _catch: Option<F>, _finally: Option<F>) -> Result<(), JsError> where F: Fn(&Self, <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType){
-        unimplemented!()
+    fn js_promise_create(&self) -> Result<PromiseRef, JsError> {
+        crate::quickjs_utils::promises::new_promise_q(self)
     }
 
     fn js_cache_add(&self, _object: JSValueRef) -> usize {

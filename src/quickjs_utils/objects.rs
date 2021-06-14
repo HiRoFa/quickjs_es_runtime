@@ -436,7 +436,7 @@ pub fn traverse_properties_q<V, R>(
     visitor: V,
 ) -> Result<Vec<R>, JsError>
 where
-    V: Fn(&str, JSValueRef) -> Result<R, JsError>,
+    V: Fn(&str, &JSValueRef) -> Result<R, JsError>,
 {
     unsafe { traverse_properties(q_ctx.context, obj_ref, visitor) }
 }
@@ -449,7 +449,7 @@ pub unsafe fn traverse_properties<V, R>(
     visitor: V,
 ) -> Result<Vec<R>, JsError>
 where
-    V: Fn(&str, JSValueRef) -> Result<R, JsError>,
+    V: Fn(&str, &JSValueRef) -> Result<R, JsError>,
 {
     let enum_ref = get_own_property_names(context, obj_ref)?;
 
@@ -477,7 +477,7 @@ where
             return Err(JsError::new_str("Could not get object property"));
         }
 
-        let r = visitor(prop_name, prop_val_ref)?;
+        let r = visitor(prop_name, &prop_val_ref)?;
 
         result.push(r);
     }
