@@ -488,7 +488,7 @@ where
 pub fn is_instance_of_q(
     q_ctx: &QuickJsContext,
     obj_ref: &JSValueRef,
-    constructor_ref: JSValueRef,
+    constructor_ref: &JSValueRef,
 ) -> bool {
     unsafe { is_instance_of(q_ctx.context, obj_ref, constructor_ref) }
 }
@@ -498,7 +498,7 @@ pub fn is_instance_of_q(
 pub unsafe fn is_instance_of(
     context: *mut q::JSContext,
     obj_ref: &JSValueRef,
-    constructor_ref: JSValueRef,
+    constructor_ref: &JSValueRef,
 ) -> bool {
     if !obj_ref.is_object() {
         return false;
@@ -535,14 +535,14 @@ pub unsafe fn is_instance_of_by_name(
         return Ok(false);
     }
 
-    if is_instance_of(context, obj_ref, constructor_ref) {
+    if is_instance_of(context, obj_ref, &constructor_ref) {
         Ok(true)
     } else {
         // todo check if context is not __main__
         QuickJsRuntime::do_with(|q_js_rt| {
             let main_ctx = q_js_rt.get_main_context();
             let main_constructor_ref = get_constructor(main_ctx.context, constructor_name)?;
-            if is_instance_of(main_ctx.context, obj_ref, main_constructor_ref) {
+            if is_instance_of(main_ctx.context, obj_ref, &main_constructor_ref) {
                 Ok(true)
             } else {
                 Ok(false)

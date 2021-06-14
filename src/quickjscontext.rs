@@ -518,8 +518,8 @@ impl JsContextAdapter for QuickJsContext {
         unimplemented!()
     }
 
-    fn js_instance_of(&self, _object: &JSValueRef, _constructor: &JSValueRef) -> bool {
-        unimplemented!()
+    fn js_instance_of(&self, object: &JSValueRef, constructor: &JSValueRef) -> bool {
+        objects::is_instance_of_q(self, object, constructor)
     }
 }
 
