@@ -502,24 +502,27 @@ impl JsContextAdapter for QuickJsContext {
         crate::quickjs_utils::promises::new_promise_q(self)
     }
 
-    fn js_cache_add(&self, _object: JSValueRef) -> usize {
-        unimplemented!()
+    fn js_cache_add(&self, object: JSValueRef) -> i32 {
+        self.cache_object(object)
     }
 
-    fn js_cache_dispose(&self, _id: usize) {
-        unimplemented!()
+    fn js_cache_dispose(&self, id: i32) {
+        let _ = self.consume_cached_obj(id);
     }
 
-    fn js_cache_borrow(&self, _id: usize) -> &JSValueRef {
-        unimplemented!()
-    }
-
-    fn js_cache_consume(&self, _id: usize) -> JSValueRef {
-        unimplemented!()
+    fn js_cache_consume(&self, id: i32) -> JSValueRef {
+        self.consume_cached_obj(id)
     }
 
     fn js_instance_of(&self, object: &JSValueRef, constructor: &JSValueRef) -> bool {
         objects::is_instance_of_q(self, object, constructor)
+    }
+
+    fn js_cache_with<C, R>(&self, id: i32, consumer: C) -> R
+    where
+        C: FnOnce(&JSValueRef) -> R,
+    {
+        self.with_cached_obj(id, |obj| consumer(&obj))
     }
 }
 
