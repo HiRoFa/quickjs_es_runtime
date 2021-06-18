@@ -613,18 +613,17 @@ impl EsValueConvertible for CachedJSValueRef {
             let then_ref = if let Some(then_fn) = then {
                 let then_fn_rc = Rc::new(then_fn);
 
-                let then_fn_raw =
-                    move |q_ctx: &QuickJsContext,
-                          _this_ref: JSValueRef,
-                          mut args_ref: Vec<JSValueRef>| {
-                        let then_fn_rc = then_fn_rc.clone();
-                        let val_ref = args_ref.remove(0);
+                let then_fn_raw = move |q_ctx: &QuickJsContext,
+                                        _this_ref: &JSValueRef,
+                                        args_ref: &[JSValueRef]| {
+                    let then_fn_rc = then_fn_rc.clone();
+                    let val_ref = &args_ref[0];
 
-                        let val_esvf = EsValueFacade::from_jsval(q_ctx, &val_ref)?;
+                    let val_esvf = EsValueFacade::from_jsval(q_ctx, val_ref)?;
 
-                        then_fn_rc(val_esvf)?;
-                        Ok(crate::quickjs_utils::new_null_ref())
-                    };
+                    then_fn_rc(val_esvf)?;
+                    Ok(crate::quickjs_utils::new_null_ref())
+                };
                 let t = functions::new_function_q(q_ctx, "", then_fn_raw, 1)
                     .ok()
                     .expect("could not create function");
@@ -635,32 +634,40 @@ impl EsValueConvertible for CachedJSValueRef {
 
             let catch_ref = if let Some(catch_fn) = catch {
                 let catch_fn_rc = Rc::new(catch_fn);
-                let catch_fn_raw =
-                    move |q_ctx: &QuickJsContext, _this_ref, mut args_ref: Vec<JSValueRef>| {
-                        let val_ref = args_ref.remove(0);
+
+                let t = functions::new_function_q(
+                    q_ctx,
+                    "",
+                    move |q_ctx: &QuickJsContext, _this_ref, args_ref: &[JSValueRef]| {
+                        let val_ref = &args_ref[0];
                         let catch_fn_rc = catch_fn_rc.clone();
 
-                        let val_esvf = EsValueFacade::from_jsval(q_ctx, &val_ref)?;
+                        let val_esvf = EsValueFacade::from_jsval(q_ctx, val_ref)?;
 
                         catch_fn_rc(val_esvf)?;
                         Ok(crate::quickjs_utils::new_null_ref())
-                    };
-                let t = functions::new_function_q(q_ctx, "", catch_fn_raw, 1)
-                    .ok()
-                    .expect("could not create function");
+                    },
+                    1,
+                )
+                .ok()
+                .expect("could not create function");
                 Some(t)
             } else {
                 None
             };
 
             let finally_ref = if let Some(finally_fn) = finally {
-                let finally_fn_raw = move |_q_ctx: &QuickJsContext, _this_ref, _args_ref| {
-                    finally_fn();
-                    Ok(crate::quickjs_utils::new_null_ref())
-                };
-                let t = functions::new_function_q(q_ctx, "", finally_fn_raw, 0)
-                    .ok()
-                    .expect("could not create function");
+                let t = functions::new_function_q(
+                    q_ctx,
+                    "",
+                    move |_q_ctx: &QuickJsContext, _this_ref, _args_ref| {
+                        finally_fn();
+                        Ok(crate::quickjs_utils::new_null_ref())
+                    },
+                    0,
+                )
+                .ok()
+                .expect("could not create function");
                 Some(t)
             } else {
                 None

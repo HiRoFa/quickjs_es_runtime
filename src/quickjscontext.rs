@@ -1,11 +1,13 @@
+use crate::quickjs_utils;
 use crate::quickjs_utils::primitives::{from_bool, from_f64, from_i32, from_string_q};
 use crate::quickjs_utils::promises::PromiseRef;
-use crate::quickjs_utils::{arrays, errors, functions, new_null_ref, objects};
+use crate::quickjs_utils::{arrays, errors, functions, new_null_ref, objects, primitives};
 use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::reflection::{Proxy, ProxyInstanceInfo};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
 use hirofa_utils::js_utils::adapters::JsContextAdapter;
+use hirofa_utils::js_utils::facades::JsValueFacade;
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
@@ -315,15 +317,44 @@ impl Drop for QuickJsContext {
 impl JsContextAdapter for QuickJsContext {
     type JsRuntimeAdapterType = QuickJsRuntime;
 
+    fn from_js_value_facade(&self, value: &dyn JsValueFacade) -> Result<JSValueRef, JsError> {
+        if value.js_is_null() {
+            Ok(quickjs_utils::new_null_ref())
+        } else if value.js_is_undefined() {
+            Ok(quickjs_utils::new_undefined_ref())
+        } else if value.js_is_i32() {
+            Ok(primitives::from_i32(value.js_as_i32()))
+        } else if value.js_is_bool() {
+            Ok(primitives::from_bool(value.js_as_bool()))
+        } else {
+            Err(JsError::new_str("unknown type"))
+        }
+    }
+
     fn js_eval(&self, script: Script) -> Result<JSValueRef, JsError> {
         self.eval(script)
     }
 
-    fn js_install_function<
-        F: Fn(&Self, JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, JsError> + 'static,
+    fn js_install_function(
+        &self,
+        namespace: &[&str],
+        name: &str,
+        js_function: fn(&Self, &JSValueRef, &[JSValueRef]) -> Result<JSValueRef, JsError>,
+        arg_count: u32,
+    ) -> Result<(), JsError> {
+        // todo namespace as slice?
+        let ns = self.js_get_namespace(&namespace)?;
+
+        let func = functions::new_function_q(self, name, js_function, arg_count)?;
+        self.js_object_set_property(&ns, name, &func)?;
+        Ok(())
+    }
+
+    fn js_install_closure<
+        F: Fn(&Self, &JSValueRef, &[JSValueRef]) -> Result<JSValueRef, JsError> + 'static,
     >(
         &self,
-        namespace: Vec<&str>,
+        namespace: &[&str],
         name: &str,
         js_function: F,
         arg_count: u32,
@@ -349,11 +380,11 @@ impl JsContextAdapter for QuickJsContext {
         &self,
         namespace: &[&str],
         method_name: &str,
-        args: &[&JSValueRef],
+        args: &[JSValueRef],
     ) -> Result<JSValueRef, JsError> {
         // todo see if we want to alter call_function
         let ns_vec = namespace.to_vec();
-        let args_vec = args.to_vec().into_iter().cloned().collect();
+        let args_vec = args.to_vec();
 
         self.call_function(ns_vec, method_name, args_vec)
     }
@@ -362,9 +393,9 @@ impl JsContextAdapter for QuickJsContext {
         &self,
         this_obj: &JSValueRef,
         method_name: &str,
-        args: &[&JSValueRef],
+        args: &[JSValueRef],
     ) -> Result<JSValueRef, JsError> {
-        let args_vec = args.to_vec().into_iter().cloned().collect();
+        let args_vec = args.to_vec();
         functions::invoke_member_function_q(self, this_obj, method_name, args_vec)
     }
 
@@ -372,14 +403,14 @@ impl JsContextAdapter for QuickJsContext {
         &self,
         this_obj: Option<&JSValueRef>,
         function_obj: &JSValueRef,
-        args: &[&JSValueRef],
+        args: &[JSValueRef],
     ) -> Result<JSValueRef, JsError> {
-        let args_vec = args.to_vec().into_iter().cloned().collect();
+        let args_vec = args.to_vec();
         functions::call_function_q(self, function_obj, args_vec, this_obj)
     }
 
     fn js_function_create<
-        F: Fn(&Self, JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, JsError> + 'static,
+        F: Fn(&Self, &JSValueRef, &[JSValueRef]) -> Result<JSValueRef, JsError> + 'static,
     >(
         &self,
         name: &str,
@@ -422,7 +453,7 @@ impl JsContextAdapter for QuickJsContext {
     fn js_object_construct(
         &self,
         _constructor: &JSValueRef,
-        _args: &[&JSValueRef],
+        _args: &[JSValueRef],
     ) -> Result<JSValueRef, JsError> {
         unimplemented!()
     }
@@ -510,19 +541,19 @@ impl JsContextAdapter for QuickJsContext {
         let _ = self.consume_cached_obj(id);
     }
 
+    fn js_cache_with<C, R>(&self, id: i32, consumer: C) -> R
+    where
+        C: FnOnce(&JSValueRef) -> R,
+    {
+        self.with_cached_obj(id, |obj| consumer(&obj))
+    }
+
     fn js_cache_consume(&self, id: i32) -> JSValueRef {
         self.consume_cached_obj(id)
     }
 
     fn js_instance_of(&self, object: &JSValueRef, constructor: &JSValueRef) -> bool {
         objects::is_instance_of_q(self, object, constructor)
-    }
-
-    fn js_cache_with<C, R>(&self, id: i32, consumer: C) -> R
-    where
-        C: FnOnce(&JSValueRef) -> R,
-    {
-        self.with_cached_obj(id, |obj| consumer(&obj))
     }
 }
 

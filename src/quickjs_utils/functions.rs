@@ -451,7 +451,7 @@ pub unsafe fn new_native_function_data(
 static CNAME: &str = "CallbackClass\0";
 
 type Callback =
-    dyn Fn(*mut q::JSContext, JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, JsError> + 'static;
+    dyn Fn(*mut q::JSContext, &JSValueRef, &[JSValueRef]) -> Result<JSValueRef, JsError> + 'static;
 
 thread_local! {
     static INSTANCE_ID_MAPPINGS: RefCell<HashMap<usize, Box<(usize, String)>>> = RefCell::new(HashMap::new());
@@ -530,9 +530,9 @@ pub fn new_function_q<F>(
     arg_count: u32,
 ) -> Result<JSValueRef, JsError>
 where
-    F: Fn(&QuickJsContext, JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, JsError> + 'static,
+    F: Fn(&QuickJsContext, &JSValueRef, &[JSValueRef]) -> Result<JSValueRef, JsError> + 'static,
 {
-    let func_raw = move |ctx: *mut q::JSContext, this: JSValueRef, args: Vec<JSValueRef>| {
+    let func_raw = move |ctx: *mut q::JSContext, this: &JSValueRef, args: &[JSValueRef]| {
         log::trace!("new_function_q outer");
         QuickJsRuntime::do_with(|q_js_rt| {
             log::trace!("new_function_q inner");
@@ -553,7 +553,7 @@ pub unsafe fn new_function<F>(
     arg_count: u32,
 ) -> Result<JSValueRef, JsError>
 where
-    F: Fn(*mut q::JSContext, JSValueRef, Vec<JSValueRef>) -> Result<JSValueRef, JsError> + 'static,
+    F: Fn(*mut q::JSContext, &JSValueRef, &[JSValueRef]) -> Result<JSValueRef, JsError> + 'static,
 {
     // put func in map, retrieve on call.. delete on destroy
     // create a new class_def for callbacks, with a finalize
@@ -902,7 +902,8 @@ unsafe extern "C" fn callback_function(
 
             let this_ref = JSValueRef::new(ctx, this_val, true, true, "callback_function this_val");
 
-            let callback_res: Result<JSValueRef, JsError> = callback(ctx, this_ref, args_vec);
+            let callback_res: Result<JSValueRef, JsError> =
+                callback(ctx, &this_ref, args_vec.as_slice());
 
             match callback_res {
                 Ok(res) => res.clone_value_incr_rc(),
