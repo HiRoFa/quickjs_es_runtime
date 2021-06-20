@@ -6,6 +6,7 @@ use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::reflection::{Proxy, ProxyInstanceInfo};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
+use hirofa_utils::js_utils::adapters::proxies::JsProxy;
 use hirofa_utils::js_utils::adapters::JsContextAdapter;
 use hirofa_utils::js_utils::facades::JsValueFacade;
 use hirofa_utils::js_utils::JsError;
@@ -333,6 +334,28 @@ impl JsContextAdapter for QuickJsContext {
 
     fn js_eval(&self, script: Script) -> Result<JSValueRef, JsError> {
         self.eval(script)
+    }
+
+    fn js_proxy_install(&self, _proxy: JsProxy<Self::JsRuntimeAdapterType>) {
+        unimplemented!()
+    }
+
+    fn js_proxy_instantiate(
+        &self,
+        _namespace: &[&str],
+        _class_name: &str,
+        _arguments: &[JSValueRef],
+    ) -> Result<JSValueRef, JsError> {
+        unimplemented!()
+    }
+
+    fn js_proxy_invoke_event(
+        &self,
+        _proxy_handle: &usize,
+        _event_id: &str,
+        _event_obj: &JSValueRef,
+    ) {
+        unimplemented!()
     }
 
     fn js_install_function(
