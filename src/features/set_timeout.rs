@@ -256,6 +256,33 @@ pub mod tests {
     }
 
     #[test]
+    fn test_set_timeout_prom_res_nested() {
+        let rt: Arc<EsRuntime> = init_test_rt();
+        let esvf = rt
+            .eval_sync(Script::new(
+                "test_set_timeout_prom_res_nested.es",
+                "new Promise((resolve, reject) => {\
+                                setTimeout(() => {setTimeout(() => {resolve(123);}, 1000);}, 1000);\
+                            }).then((res) => {\
+                                console.log(\"got %s\", res);\
+                                return res + \"abc\";\
+                            }).catch((ex) => {\
+                                throw Error(\"\" + ex);\
+                            });\
+            ",
+            ))
+            .ok()
+            .expect("script failed");
+        assert!(esvf.is_promise());
+        let res = esvf.get_promise_result_sync();
+        assert!(res.is_ok());
+        let res_str_esvf = res.ok().unwrap();
+        let res_str = res_str_esvf.get_str();
+        assert_eq!(res_str, "123abc");
+        log::info!("done");
+    }
+
+    #[test]
     fn test_set_timeout() {
         let rt: Arc<EsRuntime> = init_test_rt();
 

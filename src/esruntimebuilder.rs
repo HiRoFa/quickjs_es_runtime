@@ -242,9 +242,9 @@ impl EsRuntimeBuilder {
 
     /// add an interrupt handler, this will be called several times during script execution and may be used to cancel a running script
     pub fn set_interrupt_handler<I: Fn(&QuickJsRuntime) -> bool + Send + 'static>(
-        &mut self,
+        mut self,
         interrupt_handler: I,
-    ) -> &mut Self {
+    ) -> Self {
         self.interrupt_handler = Some(Box::new(interrupt_handler));
         self
     }

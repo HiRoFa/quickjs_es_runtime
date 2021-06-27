@@ -363,10 +363,6 @@ impl QuickJsRuntime {
         modules::set_module_loader(&q_rt);
         promises::init_promise_rejection_tracker(&q_rt);
 
-        if q_rt.interrupt_handler.is_some() {
-            interrupthandler::init(&q_rt);
-        }
-
         let main_ctx = QuickJsContext::new("__main__".to_string(), &q_rt);
         q_rt.contexts.insert("__main__".to_string(), main_ctx);
 
@@ -377,7 +373,10 @@ impl QuickJsRuntime {
         &mut self,
         interrupt_handler: I,
     ) -> &mut Self {
+        println!("qjsrt_set_interrupt_handler");
+
         self.interrupt_handler = Some(Box::new(interrupt_handler));
+        interrupthandler::init(self);
         self
     }
 

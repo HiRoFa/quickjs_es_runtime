@@ -5,6 +5,7 @@
 * replaced EsError with js_utils::JsError
 * implemented utils::js_utils (generic adapters and facades)
 * changes to function definitions
+* fixed interrupt handler 
 
 # 0.4.2
 
