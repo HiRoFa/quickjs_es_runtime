@@ -7,11 +7,13 @@ use crate::quickjs_utils::{functions, objects};
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::{NativeModuleLoaderAdapter, QuickJsRuntime, ScriptModuleLoaderAdapter};
 use hirofa_utils::eventloop::EventLoop;
+use hirofa_utils::js_utils::facades::{JsContextFacade, JsProxy, JsRuntimeFacade, JsValueFacade};
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use hirofa_utils::task_manager::TaskManager;
 use libquickjs_sys as q;
 use std::future::Future;
+use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::{Arc, Weak};
 use tokio::task::JoinError;
@@ -565,6 +567,99 @@ impl EsRuntime {
         let id = id.to_string();
         self.event_loop
             .exe(move || QuickJsRuntime::remove_context(id.as_str()))
+    }
+}
+
+impl JsRuntimeFacade for EsRuntime {
+    type JsRuntimeAdapterType = QuickJsRuntime;
+    type JsContextFacadeType = QuickJsContextFacade;
+
+    fn js_create_context(&self, _name: &str) -> Self::JsContextFacadeType {
+        todo!()
+    }
+
+    fn js_get_main_context(&self) -> &Self::JsContextFacadeType {
+        todo!()
+    }
+
+    fn js_get_context(&self, _name: &str) -> &Self::JsContextFacadeType {
+        todo!()
+    }
+
+    fn js_loop_sync<
+        R: Send + 'static,
+        C: FnOnce(&Self::JsRuntimeAdapterType) -> R + Send + 'static,
+    >(
+        &self,
+        _consumer: C,
+    ) -> R {
+        todo!()
+    }
+
+    fn js_loop<R: Send + 'static, C: FnOnce(&Self::JsRuntimeAdapterType) -> R + Send + 'static>(
+        &self,
+        _consumer: C,
+    ) -> Box<dyn Future<Output = R>> {
+        todo!()
+    }
+
+    fn js_loop_void<C: FnOnce(&Self::JsRuntimeAdapterType) + Send + 'static>(&self, _consumer: C) {
+        todo!()
+    }
+}
+
+pub struct QuickJsContextFacade {}
+
+impl JsContextFacade for QuickJsContextFacade {
+    type JsRuntimeFacadeType = EsRuntime;
+    type JsContextAdapterType = QuickJsContext;
+
+    fn js_install_proxy(&self, _js_proxy: JsProxy) {
+        todo!()
+    }
+
+    #[allow(clippy::type_complexity)]
+    fn js_eval(
+        &self,
+        _script: Script,
+    ) -> Pin<Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, JsError>>>> {
+        todo!()
+    }
+
+    fn js_function_invoke(
+        &self,
+        _namespace: &[&'static str],
+        _method_name: &'static str,
+        _args: Vec<Box<dyn JsValueFacade>>,
+    ) -> Result<Box<dyn JsValueFacade>, JsError> {
+        todo!()
+    }
+
+    fn js_loop_sync<
+        R: Send + 'static,
+        C: FnOnce(&QuickJsRuntime, &QuickJsContext) -> R + Send + 'static,
+    >(
+        &self,
+        _consumer: C,
+    ) -> R {
+        todo!()
+    }
+
+    fn js_loop<R: Send + 'static, C>(
+        &self,
+        _consumer: C,
+    ) -> Pin<Box<dyn Future<Output = Result<R, JsError>>>>
+    where
+        C: FnOnce(&QuickJsRuntime, &QuickJsContext) -> Result<R, JsError> + Send + 'static,
+    {
+        todo!()
+    }
+
+    fn js_loop_void<C>(&self, _consumer: C)
+    where
+        C: FnOnce(&QuickJsRuntime, &QuickJsContext) + Send + 'static,
+    {
+        todo!()
     }
 }
 
