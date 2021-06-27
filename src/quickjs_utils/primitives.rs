@@ -78,8 +78,6 @@ pub unsafe fn to_string(
 
     let s = cstr.to_string_lossy().into_owned();
 
-    debug_assert_eq!(s.len() as usize, len as usize);
-
     // Free the c string.
     q::JS_FreeCString(context, ptr);
 

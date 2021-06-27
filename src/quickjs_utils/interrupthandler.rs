@@ -30,20 +30,50 @@ unsafe extern "C" fn interrupt_handler(_rt: *mut q::JSRuntime, _opaque: *mut c_v
 #[cfg(test)]
 pub mod tests {
     use crate::esruntimebuilder::EsRuntimeBuilder;
-    use crate::esvalue::EsValueFacade;
-    use hirofa_utils::js_utils::{JsError, Script};
+    use crate::quickjs_utils::get_script_or_module_name_q;
+    use backtrace::Backtrace;
+    use hirofa_utils::js_utils::Script;
+    use log::LevelFilter;
     use std::cell::RefCell;
-    use std::rc::Rc;
+    use std::panic;
     use std::sync::{Arc, Mutex};
 
     #[test]
     fn test_interrupt_handler() {
+        log::info!("interrupt_handler test");
+
         let called = Arc::new(Mutex::new(RefCell::new(false)));
         let called2 = called.clone();
 
+        panic::set_hook(Box::new(|panic_info| {
+            let backtrace = Backtrace::new();
+            println!(
+                "thread panic occurred: {}\nbacktrace: {:?}",
+                panic_info, backtrace
+            );
+            log::error!(
+                "thread panic occurred: {}\nbacktrace: {:?}",
+                panic_info,
+                backtrace
+            );
+        }));
+
+        simple_logging::log_to_file("esruntime.log", LevelFilter::max())
+            .ok()
+            .expect("could not init logger");
+
         let rt = EsRuntimeBuilder::new()
             .set_interrupt_handler(move |qjs_rt| {
-                println!("ihandler called");
+                log::debug!("interrupt_handler called / 1");
+                let script_name = get_script_or_module_name_q(qjs_rt.get_main_context());
+                match script_name {
+                    Ok(script_name) => {
+                        log::debug!("interrupt_handler called: {}", script_name);
+                    }
+                    Err(_) => {
+                        log::debug!("interrupt_handler called");
+                    }
+                }
                 let lck = called2.lock().unwrap();
                 *lck.borrow_mut() = true;
                 false
@@ -59,6 +89,20 @@ pub mod tests {
                 panic!("err: {}", err);
             }
         }
+
+        rt.create_context("newctx").ok().expect("ctx crea failed");
+        rt.exe_rt_task_in_event_loop(|q_js_rt| {
+            let ctx = q_js_rt.get_context("newctx");
+            match ctx.eval(Script::new(
+                "test_interrupt.es",
+                "for (let x = 0; x < 10000; x++) {console.log('x' + x);}",
+            )) {
+                Ok(_) => {}
+                Err(err) => {
+                    panic!("err: {}", err);
+                }
+            }
+        });
 
         let lck = called.lock().unwrap();
         assert!(*lck.borrow());
