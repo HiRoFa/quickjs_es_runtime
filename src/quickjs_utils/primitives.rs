@@ -68,6 +68,10 @@ pub unsafe fn to_string(
 
     let ptr: *const c_char = q::JS_ToCStringLen2(context, &mut len, *value_ref.borrow_value(), 0);
 
+    if len == 0 {
+        return Ok("".to_string());
+    }
+
     if ptr.is_null() {
         return Err(JsError::new_str(
             "Could not convert string: got a null pointer",
