@@ -518,17 +518,21 @@ impl Drop for QuickJsRuntime {
 impl JsRuntimeAdapter for QuickJsRuntime {
     type JsValueAdapterType = JSValueRef;
     type JsPromiseAdapterType = PromiseRef;
-    type JsContextAdapterType = QuickJsContext;
+    type JsRealmAdapterType = QuickJsContext;
 
-    fn js_create_context(&self, _id: &str) -> Result<Box<Self::JsContextAdapterType>, JsError> {
-        todo!()
+    fn js_create_realm(&self, _id: &str) -> Result<&Self::JsRealmAdapterType, JsError> {
+        todo!();
     }
 
-    fn js_get_context(&self, _id: &str) -> Option<Box<Self::JsContextAdapterType>> {
-        todo!()
+    fn js_get_realm(&self, id: &str) -> Option<&Self::JsRealmAdapterType> {
+        if self.has_context(id) {
+            Some(self.get_context(id))
+        } else {
+            None
+        }
     }
 
-    fn js_get_main_context(&self) -> &Self::JsContextAdapterType {
+    fn js_get_main_realm(&self) -> &Self::JsRealmAdapterType {
         self.get_main_context()
     }
 }

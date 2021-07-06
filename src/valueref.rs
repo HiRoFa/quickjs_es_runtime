@@ -1,6 +1,7 @@
 use crate::quickjs_utils::{functions, primitives};
 use crate::quickjsruntime::QuickJsRuntime;
 use hirofa_utils::js_utils::adapters::JsValueAdapter;
+use hirofa_utils::js_utils::facades::JsValueType;
 use libquickjs_sys as q;
 use std::hash::{Hash, Hasher};
 use std::ptr::null_mut;
@@ -262,41 +263,25 @@ pub(crate) const TAG_FLOAT64: i64 = 7;
 impl JsValueAdapter for JSValueRef {
     type JsRuntimeAdapterType = QuickJsRuntime;
 
-    fn js_is_bool(&self) -> bool {
-        self.is_bool()
-    }
-
-    fn js_is_i32(&self) -> bool {
-        self.is_i32()
-    }
-
-    fn js_is_f64(&self) -> bool {
-        self.is_f64()
-    }
-
-    fn js_is_object(&self) -> bool {
-        self.is_object()
-    }
-
-    fn js_is_string(&self) -> bool {
-        self.is_string()
-    }
-
-    fn js_is_function(&self) -> bool {
-        self.is_object() && unsafe { functions::is_function(self.context, &self) }
-    }
-
-    fn js_is_bigint(&self) -> bool {
-        // todo
-        false
-    }
-
-    fn js_is_null(&self) -> bool {
-        self.is_null()
-    }
-
-    fn js_is_undefined(&self) -> bool {
-        self.is_undefined()
+    fn js_get_type(&self) -> JsValueType {
+        match self.get_tag() {
+            TAG_EXCEPTION => todo!(),
+            TAG_NULL => JsValueType::Null,
+            TAG_UNDEFINED => JsValueType::Undefined,
+            TAG_BOOL => JsValueType::Boolean,
+            TAG_INT => JsValueType::I32,
+            TAG_FLOAT64 => JsValueType::F64,
+            TAG_STRING => JsValueType::String,
+            TAG_OBJECT => {
+                if unsafe { functions::is_function(self.context, &self) } {
+                    JsValueType::Function
+                } else {
+                    JsValueType::Object
+                }
+            }
+            TAG_MODULE => todo!(),
+            _ => JsValueType::Undefined,
+        }
     }
 
     fn js_type_of(&self) -> &'static str {
@@ -306,7 +291,7 @@ impl JsValueAdapter for JSValueRef {
             TAG_MODULE => "module",
             TAG_FUNCTION_BYTECODE => "function",
             TAG_OBJECT => {
-                if self.js_is_function() {
+                if self.js_get_type() == JsValueType::Function {
                     "function"
                 } else {
                     "object"
@@ -323,7 +308,7 @@ impl JsValueAdapter for JSValueRef {
     }
 
     fn js_to_bool(&self) -> bool {
-        if self.js_is_bool() {
+        if self.js_get_type() == JsValueType::Boolean {
             primitives::to_bool(self)
                 .ok()
                 .expect("could not convert bool to bool")
@@ -333,7 +318,7 @@ impl JsValueAdapter for JSValueRef {
     }
 
     fn js_to_i32(&self) -> i32 {
-        if self.is_i32() {
+        if self.js_get_type() == JsValueType::I32 {
             primitives::to_i32(self)
                 .ok()
                 .expect("could not convert to i32")
@@ -343,7 +328,7 @@ impl JsValueAdapter for JSValueRef {
     }
 
     fn js_to_f64(&self) -> f64 {
-        if self.is_f64() {
+        if self.js_get_type() == JsValueType::F64 {
             primitives::to_f64(self)
                 .ok()
                 .expect("could not convert to f64")
@@ -353,7 +338,7 @@ impl JsValueAdapter for JSValueRef {
     }
 
     fn js_to_string(&self) -> String {
-        if self.is_string() {
+        if self.js_get_type() == JsValueType::String {
             unsafe { primitives::to_string(self.context, self) }
                 .ok()
                 .expect("could not convert to string")

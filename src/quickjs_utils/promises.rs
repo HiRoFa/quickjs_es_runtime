@@ -4,7 +4,7 @@ use crate::quickjs_utils::objects::is_instance_of_by_name;
 use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::JSValueRef;
-use hirofa_utils::js_utils::adapters::{JsContextAdapter, JsPromiseAdapter};
+use hirofa_utils::js_utils::adapters::{JsPromiseAdapter, JsRealmAdapter};
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 

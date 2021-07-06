@@ -8,13 +8,13 @@ use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::{NativeModuleLoaderAdapter, QuickJsRuntime, ScriptModuleLoaderAdapter};
 use crate::valueref::JSValueRef;
 use hirofa_utils::eventloop::EventLoop;
-use hirofa_utils::js_utils::adapters::JsContextAdapter;
-use hirofa_utils::js_utils::facades::{JsContextFacade, JsProxy, JsRuntimeFacade, JsValueFacade};
+use hirofa_utils::js_utils::adapters::JsRealmAdapter;
+use hirofa_utils::js_utils::facades::{JsRuntimeFacade, JsValueFacade};
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use hirofa_utils::task_manager::TaskManager;
 use libquickjs_sys as q;
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -48,8 +48,7 @@ impl Drop for EsRuntime {
 pub struct EsRuntime {
     event_loop: EventLoop,
     fetch_response_provider: Option<Box<FetchResponseProvider>>,
-    js_main_ctx: QuickJsContextFacade,
-    js_contexts: HashMap<String, QuickJsContextFacade>,
+    js_contexts: HashSet<String>,
 }
 
 impl EsRuntime {
@@ -60,7 +59,6 @@ impl EsRuntime {
         let ret = Arc::new(Self {
             event_loop: EventLoop::new(),
             fetch_response_provider,
-            js_main_ctx: QuickJsContextFacade::new("__main__"),
             js_contexts: Default::default(),
         });
 
@@ -579,24 +577,6 @@ impl EsRuntime {
 
 impl JsRuntimeFacade for EsRuntime {
     type JsRuntimeAdapterType = QuickJsRuntime;
-    type JsContextFacadeType = QuickJsContextFacade;
-
-    fn js_create_context(&mut self, name: &str) -> Result<(), &str> {
-        self.create_context(name)
-            .map_err(|_err| "Could not create context")
-            .map(|_| {
-                self.js_contexts
-                    .insert(name.to_string(), QuickJsContextFacade::new(name));
-            })
-    }
-
-    fn js_get_main_context(&self) -> &Self::JsContextFacadeType {
-        &self.js_main_ctx
-    }
-
-    fn js_get_context(&self, name: &str) -> Option<&Self::JsContextFacadeType> {
-        self.js_contexts.get(name)
-    }
 
     fn js_loop_sync<
         R: Send + 'static,
@@ -618,39 +598,64 @@ impl JsRuntimeFacade for EsRuntime {
     fn js_loop_void<C: FnOnce(&Self::JsRuntimeAdapterType) + Send + 'static>(&self, consumer: C) {
         self.add_rt_task_to_event_loop_void(consumer)
     }
-}
 
-#[allow(dead_code)]
-pub struct QuickJsContextFacade {
-    name: String,
-}
-
-impl QuickJsContextFacade {
-    pub fn new(name: &str) -> Self {
-        Self {
-            name: name.to_string(),
-        }
+    fn js_realm_create(&mut self, name: &str) -> Result<(), JsError> {
+        self.create_context(name).map(|_| {
+            self.js_contexts.insert(name.to_string());
+        })
     }
-}
 
-impl JsContextFacade for QuickJsContextFacade {
-    type JsRuntimeFacadeType = EsRuntime;
-    type JsContextAdapterType = QuickJsContext;
+    fn js_realm_destroy(&mut self, _name: &str) -> Result<(), JsError> {
+        todo!()
+    }
 
-    fn js_install_proxy(&self, _js_proxy: JsProxy) {
+    fn js_realm_has(&mut self, _name: &str) -> Result<bool, JsError> {
+        todo!()
+    }
+
+    fn js_loop_realm_sync<
+        R: Send + 'static,
+        C: FnOnce(&QuickJsRuntime, &QuickJsContext) -> R + Send + 'static,
+    >(
+        &self,
+        _realm_name: Option<&str>,
+        _consumer: C,
+    ) -> R {
+        todo!()
+    }
+
+    fn js_loop_realm<
+        R: Send + 'static,
+        C: FnOnce(&QuickJsRuntime, &QuickJsContext) -> Box<dyn Future<Output = R>> + Send + 'static,
+    >(
+        &self,
+        _realm_name: Option<&str>,
+        _consumer: C,
+    ) -> Box<dyn Future<Output = R>> {
+        todo!()
+    }
+
+    fn js_loop_realm_void<C: FnOnce(&QuickJsRuntime, &QuickJsContext) + Send + 'static>(
+        &self,
+        _realm_name: Option<&str>,
+        _consumer: C,
+    ) {
         todo!()
     }
 
     #[allow(clippy::type_complexity)]
     fn js_eval(
         &self,
-        script: Script,
+        _realm_name: Option<&str>,
+        _script: Script,
     ) -> Pin<Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, JsError>>>> {
-        self.js_loop(|_rt, ctx| ctx.eval(script).map(|res| ctx.to_js_value_facade(&res)))
+        todo!()
     }
 
+    #[warn(clippy::type_complexity)]
     fn js_function_invoke_sync(
         &self,
+        realm_name: Option<&str>,
         namespace: &[&str],
         method_name: &str,
         args: Vec<Box<dyn JsValueFacade>>,
@@ -658,11 +663,12 @@ impl JsContextFacade for QuickJsContextFacade {
         let movable_namespace: Vec<String> = namespace.iter().map(|s| s.to_string()).collect();
         let movable_method_name = method_name.to_string();
 
-        self.js_loop_sync(move |_rt, ctx| {
+        self.js_loop_realm_sync(realm_name, move |_rt, realm| {
             let args_adapters: Vec<JSValueRef> = args
                 .into_iter()
                 .map(|jsvf| {
-                    ctx.from_js_value_facade(&*jsvf)
+                    realm
+                        .from_js_value_facade(&*jsvf)
                         .ok()
                         .expect("conversion failed")
                 })
@@ -673,39 +679,36 @@ impl JsContextFacade for QuickJsContextFacade {
                 .map(|s| s.as_str())
                 .collect::<Vec<&str>>();
 
-            ctx.js_function_invoke(
-                namespace.as_slice(),
-                movable_method_name.as_str(),
-                args_adapters.as_slice(),
-            )
-            .map(|jsvr| ctx.to_js_value_facade(&jsvr))
+            let res = realm
+                .js_function_invoke(
+                    namespace.as_slice(),
+                    movable_method_name.as_str(),
+                    args_adapters.as_slice(),
+                )
+                .map(|jsvr| realm.to_js_value_facade(&jsvr));
+
+            res
         })
     }
 
-    fn js_loop_sync<
-        R: Send + 'static,
-        C: FnOnce(&QuickJsRuntime, &QuickJsContext) -> R + Send + 'static,
-    >(
+    #[allow(clippy::type_complexity)]
+    fn js_function_invoke(
         &self,
-        _consumer: C,
-    ) -> R {
+        _realm_name: Option<&str>,
+        _namespace: &[&str],
+        _method_name: &str,
+        _args: Vec<Box<dyn JsValueFacade>>,
+    ) -> Pin<Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, JsError>>>> {
         todo!()
     }
 
-    fn js_loop<R: Send + 'static, C>(
+    fn js_function_invoke_void(
         &self,
-        _consumer: C,
-    ) -> Pin<Box<dyn Future<Output = Result<R, JsError>>>>
-    where
-        C: FnOnce(&QuickJsRuntime, &QuickJsContext) -> Result<R, JsError> + Send + 'static,
-    {
-        todo!()
-    }
-
-    fn js_loop_void<C>(&self, _consumer: C)
-    where
-        C: FnOnce(&QuickJsRuntime, &QuickJsContext) + Send + 'static,
-    {
+        _realm_name: Option<&str>,
+        _namespace: &[&str],
+        _method_name: &str,
+        _args: Vec<Box<dyn JsValueFacade>>,
+    ) {
         todo!()
     }
 }

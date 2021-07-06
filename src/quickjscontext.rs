@@ -1,14 +1,12 @@
-use crate::quickjs_utils;
 use crate::quickjs_utils::primitives::{from_bool, from_f64, from_i32, from_string_q};
 use crate::quickjs_utils::promises::PromiseRef;
-use crate::quickjs_utils::{arrays, errors, functions, new_null_ref, objects, primitives};
+use crate::quickjs_utils::{arrays, errors, functions, new_null_ref, objects};
 use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::reflection::{Proxy, ProxyInstanceInfo};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
 use hirofa_utils::js_utils::adapters::proxies::JsProxy;
-use hirofa_utils::js_utils::adapters::JsContextAdapter;
-use hirofa_utils::js_utils::facades::JsValueFacade;
+use hirofa_utils::js_utils::adapters::JsRealmAdapter;
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
@@ -315,22 +313,8 @@ impl Drop for QuickJsContext {
     }
 }
 
-impl JsContextAdapter for QuickJsContext {
+impl JsRealmAdapter for QuickJsContext {
     type JsRuntimeAdapterType = QuickJsRuntime;
-
-    fn from_js_value_facade(&self, value: &dyn JsValueFacade) -> Result<JSValueRef, JsError> {
-        if value.js_is_null() {
-            Ok(quickjs_utils::new_null_ref())
-        } else if value.js_is_undefined() {
-            Ok(quickjs_utils::new_undefined_ref())
-        } else if value.js_is_i32() {
-            Ok(primitives::from_i32(value.js_as_i32()))
-        } else if value.js_is_bool() {
-            Ok(primitives::from_bool(value.js_as_bool()))
-        } else {
-            Err(JsError::new_str("unknown type"))
-        }
-    }
 
     fn js_eval(&self, script: Script) -> Result<JSValueRef, JsError> {
         self.eval(script)
@@ -534,6 +518,10 @@ impl JsContextAdapter for QuickJsContext {
 
     fn js_null_create(&self) -> Result<JSValueRef, JsError> {
         Ok(crate::quickjs_utils::new_null_ref())
+    }
+
+    fn js_undefined_create(&self) -> Result<JSValueRef, JsError> {
+        Ok(crate::quickjs_utils::new_undefined_ref())
     }
 
     fn js_i32_create(&self, val: i32) -> Result<JSValueRef, JsError> {
