@@ -44,7 +44,6 @@ impl Drop for EsRuntime {
 /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
 /// let rt = EsRuntimeBuilder::new().build();
 /// ```
-
 pub struct EsRuntime {
     event_loop: EventLoop,
     fetch_response_provider: Option<Box<FetchResponseProvider>>,
@@ -578,6 +577,20 @@ impl EsRuntime {
 impl JsRuntimeFacade for EsRuntime {
     type JsRuntimeAdapterType = QuickJsRuntime;
 
+    fn js_realm_create(&mut self, name: &str) -> Result<(), JsError> {
+        self.create_context(name).map(|_| {
+            self.js_contexts.insert(name.to_string());
+        })
+    }
+
+    fn js_realm_destroy(&mut self, _name: &str) -> Result<(), JsError> {
+        todo!()
+    }
+
+    fn js_realm_has(&mut self, name: &str) -> Result<bool, JsError> {
+        Ok(self.js_contexts.contains(name))
+    }
+
     fn js_loop_sync<
         R: Send + 'static,
         C: FnOnce(&Self::JsRuntimeAdapterType) -> R + Send + 'static,
@@ -591,65 +604,25 @@ impl JsRuntimeFacade for EsRuntime {
     fn js_loop<R: Send + 'static, C: FnOnce(&Self::JsRuntimeAdapterType) -> R + Send + 'static>(
         &self,
         consumer: C,
-    ) -> Box<dyn Future<Output = R>> {
-        Box::new(self.add_rt_task_to_event_loop(consumer))
+    ) -> Pin<Box<dyn Future<Output = R> + Send>> {
+        Box::pin(self.add_rt_task_to_event_loop(consumer))
     }
 
     fn js_loop_void<C: FnOnce(&Self::JsRuntimeAdapterType) + Send + 'static>(&self, consumer: C) {
         self.add_rt_task_to_event_loop_void(consumer)
     }
 
-    fn js_realm_create(&mut self, name: &str) -> Result<(), JsError> {
-        self.create_context(name).map(|_| {
-            self.js_contexts.insert(name.to_string());
-        })
-    }
-
-    fn js_realm_destroy(&mut self, _name: &str) -> Result<(), JsError> {
-        todo!()
-    }
-
-    fn js_realm_has(&mut self, _name: &str) -> Result<bool, JsError> {
-        todo!()
-    }
-
-    fn js_loop_realm_sync<
-        R: Send + 'static,
-        C: FnOnce(&QuickJsRuntime, &QuickJsContext) -> R + Send + 'static,
-    >(
-        &self,
-        _realm_name: Option<&str>,
-        _consumer: C,
-    ) -> R {
-        todo!()
-    }
-
-    fn js_loop_realm<
-        R: Send + 'static,
-        C: FnOnce(&QuickJsRuntime, &QuickJsContext) -> Box<dyn Future<Output = R>> + Send + 'static,
-    >(
-        &self,
-        _realm_name: Option<&str>,
-        _consumer: C,
-    ) -> Box<dyn Future<Output = R>> {
-        todo!()
-    }
-
-    fn js_loop_realm_void<C: FnOnce(&QuickJsRuntime, &QuickJsContext) + Send + 'static>(
-        &self,
-        _realm_name: Option<&str>,
-        _consumer: C,
-    ) {
-        todo!()
-    }
-
     #[allow(clippy::type_complexity)]
     fn js_eval(
         &self,
-        _realm_name: Option<&str>,
-        _script: Script,
+        realm_name: Option<&str>,
+        script: Script,
     ) -> Pin<Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, JsError>>>> {
-        todo!()
+        self.js_loop_realm(realm_name, |_rt, realm| {
+            realm
+                .js_eval(script)
+                .map(|jsvr| realm.to_js_value_facade(&jsvr))
+        })
     }
 
     #[warn(clippy::type_complexity)]
