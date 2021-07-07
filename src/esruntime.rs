@@ -667,22 +667,92 @@ impl JsRuntimeFacade for EsRuntime {
     #[allow(clippy::type_complexity)]
     fn js_function_invoke(
         &self,
-        _realm_name: Option<&str>,
-        _namespace: &[&str],
-        _method_name: &str,
-        _args: Vec<Box<dyn JsValueFacade>>,
+        realm_name: Option<&str>,
+        namespace: &[&str],
+        method_name: &str,
+        args: Vec<Box<dyn JsValueFacade>>,
     ) -> Pin<Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, JsError>>>> {
-        todo!()
+        let movable_namespace: Vec<String> = namespace.iter().map(|s| s.to_string()).collect();
+        let movable_method_name = method_name.to_string();
+
+        self.js_loop_realm(realm_name, move |_rt, realm| {
+            let args_adapters: Vec<JSValueRef> = args
+                .into_iter()
+                .map(|jsvf| {
+                    realm
+                        .from_js_value_facade(&*jsvf)
+                        .ok()
+                        .expect("conversion failed")
+                })
+                .collect();
+
+            let namespace = movable_namespace
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<&str>>();
+
+            let res = realm
+                .js_function_invoke(
+                    namespace.as_slice(),
+                    movable_method_name.as_str(),
+                    args_adapters.as_slice(),
+                )
+                .map(|jsvr| realm.to_js_value_facade(&jsvr));
+
+            res
+        })
     }
 
     fn js_function_invoke_void(
         &self,
-        _realm_name: Option<&str>,
-        _namespace: &[&str],
-        _method_name: &str,
-        _args: Vec<Box<dyn JsValueFacade>>,
+        realm_name: Option<&str>,
+        namespace: &[&str],
+        method_name: &str,
+        args: Vec<Box<dyn JsValueFacade>>,
     ) {
-        todo!()
+        let movable_namespace: Vec<String> = namespace.iter().map(|s| s.to_string()).collect();
+        let movable_method_name = method_name.to_string();
+
+        self.js_loop_realm_void(realm_name, move |_rt, realm| {
+            let args_adapters: Vec<JSValueRef> = args
+                .into_iter()
+                .map(|jsvf| {
+                    realm
+                        .from_js_value_facade(&*jsvf)
+                        .ok()
+                        .expect("conversion failed")
+                })
+                .collect();
+
+            let namespace = movable_namespace
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<&str>>();
+
+            let res = realm
+                .js_function_invoke(
+                    namespace.as_slice(),
+                    movable_method_name.as_str(),
+                    args_adapters.as_slice(),
+                )
+                .map(|jsvr| realm.to_js_value_facade(&jsvr));
+
+            match res {
+                Ok(_) => {
+                    log::trace!(
+                        "js_function_invoke_void succeeded: {}",
+                        movable_method_name.as_str()
+                    );
+                }
+                Err(err) => {
+                    log::trace!(
+                        "js_function_invoke_void failed: {}: {}",
+                        movable_method_name.as_str(),
+                        err
+                    );
+                }
+            }
+        })
     }
 }
 
