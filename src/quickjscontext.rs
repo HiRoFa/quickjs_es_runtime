@@ -383,7 +383,7 @@ impl JsRealmAdapter for QuickJsContext {
         objects::get_namespace_q(self, namespace_vec, true)
     }
 
-    fn js_function_invoke(
+    fn js_function_invoke_by_name(
         &self,
         namespace: &[&str],
         method_name: &str,
@@ -396,7 +396,7 @@ impl JsRealmAdapter for QuickJsContext {
         self.call_function(ns_vec, method_name, args_vec)
     }
 
-    fn js_function_invoke2(
+    fn js_function_invoke_member_by_name(
         &self,
         this_obj: &JSValueRef,
         method_name: &str,
@@ -406,7 +406,7 @@ impl JsRealmAdapter for QuickJsContext {
         functions::invoke_member_function_q(self, this_obj, method_name, args_vec)
     }
 
-    fn js_function_invoke3(
+    fn js_function_invoke(
         &self,
         this_obj: Option<&JSValueRef>,
         function_obj: &JSValueRef,

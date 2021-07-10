@@ -653,7 +653,7 @@ impl JsRuntimeFacade for EsRuntime {
                 .collect::<Vec<&str>>();
 
             let res = realm
-                .js_function_invoke(
+                .js_function_invoke_by_name(
                     namespace.as_slice(),
                     movable_method_name.as_str(),
                     args_adapters.as_slice(),
@@ -692,7 +692,7 @@ impl JsRuntimeFacade for EsRuntime {
                 .collect::<Vec<&str>>();
 
             let res = realm
-                .js_function_invoke(
+                .js_function_invoke_by_name(
                     namespace.as_slice(),
                     movable_method_name.as_str(),
                     args_adapters.as_slice(),
@@ -730,7 +730,7 @@ impl JsRuntimeFacade for EsRuntime {
                 .collect::<Vec<&str>>();
 
             let res = realm
-                .js_function_invoke(
+                .js_function_invoke_by_name(
                     namespace.as_slice(),
                     movable_method_name.as_str(),
                     args_adapters.as_slice(),

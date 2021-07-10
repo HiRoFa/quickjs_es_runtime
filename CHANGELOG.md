@@ -3,7 +3,7 @@
 * replaced EsScript with js_utils::Script
 * replaced ScriptPreProcessor with js_utils::ScriptPreProcessor
 * replaced EsError with js_utils::JsError
-* implemented utils::js_utils (generic adapters and facades)
+* implemented utils::js_utils (generic adapters and facades, see [the green copper plan](https://github.com/HiRoFa/GreenCopperRuntime/blob/main/README.md#roadmap--the-plan) for what's this all about)
 * changes to function definitions
 * fixed interrupt handler 
 
