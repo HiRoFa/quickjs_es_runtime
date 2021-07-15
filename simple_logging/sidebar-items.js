@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["log_to","Configure the `log` facade to log to a custom sink."],["log_to_file","Configure the `log` facade to log to a file."],["log_to_stderr","Configure the `log` facade to log to `stderr`."]]});

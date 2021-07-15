@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["parse","Parse a JSON string into an Object"],["parse_q","Parse a JSON string into an Object please note that JSON.parse requires member names to be enclosed in double quotes so {a: 1} and {‘a’: 1} will both fail {“a”: 1} will parse ok"],["stringify","Safety"],["stringify_q","Stringify an Object in script"]]});

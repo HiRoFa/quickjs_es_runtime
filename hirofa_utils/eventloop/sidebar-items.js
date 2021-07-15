@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["EventLoop","the EventLoop struct is a single thread event queue"]]});

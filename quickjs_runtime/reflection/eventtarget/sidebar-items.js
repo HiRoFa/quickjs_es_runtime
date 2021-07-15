@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["_set_event_bubble_target",""],["add_event_listener",""],["dispatch_event","dispatch an Event on an instance of a Proxy class the return value is false if event is cancelable and at least one of the event listeners which received event called Event.preventDefault. Otherwise it returns true"],["remove_event_listener",""]]});

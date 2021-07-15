@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["new_resolving_promise","create a new promise with a resolver/mapper the resolver will run in a helper thread and thus get a result asynchronously the resulting value will then be mapped to a JSValueRef by the mapper in the EventQueue the promise which was returned is then resolved with the value which is returned by the mapper"]]});

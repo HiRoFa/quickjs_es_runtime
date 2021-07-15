@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Cache",""],["Credentials",""],["Method",""],["Mode",""]],"trait":[["Body",""],["FetchInit",""],["FetchResponder",""],["Headers",""],["Request",""],["Response",""]]});

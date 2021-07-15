@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["add_promise_reactions","Safety"],["add_promise_reactions_q",""],["is_promise","Safety"],["is_promise_q",""],["new_promise","create a new Promise you can use this to respond asynchronously to method calls from JavaScript by returning a Promise"],["new_promise_q",""]],"struct":[["PromiseRef",""]]});

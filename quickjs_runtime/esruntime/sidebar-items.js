@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["EsRuntime","EsRuntime is the main public struct representing a JavaScript runtime. You can construct a new EsRuntime by using the [EsRuntimeBuilder] struct"]],"type":[["FetchResponseProvider",""]]});

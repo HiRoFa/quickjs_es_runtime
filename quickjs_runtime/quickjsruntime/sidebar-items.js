@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["NativeModuleLoaderAdapter",""],["QuickJsRuntime",""],["ScriptModuleLoaderAdapter",""]],"trait":[["ModuleLoader","this is the internal abstract loader which is used to actually load the modules"],["NativeModuleLoader",""],["ScriptModuleLoader",""]],"type":[["ContextInitHooks",""]]});

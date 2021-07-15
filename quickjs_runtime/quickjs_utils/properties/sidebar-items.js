@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["JSPropertyEnumRef","this is a wrapper struct for JSPropertyEnum struct in quickjs it used primarily as a result of objects::get_own_property_names()"]]});
