@@ -373,8 +373,6 @@ impl QuickJsRuntime {
         &mut self,
         interrupt_handler: I,
     ) -> &mut Self {
-        println!("qjsrt_set_interrupt_handler");
-
         self.interrupt_handler = Some(Box::new(interrupt_handler));
         interrupthandler::init(self);
         self
