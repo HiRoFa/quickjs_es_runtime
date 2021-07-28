@@ -1104,3 +1104,31 @@ pub mod tests {
         let _args = es_args!(1, 2i32, true, "sdf".to_string());
     }
 }
+
+#[cfg(test)]
+pub mod abstraction_tests {
+    use crate::esruntimebuilder::EsRuntimeBuilder;
+    use futures::executor::block_on;
+    use hirofa_utils::js_utils::adapters::JsRealmAdapter;
+    use hirofa_utils::js_utils::facades::{JsRuntimeFacade, JsValueFacade};
+    use hirofa_utils::js_utils::Script;
+
+    async fn example<T: JsRuntimeFacade>(rt: &T) -> Box<dyn JsValueFacade> {
+        // add a job for the main realm (None as realm_name)
+        rt.js_loop_realm(None, |_rt_adapter, realm_adapter| {
+            let script = Script::new("example.js", "7 + 13");
+            let value_adapter = realm_adapter.js_eval(script).ok().expect("script failed");
+            // convert value_adapter to value_facade because value_adapter is not Send
+            realm_adapter.to_js_value_facade(&value_adapter)
+        })
+        .await
+    }
+
+    #[test]
+    fn test1() {
+        // start a new runtime
+        let rt = EsRuntimeBuilder::new().build();
+        let val = block_on(example(&*rt));
+        assert_eq!(val.js_as_i32(), 20);
+    }
+}

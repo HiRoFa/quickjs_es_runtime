@@ -1,4 +1,9 @@
-# 0.5 (work in progress)
+# 0.5.1
+
+* removed redundant prinltn (thanks SreeniIO!)
+* added testcase for abstractions, and fixed some typedefs
+
+# 0.5.0
 
 * replaced EsScript with js_utils::Script
 * replaced ScriptPreProcessor with js_utils::ScriptPreProcessor
