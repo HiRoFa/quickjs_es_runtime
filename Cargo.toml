@@ -16,9 +16,9 @@ categories = ["development-tools"]
 tokio_full = ["tokio/full"]
 
 [dependencies]
-hirofa_utils = "0.2"
+#hirofa_utils = "0.2"
 #hirofa_utils = {path="../utils"}
-#hirofa_utils = {git="https://github.com/HiRoFa/utils"}
+hirofa_utils = {git="https://github.com/HiRoFa/utils"}
 backtrace = "0.3.56"
 libquickjs-sys = "0.9.0"
 lazy_static = "1.4.0"

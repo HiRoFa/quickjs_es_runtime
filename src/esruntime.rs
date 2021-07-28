@@ -8,7 +8,7 @@ use crate::quickjscontext::QuickJsContext;
 use crate::quickjsruntime::{NativeModuleLoaderAdapter, QuickJsRuntime, ScriptModuleLoaderAdapter};
 use crate::valueref::JSValueRef;
 use hirofa_utils::eventloop::EventLoop;
-use hirofa_utils::js_utils::adapters::JsRealmAdapter;
+use hirofa_utils::js_utils::adapters::{JsRealmAdapter, JsRuntimeAdapter};
 use hirofa_utils::js_utils::facades::{JsRuntimeFacade, JsValueFacade};
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
@@ -591,25 +591,76 @@ impl JsRuntimeFacade for EsRuntime {
         Ok(self.js_contexts.contains(name))
     }
 
-    fn js_loop_sync<
-        R: Send + 'static,
-        C: FnOnce(&Self::JsRuntimeAdapterType) -> R + Send + 'static,
-    >(
+    fn js_loop_sync<R: Send + 'static, C: FnOnce(&QuickJsRuntime) -> R + Send + 'static>(
         &self,
         consumer: C,
     ) -> R {
         self.exe_rt_task_in_event_loop(consumer)
     }
 
-    fn js_loop<R: Send + 'static, C: FnOnce(&Self::JsRuntimeAdapterType) -> R + Send + 'static>(
+    fn js_loop<R: Send + 'static, C: FnOnce(&QuickJsRuntime) -> R + Send + 'static>(
         &self,
         consumer: C,
     ) -> Pin<Box<dyn Future<Output = R> + Send>> {
         Box::pin(self.add_rt_task_to_event_loop(consumer))
     }
 
-    fn js_loop_void<C: FnOnce(&Self::JsRuntimeAdapterType) + Send + 'static>(&self, consumer: C) {
+    fn js_loop_void<C: FnOnce(&QuickJsRuntime) + Send + 'static>(&self, consumer: C) {
         self.add_rt_task_to_event_loop_void(consumer)
+    }
+
+    fn js_loop_realm_sync<
+        R: Send + 'static,
+        C: FnOnce(&QuickJsRuntime, &QuickJsContext) -> R + Send + 'static,
+    >(
+        &self,
+        realm_name: Option<&str>,
+        consumer: C,
+    ) -> R {
+        let realm_name = realm_name.map(|s| s.to_string());
+        self.js_loop_sync(|rt| {
+            let realm = if let Some(realm_name) = realm_name {
+                rt.js_get_realm(realm_name.as_str()).expect("no such realm")
+            } else {
+                rt.js_get_main_realm()
+            };
+            consumer(rt, realm)
+        })
+    }
+
+    fn js_loop_realm<
+        R: Send + 'static,
+        C: FnOnce(&QuickJsRuntime, &QuickJsContext) -> R + Send + 'static,
+    >(
+        &self,
+        realm_name: Option<&str>,
+        consumer: C,
+    ) -> Pin<Box<dyn Future<Output = R>>> {
+        let realm_name = realm_name.map(|s| s.to_string());
+        self.js_loop(|rt| {
+            let realm = if let Some(realm_name) = realm_name {
+                rt.js_get_realm(realm_name.as_str()).expect("no such realm")
+            } else {
+                rt.js_get_main_realm()
+            };
+            consumer(rt, realm)
+        })
+    }
+
+    fn js_loop_realm_void<C: FnOnce(&QuickJsRuntime, &QuickJsContext) + Send + 'static>(
+        &self,
+        realm_name: Option<&str>,
+        consumer: C,
+    ) {
+        let realm_name = realm_name.map(|s| s.to_string());
+        self.js_loop_void(|rt| {
+            let realm = if let Some(realm_name) = realm_name {
+                rt.js_get_realm(realm_name.as_str()).expect("no such realm")
+            } else {
+                rt.js_get_main_realm()
+            };
+            consumer(rt, realm)
+        })
     }
 
     #[allow(clippy::type_complexity)]
