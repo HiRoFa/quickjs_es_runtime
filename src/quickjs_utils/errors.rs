@@ -123,18 +123,16 @@ pub unsafe fn throw(context: *mut q::JSContext, error: JSValueRef) -> q::JSValue
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::tests::init_test_rt;
-    use crate::esruntime::EsRuntime;
     use crate::esvalue::EsValueConvertible;
     use crate::quickjs_utils::functions;
     use hirofa_utils::js_utils::Script;
-    use std::sync::Arc;
     use std::time::Duration;
 
     #[test]
     fn test_ex() {
         // check if stacktrace is preserved when invoking native methods
 
-        let rt: Arc<EsRuntime> = init_test_rt();
+        let rt = init_test_rt();
         rt.set_function(vec![], "test_consume", |_q_ctx, args| {
             // args[0] is a function i'll want to call
             let func_esvf = &args[0];

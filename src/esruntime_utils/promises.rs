@@ -3,11 +3,11 @@ use crate::quickjs_utils::primitives;
 use crate::quickjs_utils::promises::new_promise_q;
 use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjscontext::QuickJsContext;
+use crate::quickjsruntime::QuickJsRuntime;
 use crate::valueref::JSValueRef;
 use hirofa_utils::auto_id_map::AutoIdMap;
 use hirofa_utils::js_utils::JsError;
 use std::cell::RefCell;
-use std::sync::Arc;
 thread_local! {
     static RESOLVING_PROMISES: RefCell<AutoIdMap<PromiseRef>> = RefCell::new(AutoIdMap::new());
 }
@@ -26,18 +26,16 @@ thread_local! {
 /// use quickjs_runtime::esruntime_utils::promises;
 /// use quickjs_runtime::quickjsruntime::QuickJsRuntime;
 /// let rt = EsRuntimeBuilder::new().build();
-/// let rt_ref = rt.clone();
 /// rt.exe_rt_task_in_event_loop(move |q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///      // create rust function, please note that using new_native_function_data will be the faster option
 ///      let func_ref = functions::new_function_q(q_ctx, "asyncTest", move |q_ctx, _this_ref, _args| {
-///           let rt_ref = rt_ref.clone();
 ///               let prom = promises::new_resolving_promise(q_ctx, ||{
 ///                   std::thread::sleep(Duration::from_secs(1));
 ///                   Ok(135)
 ///               }, |_ctx, res|{
 ///                   Ok(primitives::from_i32(res))
-///               }, rt_ref);
+///               });
 ///               prom
 ///      }, 1).ok().expect("could not create func");
 ///
@@ -63,7 +61,6 @@ pub fn new_resolving_promise<P, R, M>(
     q_ctx: &QuickJsContext,
     producer: P,
     mapper: M,
-    es_rt: Arc<EsRuntime>,
 ) -> Result<JSValueRef, JsError>
 where
     R: Send + 'static,
@@ -80,12 +77,14 @@ where
         map.insert(promise_ref)
     });
 
+    let rti_ref = QuickJsRuntime::do_with(|qjs_rt| qjs_rt.get_rti_ref().expect("invalid state"));
+
     let ctx_id = q_ctx.id.clone();
     // go async
     EsRuntime::add_helper_task(move || {
         // in helper thread, produce result
         let produced_result = producer();
-        es_rt.add_rt_task_to_event_loop_void(move |q_js_rt| {
+        rti_ref.add_rt_task_to_event_loop_void(move |q_js_rt| {
             let q_ctx = q_js_rt.get_context(ctx_id.as_str());
             // in q_js_rt worker thread, resolve promise
             // retrieve promise
@@ -140,19 +139,17 @@ where
 
 pub mod tests {
     use crate::esruntime::tests::init_test_rt;
-    use crate::esruntime::EsRuntime;
     use crate::esruntime_utils::promises;
     use crate::esruntime_utils::promises::RESOLVING_PROMISES;
     use crate::quickjs_utils;
     use crate::quickjs_utils::{functions, objects, primitives};
     use hirofa_utils::js_utils::Script;
-    use std::sync::Arc;
     use std::time::Duration;
 
     #[test]
     fn test_resolving_prom() {
-        let rt: Arc<EsRuntime> = init_test_rt();
-        let rt_ref = rt.clone();
+        let rt = init_test_rt();
+
         rt.exe_rt_task_in_event_loop(move |q_js_rt| {
             // create rust function, please note that using new_native_function_data will be the faster option
             let q_ctx = q_js_rt.get_main_context();
@@ -160,8 +157,6 @@ pub mod tests {
                 q_ctx,
                 "asyncTest",
                 move |q_ctx, _this_ref, _args| {
-                    let rt_ref = rt_ref.clone();
-
                     let prom = promises::new_resolving_promise(
                         q_ctx,
                         || {
@@ -169,7 +164,6 @@ pub mod tests {
                             Ok(135)
                         },
                         |_q_ctx, res| Ok(primitives::from_i32(res)),
-                        rt_ref.clone(),
                     );
                     prom
                 },
@@ -214,7 +208,7 @@ pub mod tests {
 
     #[test]
     fn test_simple_prom() {
-        let rt: Arc<EsRuntime> = init_test_rt();
+        let rt = init_test_rt();
 
         // todo test with context_init_hooks disabled
 

@@ -207,14 +207,12 @@ pub unsafe fn get_element(
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::tests::init_test_rt;
-    use crate::esruntime::EsRuntime;
     use crate::quickjs_utils::arrays::{create_array_q, get_element_q, set_element_q};
     use crate::quickjs_utils::objects;
-    use std::sync::Arc;
 
     #[test]
     fn test_array() {
-        let rt: Arc<EsRuntime> = init_test_rt();
+        let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let arr = create_array_q(q_ctx).ok().unwrap();

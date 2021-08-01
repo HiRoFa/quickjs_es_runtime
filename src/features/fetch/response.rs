@@ -1,7 +1,6 @@
 use crate::esruntime_utils::promises::new_resolving_promise;
 use crate::quickjs_utils::{json, primitives};
 use crate::quickjscontext::QuickJsContext;
-use crate::quickjsruntime::QuickJsRuntime;
 use crate::reflection;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
@@ -29,39 +28,35 @@ fn response_text(
     instance_id: &usize,
     _args: Vec<JSValueRef>,
 ) -> Result<JSValueRef, JsError> {
-    QuickJsRuntime::do_with(|q_js_rt| {
-        let es_rt = q_js_rt.get_rt_ref().unwrap();
+    let resp_arc: FetchResponseMapType = RESPONSES.with(move |rrc| {
+        let responses_map = &*rrc.borrow();
+        responses_map
+            .get(&instance_id)
+            .expect("no such response found")
+            .clone()
+    });
 
-        let resp_arc: FetchResponseMapType = RESPONSES.with(move |rrc| {
-            let responses_map = &*rrc.borrow();
-            responses_map
-                .get(&instance_id)
-                .expect("no such response found")
-                .clone()
-        });
+    let producer = move || {
+        // get response, read till completion, return full str
+        let fr_mtx = &*resp_arc;
+        let fr = &mut *fr_mtx.lock().unwrap();
+        let mut bytes = vec![];
+        while let Some(mut buffer) = fr.read() {
+            bytes.append(&mut buffer);
+        }
 
-        let producer = move || {
-            // get response, read till completion, return full str
-            let fr_mtx = &*resp_arc;
-            let fr = &mut *fr_mtx.lock().unwrap();
-            let mut bytes = vec![];
-            while let Some(mut buffer) = fr.read() {
-                bytes.append(&mut buffer);
-            }
+        let res_str = String::from_utf8(bytes);
+        match res_str {
+            Ok(s) => Ok(s),
+            Err(_e) => Err("UTF8Error while reading text".to_string()),
+        }
+    };
+    let mapper = |q_ctx: &QuickJsContext, res: String| {
+        // map string to js_str
+        primitives::from_string_q(q_ctx, res.as_str())
+    };
 
-            let res_str = String::from_utf8(bytes);
-            match res_str {
-                Ok(s) => Ok(s),
-                Err(_e) => Err("UTF8Error while reading text".to_string()),
-            }
-        };
-        let mapper = |q_ctx: &QuickJsContext, res: String| {
-            // map string to js_str
-            primitives::from_string_q(q_ctx, res.as_str())
-        };
-
-        new_resolving_promise(q_ctx, producer, mapper, es_rt)
-    })
+    new_resolving_promise(q_ctx, producer, mapper)
 }
 
 fn response_json(
@@ -69,41 +64,37 @@ fn response_json(
     instance_id: &usize,
     _args: Vec<JSValueRef>,
 ) -> Result<JSValueRef, JsError> {
-    QuickJsRuntime::do_with(|q_js_rt| {
-        let es_rt = q_js_rt.get_rt_ref().unwrap();
+    let resp_arc: FetchResponseMapType = RESPONSES.with(move |rrc| {
+        let responses_map = &*rrc.borrow();
+        responses_map
+            .get(&instance_id)
+            .expect("no such response found")
+            .clone()
+    });
 
-        let resp_arc: FetchResponseMapType = RESPONSES.with(move |rrc| {
-            let responses_map = &*rrc.borrow();
-            responses_map
-                .get(&instance_id)
-                .expect("no such response found")
-                .clone()
-        });
+    let producer = move || {
+        // get response, read till completion, return full str
+        let fr_mtx = &*resp_arc;
+        let fr = &mut *fr_mtx.lock().unwrap();
+        let mut bytes = vec![];
+        while let Some(mut buffer) = fr.read() {
+            bytes.append(&mut buffer);
+        }
 
-        let producer = move || {
-            // get response, read till completion, return full str
-            let fr_mtx = &*resp_arc;
-            let fr = &mut *fr_mtx.lock().unwrap();
-            let mut bytes = vec![];
-            while let Some(mut buffer) = fr.read() {
-                bytes.append(&mut buffer);
-            }
+        let res_str = String::from_utf8(bytes);
+        match res_str {
+            Ok(s) => Ok(s),
+            Err(_e) => Err("UTF8Error while reading text".to_string()),
+        }
+    };
+    let mapper = |q_ctx: &QuickJsContext, res: String| {
+        // map string to js_str and then parse
 
-            let res_str = String::from_utf8(bytes);
-            match res_str {
-                Ok(s) => Ok(s),
-                Err(_e) => Err("UTF8Error while reading text".to_string()),
-            }
-        };
-        let mapper = |q_ctx: &QuickJsContext, res: String| {
-            // map string to js_str and then parse
+        log::trace!("fetch::response::json parsing: {}", res);
+        json::parse_q(q_ctx, res.as_str())
+    };
 
-            log::trace!("fetch::response::json parsing: {}", res);
-            json::parse_q(q_ctx, res.as_str())
-        };
-
-        new_resolving_promise(q_ctx, producer, mapper, es_rt)
-    })
+    new_resolving_promise(q_ctx, producer, mapper)
 }
 
 pub(crate) fn init_response_proxy(q_ctx: &QuickJsContext) -> Result<(), JsError> {

@@ -488,7 +488,7 @@ pub mod tests {
 
         let rt = init_test_rt();
 
-        let mut esvf_res = rt.exe_task(|| {
+        let mut esvf_res = rt.exe_task_in_event_loop(|| {
             QuickJsRuntime::create_context("test").ok().expect("create ctx failed");
             QuickJsRuntime::do_with(|q_js_rt| {
                 let q_ctx = q_js_rt.get_context("test");
@@ -513,7 +513,7 @@ pub mod tests {
         let i = b.get_i32();
         assert_eq!(i, 5 * 7);
 
-        rt.exe_task(|| {
+        rt.exe_task_in_event_loop(|| {
             QuickJsRuntime::remove_context("test");
         })
     }

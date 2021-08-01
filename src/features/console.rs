@@ -284,14 +284,12 @@ unsafe extern "C" fn console_error(
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::tests::init_test_rt;
-    use crate::esruntime::EsRuntime;
     use hirofa_utils::js_utils::Script;
-    use std::sync::Arc;
 
     #[test]
     pub fn test_console() {
         log::info!("> test_console");
-        let rt: Arc<EsRuntime> = init_test_rt();
+        let rt = init_test_rt();
         rt.eval_sync(Script::new(
             "test_console.es",
             "console.log('one %s %s', 'two', 3)",

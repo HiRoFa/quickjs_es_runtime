@@ -69,14 +69,12 @@ pub unsafe fn to_string(
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::tests::init_test_rt;
-    use crate::esruntime::EsRuntime;
     use crate::quickjs_utils::bigints;
     use crate::quickjs_utils::bigints::new_bigint_str_q;
-    use std::sync::Arc;
 
     #[test]
     fn test_bigint() {
-        let rt: Arc<EsRuntime> = init_test_rt();
+        let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let bi_ref =

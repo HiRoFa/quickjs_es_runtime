@@ -58,8 +58,8 @@ unsafe extern "C" fn fetch_func(
 
         let url = primitives::to_string(ctx, &url_arg).ok().unwrap();
 
-        if let Some(rt_ref) = q_js_rt.get_rt_ref() {
-            if rt_ref.get_fetch_response_provider().is_some() {
+        if let Some(rt_ref) = q_js_rt.get_rti_ref() {
+            if rt_ref.fetch_response_provider.is_some() {
                 let rt_ref_weak = Arc::downgrade(&rt_ref);
                 // prevent accidental use
                 drop(rt_ref);
@@ -69,7 +69,8 @@ unsafe extern "C" fn fetch_func(
 
                     if let Some(rt_ref) = rt_ref_weak.upgrade() {
                         let provider = rt_ref
-                            .get_fetch_response_provider()
+                            .fetch_response_provider
+                            .as_ref()
                             .expect("we really expected a fetch_response_provider here");
 
                         let request = FetchRequest::new(url.as_str(), HashMap::new());
@@ -84,9 +85,8 @@ unsafe extern "C" fn fetch_func(
                 let mapper = |q_ctx: &QuickJsContext, p_res: Box<dyn FetchResponse + Send>| {
                     response::new_response_ref(q_ctx, p_res)
                 };
-                let es_rt = q_js_rt.get_rt_ref().unwrap();
 
-                let prom_res = promises::new_resolving_promise(q_ctx, producer, mapper, es_rt);
+                let prom_res = promises::new_resolving_promise(q_ctx, producer, mapper);
                 match prom_res {
                     Ok(prom_ref) => prom_ref.clone_value_incr_rc(),
                     Err(e) => q_ctx.report_ex(e.get_message()),
@@ -108,7 +108,6 @@ pub mod tests {
     use crate::esruntimebuilder::EsRuntimeBuilder;
     use crate::features::fetch::FetchResponse;
     use hirofa_utils::js_utils::Script;
-    use std::sync::Arc;
     use std::time::Duration;
 
     struct TestResponse {
@@ -135,7 +134,7 @@ pub mod tests {
 
     #[test]
     fn test_fetch() {
-        let main_rt: Arc<EsRuntime> = init_test_rt();
+        let main_rt: EsRuntime = init_test_rt();
 
         let rt = EsRuntimeBuilder::new()
             .fetch_response_provider(|_req| {

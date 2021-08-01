@@ -2,9 +2,9 @@ use crate::esruntime::{EsRuntime, FetchResponseProvider};
 use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
 use crate::quickjsruntime::{NativeModuleLoader, QuickJsRuntime, ScriptModuleLoader};
+use hirofa_utils::js_utils::facades::JsRuntimeBuilder;
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::ScriptPreProcessor;
-use std::sync::Arc;
 use std::time::Duration;
 
 pub type EsRuntimeInitHooks =
@@ -34,7 +34,7 @@ pub struct EsRuntimeBuilder {
 
 impl EsRuntimeBuilder {
     /// build an EsRuntime
-    pub fn build(self) -> Arc<EsRuntime> {
+    pub fn build(self) -> EsRuntime {
         EsRuntime::new(self)
     }
 
@@ -253,6 +253,14 @@ impl EsRuntimeBuilder {
 impl Default for EsRuntimeBuilder {
     fn default() -> Self {
         EsRuntimeBuilder::new()
+    }
+}
+
+impl JsRuntimeBuilder for EsRuntimeBuilder {
+    type JsRuntimeFacadeType = EsRuntime;
+
+    fn build(self) -> EsRuntime {
+        todo!()
     }
 }
 

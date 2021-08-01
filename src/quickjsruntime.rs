@@ -1,6 +1,6 @@
 // store in thread_local
 
-use crate::esruntime::EsRuntime;
+use crate::esruntime::EsRuntimeInner;
 use crate::quickjs_utils::modules::{
     add_module_export, compile_module, get_module_def, get_module_name, new_module,
     set_module_export,
@@ -224,7 +224,7 @@ pub type ContextInitHooks =
 pub struct QuickJsRuntime {
     pub(crate) runtime: *mut q::JSRuntime,
     contexts: HashMap<String, QuickJsContext>,
-    es_rt_ref: Option<Weak<EsRuntime>>,
+    rti_ref: Option<Weak<EsRuntimeInner>>,
     id: String,
     context_init_hooks: RefCell<ContextInitHooks>,
     script_module_loaders: Vec<ScriptModuleLoaderAdapter>,
@@ -313,8 +313,8 @@ impl QuickJsRuntime {
     pub fn has_context(&self, id: &str) -> bool {
         self.contexts.contains_key(id)
     }
-    pub(crate) fn init_rt_ref(&mut self, rt_ref: Arc<EsRuntime>) {
-        self.es_rt_ref = Some(Arc::downgrade(&rt_ref));
+    pub(crate) fn init_rti_ref(&mut self, el_ref: Weak<EsRuntimeInner>) {
+        self.rti_ref = Some(el_ref);
     }
     /// # Safety
     /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
@@ -322,8 +322,8 @@ impl QuickJsRuntime {
         let id = QuickJsContext::get_id(context);
         self.get_context(id)
     }
-    pub fn get_rt_ref(&self) -> Option<Arc<EsRuntime>> {
-        if let Some(rt_ref) = &self.es_rt_ref {
+    pub(crate) fn get_rti_ref(&self) -> Option<Arc<EsRuntimeInner>> {
+        if let Some(rt_ref) = &self.rti_ref {
             rt_ref.upgrade()
         } else {
             None
@@ -351,7 +351,7 @@ impl QuickJsRuntime {
             runtime,
             contexts: Default::default(),
 
-            es_rt_ref: None,
+            rti_ref: None,
             id,
             context_init_hooks: RefCell::new(vec![]),
             script_module_loaders: vec![],

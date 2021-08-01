@@ -1,4 +1,4 @@
-use crate::esruntime::EsRuntime;
+use crate::esruntime::{EsRuntime, EsRuntimeInner};
 use crate::quickjs_utils::arrays::{get_element_q, get_length_q, is_array_q};
 use crate::quickjs_utils::dates::is_date_q;
 use crate::quickjs_utils::errors::{error_to_js_error, is_error_q};
@@ -293,14 +293,14 @@ enum EsType {
 struct CachedJSValueRef {
     cached_obj_id: i32,
     context_id: String,
-    es_rt: Weak<EsRuntime>,
+    rti_ref: Weak<EsRuntimeInner>,
     es_type: EsType,
 }
 
 impl CachedJSValueRef {
     fn new(q_ctx: &QuickJsContext, value_ref: &JSValueRef) -> Self {
         log::trace!("> CachedJSValueRef::new");
-        let es_rt = QuickJsRuntime::do_with(|q_js_rt| q_js_rt.get_rt_ref().unwrap());
+        let el_ref = QuickJsRuntime::do_with(|q_js_rt| q_js_rt.get_rti_ref().unwrap());
         let cached_obj_id = q_ctx.cache_object(value_ref.clone());
 
         let es_type = if value_ref.is_big_int() {
@@ -322,7 +322,7 @@ impl CachedJSValueRef {
         let ret = Self {
             cached_obj_id,
             context_id: q_ctx.id.to_string(),
-            es_rt: Arc::downgrade(&es_rt),
+            rti_ref: Arc::downgrade(&el_ref),
             es_type,
         };
         log::trace!("< CachedJSValueRef::new");
@@ -335,9 +335,9 @@ impl CachedJSValueRef {
     {
         let cached_obj_id = self.cached_obj_id;
 
-        if let Some(es_rt) = self.es_rt.upgrade() {
+        if let Some(el_ref) = self.rti_ref.upgrade() {
             let context_id_then = self.context_id.clone();
-            es_rt.exe_rt_task_in_event_loop(move |q_js_rt| {
+            el_ref.exe_rt_task_in_event_loop(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id_then.as_str());
 
                 q_ctx.with_cached_obj(cached_obj_id, |cached_obj_ref| {
@@ -355,9 +355,9 @@ impl CachedJSValueRef {
     {
         let cached_obj_id = self.cached_obj_id;
 
-        if let Some(es_rt) = self.es_rt.upgrade() {
+        if let Some(rti_ref) = self.rti_ref.upgrade() {
             let context_id_then = self.context_id.clone();
-            es_rt.add_rt_task_to_event_loop_void(move |q_js_rt| {
+            rti_ref.add_rt_task_to_event_loop_void(move |q_js_rt| {
                 let q_ctx = q_js_rt.get_context(context_id_then.as_str());
 
                 q_ctx.with_cached_obj(cached_obj_id, |cached_obj_ref| {
@@ -372,10 +372,10 @@ impl CachedJSValueRef {
 
 impl Drop for CachedJSValueRef {
     fn drop(&mut self) {
-        if let Some(rt_arc) = self.es_rt.upgrade() {
+        if let Some(rti_ref) = self.rti_ref.upgrade() {
             let cached_obj_id = self.cached_obj_id;
             let context_id = self.context_id.clone();
-            rt_arc.add_rt_task_to_event_loop_void(move |q_js_rt| {
+            rti_ref.add_rt_task_to_event_loop_void(move |q_js_rt| {
                 if q_js_rt.has_context(context_id.as_str()) {
                     let q_ctx = q_js_rt.get_context(context_id.as_str());
                     q_ctx.remove_cached_obj_if_present(cached_obj_id);
@@ -390,11 +390,13 @@ fn pipe_promise_resolution_to_sender(
     prom_obj_ref: &JSValueRef,
     tx: Arc<TaskFutureResolver<Result<EsValueFacade, EsValueFacade>>>,
 ) {
+    log::trace!("pipe_promise_resolution_to_sender");
     let tx2 = tx.clone();
     let then_func_ref = functions::new_function_q(
         q_ctx,
         "promise_then_result_transmitter",
         move |q_ctx, _this_ref, args| {
+            log::trace!("pipe_promise_resolution_to_sender.then_func");
             // these clones are needed because create_func requires a Fn and not a FnOnce
             // in practice however the Fn is called only once
             let tx3 = tx2.clone();
@@ -431,6 +433,7 @@ fn pipe_promise_resolution_to_sender(
         q_ctx,
         "promise_catch_result_transmitter",
         move |q_ctx, _this_ref, args| {
+            log::trace!("pipe_promise_resolution_to_sender.catch_func");
             // these clones are needed because create_func requires a Fn and not a FnOnce
             // in practice however the Fn is called only once
             let tx3 = tx.clone();
@@ -886,7 +889,7 @@ thread_local! {
 }
 
 struct EsPromiseResolvableHandleInfo {
-    weak_es_rt: Weak<EsRuntime>,
+    weak_rti_ref: Weak<EsRuntimeInner>,
     id: usize,
     context_id: String,
 }
@@ -929,7 +932,7 @@ impl EsPromiseResolvableHandle {
                 // resolve
                 let id = info.id;
                 let context_id = info.context_id.clone();
-                if let Some(rt) = info.weak_es_rt.upgrade() {
+                if let Some(rt) = info.weak_rti_ref.upgrade() {
                     Some((rt, id, context_id, value))
                 } else {
                     log::error!("rt was dropped while resolving");
@@ -941,8 +944,8 @@ impl EsPromiseResolvableHandle {
                 None
             }
         });
-        if let Some((es_rt, id, context_id, mut value)) = rt_opt {
-            es_rt.add_rt_task_to_event_loop_void(move |q_js_rt| {
+        if let Some((rti_ref, id, context_id, mut value)) = rt_opt {
+            rti_ref.add_rt_task_to_event_loop_void(move |q_js_rt| {
                 log::trace!("resolving handle with val, stage 2: {:?}", value);
                 let q_ctx = q_js_rt.get_context(context_id.as_str());
                 ESPROMISE_REFS.with(move |rc| {
@@ -969,7 +972,7 @@ impl EsPromiseResolvableHandle {
                 let id = info.id;
                 let context_id = info.context_id.clone();
 
-                if let Some(rt) = info.weak_es_rt.upgrade() {
+                if let Some(rt) = info.weak_rti_ref.upgrade() {
                     Some((rt, id, context_id, value))
                 } else {
                     log::error!("rt was dropped while rejecting");
@@ -981,8 +984,8 @@ impl EsPromiseResolvableHandle {
                 None
             }
         });
-        if let Some((es_rt, id, context_id, mut value)) = rt_opt {
-            es_rt.add_rt_task_to_event_loop_void(move |q_js_rt| {
+        if let Some((rti_ref, id, context_id, mut value)) = rt_opt {
+            rti_ref.add_rt_task_to_event_loop_void(move |q_js_rt| {
                 log::trace!("rejecting handle with val, stage 2: {:?}", value);
                 let q_ctx = q_js_rt.get_context(context_id.as_str());
                 ESPROMISE_REFS.with(move |rc| {
@@ -1000,7 +1003,12 @@ impl EsPromiseResolvableHandle {
             });
         }
     }
-    fn set_info(&self, es_rt: &Arc<EsRuntime>, id: usize, context_id: &str) -> Result<(), JsError> {
+    fn set_info(
+        &self,
+        rti_ref: Weak<EsRuntimeInner>,
+        id: usize,
+        context_id: &str,
+    ) -> Result<(), JsError> {
         let resolution_opt: Option<Result<EsValueFacade, EsValueFacade>> =
             self.with_inner(|inner| {
                 if inner.js_info.is_some() {
@@ -1008,7 +1016,7 @@ impl EsPromiseResolvableHandle {
                 } else {
                     // set info
                     inner.js_info = Some(EsPromiseResolvableHandleInfo {
-                        weak_es_rt: Arc::downgrade(es_rt),
+                        weak_rti_ref: rti_ref,
                         id,
                         context_id: context_id.to_string(),
                     });
@@ -1039,8 +1047,8 @@ impl Drop for EsPromiseResolvableHandleInner {
     fn drop(&mut self) {
         if let Some(info) = &self.js_info {
             let id = info.id;
-            if let Some(es_rt) = info.weak_es_rt.upgrade() {
-                es_rt.add_rt_task_to_event_loop_void(move |_q_js_rt| {
+            if let Some(rti_ref) = info.weak_rti_ref.upgrade() {
+                rti_ref.add_task_to_event_loop_void(move || {
                     ESPROMISE_REFS.with(move |rc| {
                         let map = &mut *rc.borrow_mut();
                         map.remove(&id);
@@ -1306,9 +1314,10 @@ impl EsValueConvertible for EsPromise {
             let map = &mut *rc.borrow_mut();
             map.insert(prom_ref)
         });
-        let es_rt = QuickJsRuntime::do_with(|q_js_rt| q_js_rt.get_rt_ref().unwrap());
+        let el_ref = QuickJsRuntime::do_with(|q_js_rt| q_js_rt.get_rti_ref().unwrap());
 
-        self.handle.set_info(&es_rt, id, q_ctx.id.as_str())?;
+        self.handle
+            .set_info(Arc::downgrade(&el_ref), id, q_ctx.id.as_str())?;
 
         Ok(ret)
     }
@@ -1575,7 +1584,7 @@ pub mod tests {
 
     #[test]
     fn test_async_func() {
-        let rt: Arc<EsRuntime> = init_test_rt();
+        let rt = init_test_rt();
         let func_esvf = rt
             .eval_sync(Script::new(
                 "test_async_func.es",
@@ -1589,7 +1598,7 @@ pub mod tests {
 
     #[test]
     fn test_promise() {
-        let rt: Arc<EsRuntime> = init_test_rt();
+        let rt = init_test_rt();
         let res = rt.eval_sync(Script::new(
             "test_promise.es",
             "(new Promise(function(resolve, reject){resolve(537);}));",
@@ -1656,7 +1665,7 @@ pub mod tests {
 
     #[test]
     fn test_promise_async2() {
-        let rt = EsRuntimeBuilder::new().build();
+        let rt = Arc::new(EsRuntimeBuilder::new().build());
         let rt_ref = Arc::downgrade(&rt);
         rt.set_function(vec!["com", "my"], "testasyncfunc", move |_q_ctx, args| {
             let rt_ref = rt_ref.clone();

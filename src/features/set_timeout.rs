@@ -220,17 +220,15 @@ unsafe extern "C" fn clear_timeout(
 #[cfg(test)]
 pub mod tests {
     use crate::esruntime::tests::init_test_rt;
-    use crate::esruntime::EsRuntime;
     use crate::quickjs_utils::get_global_q;
     use crate::quickjs_utils::objects::get_property_q;
     use crate::quickjs_utils::primitives::to_i32;
     use hirofa_utils::js_utils::Script;
-    use std::sync::Arc;
     use std::time::Duration;
 
     #[test]
     fn test_set_timeout_prom_res() {
-        let rt: Arc<EsRuntime> = init_test_rt();
+        let rt = init_test_rt();
         let esvf = rt
             .eval_sync(Script::new(
                 "test_set_timeout_prom_res.es",
@@ -257,7 +255,7 @@ pub mod tests {
 
     #[test]
     fn test_set_timeout_prom_res_nested() {
-        let rt: Arc<EsRuntime> = init_test_rt();
+        let rt = init_test_rt();
         let esvf = rt
             .eval_sync(Script::new(
                 "test_set_timeout_prom_res_nested.es",
@@ -284,7 +282,7 @@ pub mod tests {
 
     #[test]
     fn test_set_timeout() {
-        let rt: Arc<EsRuntime> = init_test_rt();
+        let rt = init_test_rt();
 
         rt.eval_sync(Script::new("test_set_interval.es", "let t_id1 = setInterval((a, b) => {console.log('setInterval invoked with %s and %s', a, b);}, 500, 123, 456);")).ok().expect("fail a");
         rt.eval_sync(Script::new("test_set_timeout.es", "let t_id2 = setTimeout((a, b) => {console.log('setTimeout1 invoked with %s and %s', a, b);}, 500, 123, 456);")).ok().expect("fail b");

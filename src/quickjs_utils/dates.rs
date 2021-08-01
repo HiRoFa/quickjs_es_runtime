@@ -78,14 +78,12 @@ pub unsafe fn get_time(context: *mut q::JSContext, date_ref: &JSValueRef) -> Res
 pub mod tests {
 
     use crate::esruntime::tests::init_test_rt;
-    use crate::esruntime::EsRuntime;
     use crate::quickjs_utils::dates;
     use crate::quickjs_utils::dates::{get_time_q, is_date_q, set_time_q};
-    use std::sync::Arc;
 
     #[test]
     fn test_date() {
-        let rt: Arc<EsRuntime> = init_test_rt();
+        let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let date_ref = dates::new_date_q(q_ctx).ok().expect("new_date failed");
