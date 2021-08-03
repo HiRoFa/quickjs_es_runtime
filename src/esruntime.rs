@@ -11,7 +11,7 @@ use crate::quickjsruntime::{
 use crate::valueref::JSValueRef;
 use hirofa_utils::eventloop::EventLoop;
 use hirofa_utils::js_utils::adapters::{JsRealmAdapter, JsRuntimeAdapter};
-use hirofa_utils::js_utils::facades::{JsRuntimeFacade, JsValueFacade};
+use hirofa_utils::js_utils::facades::{JsRuntimeFacade, JsRuntimeFacadeInner, JsValueFacade};
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use hirofa_utils::task_manager::TaskManager;
@@ -39,9 +39,31 @@ impl Drop for EsRuntime {
     }
 }
 
-pub(crate) struct EsRuntimeInner {
+pub struct EsRuntimeInner {
     event_loop: EventLoop,
     pub(crate) fetch_response_provider: Option<Box<FetchResponseProvider>>,
+}
+
+impl JsRuntimeFacadeInner for EsRuntimeInner {
+    type JsRuntimeFacadeType = EsRuntime;
+
+    fn js_exe_rt_task_in_event_loop<
+        R: Send + 'static,
+        J: FnOnce(&<<Self as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) -> R + Send + 'static,
+    >(&self, task: J) -> R{
+        self.exe_rt_task_in_event_loop(task)
+    }
+
+    fn js_add_rt_task_to_event_loop<
+        R: Send + 'static,
+        J: FnOnce(&<<Self as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) -> R + Send + 'static,
+    >(&self, task: J) -> Pin<Box<dyn Future<Output=R>>>{
+        Box::pin(self.add_rt_task_to_event_loop(task))
+    }
+
+    fn js_add_rt_task_to_event_loop_void<J: FnOnce(&<<Self as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) + Send + 'static>(&self, task: J){
+        self.add_rt_task_to_event_loop_void(task)
+    }
 }
 
 impl EsRuntimeInner {
@@ -649,6 +671,11 @@ impl EsRuntime {
 
 impl JsRuntimeFacade for EsRuntime {
     type JsRuntimeAdapterType = QuickJsRuntime;
+    type JsRuntimeFacadeInnerType = EsRuntimeInner;
+
+    fn js_get_runtime_facade_inner(&self) -> Weak<EsRuntimeInner> {
+        Arc::downgrade(&self.inner)
+    }
 
     fn js_realm_create(&mut self, name: &str) -> Result<(), JsError> {
         self.create_context(name).map(|_| {
@@ -743,9 +770,11 @@ impl JsRuntimeFacade for EsRuntime {
         script: Script,
     ) -> Pin<Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, JsError>>>> {
         self.js_loop_realm(realm_name, |_rt, realm| {
-            realm
-                .js_eval(script)
-                .map(|jsvr| realm.to_js_value_facade(&jsvr))
+            let res = realm.js_eval(script);
+            match res {
+                Ok(jsvr) => realm.to_js_value_facade(&jsvr),
+                Err(e) => Err(e),
+            }
         })
     }
 
@@ -776,15 +805,16 @@ impl JsRuntimeFacade for EsRuntime {
                 .map(|s| s.as_str())
                 .collect::<Vec<&str>>();
 
-            let res = realm
-                .js_function_invoke_by_name(
-                    namespace.as_slice(),
-                    movable_method_name.as_str(),
-                    args_adapters.as_slice(),
-                )
-                .map(|jsvr| realm.to_js_value_facade(&jsvr));
+            let res = realm.js_function_invoke_by_name(
+                namespace.as_slice(),
+                movable_method_name.as_str(),
+                args_adapters.as_slice(),
+            );
 
-            res
+            match res {
+                Ok(jsvr) => realm.to_js_value_facade(&jsvr),
+                Err(e) => Err(e),
+            }
         })
     }
 
@@ -815,15 +845,16 @@ impl JsRuntimeFacade for EsRuntime {
                 .map(|s| s.as_str())
                 .collect::<Vec<&str>>();
 
-            let res = realm
-                .js_function_invoke_by_name(
-                    namespace.as_slice(),
-                    movable_method_name.as_str(),
-                    args_adapters.as_slice(),
-                )
-                .map(|jsvr| realm.to_js_value_facade(&jsvr));
+            let res = realm.js_function_invoke_by_name(
+                namespace.as_slice(),
+                movable_method_name.as_str(),
+                args_adapters.as_slice(),
+            );
 
-            res
+            match res {
+                Ok(jsvr) => realm.to_js_value_facade(&jsvr),
+                Err(e) => Err(e),
+            }
         })
     }
 
@@ -1191,7 +1222,10 @@ pub mod abstraction_tests {
             let script = Script::new("example.js", "7 + 13");
             let value_adapter = realm_adapter.js_eval(script).ok().expect("script failed");
             // convert value_adapter to value_facade because value_adapter is not Send
-            realm_adapter.to_js_value_facade(&value_adapter)
+            realm_adapter
+                .to_js_value_facade(&value_adapter)
+                .ok()
+                .expect("conversion failed")
         })
         .await
     }

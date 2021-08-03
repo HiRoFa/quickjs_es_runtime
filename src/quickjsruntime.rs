@@ -322,7 +322,7 @@ impl QuickJsRuntime {
         let id = QuickJsContext::get_id(context);
         self.get_context(id)
     }
-    pub(crate) fn get_rti_ref(&self) -> Option<Arc<EsRuntimeInner>> {
+    pub fn get_rti_ref(&self) -> Option<Arc<EsRuntimeInner>> {
         if let Some(rt_ref) = &self.rti_ref {
             rt_ref.upgrade()
         } else {
@@ -532,6 +532,13 @@ impl JsRuntimeAdapter for QuickJsRuntime {
 
     fn js_get_main_realm(&self) -> &Self::JsRealmAdapterType {
         self.get_main_context()
+    }
+
+    fn js_add_realm_init_hook<H>(&self, hook: H) -> Result<(), JsError>
+    where
+        H: Fn(&Self, &QuickJsContext) -> Result<(), JsError> + 'static,
+    {
+        self.add_context_init_hook(hook)
     }
 }
 

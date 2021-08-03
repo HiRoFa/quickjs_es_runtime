@@ -2,6 +2,7 @@ use crate::quickjs_utils::{functions, primitives};
 use crate::quickjsruntime::QuickJsRuntime;
 use hirofa_utils::js_utils::adapters::JsValueAdapter;
 use hirofa_utils::js_utils::facades::JsValueType;
+use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 use std::hash::{Hash, Hasher};
 use std::ptr::null_mut;
@@ -337,13 +338,11 @@ impl JsValueAdapter for JSValueRef {
         }
     }
 
-    fn js_to_string(&self) -> String {
+    fn js_to_string(&self) -> Result<String, JsError> {
         if self.js_get_type() == JsValueType::String {
             unsafe { primitives::to_string(self.context, self) }
-                .ok()
-                .expect("could not convert to string")
         } else {
-            panic!("not a string");
+            unsafe { functions::call_to_string(self.context, self) }
         }
     }
 }

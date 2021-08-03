@@ -1,12 +1,12 @@
 use crate::quickjs_utils::primitives::{from_bool, from_f64, from_i32, from_string_q};
 use crate::quickjs_utils::promises::PromiseRef;
-use crate::quickjs_utils::{arrays, errors, functions, new_null_ref, objects};
+use crate::quickjs_utils::{arrays, errors, functions, json, new_null_ref, objects};
 use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
 use crate::reflection::{Proxy, ProxyInstanceInfo};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
 use hirofa_utils::js_utils::adapters::proxies::JsProxy;
-use hirofa_utils::js_utils::adapters::JsRealmAdapter;
+use hirofa_utils::js_utils::adapters::{JsRealmAdapter, JsValueAdapter};
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
@@ -565,6 +565,26 @@ impl JsRealmAdapter for QuickJsContext {
 
     fn js_instance_of(&self, object: &JSValueRef, constructor: &JSValueRef) -> bool {
         objects::is_instance_of_q(self, object, constructor)
+    }
+
+    fn js_json_stringify(
+        &self,
+        object: &JSValueRef,
+        opt_space: Option<&str>,
+    ) -> Result<String, JsError> {
+        let opt_space_jsvr = match opt_space {
+            None => None,
+            Some(s) => Some(self.js_string_create(s)?),
+        };
+        let res = json::stringify_q(self, object, opt_space_jsvr);
+        match res {
+            Ok(jsvr) => jsvr.js_to_string(),
+            Err(e) => Err(e),
+        }
+    }
+
+    fn js_json_parse(&self, json_string: &str) -> Result<JSValueRef, JsError> {
+        json::parse_q(self, json_string)
     }
 }
 
