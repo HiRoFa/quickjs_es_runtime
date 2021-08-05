@@ -259,8 +259,16 @@ impl Default for EsRuntimeBuilder {
 impl JsRuntimeBuilder for EsRuntimeBuilder {
     type JsRuntimeFacadeType = EsRuntime;
 
-    fn build(self) -> EsRuntime {
-        todo!()
+    fn js_build(self) -> EsRuntime {
+        self.build()
+    }
+
+    fn js_runtime_init_hook<H: FnOnce(&EsRuntime) -> Result<(), JsError> + Send + 'static>(
+        &mut self,
+        hook: H,
+    ) -> &mut Self {
+        self.runtime_init_hooks.push(Box::new(hook));
+        self
     }
 }
 
