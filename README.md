@@ -90,13 +90,13 @@ main.rs
 
 ```rust
 use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-use hirofa_utils::js_utils::Script
+use hirofa_utils::js_utils::Script;
 use log::LevelFilter;
 use futures::executor::block_on;
 use std::sync::Arc;
 use quickjs_runtime::esruntime::EsRuntime;
 
-async fn test(rt: Arc<EsRuntime>){
+async fn test(rt: &QuickjsRuntimeFacade){
     let res = rt.eval(Script::new(
         "basics.es",
         "7 * 12;",
@@ -108,7 +108,7 @@ async fn test(rt: Arc<EsRuntime>){
 fn main() {
     simple_logging::log_to_stderr(LevelFilter::Info);
 
-    let rt = EsRuntimeBuilder::new()
+    let rt = QuickJsRuntimeBuilder::new()
         .build();
 
     block_on(test(rt));

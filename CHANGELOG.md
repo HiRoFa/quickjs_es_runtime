@@ -1,6 +1,7 @@
 # 0.6.0 (WiP)
 
 * reverted back to EsRuntime having an Arc<EsRuntimeInner> (helps me with my abstraction project)
+* renamed EsRuntime to QuickJsRuntimeFacade, and others to follow same conventions
 
 # 0.5.1
 
