@@ -5,14 +5,18 @@ use crate::quickjs_utils;
 use crate::quickjs_utils::objects::{create_object_q, set_property_q};
 use crate::quickjs_utils::primitives::from_bool;
 use crate::quickjs_utils::{functions, parse_args, primitives};
-use crate::quickjscontext::QuickJsContext;
+use crate::quickjscontext::QuickJsRealmAdapter;
 use crate::reflection::{get_proxy, get_proxy_instance_info, Proxy};
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 use std::collections::HashMap;
 
-fn with_proxy_instances_map<C, R>(q_ctx: &QuickJsContext, proxy_class_name: &str, consumer: C) -> R
+fn with_proxy_instances_map<C, R>(
+    q_ctx: &QuickJsRealmAdapter,
+    proxy_class_name: &str,
+    consumer: C,
+) -> R
 where
     C: FnOnce(&mut HashMap<usize, HashMap<String, HashMap<JSValueRef, JSValueRef>>>) -> R,
 {
@@ -26,7 +30,7 @@ where
 }
 
 fn with_listener_map<C, R>(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     proxy_class_name: &str,
     instance_id: usize,
     event_id: &str,
@@ -51,7 +55,7 @@ where
 }
 
 pub fn add_event_listener(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     proxy_class_name: &str,
     event_id: &str,
     instance_id: usize,
@@ -70,7 +74,7 @@ pub fn add_event_listener(
 }
 
 pub fn remove_event_listener(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     proxy_class_name: &str,
     event_id: &str,
     instance_id: usize,
@@ -87,7 +91,7 @@ pub fn remove_event_listener(
     })
 }
 
-fn remove_map(q_ctx: &QuickJsContext, proxy_class_name: &str, instance_id: usize) {
+fn remove_map(q_ctx: &QuickJsRealmAdapter, proxy_class_name: &str, instance_id: usize) {
     log::trace!(
         "eventtarget::remove_map p:{} i:{}",
         proxy_class_name,
@@ -101,7 +105,7 @@ fn remove_map(q_ctx: &QuickJsContext, proxy_class_name: &str, instance_id: usize
 /// dispatch an Event on an instance of a Proxy class
 /// the return value is false if event is cancelable and at least one of the event listeners which received event called Event.preventDefault. Otherwise it returns true
 pub fn dispatch_event(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     proxy: &Proxy,
     instance_id: usize,
     event_id: &str,
@@ -133,7 +137,7 @@ pub fn _set_event_bubble_target() {
     unimplemented!()
 }
 
-fn events_instance_finalizer(q_ctx: &QuickJsContext, proxy_class_name: &str, id: usize) {
+fn events_instance_finalizer(q_ctx: &QuickJsRealmAdapter, proxy_class_name: &str, id: usize) {
     // drop all listeners,
     remove_map(q_ctx, proxy_class_name, id);
 }
@@ -178,7 +182,7 @@ unsafe extern "C" fn ext_add_event_listener(
     // events_obj will be structured like this
     // ___eventListeners___: {eventId<String>: Map<Function, Object>} // the key of the map is the function, the value are the options
 
-    let res = QuickJsContext::with_context(ctx, |q_ctx| {
+    let res = QuickJsRealmAdapter::with_context(ctx, |q_ctx| {
         let args = parse_args(ctx, argc, argv);
 
         let this_ref = JSValueRef::new(ctx, this_val, true, true, "add_event_listener_this");
@@ -216,7 +220,7 @@ unsafe extern "C" fn ext_add_event_listener(
     });
     match res {
         Ok(_) => quickjs_utils::new_null(),
-        Err(e) => QuickJsContext::report_ex_ctx(ctx, format!("{}", e).as_str()),
+        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{}", e).as_str()),
     }
 }
 
@@ -226,7 +230,7 @@ unsafe extern "C" fn ext_remove_event_listener(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    let res = QuickJsContext::with_context(ctx, |q_ctx| {
+    let res = QuickJsRealmAdapter::with_context(ctx, |q_ctx| {
         let args = parse_args(ctx, argc, argv);
 
         let this_ref = JSValueRef::new(ctx, this_val, true, true, "remove_event_listener_this");
@@ -252,7 +256,7 @@ unsafe extern "C" fn ext_remove_event_listener(
     });
     match res {
         Ok(_) => quickjs_utils::new_null(),
-        Err(e) => QuickJsContext::report_ex_ctx(ctx, format!("{}", e).as_str()),
+        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{}", e).as_str()),
     }
 }
 
@@ -262,7 +266,7 @@ unsafe extern "C" fn ext_dispatch_event(
     argc: ::std::os::raw::c_int,
     argv: *mut q::JSValue,
 ) -> q::JSValue {
-    let res = QuickJsContext::with_context(ctx, |q_ctx| {
+    let res = QuickJsRealmAdapter::with_context(ctx, |q_ctx| {
         let args = parse_args(ctx, argc, argv);
 
         let this_ref = JSValueRef::new(ctx, this_val, true, true, "remove_event_listener_this");
@@ -289,13 +293,13 @@ unsafe extern "C" fn ext_dispatch_event(
             let b_ref = from_bool(res);
             b_ref.clone_value_incr_rc()
         }
-        Err(e) => QuickJsContext::report_ex_ctx(ctx, format!("{}", e).as_str()),
+        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{}", e).as_str()),
     }
 }
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::get_global_q;
     use crate::quickjs_utils::objects::{create_object_q, get_property_q};
     use crate::quickjs_utils::primitives::to_i32;

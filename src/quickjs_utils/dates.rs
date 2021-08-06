@@ -2,13 +2,13 @@
 
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, objects, primitives};
-use crate::quickjscontext::QuickJsContext;
+use crate::quickjscontext::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 
 /// create a new instance of a Date object
-pub fn new_date_q(context: &QuickJsContext) -> Result<JSValueRef, JsError> {
+pub fn new_date_q(context: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
     unsafe { new_date(context.context) }
 }
 
@@ -22,7 +22,7 @@ pub unsafe fn new_date(context: *mut q::JSContext) -> Result<JSValueRef, JsError
 }
 
 /// check if a JSValueRef is an instance of Date
-pub fn is_date_q(context: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
+pub fn is_date_q(context: &QuickJsRealmAdapter, obj_ref: &JSValueRef) -> bool {
     unsafe { is_date(context.context, obj_ref) }
 }
 
@@ -35,7 +35,7 @@ pub unsafe fn is_date(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool 
 
 /// set the timestamp for a Date object
 pub fn set_time_q(
-    context: &QuickJsContext,
+    context: &QuickJsRealmAdapter,
     date_ref: &JSValueRef,
     timestamp: f64,
 ) -> Result<(), JsError> {
@@ -59,7 +59,7 @@ pub unsafe fn set_time(
     Ok(())
 }
 /// get the timestamp from a Date object
-pub fn get_time_q(context: &QuickJsContext, date_ref: &JSValueRef) -> Result<f64, JsError> {
+pub fn get_time_q(context: &QuickJsRealmAdapter, date_ref: &JSValueRef) -> Result<f64, JsError> {
     unsafe { get_time(context.context, date_ref) }
 }
 /// get the timestamp from a Date object
@@ -77,7 +77,7 @@ pub unsafe fn get_time(context: *mut q::JSContext, date_ref: &JSValueRef) -> Res
 #[cfg(test)]
 pub mod tests {
 
-    use crate::esruntime::tests::init_test_rt;
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::dates;
     use crate::quickjs_utils::dates::{get_time_q, is_date_q, set_time_q};
 

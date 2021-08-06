@@ -1,4 +1,4 @@
-use crate::quickjsruntime::QuickJsRuntime;
+use crate::quickjsruntime::QuickJsRuntimeAdapter;
 use libquickjs_sys as q;
 use std::ffi::c_void;
 use std::os::raw::c_int;
@@ -12,12 +12,12 @@ pub unsafe fn set_interrupt_handler(runtime: *mut q::JSRuntime, handler: q::JSIn
     q::JS_SetInterruptHandler(runtime, handler, std::ptr::null_mut());
 }
 
-pub(crate) fn init(q_js_rt: &QuickJsRuntime) {
+pub(crate) fn init(q_js_rt: &QuickJsRuntimeAdapter) {
     unsafe { set_interrupt_handler(q_js_rt.runtime, Some(interrupt_handler)) };
 }
 
 unsafe extern "C" fn interrupt_handler(_rt: *mut q::JSRuntime, _opaque: *mut c_void) -> c_int {
-    QuickJsRuntime::do_with(|q_js_rt| {
+    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let handler = q_js_rt.interrupt_handler.as_ref().unwrap();
         if handler(q_js_rt) {
             1
@@ -29,7 +29,7 @@ unsafe extern "C" fn interrupt_handler(_rt: *mut q::JSRuntime, _opaque: *mut c_v
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntimebuilder::EsRuntimeBuilder;
+    use crate::builder::QuickjsRuntimeBuilder;
     use crate::quickjs_utils::get_script_or_module_name_q;
     use backtrace::Backtrace;
     use hirofa_utils::js_utils::Script;
@@ -62,7 +62,7 @@ pub mod tests {
             .ok()
             .expect("could not init logger");
 
-        let rt = EsRuntimeBuilder::new()
+        let rt = QuickjsRuntimeBuilder::new()
             .set_interrupt_handler(move |qjs_rt| {
                 log::debug!("interrupt_handler called / 1");
                 let script_name = get_script_or_module_name_q(qjs_rt.get_main_context());

@@ -1,7 +1,7 @@
 //! utils for getting and reporting exceptions
 
 use crate::quickjs_utils::{objects, primitives};
-use crate::quickjscontext::QuickJsContext;
+use crate::quickjscontext::QuickJsRealmAdapter;
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
@@ -92,7 +92,7 @@ pub unsafe fn new_error(
 }
 
 /// See if a JSValueRef is an Error object
-pub fn is_error_q(q_ctx: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
+pub fn is_error_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &JSValueRef) -> bool {
     unsafe { is_error(q_ctx.context, obj_ref) }
 }
 
@@ -122,8 +122,8 @@ pub unsafe fn throw(context: *mut q::JSContext, error: JSValueRef) -> q::JSValue
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
     use crate::esvalue::EsValueConvertible;
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::functions;
     use hirofa_utils::js_utils::Script;
     use std::time::Duration;

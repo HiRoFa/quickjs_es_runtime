@@ -1,6 +1,6 @@
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, get_global, objects, parse_args, primitives};
-use crate::quickjsruntime::QuickJsRuntime;
+use crate::quickjsruntime::QuickJsRuntimeAdapter;
 use hirofa_utils::eventloop::EventLoop;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
@@ -9,15 +9,15 @@ use std::time::Duration;
 /// provides the setImmediate methods for the runtime
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use hirofa_utils::js_utils::Script;
 /// use std::time::Duration;
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.eval(Script::new("test_timeout.es", "setTimeout(() => {console.log('timed logging')}, 1000);"));
 /// std::thread::sleep(Duration::from_secs(2));
 /// ```
 
-pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), JsError> {
+pub fn init(q_js_rt: &QuickJsRuntimeAdapter) -> Result<(), JsError> {
     log::trace!("set_timeout::init");
 
     q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| {
@@ -56,7 +56,7 @@ unsafe extern "C" fn set_timeout(
 
     let mut args = parse_args(context, argc, argv);
 
-    QuickJsRuntime::do_with(move |q_js_rt| {
+    QuickJsRuntimeAdapter::do_with(move |q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(context);
         if args.is_empty() {
             return q_ctx.report_ex("setTimeout requires at least one argument");
@@ -84,7 +84,7 @@ unsafe extern "C" fn set_timeout(
 
         let id = EventLoop::add_timeout(
             move || {
-                QuickJsRuntime::do_with(|q_js_rt| {
+                QuickJsRuntimeAdapter::do_with(|q_js_rt| {
                     let mut args = args.clone();
                     let func = args.remove(0);
                     let q_ctx = q_js_rt.get_context(q_ctx_id.as_str());
@@ -114,7 +114,7 @@ unsafe extern "C" fn set_interval(
 
     let mut args = parse_args(context, argc, argv);
 
-    QuickJsRuntime::do_with(|q_js_rt| {
+    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(context);
         if args.is_empty() {
             return q_ctx.report_ex("setInterval requires at least one argument");
@@ -142,7 +142,7 @@ unsafe extern "C" fn set_interval(
 
         let id = EventLoop::add_interval(
             move || {
-                QuickJsRuntime::do_with(|q_js_rt| {
+                QuickJsRuntimeAdapter::do_with(|q_js_rt| {
                     let q_ctx = q_js_rt.get_context(q_ctx_id.as_str());
                     let mut args = args.clone();
 
@@ -175,7 +175,7 @@ unsafe extern "C" fn clear_interval(
     log::trace!("> clear_interval");
 
     let args = parse_args(context, argc, argv);
-    QuickJsRuntime::do_with(|q_js_rt| {
+    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(context);
         if args.is_empty() {
             return q_ctx.report_ex("clearInterval requires at least one argument");
@@ -200,7 +200,7 @@ unsafe extern "C" fn clear_timeout(
 
     let args = parse_args(context, argc, argv);
 
-    QuickJsRuntime::do_with(move |q_js_rt| {
+    QuickJsRuntimeAdapter::do_with(move |q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(context);
         if args.is_empty() {
             return q_ctx.report_ex("clearTimeout requires at least one argument");
@@ -219,7 +219,7 @@ unsafe extern "C" fn clear_timeout(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::get_global_q;
     use crate::quickjs_utils::objects::get_property_q;
     use crate::quickjs_utils::primitives::to_i32;

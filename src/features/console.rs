@@ -25,13 +25,13 @@
 //! * %f Outputs a floating-point value. Formatting is supported, for example  console.log("Foo %.2f", 1.1) will output the number to 2 decimal places: Foo 1.10
 //! # Example
 //! ```rust
-//! use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+//! use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 //! use hirofa_utils::js_utils::Script;
 //! use log::LevelFilter;
 //! simple_logging::log_to_file("console_test.log", LevelFilter::max())
 //!             .ok()
 //!             .expect("could not init logger");
-//! let rt = EsRuntimeBuilder::new().build();
+//! let rt = QuickjsRuntimeBuilder::new().build();
 //! rt.eval_sync(Script::new(
 //! "console.es",
 //! "console.log('the %s %s %s jumped over %i fences with a accuracy of %.2f', 'quick', 'brown', 'fox', 32, 0.512);"
@@ -44,8 +44,8 @@
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions::call_to_string;
 use crate::quickjs_utils::{functions, json, parse_args, primitives};
-use crate::quickjscontext::QuickJsContext;
-use crate::quickjsruntime::QuickJsRuntime;
+use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsruntime::QuickJsRuntimeAdapter;
 use crate::reflection::Proxy;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
@@ -53,11 +53,11 @@ use libquickjs_sys as q;
 use log::LevelFilter;
 use std::str::FromStr;
 
-pub fn init(q_js_rt: &QuickJsRuntime) -> Result<(), JsError> {
+pub fn init(q_js_rt: &QuickJsRuntimeAdapter) -> Result<(), JsError> {
     q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| init_ctx(q_ctx))
 }
 
-pub(crate) fn init_ctx(q_ctx: &QuickJsContext) -> Result<(), JsError> {
+pub(crate) fn init_ctx(q_ctx: &QuickJsRealmAdapter) -> Result<(), JsError> {
     Proxy::new()
         .name("console")
         .static_native_method("log", Some(console_log))
@@ -283,7 +283,7 @@ unsafe extern "C" fn console_error(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
+    use crate::facades::tests::init_test_rt;
     use hirofa_utils::js_utils::Script;
 
     #[test]

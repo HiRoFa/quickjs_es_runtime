@@ -1,4 +1,4 @@
-use crate::quickjscontext::QuickJsContext;
+use crate::quickjscontext::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
@@ -6,11 +6,11 @@ use libquickjs_sys as q;
 /// Check whether an object is an array
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use hirofa_utils::js_utils::Script;
 /// use quickjs_runtime::quickjs_utils::arrays;
 ///
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     let obj_ref = q_ctx.eval(Script::new("is_array_test.es", "([1, 2, 3]);")).ok().expect("script failed");
@@ -18,7 +18,7 @@ use libquickjs_sys as q;
 ///     assert!(is_array);
 /// });
 /// ```
-pub fn is_array_q(q_ctx: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
+pub fn is_array_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &JSValueRef) -> bool {
     unsafe { is_array(q_ctx.context, obj_ref) }
 }
 
@@ -33,11 +33,11 @@ pub unsafe fn is_array(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool
 /// Get the length of an Array
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use hirofa_utils::js_utils::Script;
 /// use quickjs_runtime::quickjs_utils::arrays;
 ///
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     let obj_ref = q_ctx.eval(Script::new("get_length_test.es", "([1, 2, 3]);")).ok().expect("script failed");
@@ -45,7 +45,7 @@ pub unsafe fn is_array(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool
 ///     assert_eq!(len, 3);
 /// });
 /// ```
-pub fn get_length_q(q_ctx: &QuickJsContext, arr_ref: &JSValueRef) -> Result<u32, JsError> {
+pub fn get_length_q(q_ctx: &QuickJsRealmAdapter, arr_ref: &JSValueRef) -> Result<u32, JsError> {
     unsafe { get_length(q_ctx.context, arr_ref) }
 }
 
@@ -63,12 +63,12 @@ pub unsafe fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Re
 /// Create a new Array
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use hirofa_utils::js_utils::Script;
 /// use quickjs_runtime::quickjs_utils::{arrays, primitives, functions};
 /// use quickjs_runtime::quickjs_utils;
 ///
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     // create a method to pass our new array to
@@ -87,7 +87,7 @@ pub unsafe fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Re
 /// });
 /// ```
 
-pub fn create_array_q(q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
+pub fn create_array_q(q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
     unsafe { create_array(q_ctx.context) }
 }
 
@@ -105,12 +105,12 @@ pub unsafe fn create_array(context: *mut q::JSContext) -> Result<JSValueRef, JsE
 /// Set a single element in an array
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use hirofa_utils::js_utils::Script;
 /// use quickjs_runtime::quickjs_utils::{arrays, primitives};
 /// use quickjs_runtime::quickjs_utils;
 ///
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     // get an Array from script
@@ -124,7 +124,7 @@ pub unsafe fn create_array(context: *mut q::JSContext) -> Result<JSValueRef, JsE
 /// });
 /// ```
 pub fn set_element_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     array_ref: &JSValueRef,
     index: u32,
     entry_value_ref: JSValueRef,
@@ -158,12 +158,12 @@ pub unsafe fn set_element(
 /// Get a single element from an array
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use hirofa_utils::js_utils::Script;
 /// use quickjs_runtime::quickjs_utils::{arrays, primitives};
 /// use quickjs_runtime::quickjs_utils;
 ///
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     // get an Array from script
@@ -176,7 +176,7 @@ pub unsafe fn set_element(
 /// });
 /// ```
 pub fn get_element_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     array_ref: &JSValueRef,
     index: u32,
 ) -> Result<JSValueRef, JsError> {
@@ -206,7 +206,7 @@ pub unsafe fn get_element(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::arrays::{create_array_q, get_element_q, set_element_q};
     use crate::quickjs_utils::objects;
 

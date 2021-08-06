@@ -1,4 +1,4 @@
-use crate::quickjscontext::QuickJsContext;
+use crate::quickjscontext::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
 use core::ptr;
 use hirofa_utils::js_utils::JsError;
@@ -51,7 +51,7 @@ pub fn from_i32(i: i32) -> JSValueRef {
     JSValueRef::new_no_context(raw, "primitives::from_i32")
 }
 
-pub fn to_string_q(q_ctx: &QuickJsContext, value_ref: &JSValueRef) -> Result<String, JsError> {
+pub fn to_string_q(q_ctx: &QuickJsRealmAdapter, value_ref: &JSValueRef) -> Result<String, JsError> {
     unsafe { to_string(q_ctx.context, value_ref) }
 }
 /// # Safety
@@ -88,7 +88,7 @@ pub unsafe fn to_string(
     Ok(s)
 }
 
-pub fn from_string_q(q_ctx: &QuickJsContext, s: &str) -> Result<JSValueRef, JsError> {
+pub fn from_string_q(q_ctx: &QuickJsRealmAdapter, s: &str) -> Result<JSValueRef, JsError> {
     unsafe { from_string(q_ctx.context, s) }
 }
 /// # Safety

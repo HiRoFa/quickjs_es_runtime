@@ -1,9 +1,9 @@
-use crate::esruntime::EsRuntime;
+use crate::facades::QuickJsRuntimeFacade;
 use crate::quickjs_utils::primitives;
 use crate::quickjs_utils::promises::new_promise_q;
 use crate::quickjs_utils::promises::PromiseRef;
-use crate::quickjscontext::QuickJsContext;
-use crate::quickjsruntime::QuickJsRuntime;
+use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsruntime::QuickJsRuntimeAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::auto_id_map::AutoIdMap;
 use hirofa_utils::js_utils::JsError;
@@ -18,14 +18,14 @@ thread_local! {
 /// the promise which was returned is then resolved with the value which is returned by the mapper
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::{functions, objects, primitives};
 /// use quickjs_runtime::quickjs_utils;
 /// use hirofa_utils::js_utils::Script;
 /// use std::time::Duration;
-/// use quickjs_runtime::esruntime_utils::promises;
-/// use quickjs_runtime::quickjsruntime::QuickJsRuntime;
-/// let rt = EsRuntimeBuilder::new().build();
+/// use quickjs_runtime::runtimefacade_utils::promises;
+/// use quickjs_runtime::quickjsruntime::QuickJsRuntimeAdapter;
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(move |q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///      // create rust function, please note that using new_native_function_data will be the faster option
@@ -58,14 +58,14 @@ thread_local! {
 /// std::thread::sleep(Duration::from_secs(2));
 /// ```
 pub fn new_resolving_promise<P, R, M>(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     producer: P,
     mapper: M,
 ) -> Result<JSValueRef, JsError>
 where
     R: Send + 'static,
     P: FnOnce() -> Result<R, String> + Send + 'static,
-    M: FnOnce(&QuickJsContext, R) -> Result<JSValueRef, JsError> + Send + 'static,
+    M: FnOnce(&QuickJsRealmAdapter, R) -> Result<JSValueRef, JsError> + Send + 'static,
 {
     // create promise
     let promise_ref = new_promise_q(q_ctx)?;
@@ -77,11 +77,12 @@ where
         map.insert(promise_ref)
     });
 
-    let rti_ref = QuickJsRuntime::do_with(|qjs_rt| qjs_rt.get_rti_ref().expect("invalid state"));
+    let rti_ref =
+        QuickJsRuntimeAdapter::do_with(|qjs_rt| qjs_rt.get_rti_ref().expect("invalid state"));
 
     let ctx_id = q_ctx.id.clone();
     // go async
-    EsRuntime::add_helper_task(move || {
+    QuickJsRuntimeFacade::add_helper_task(move || {
         // in helper thread, produce result
         let produced_result = producer();
         rti_ref.add_rt_task_to_event_loop_void(move |q_js_rt| {
@@ -138,11 +139,11 @@ where
 #[cfg(test)]
 
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
-    use crate::esruntime_utils::promises;
-    use crate::esruntime_utils::promises::RESOLVING_PROMISES;
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils;
     use crate::quickjs_utils::{functions, objects, primitives};
+    use crate::runtimefacade_utils::promises;
+    use crate::runtimefacade_utils::promises::RESOLVING_PROMISES;
     use hirofa_utils::js_utils::Script;
     use std::time::Duration;
 

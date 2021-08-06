@@ -2,8 +2,8 @@ use crate::quickjs_utils;
 use crate::quickjs_utils::functions::new_native_function_q;
 use crate::quickjs_utils::primitives::from_string;
 use crate::quickjs_utils::{atoms, errors, functions, objects, parse_args, primitives};
-use crate::quickjscontext::QuickJsContext;
-use crate::quickjsruntime::QuickJsRuntime;
+use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsruntime::QuickJsRuntimeAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
@@ -17,18 +17,21 @@ use std::rc::Rc;
 pub mod eventtarget;
 
 pub type ProxyConstructor =
-    dyn Fn(&QuickJsContext, usize, Vec<JSValueRef>) -> Result<(), JsError> + 'static;
-pub type ProxyFinalizer = dyn Fn(&QuickJsContext, usize) + 'static;
+    dyn Fn(&QuickJsRealmAdapter, usize, Vec<JSValueRef>) -> Result<(), JsError> + 'static;
+pub type ProxyFinalizer = dyn Fn(&QuickJsRealmAdapter, usize) + 'static;
 pub type ProxyMethod =
-    dyn Fn(&QuickJsContext, &usize, Vec<JSValueRef>) -> Result<JSValueRef, JsError> + 'static;
+    dyn Fn(&QuickJsRealmAdapter, &usize, Vec<JSValueRef>) -> Result<JSValueRef, JsError> + 'static;
 pub type ProxyNativeMethod = q::JSCFunction;
 pub type ProxyStaticMethod =
-    dyn Fn(&QuickJsContext, Vec<JSValueRef>) -> Result<JSValueRef, JsError> + 'static;
+    dyn Fn(&QuickJsRealmAdapter, Vec<JSValueRef>) -> Result<JSValueRef, JsError> + 'static;
 pub type ProxyStaticNativeMethod = q::JSCFunction;
-pub type ProxyStaticGetter = dyn Fn(&QuickJsContext) -> Result<JSValueRef, JsError> + 'static;
-pub type ProxyStaticSetter = dyn Fn(&QuickJsContext, JSValueRef) -> Result<(), JsError> + 'static;
-pub type ProxyGetter = dyn Fn(&QuickJsContext, &usize) -> Result<JSValueRef, JsError> + 'static;
-pub type ProxySetter = dyn Fn(&QuickJsContext, &usize, JSValueRef) -> Result<(), JsError> + 'static;
+pub type ProxyStaticGetter = dyn Fn(&QuickJsRealmAdapter) -> Result<JSValueRef, JsError> + 'static;
+pub type ProxyStaticSetter =
+    dyn Fn(&QuickJsRealmAdapter, JSValueRef) -> Result<(), JsError> + 'static;
+pub type ProxyGetter =
+    dyn Fn(&QuickJsRealmAdapter, &usize) -> Result<JSValueRef, JsError> + 'static;
+pub type ProxySetter =
+    dyn Fn(&QuickJsRealmAdapter, &usize, JSValueRef) -> Result<(), JsError> + 'static;
 
 static CNAME: &str = "ProxyInstanceClass\0";
 static SCNAME: &str = "ProxyStaticClass\0";
@@ -87,7 +90,7 @@ thread_local! {
 
         PROXY_STATIC_CLASS_DEF.with(|cd_rc| {
             let class_def = &*cd_rc.borrow();
-            QuickJsRuntime::do_with(|q_js_rt| {
+            QuickJsRuntimeAdapter::do_with(|q_js_rt| {
                 let res = unsafe { q::JS_NewClass(q_js_rt.runtime, class_id, class_def) };
                 log::trace!("new static class res {}", res);
                 // todo res should be 0 for ok
@@ -103,7 +106,7 @@ thread_local! {
 
         PROXY_INSTANCE_CLASS_DEF.with(|cd_rc| {
             let class_def = &*cd_rc.borrow();
-            QuickJsRuntime::do_with(|q_js_rt| {
+            QuickJsRuntimeAdapter::do_with(|q_js_rt| {
                 let res = unsafe { q::JS_NewClass(q_js_rt.runtime, class_id, class_def) };
                 log::trace!("new class res {}", res);
                 // todo res should be 0 for ok
@@ -116,7 +119,7 @@ thread_local! {
 
 const MAX_INSTANCE_NUM: usize = u32::MAX as usize;
 
-fn next_id(q_ctx: &QuickJsContext) -> usize {
+fn next_id(q_ctx: &QuickJsRealmAdapter) -> usize {
     let mappings = &*q_ctx.proxy_instance_id_mappings.borrow();
     if mappings.len() == MAX_INSTANCE_NUM {
         panic!("too many instances"); // todo report ex
@@ -132,9 +135,9 @@ fn next_id(q_ctx: &QuickJsContext) -> usize {
 /// The Proxy struct can be used to create a class in JavaScript who's methods can be implemented in rust
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use quickjs_runtime::reflection::Proxy;
-/// use quickjs_runtime::quickjscontext::QuickJsContext;
+/// use quickjs_runtime::quickjscontext::QuickJsRealmAdapter;
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use std::cell::RefCell;
 /// use std::collections::HashMap;
@@ -156,7 +159,7 @@ fn next_id(q_ctx: &QuickJsContext) -> usize {
 /// }
 ///
 /// //create a new EsRuntime
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 ///
 /// // install our proxy class as com.hirofa.FunkyClass
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
@@ -166,7 +169,7 @@ fn next_id(q_ctx: &QuickJsContext) -> usize {
 ///    .name("FunkyClass")
 ///    // the constructor is called when a script does new com.hirofa.FunkyClass, the reflection utils
 ///    // generate an instance_id which may be used to identify the instance
-///    .constructor(|q_ctx: &QuickJsContext, instance_id: usize, args: Vec<JSValueRef>| {
+///    .constructor(|q_ctx: &QuickJsRealmAdapter, instance_id: usize, args: Vec<JSValueRef>| {
 ///        // we'll assume our script always constructs the Proxy with a single name argument
 ///        let name = primitives::to_string_q(q_ctx, &args[0]).ok().expect("bad constructor! bad!");
 ///        // create a new instance of our struct and store it in a map
@@ -237,7 +240,7 @@ impl Default for crate::reflection::Proxy {
 }
 
 /// get a proxy by class_name (namespace.ClassName)
-pub fn get_proxy(q_ctx: &QuickJsContext, class_name: &str) -> Option<Rc<Proxy>> {
+pub fn get_proxy(q_ctx: &QuickJsRealmAdapter, class_name: &str) -> Option<Rc<Proxy>> {
     let registry = &*q_ctx.proxy_registry.borrow();
     registry.get(class_name).cloned()
 }
@@ -309,7 +312,7 @@ impl Proxy {
     /// if omitted the Proxy class will not be constructable from script
     pub fn constructor<C>(mut self, constructor: C) -> Self
     where
-        C: Fn(&QuickJsContext, usize, Vec<JSValueRef>) -> Result<(), JsError> + 'static,
+        C: Fn(&QuickJsRealmAdapter, usize, Vec<JSValueRef>) -> Result<(), JsError> + 'static,
     {
         self.constructor = Some(Box::new(constructor));
         self
@@ -318,7 +321,7 @@ impl Proxy {
     /// this will be called when an instance of the Proxy class is dropped or garbage collected
     pub fn finalizer<C>(mut self, finalizer: C) -> Self
     where
-        C: Fn(&QuickJsContext, usize) + 'static,
+        C: Fn(&QuickJsRealmAdapter, usize) + 'static,
     {
         self.finalizers.push(Box::new(finalizer));
         self
@@ -326,7 +329,8 @@ impl Proxy {
     /// add a method to the Proxy class, this method will be available as a member of instances of the Proxy class
     pub fn method<M>(mut self, name: &str, method: M) -> Self
     where
-        M: Fn(&QuickJsContext, &usize, Vec<JSValueRef>) -> Result<JSValueRef, JsError> + 'static,
+        M: Fn(&QuickJsRealmAdapter, &usize, Vec<JSValueRef>) -> Result<JSValueRef, JsError>
+            + 'static,
     {
         self.methods.insert(name.to_string(), Box::new(method));
         self
@@ -339,7 +343,7 @@ impl Proxy {
     /// add a static method to the Proxy class, this method will be available as a member of the Proxy class itself
     pub fn static_method<M>(mut self, name: &str, method: M) -> Self
     where
-        M: Fn(&QuickJsContext, Vec<JSValueRef>) -> Result<JSValueRef, JsError> + 'static,
+        M: Fn(&QuickJsRealmAdapter, Vec<JSValueRef>) -> Result<JSValueRef, JsError> + 'static,
     {
         self.static_methods
             .insert(name.to_string(), Box::new(method));
@@ -354,8 +358,8 @@ impl Proxy {
     /// add a static getter and setter to the Proxy class
     pub fn static_getter_setter<G, S>(mut self, name: &str, getter: G, setter: S) -> Self
     where
-        G: Fn(&QuickJsContext) -> Result<JSValueRef, JsError> + 'static,
-        S: Fn(&QuickJsContext, JSValueRef) -> Result<(), JsError> + 'static,
+        G: Fn(&QuickJsRealmAdapter) -> Result<JSValueRef, JsError> + 'static,
+        S: Fn(&QuickJsRealmAdapter, JSValueRef) -> Result<(), JsError> + 'static,
     {
         self.static_getters_setters
             .insert(name.to_string(), (Box::new(getter), Box::new(setter)));
@@ -364,8 +368,8 @@ impl Proxy {
     /// add a getter and setter to the Proxy class, these will be available as a member of an instance of this Proxy class
     pub fn getter_setter<G, S>(mut self, name: &str, getter: G, setter: S) -> Self
     where
-        G: Fn(&QuickJsContext, &usize) -> Result<JSValueRef, JsError> + 'static,
-        S: Fn(&QuickJsContext, &usize, JSValueRef) -> Result<(), JsError> + 'static,
+        G: Fn(&QuickJsRealmAdapter, &usize) -> Result<JSValueRef, JsError> + 'static,
+        S: Fn(&QuickJsRealmAdapter, &usize, JSValueRef) -> Result<(), JsError> + 'static,
     {
         self.getters_setters
             .insert(name.to_string(), (Box::new(getter), Box::new(setter)));
@@ -383,7 +387,7 @@ impl Proxy {
     /// install the Proxy class in a QuickJsContext, this is always needed as a final step to actually make the Proxy class work
     pub fn install(
         mut self,
-        q_ctx: &QuickJsContext,
+        q_ctx: &QuickJsRealmAdapter,
         add_variable_to_global: bool,
     ) -> Result<JSValueRef, JsError> {
         if self.name.is_none() {
@@ -410,7 +414,7 @@ impl Proxy {
         Ok(class_ref)
     }
 
-    fn install_move_to_registry(self, q_ctx: &QuickJsContext) {
+    fn install_move_to_registry(self, q_ctx: &QuickJsRealmAdapter) {
         let proxy = self;
 
         let reg_map = &mut *q_ctx.proxy_registry.borrow_mut();
@@ -418,7 +422,7 @@ impl Proxy {
     }
     fn install_class_prop(
         &self,
-        q_ctx: &QuickJsContext,
+        q_ctx: &QuickJsRealmAdapter,
         add_variable_to_global: bool,
     ) -> Result<JSValueRef, JsError> {
         // this creates a constructor function, adds it to the global scope and then makes an instance of the static_proxy_class its prototype so we can add static_getters_setters and static_methods
@@ -457,7 +461,7 @@ impl Proxy {
         log::trace!("reflection::Proxy::install_class_prop / 5");
 
         if class_val_ref.is_exception() {
-            return if let Some(e) = unsafe { QuickJsContext::get_exception(q_ctx.context) } {
+            return if let Some(e) = unsafe { QuickJsRealmAdapter::get_exception(q_ctx.context) } {
                 Err(e)
             } else {
                 Err(JsError::new_string(format!(
@@ -476,7 +480,7 @@ impl Proxy {
                 *class_val_ref.borrow_value(),
             );
             if res < 0 {
-                return if let Some(err) = QuickJsContext::get_exception(q_ctx.context) {
+                return if let Some(err) = QuickJsRealmAdapter::get_exception(q_ctx.context) {
                     Err(err)
                 } else {
                     Err(JsError::new_str("could not set class proto"))
@@ -529,7 +533,7 @@ impl Proxy {
 
 pub fn new_instance2(
     proxy: &Proxy,
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
 ) -> Result<(usize, JSValueRef), JsError> {
     let instance_id = next_id(q_ctx);
     Ok((instance_id, new_instance3(proxy, instance_id, q_ctx)?))
@@ -538,7 +542,7 @@ pub fn new_instance2(
 pub(crate) fn new_instance3(
     proxy: &Proxy,
     instance_id: usize,
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
 ) -> Result<JSValueRef, JsError> {
     let ctx = q_ctx.context;
     let class_id = PROXY_INSTANCE_CLASS_ID.with(|rc| *rc.borrow());
@@ -589,7 +593,7 @@ pub(crate) fn new_instance3(
 
 pub fn new_instance(
     class_name: &str,
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
 ) -> Result<(usize, JSValueRef), JsError> {
     // todo
 
@@ -622,7 +626,7 @@ unsafe extern "C" fn constructor(
         false,
         "reflection::constructor this_val",
     );
-    QuickJsRuntime::do_with(|q_js_rt| {
+    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let name_ref = objects::get_property(context, &this_ref, "name")
             .ok()
             .expect("name get failed");
@@ -690,7 +694,7 @@ unsafe extern "C" fn finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
     let info: &ProxyInstanceInfo = get_proxy_instance_info(&val);
     trace!("finalize {}", info.id);
 
-    QuickJsRuntime::do_with(|q_js_rt| {
+    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_context(&info.context_id);
         log::trace!("finalizer called, got q_ctx");
         let registry = &*q_ctx.proxy_registry.borrow();
@@ -739,7 +743,7 @@ unsafe extern "C" fn proxy_static_get_prop(
         "reflection::proxy_static_get_prop receiver",
     );
 
-    QuickJsRuntime::do_with(|q_js_rt| {
+    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(context);
 
         let proxy_name_ref = objects::get_property(context, &receiver_ref, "name")
@@ -841,7 +845,7 @@ unsafe extern "C" fn proxy_instance_get_prop(
         "reflection::proxy_instance_get_prop receiver",
     );
 
-    QuickJsRuntime::do_with(|q_js_rt| {
+    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(context);
 
         let prop_name = atoms::to_string2(context, &atom)
@@ -942,7 +946,7 @@ unsafe extern "C" fn proxy_instance_method(
     func_data: *mut q::JSValue,
 ) -> q::JSValue {
     trace!("proxy_instance_method");
-    QuickJsRuntime::do_with(|q_js_rt| {
+    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(context);
 
         let proxy_instance_info: &ProxyInstanceInfo = get_proxy_instance_info(&this_val);
@@ -998,7 +1002,7 @@ unsafe extern "C" fn proxy_static_method(
     func_data: *mut q::JSValue,
 ) -> q::JSValue {
     trace!("proxy_static_method");
-    QuickJsRuntime::do_with(|q_js_rt| {
+    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(context);
         let this_ref = JSValueRef::new(
             context,
@@ -1074,7 +1078,7 @@ unsafe extern "C" fn proxy_instance_set_prop(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::{functions, primitives};
     use crate::reflection::Proxy;
     use hirofa_utils::js_utils::JsError;

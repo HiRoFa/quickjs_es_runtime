@@ -1,5 +1,5 @@
 use crate::quickjs_utils::{functions, primitives};
-use crate::quickjsruntime::QuickJsRuntime;
+use crate::quickjsruntime::QuickJsRuntimeAdapter;
 use hirofa_utils::js_utils::adapters::JsValueAdapter;
 use hirofa_utils::js_utils::facades::JsValueType;
 use hirofa_utils::js_utils::JsError;
@@ -262,7 +262,7 @@ pub(crate) const TAG_EXCEPTION: i64 = 6;
 pub(crate) const TAG_FLOAT64: i64 = 7;
 
 impl JsValueAdapter for JSValueRef {
-    type JsRuntimeAdapterType = QuickJsRuntime;
+    type JsRuntimeAdapterType = QuickJsRuntimeAdapter;
 
     fn js_get_type(&self) -> JsValueType {
         match self.get_tag() {

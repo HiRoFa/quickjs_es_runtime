@@ -1,13 +1,13 @@
 // store in thread_local
 
-use crate::esruntime::EsRuntimeInner;
+use crate::facades::QuickjsRuntimeFacadeInner;
 use crate::quickjs_utils::modules::{
     add_module_export, compile_module, get_module_def, get_module_name, new_module,
     set_module_export,
 };
 use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjs_utils::{gc, interrupthandler, modules, promises};
-use crate::quickjscontext::QuickJsContext;
+use crate::quickjscontext::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::adapters::JsRuntimeAdapter;
 use hirofa_utils::js_utils::JsError;
@@ -25,21 +25,26 @@ use std::sync::{Arc, Weak};
 pub trait ModuleLoader {
     /// the normalize methods is used to translate a possible relative path to an absolute path of a module
     /// it doubles as a method to see IF a module can actually be loaded by a module loader (return None if the module can not be found)
-    fn normalize_path(&self, q_ctx: &QuickJsContext, ref_path: &str, path: &str) -> Option<String>;
+    fn normalize_path(
+        &self,
+        q_ctx: &QuickJsRealmAdapter,
+        ref_path: &str,
+        path: &str,
+    ) -> Option<String>;
     /// load the Module
     fn load_module(
         &self,
-        q_ctx: &QuickJsContext,
+        q_ctx: &QuickJsRealmAdapter,
         absolute_path: &str,
     ) -> Result<*mut q::JSModuleDef, JsError>;
     /// has module is used to check if a loader can provide a certain module, this is currently used to check which loader should init a native module
-    fn has_module(&self, q_ctx: &QuickJsContext, absolute_path: &str) -> bool;
+    fn has_module(&self, q_ctx: &QuickJsRealmAdapter, absolute_path: &str) -> bool;
     /// init a module, currently used to init native modules
     /// # Safety
     /// be safe with the moduledef ptr
     unsafe fn init_module(
         &self,
-        q_ctx: &QuickJsContext,
+        q_ctx: &QuickJsRealmAdapter,
         module: *mut q::JSModuleDef,
     ) -> Result<(), JsError>;
 }
@@ -64,7 +69,7 @@ impl ScriptModuleLoaderAdapter {
 impl ModuleLoader for ScriptModuleLoaderAdapter {
     fn normalize_path(
         &self,
-        _q_ctx: &QuickJsContext,
+        _q_ctx: &QuickJsRealmAdapter,
         ref_path: &str,
         path: &str,
     ) -> Option<String> {
@@ -73,26 +78,26 @@ impl ModuleLoader for ScriptModuleLoaderAdapter {
 
     fn load_module(
         &self,
-        q_ctx: &QuickJsContext,
+        q_ctx: &QuickJsRealmAdapter,
         absolute_path: &str,
     ) -> Result<*mut q::JSModuleDef, JsError> {
         let code = self.inner.load_module(absolute_path);
 
         let mut script = Script::new(absolute_path, code.as_str());
-        script = QuickJsRuntime::pre_process(script)?;
+        script = QuickJsRuntimeAdapter::pre_process(script)?;
 
         let compiled_module = unsafe { compile_module(q_ctx.context, script)? };
         Ok(get_module_def(&compiled_module))
     }
 
-    fn has_module(&self, q_ctx: &QuickJsContext, absolute_path: &str) -> bool {
+    fn has_module(&self, q_ctx: &QuickJsRealmAdapter, absolute_path: &str) -> bool {
         self.normalize_path(q_ctx, absolute_path, absolute_path)
             .is_some()
     }
 
     unsafe fn init_module(
         &self,
-        _q_ctx: &QuickJsContext,
+        _q_ctx: &QuickJsRealmAdapter,
         _module: *mut q::JSModuleDef,
     ) -> Result<(), JsError> {
         Ok(())
@@ -112,7 +117,7 @@ impl NativeModuleLoaderAdapter {
 impl ModuleLoader for NativeModuleLoaderAdapter {
     fn normalize_path(
         &self,
-        q_ctx: &QuickJsContext,
+        q_ctx: &QuickJsRealmAdapter,
         _ref_path: &str,
         path: &str,
     ) -> Option<String> {
@@ -125,7 +130,7 @@ impl ModuleLoader for NativeModuleLoaderAdapter {
 
     fn load_module(
         &self,
-        q_ctx: &QuickJsContext,
+        q_ctx: &QuickJsRealmAdapter,
         absolute_path: &str,
     ) -> Result<*mut q::JSModuleDef, JsError> {
         // create module
@@ -139,13 +144,13 @@ impl ModuleLoader for NativeModuleLoaderAdapter {
         Ok(module)
     }
 
-    fn has_module(&self, q_ctx: &QuickJsContext, absolute_path: &str) -> bool {
+    fn has_module(&self, q_ctx: &QuickJsRealmAdapter, absolute_path: &str) -> bool {
         self.inner.has_module(q_ctx, absolute_path)
     }
 
     unsafe fn init_module(
         &self,
-        q_ctx: &QuickJsContext,
+        q_ctx: &QuickJsRealmAdapter,
         module: *mut q::JSModuleDef,
     ) -> Result<(), JsError> {
         let module_name = get_module_name(q_ctx.context, module)?;
@@ -166,8 +171,8 @@ unsafe extern "C" fn native_module_init(
         .expect("could not get name");
     log::trace!("native_module_init: {}", module_name);
 
-    QuickJsRuntime::do_with(|q_js_rt| {
-        QuickJsContext::with_context(ctx, |q_ctx| {
+    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
+        QuickJsRealmAdapter::with_context(ctx, |q_ctx| {
             if let Some(res) = q_js_rt.with_all_module_loaders(|module_loader| {
                 if module_loader.has_module(q_ctx, module_name.as_str()) {
                     match module_loader.init_module(q_ctx, module) {
@@ -198,11 +203,11 @@ unsafe extern "C" fn native_module_init(
 }
 
 pub trait NativeModuleLoader {
-    fn has_module(&self, q_ctx: &QuickJsContext, module_name: &str) -> bool;
-    fn get_module_export_names(&self, q_ctx: &QuickJsContext, module_name: &str) -> Vec<&str>;
+    fn has_module(&self, q_ctx: &QuickJsRealmAdapter, module_name: &str) -> bool;
+    fn get_module_export_names(&self, q_ctx: &QuickJsRealmAdapter, module_name: &str) -> Vec<&str>;
     fn get_module_exports(
         &self,
-        q_ctx: &QuickJsContext,
+        q_ctx: &QuickJsRealmAdapter,
         module_name: &str,
     ) -> Vec<(&str, JSValueRef)>;
 }
@@ -212,29 +217,29 @@ thread_local! {
    /// this only exists for the worker thread of the EsEventQueue
    /// todo move rt init to toplevel stackframe (out of lazy init)
    /// so the thread_local should be a refcel containing a null reF? or a None
-   pub(crate) static QJS_RT: RefCell<Option<QuickJsRuntime>> = {
+   pub(crate) static QJS_RT: RefCell<Option<QuickJsRuntimeAdapter >> = {
        RefCell::new(None)
    };
 
 }
 
 pub type ContextInitHooks =
-    Vec<Box<dyn Fn(&QuickJsRuntime, &QuickJsContext) -> Result<(), JsError>>>;
+    Vec<Box<dyn Fn(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> Result<(), JsError>>>;
 
-pub struct QuickJsRuntime {
+pub struct QuickJsRuntimeAdapter {
     pub(crate) runtime: *mut q::JSRuntime,
-    contexts: HashMap<String, QuickJsContext>,
-    rti_ref: Option<Weak<EsRuntimeInner>>,
+    contexts: HashMap<String, QuickJsRealmAdapter>,
+    rti_ref: Option<Weak<QuickjsRuntimeFacadeInner>>,
     id: String,
     context_init_hooks: RefCell<ContextInitHooks>,
     script_module_loaders: Vec<ScriptModuleLoaderAdapter>,
     native_module_loaders: Vec<NativeModuleLoaderAdapter>,
     pub(crate) script_pre_processors: Vec<Box<dyn ScriptPreProcessor + Send>>,
-    pub(crate) interrupt_handler: Option<Box<dyn Fn(&QuickJsRuntime) -> bool>>,
+    pub(crate) interrupt_handler: Option<Box<dyn Fn(&QuickJsRuntimeAdapter) -> bool>>,
 }
 
-impl QuickJsRuntime {
-    pub(crate) fn init_rt_for_current_thread(rt: QuickJsRuntime) {
+impl QuickJsRuntimeAdapter {
+    pub(crate) fn init_rt_for_current_thread(rt: QuickJsRuntimeAdapter) {
         QJS_RT.with(|rc| {
             let opt = &mut *rc.borrow_mut();
             opt.replace(rt);
@@ -252,7 +257,7 @@ impl QuickJsRuntime {
 
     pub fn add_context_init_hook<H>(&self, hook: H) -> Result<(), JsError>
     where
-        H: Fn(&QuickJsRuntime, &QuickJsContext) -> Result<(), JsError> + 'static,
+        H: Fn(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> Result<(), JsError> + 'static,
     {
         for ctx in self.contexts.values() {
             hook(self, ctx)?;
@@ -269,10 +274,10 @@ impl QuickJsRuntime {
     pub fn create_context(id: &str) -> Result<(), JsError> {
         let ctx = Self::do_with(|q_js_rt| {
             assert!(!q_js_rt.has_context(id));
-            QuickJsContext::new(id.to_string(), q_js_rt)
+            QuickJsRealmAdapter::new(id.to_string(), q_js_rt)
         });
 
-        QuickJsRuntime::do_with_mut(|q_js_rt| {
+        QuickJsRuntimeAdapter::do_with_mut(|q_js_rt| {
             q_js_rt.contexts.insert(id.to_string(), ctx);
         });
 
@@ -288,7 +293,7 @@ impl QuickJsRuntime {
     pub fn remove_context(id: &str) {
         log::debug!("QuickJsRuntime::drop_context: {}", id);
 
-        QuickJsRuntime::do_with(|rt| {
+        QuickJsRuntimeAdapter::do_with(|rt| {
             let q_ctx = rt.get_context(id);
             log::trace!("QuickJsRuntime::q_ctx.free: {}", id);
             q_ctx.free();
@@ -296,33 +301,36 @@ impl QuickJsRuntime {
             rt.gc();
         });
 
-        let ctx =
-            QuickJsRuntime::do_with_mut(|m_rt| m_rt.contexts.remove(id).expect("no such context"));
+        let ctx = QuickJsRuntimeAdapter::do_with_mut(|m_rt| {
+            m_rt.contexts.remove(id).expect("no such context")
+        });
 
         drop(ctx);
     }
     pub(crate) fn get_context_ids() -> Vec<String> {
-        QuickJsRuntime::do_with(|q_js_rt| q_js_rt.contexts.iter().map(|c| c.0.clone()).collect())
+        QuickJsRuntimeAdapter::do_with(|q_js_rt| {
+            q_js_rt.contexts.iter().map(|c| c.0.clone()).collect()
+        })
     }
-    pub fn get_context(&self, id: &str) -> &QuickJsContext {
+    pub fn get_context(&self, id: &str) -> &QuickJsRealmAdapter {
         self.contexts.get(id).expect("no such context")
     }
-    pub fn opt_context(&self, id: &str) -> Option<&QuickJsContext> {
+    pub fn opt_context(&self, id: &str) -> Option<&QuickJsRealmAdapter> {
         self.contexts.get(id)
     }
     pub fn has_context(&self, id: &str) -> bool {
         self.contexts.contains_key(id)
     }
-    pub(crate) fn init_rti_ref(&mut self, el_ref: Weak<EsRuntimeInner>) {
+    pub(crate) fn init_rti_ref(&mut self, el_ref: Weak<QuickjsRuntimeFacadeInner>) {
         self.rti_ref = Some(el_ref);
     }
     /// # Safety
     /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-    pub unsafe fn get_quickjs_context(&self, context: *mut q::JSContext) -> &QuickJsContext {
-        let id = QuickJsContext::get_id(context);
+    pub unsafe fn get_quickjs_context(&self, context: *mut q::JSContext) -> &QuickJsRealmAdapter {
+        let id = QuickJsRealmAdapter::get_id(context);
         self.get_context(id)
     }
-    pub fn get_rti_ref(&self) -> Option<Arc<EsRuntimeInner>> {
+    pub fn get_rti_ref(&self) -> Option<Arc<QuickjsRuntimeFacadeInner>> {
         if let Some(rt_ref) = &self.rti_ref {
             rt_ref.upgrade()
         } else {
@@ -363,13 +371,13 @@ impl QuickJsRuntime {
         modules::set_module_loader(&q_rt);
         promises::init_promise_rejection_tracker(&q_rt);
 
-        let main_ctx = QuickJsContext::new("__main__".to_string(), &q_rt);
+        let main_ctx = QuickJsRealmAdapter::new("__main__".to_string(), &q_rt);
         q_rt.contexts.insert("__main__".to_string(), main_ctx);
 
         q_rt
     }
 
-    pub fn set_interrupt_handler<I: Fn(&QuickJsRuntime) -> bool + 'static>(
+    pub fn set_interrupt_handler<I: Fn(&QuickJsRuntimeAdapter) -> bool + 'static>(
         &mut self,
         interrupt_handler: I,
     ) -> &mut Self {
@@ -386,7 +394,7 @@ impl QuickJsRuntime {
         self.native_module_loaders.push(nml);
     }
 
-    pub fn get_main_context(&self) -> &QuickJsContext {
+    pub fn get_main_context(&self) -> &QuickJsRealmAdapter {
         // todo store this somewhere so we don't need a lookup in the map every time
         self.get_context("__main__")
     }
@@ -417,7 +425,7 @@ impl QuickJsRuntime {
 
     pub fn do_with<C, R>(task: C) -> R
     where
-        C: FnOnce(&QuickJsRuntime) -> R,
+        C: FnOnce(&QuickJsRuntimeAdapter) -> R,
     {
         QJS_RT.with(|qjs_rc| {
             let qjs_rt = &*qjs_rc.borrow();
@@ -431,7 +439,7 @@ impl QuickJsRuntime {
 
     pub fn do_with_mut<C, R>(task: C) -> R
     where
-        C: FnOnce(&mut QuickJsRuntime) -> R,
+        C: FnOnce(&mut QuickJsRuntimeAdapter) -> R,
     {
         QJS_RT.with(|qjs_rc| {
             let qjs_rt = &mut *qjs_rc.borrow_mut();
@@ -474,7 +482,7 @@ impl QuickJsRuntime {
             q::JS_ExecutePendingJob(self.runtime, &mut ctx)
         };
         if flag < 0 {
-            let e = unsafe { QuickJsContext::get_exception(ctx) }
+            let e = unsafe { QuickJsRealmAdapter::get_exception(ctx) }
                 .unwrap_or_else(|| JsError::new_str("Unknown exception while running pending job"));
             return Err(e);
         }
@@ -499,7 +507,7 @@ impl QuickJsRuntime {
     }
 }
 
-impl Drop for QuickJsRuntime {
+impl Drop for QuickJsRuntimeAdapter {
     fn drop(&mut self) {
         // drop contexts first, should be done when Dropping EsRuntime?
         log::trace!("drop QuickJsRuntime, dropping contexts");
@@ -513,10 +521,10 @@ impl Drop for QuickJsRuntime {
     }
 }
 
-impl JsRuntimeAdapter for QuickJsRuntime {
+impl JsRuntimeAdapter for QuickJsRuntimeAdapter {
     type JsValueAdapterType = JSValueRef;
     type JsPromiseAdapterType = PromiseRef;
-    type JsRealmAdapterType = QuickJsContext;
+    type JsRealmAdapterType = QuickJsRealmAdapter;
 
     fn js_create_realm(&self, _id: &str) -> Result<&Self::JsRealmAdapterType, JsError> {
         todo!();
@@ -536,7 +544,7 @@ impl JsRuntimeAdapter for QuickJsRuntime {
 
     fn js_add_realm_init_hook<H>(&self, hook: H) -> Result<(), JsError>
     where
-        H: Fn(&Self, &QuickJsContext) -> Result<(), JsError> + 'static,
+        H: Fn(&Self, &QuickJsRealmAdapter) -> Result<(), JsError> + 'static,
     {
         self.add_context_init_hook(hook)
     }
@@ -556,7 +564,7 @@ pub(crate) fn make_cstring(value: &str) -> Result<CString, JsError> {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntimebuilder::EsRuntimeBuilder;
+    use crate::builder::QuickjsRuntimeBuilder;
     use crate::quickjsruntime::ScriptModuleLoader;
 
     struct FooScriptModuleLoader {}
@@ -574,7 +582,7 @@ pub mod tests {
     #[test]
     fn test_script_load() {
         log::debug!("testing1");
-        let rt = EsRuntimeBuilder::new()
+        let rt = QuickjsRuntimeBuilder::new()
             .script_module_loader(Box::new(FooScriptModuleLoader {}))
             .build();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {

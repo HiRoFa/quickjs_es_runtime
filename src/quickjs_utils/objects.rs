@@ -2,8 +2,8 @@
 
 use crate::quickjs_utils::properties::JSPropertyEnumRef;
 use crate::quickjs_utils::{atoms, functions, get_constructor, get_global};
-use crate::quickjscontext::QuickJsContext;
-use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
+use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsruntime::{make_cstring, QuickJsRuntimeAdapter};
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
@@ -12,9 +12,9 @@ use libquickjs_sys as q;
 /// this is used to get nested object properties which are used as namespaces
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::objects::get_namespace_q;
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     let ns_obj = get_namespace_q(q_ctx, vec!["com", "hirofa", "examplepackage"], true).ok().unwrap();
@@ -22,7 +22,7 @@ use libquickjs_sys as q;
 /// })
 /// ```
 pub fn get_namespace_q(
-    context: &QuickJsContext,
+    context: &QuickJsRealmAdapter,
     namespace: Vec<&str>,
     create_if_absent: bool,
 ) -> Result<JSValueRef, JsError> {
@@ -88,7 +88,7 @@ pub unsafe fn construct_object(
     let res_ref = JSValueRef::new(ctx, res, false, true, "call_function result");
 
     if res_ref.is_exception() {
-        if let Some(ex) = QuickJsContext::get_exception(ctx) {
+        if let Some(ex) = QuickJsRealmAdapter::get_exception(ctx) {
             Err(ex)
         } else {
             Err(JsError::new_str(
@@ -101,7 +101,7 @@ pub unsafe fn construct_object(
 }
 
 /// create a new simple object, e.g. `let obj = {};`
-pub fn create_object_q(q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
+pub fn create_object_q(q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
     unsafe { create_object(q_ctx.context) }
 }
 
@@ -119,7 +119,7 @@ pub unsafe fn create_object(context: *mut q::JSContext) -> Result<JSValueRef, Js
 
 /// set a property in an object, like `obj[propName] = val;`
 pub fn set_property_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     obj_ref: &JSValueRef,
     prop_name: &str,
     prop_ref: &JSValueRef,
@@ -160,11 +160,11 @@ pub unsafe fn set_property(
 /// * q::JS_PROP_AUTOINIT
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::objects::{create_object_q, set_property2_q};
 /// use quickjs_runtime::quickjs_utils::primitives::from_i32;
 /// use libquickjs_sys as q;
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let obj = create_object_q(q_ctx).ok().unwrap();
@@ -174,7 +174,7 @@ pub unsafe fn set_property(
 /// })
 /// ```                         
 pub fn set_property2_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     obj_ref: &JSValueRef,
     prop_name: &str,
     prop_ref: &JSValueRef,
@@ -256,7 +256,7 @@ pub unsafe fn set_property2(
 /// rt.eval_sync(Script::new("define_getter_setter_q.es", "testObj431.someProperty = 'hello prop';")).ok().expect("script failed");
 /// ```
 pub fn define_getter_setter_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     obj_ref: &JSValueRef,
     prop_name: &str,
     getter_func_ref: &JSValueRef,
@@ -318,7 +318,7 @@ pub unsafe fn define_getter_setter(
     log::trace!("objects::define_getter_setter 5 {}", res);
 
     if res != 0 {
-        if let Some(err) = QuickJsContext::get_exception(context) {
+        if let Some(err) = QuickJsRealmAdapter::get_exception(context) {
             Err(err)
         } else {
             Err(JsError::new_str(
@@ -332,7 +332,7 @@ pub unsafe fn define_getter_setter(
 
 /// get a property from an object by name
 pub fn get_property_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     obj_ref: &JSValueRef,
     prop_name: &str,
 ) -> Result<JSValueRef, JsError> {
@@ -371,7 +371,7 @@ pub unsafe fn get_property(
 
 /// get the property names of an object
 pub fn get_own_property_names_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     obj_ref: &JSValueRef,
 ) -> Result<JSPropertyEnumRef, JsError> {
     unsafe { get_own_property_names(q_ctx.context, obj_ref) }
@@ -405,7 +405,7 @@ pub unsafe fn get_own_property_names(
 
 /// get the names of all properties of an object
 pub fn get_property_names_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     obj_ref: &JSValueRef,
 ) -> Result<Vec<String>, JsError> {
     unsafe { get_property_names(q_ctx.context, obj_ref) }
@@ -431,7 +431,7 @@ pub unsafe fn get_property_names(
 }
 
 pub fn traverse_properties_q<V, R>(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     obj_ref: &JSValueRef,
     visitor: V,
 ) -> Result<Vec<R>, JsError>
@@ -486,7 +486,7 @@ where
 }
 
 pub fn is_instance_of_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     obj_ref: &JSValueRef,
     constructor_ref: &JSValueRef,
 ) -> bool {
@@ -512,7 +512,7 @@ pub unsafe fn is_instance_of(
 }
 
 pub fn is_instance_of_by_name_q(
-    context: &QuickJsContext,
+    context: &QuickJsRealmAdapter,
     obj_ref: &JSValueRef,
     constructor_name: &str,
 ) -> Result<bool, JsError> {
@@ -539,7 +539,7 @@ pub unsafe fn is_instance_of_by_name(
         Ok(true)
     } else {
         // todo check if context is not __main__
-        QuickJsRuntime::do_with(|q_js_rt| {
+        QuickJsRuntimeAdapter::do_with(|q_js_rt| {
             let main_ctx = q_js_rt.get_main_context();
             let main_constructor_ref = get_constructor(main_ctx.context, constructor_name)?;
             if is_instance_of(main_ctx.context, obj_ref, &main_constructor_ref) {
@@ -553,7 +553,7 @@ pub unsafe fn is_instance_of_by_name(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::objects::{
         create_object_q, get_property_names_q, get_property_q, set_property_q,
     };

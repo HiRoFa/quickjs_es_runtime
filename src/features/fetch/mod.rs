@@ -1,11 +1,11 @@
-use crate::esruntime::EsRuntime;
-use crate::esruntime_utils::promises;
+use crate::facades::QuickJsRuntimeFacade;
 use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, objects, parse_args, primitives};
-use crate::quickjscontext::QuickJsContext;
-use crate::quickjsruntime::QuickJsRuntime;
+use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsruntime::QuickJsRuntimeAdapter;
+use crate::runtimefacade_utils::promises;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 use std::collections::HashMap;
@@ -14,7 +14,7 @@ use std::sync::Arc;
 pub mod request;
 pub mod response;
 
-pub(crate) fn init(es_rt: &EsRuntime) -> Result<(), JsError> {
+pub(crate) fn init(es_rt: &QuickJsRuntimeFacade) -> Result<(), JsError> {
     es_rt.exe_rt_task_in_event_loop(|q_js_rt| {
         q_js_rt.add_context_init_hook(|_q_js_rt, q_ctx| {
             log::trace!("fetch::init");
@@ -45,7 +45,7 @@ unsafe extern "C" fn fetch_func(
 ) -> q::JSValue {
     let args_vec = parse_args(ctx, argc, argv);
 
-    QuickJsRuntime::do_with(|q_js_rt| {
+    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(ctx);
         if args_vec.is_empty() {
             return q_ctx.report_ex("need at least a url arg");
@@ -82,7 +82,7 @@ unsafe extern "C" fn fetch_func(
                         Err("rt was dropped".to_string())
                     }
                 };
-                let mapper = |q_ctx: &QuickJsContext, p_res: Box<dyn FetchResponse + Send>| {
+                let mapper = |q_ctx: &QuickJsRealmAdapter, p_res: Box<dyn FetchResponse + Send>| {
                     response::new_response_ref(q_ctx, p_res)
                 };
 
@@ -103,9 +103,9 @@ unsafe extern "C" fn fetch_func(
 #[cfg(test)]
 pub mod tests {
 
-    use crate::esruntime::tests::init_test_rt;
-    use crate::esruntime::EsRuntime;
-    use crate::esruntimebuilder::EsRuntimeBuilder;
+    use crate::builder::QuickjsRuntimeBuilder;
+    use crate::facades::tests::init_test_rt;
+    use crate::facades::QuickJsRuntimeFacade;
     use crate::features::fetch::FetchResponse;
     use hirofa_utils::js_utils::Script;
     use std::time::Duration;
@@ -134,9 +134,9 @@ pub mod tests {
 
     #[test]
     fn test_fetch() {
-        let main_rt: EsRuntime = init_test_rt();
+        let main_rt: QuickJsRuntimeFacade = init_test_rt();
 
-        let rt = EsRuntimeBuilder::new()
+        let rt = QuickjsRuntimeBuilder::new()
             .fetch_response_provider(|_req| {
                 let res = TestResponse {
                     txt: Some("{\"test\": \"response\"}".to_string()),

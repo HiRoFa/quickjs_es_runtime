@@ -1,14 +1,14 @@
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions;
 use crate::quickjs_utils::objects::is_instance_of_by_name;
-use crate::quickjscontext::QuickJsContext;
-use crate::quickjsruntime::QuickJsRuntime;
+use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsruntime::QuickJsRuntimeAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::adapters::{JsPromiseAdapter, JsRealmAdapter};
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 
-pub fn is_promise_q(context: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
+pub fn is_promise_q(context: &QuickJsRealmAdapter, obj_ref: &JSValueRef) -> bool {
     unsafe { is_promise(context.context, obj_ref) }
 }
 
@@ -32,7 +32,7 @@ impl PromiseRef {
         self.promise_obj_ref.clone()
     }
 
-    pub fn resolve_q(&self, q_ctx: &QuickJsContext, value: JSValueRef) -> Result<(), JsError> {
+    pub fn resolve_q(&self, q_ctx: &QuickJsRealmAdapter, value: JSValueRef) -> Result<(), JsError> {
         unsafe { self.resolve(q_ctx.context, value) }
     }
     /// # Safety
@@ -51,7 +51,7 @@ impl PromiseRef {
         )?;
         Ok(())
     }
-    pub fn reject_q(&self, q_ctx: &QuickJsContext, value: JSValueRef) -> Result<(), JsError> {
+    pub fn reject_q(&self, q_ctx: &QuickJsRealmAdapter, value: JSValueRef) -> Result<(), JsError> {
         unsafe { self.reject(q_ctx.context, value) }
     }
     /// # Safety
@@ -83,11 +83,11 @@ impl Clone for PromiseRef {
 }
 
 impl JsPromiseAdapter for PromiseRef {
-    type JsRuntimeAdapterType = QuickJsRuntime;
+    type JsRuntimeAdapterType = QuickJsRuntimeAdapter;
 
     fn js_promise_resolve(
         &self,
-        context: &QuickJsContext,
+        context: &QuickJsRealmAdapter,
         resolution: &JSValueRef,
     ) -> Result<(), JsError> {
         self.resolve_q(context, resolution.clone())
@@ -95,7 +95,7 @@ impl JsPromiseAdapter for PromiseRef {
 
     fn js_promise_reject(
         &self,
-        context: &QuickJsContext,
+        context: &QuickJsRealmAdapter,
         rejection: &JSValueRef,
     ) -> Result<(), JsError> {
         self.reject_q(context, rejection.clone())
@@ -103,7 +103,7 @@ impl JsPromiseAdapter for PromiseRef {
 
     fn js_promise_add_reactions<F>(
         &self,
-        context: &QuickJsContext,
+        context: &QuickJsRealmAdapter,
         then: Option<F>,
         catch: Option<F>,
         finally: Option<F>,
@@ -165,7 +165,7 @@ impl JsPromiseAdapter for PromiseRef {
     }
 }
 
-pub fn new_promise_q(q_ctx: &QuickJsContext) -> Result<PromiseRef, JsError> {
+pub fn new_promise_q(q_ctx: &QuickJsRealmAdapter) -> Result<PromiseRef, JsError> {
     unsafe { new_promise(q_ctx.context) }
 }
 
@@ -219,7 +219,7 @@ pub unsafe fn new_promise(context: *mut q::JSContext) -> Result<PromiseRef, JsEr
     })
 }
 
-pub(crate) fn init_promise_rejection_tracker(q_js_rt: &QuickJsRuntime) {
+pub(crate) fn init_promise_rejection_tracker(q_js_rt: &QuickJsRuntimeAdapter) {
     let tracker: q::JSHostPromiseRejectionTracker = Some(promise_rejection_tracker);
 
     unsafe {
@@ -228,7 +228,7 @@ pub(crate) fn init_promise_rejection_tracker(q_js_rt: &QuickJsRuntime) {
 }
 
 pub fn add_promise_reactions_q(
-    context: &QuickJsContext,
+    context: &QuickJsRealmAdapter,
     promise_obj_ref: &JSValueRef,
     then_func_obj_ref_opt: Option<JSValueRef>,
     catch_func_obj_ref_opt: Option<JSValueRef>,
@@ -316,11 +316,11 @@ unsafe extern "C" fn promise_rejection_tracker(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
     use crate::esvalue::EsValueFacade;
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::promises::{add_promise_reactions_q, is_promise_q, new_promise_q};
     use crate::quickjs_utils::{functions, new_null_ref, primitives};
-    use crate::quickjsruntime::QuickJsRuntime;
+    use crate::quickjsruntime::QuickJsRuntimeAdapter;
     use hirofa_utils::js_utils::Script;
     use std::time::Duration;
 
@@ -489,8 +489,8 @@ pub mod tests {
         let rt = init_test_rt();
 
         let mut esvf_res = rt.exe_task_in_event_loop(|| {
-            QuickJsRuntime::create_context("test").ok().expect("create ctx failed");
-            QuickJsRuntime::do_with(|q_js_rt| {
+            QuickJsRuntimeAdapter::create_context("test").ok().expect("create ctx failed");
+            QuickJsRuntimeAdapter::do_with(|q_js_rt| {
                 let q_ctx = q_js_rt.get_context("test");
 
                 let script = "(new Promise((resolve, reject) => {resolve({a: 7});}).then((obj) => {return {b: obj.a * 5}}));";
@@ -514,7 +514,7 @@ pub mod tests {
         assert_eq!(i, 5 * 7);
 
         rt.exe_task_in_event_loop(|| {
-            QuickJsRuntime::remove_context("test");
+            QuickJsRuntimeAdapter::remove_context("test");
         })
     }
 }

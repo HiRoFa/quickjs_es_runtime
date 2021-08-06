@@ -3,7 +3,7 @@
 
 use crate::quickjs_utils::objects::{construct_object, is_instance_of_by_name};
 use crate::quickjs_utils::{functions, get_constructor, iterators, objects, primitives};
-use crate::quickjscontext::QuickJsContext;
+use crate::quickjscontext::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
@@ -11,17 +11,17 @@ use libquickjs_sys as q;
 /// create new instance of Set
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::sets::new_set_q;
 ///
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
 /// });
 /// ```
-pub fn new_set_q(q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
+pub fn new_set_q(q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
     unsafe { new_set(q_ctx.context) }
 }
 
@@ -34,7 +34,7 @@ pub unsafe fn new_set(ctx: *mut q::JSContext) -> Result<JSValueRef, JsError> {
 }
 
 /// see if a JSValueRef is an instance of Set
-pub fn is_set_q(q_ctx: &QuickJsContext, obj: &JSValueRef) -> Result<bool, JsError> {
+pub fn is_set_q(q_ctx: &QuickJsRealmAdapter, obj: &JSValueRef) -> Result<bool, JsError> {
     unsafe { is_set(q_ctx.context, obj) }
 }
 
@@ -48,12 +48,12 @@ pub unsafe fn is_set(ctx: *mut q::JSContext, obj: &JSValueRef) -> Result<bool, J
 /// add a value to the Set
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::sets::{new_set_q, add_q};
 ///
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
@@ -62,7 +62,7 @@ pub unsafe fn is_set(ctx: *mut q::JSContext, obj: &JSValueRef) -> Result<bool, J
 /// });
 /// ```
 pub fn add_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     set: &JSValueRef,
     val: JSValueRef,
 ) -> Result<JSValueRef, JsError> {
@@ -83,12 +83,12 @@ pub unsafe fn add(
 /// delete a value from a set
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::sets::{add_q, new_set_q, delete_q};
 ///
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
@@ -98,7 +98,7 @@ pub unsafe fn add(
 /// });
 /// ```
 pub fn delete_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     set: &JSValueRef,
     value: JSValueRef,
 ) -> Result<bool, JsError> {
@@ -120,12 +120,12 @@ pub unsafe fn delete(
 /// check whether a Set has a certain value
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::sets::{new_set_q, add_q, has_q};
 ///
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
@@ -135,7 +135,11 @@ pub unsafe fn delete(
 ///    assert!(bln_has);
 /// });
 /// ```
-pub fn has_q(q_ctx: &QuickJsContext, set: &JSValueRef, key: JSValueRef) -> Result<bool, JsError> {
+pub fn has_q(
+    q_ctx: &QuickJsRealmAdapter,
+    set: &JSValueRef,
+    key: JSValueRef,
+) -> Result<bool, JsError> {
     unsafe { has(q_ctx.context, set, key) }
 }
 
@@ -154,12 +158,12 @@ pub unsafe fn has(
 /// get the number of entries in a Set
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::sets::{add_q, new_set_q, size_q};
 ///
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
@@ -169,7 +173,7 @@ pub unsafe fn has(
 ///    assert_eq!(i_size, 1);
 /// });
 /// ```
-pub fn size_q(q_ctx: &QuickJsContext, set: &JSValueRef) -> Result<i32, JsError> {
+pub fn size_q(q_ctx: &QuickJsRealmAdapter, set: &JSValueRef) -> Result<i32, JsError> {
     unsafe { size(q_ctx.context, set) }
 }
 
@@ -184,12 +188,12 @@ pub unsafe fn size(ctx: *mut q::JSContext, set: &JSValueRef) -> Result<i32, JsEr
 /// remove all entries from a Set
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::sets::{size_q, clear_q, add_q, new_set_q};
 ///
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
@@ -200,7 +204,7 @@ pub unsafe fn size(ctx: *mut q::JSContext, set: &JSValueRef) -> Result<i32, JsEr
 ///    assert_eq!(i_size, 0);
 /// });
 /// ```
-pub fn clear_q(q_ctx: &QuickJsContext, map: &JSValueRef) -> Result<(), JsError> {
+pub fn clear_q(q_ctx: &QuickJsRealmAdapter, map: &JSValueRef) -> Result<(), JsError> {
     unsafe { clear(q_ctx.context, map) }
 }
 
@@ -215,12 +219,12 @@ pub unsafe fn clear(ctx: *mut q::JSContext, set: &JSValueRef) -> Result<(), JsEr
 /// iterate over all values of a Set
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::sets::{new_set_q, add_q, values_q};
 ///
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
@@ -231,7 +235,7 @@ pub unsafe fn clear(ctx: *mut q::JSContext, set: &JSValueRef) -> Result<(), JsEr
 /// });
 /// ```
 pub fn values_q<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     set: &JSValueRef,
     consumer_producer: C,
 ) -> Result<Vec<R>, JsError> {

@@ -1,8 +1,8 @@
 //! utils to create and invoke functions
 
 use crate::quickjs_utils::{atoms, errors, objects, parse_args, primitives};
-use crate::quickjscontext::QuickJsContext;
-use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
+use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsruntime::{make_cstring, QuickJsRuntimeAdapter};
 use crate::valueref::JSValueRef;
 use hirofa_utils::auto_id_map::AutoIdMap;
 use hirofa_utils::js_utils::JsError;
@@ -59,7 +59,7 @@ pub unsafe fn parse_function(
 
     let file_name = format!("compile_func_{}.es", name);
 
-    let ret = QuickJsContext::eval_ctx(context, Script::new(&file_name, &src))?;
+    let ret = QuickJsRealmAdapter::eval_ctx(context, Script::new(&file_name, &src))?;
 
     debug_assert!(is_function(context, &ret));
 
@@ -68,7 +68,7 @@ pub unsafe fn parse_function(
 
 /// call a function
 pub fn call_function_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     function_ref: &JSValueRef,
     arguments: Vec<JSValueRef>,
     this_ref_opt: Option<&JSValueRef>,
@@ -114,7 +114,7 @@ pub unsafe fn call_function(
     let res_ref = JSValueRef::new(context, res, false, true, "call_function result");
 
     if res_ref.is_exception() {
-        if let Some(ex) = QuickJsContext::get_exception(context) {
+        if let Some(ex) = QuickJsRealmAdapter::get_exception(context) {
             Err(ex)
         } else {
             Err(JsError::new_str(
@@ -137,7 +137,7 @@ pub fn JS_Invoke(
  */
 
 pub fn invoke_member_function_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     obj_ref: &JSValueRef,
     function_name: &str,
     arguments: Vec<JSValueRef>,
@@ -184,7 +184,7 @@ pub unsafe fn invoke_member_function(
     );
 
     if res_ref.is_exception() {
-        if let Some(ex) = QuickJsContext::get_exception(context) {
+        if let Some(ex) = QuickJsRealmAdapter::get_exception(context) {
             Err(ex)
         } else {
             Err(JsError::new_str(
@@ -197,7 +197,10 @@ pub unsafe fn invoke_member_function(
 }
 
 /// call an objects to_String method or convert a value to string
-pub fn call_to_string_q(q_ctx: &QuickJsContext, obj_ref: &JSValueRef) -> Result<String, JsError> {
+pub fn call_to_string_q(
+    q_ctx: &QuickJsRealmAdapter,
+    obj_ref: &JSValueRef,
+) -> Result<String, JsError> {
     unsafe { call_to_string(q_ctx.context, obj_ref) }
 }
 
@@ -241,7 +244,7 @@ pub unsafe fn call_to_string(
 }
 
 /// see if an Object is an instance of Function
-pub fn is_function_q(q_ctx: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
+pub fn is_function_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &JSValueRef) -> bool {
     unsafe { is_function(q_ctx.context, obj_ref) }
 }
 
@@ -259,7 +262,7 @@ pub unsafe fn is_function(context: *mut q::JSContext, obj_ref: &JSValueRef) -> b
 }
 
 /// see if an Object is an instance of Function and is a constructor (can be instantiated with new keyword)
-pub fn is_constructor_q(q_ctx: &QuickJsContext, obj_ref: &JSValueRef) -> bool {
+pub fn is_constructor_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &JSValueRef) -> bool {
     unsafe { is_constructor(q_ctx.context, obj_ref) }
 }
 
@@ -277,7 +280,7 @@ pub unsafe fn is_constructor(context: *mut q::JSContext, obj_ref: &JSValueRef) -
 
 /// call a constructor (instantiate an Object)
 pub fn call_constructor_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     constructor_ref: &JSValueRef,
     arguments: &[JSValueRef],
 ) -> Result<JSValueRef, JsError> {
@@ -323,7 +326,7 @@ pub unsafe fn call_constructor(
     );
 
     if res_ref.is_exception() {
-        if let Some(ex) = QuickJsContext::get_exception(context) {
+        if let Some(ex) = QuickJsRealmAdapter::get_exception(context) {
             Err(ex)
         } else {
             Err(JsError::new_str(
@@ -337,7 +340,7 @@ pub unsafe fn call_constructor(
 
 /// create a new Function object which calls a native method
 pub fn new_native_function_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     name: &str,
     func: q::JSCFunction,
     arg_count: i32,
@@ -401,7 +404,7 @@ pub unsafe fn new_native_function(
 
 /// create a new Function object which calls a native method (with data)
 pub fn new_native_function_data_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     func: q::JSCFunctionData,
     name: &str,
     arg_count: i32,
@@ -487,7 +490,7 @@ thread_local! {
 
         CALLBACK_CLASS_DEF.with(|cd_rc| {
             let class_def = &*cd_rc.borrow();
-            QuickJsRuntime::do_with(|q_js_rt| {
+            QuickJsRuntimeAdapter::do_with(|q_js_rt| {
                 let res = unsafe { q::JS_NewClass(q_js_rt.runtime, class_id, class_def) };
                 log::trace!("callback: new class res {}", res);
                 // todo res should be 0 for ok
@@ -506,13 +509,13 @@ thread_local! {
 /// create a new Function which is backed by a closure
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::functions::new_function_q;
 /// use quickjs_runtime::quickjs_utils::primitives::from_i32;
 /// use quickjs_runtime::quickjs_utils::get_global_q;
 /// use quickjs_runtime::quickjs_utils::objects::set_property_q;
 /// use hirofa_utils::js_utils::Script;
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     // create a function which always returns 1253
@@ -524,17 +527,18 @@ thread_local! {
 /// rt.eval_sync(Script::new("new_function_q.es", "let a = myFunc7654(); if (a !== 1253) {throw Error('a was not 1253')}")).ok().expect("script failed");
 /// ```
 pub fn new_function_q<F>(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     name: &str,
     func: F,
     arg_count: u32,
 ) -> Result<JSValueRef, JsError>
 where
-    F: Fn(&QuickJsContext, &JSValueRef, &[JSValueRef]) -> Result<JSValueRef, JsError> + 'static,
+    F: Fn(&QuickJsRealmAdapter, &JSValueRef, &[JSValueRef]) -> Result<JSValueRef, JsError>
+        + 'static,
 {
     let func_raw = move |ctx: *mut q::JSContext, this: &JSValueRef, args: &[JSValueRef]| {
         log::trace!("new_function_q outer");
-        QuickJsRuntime::do_with(|q_js_rt| {
+        QuickJsRuntimeAdapter::do_with(|q_js_rt| {
             log::trace!("new_function_q inner");
             func(unsafe { q_js_rt.get_quickjs_context(ctx) }, this, args)
         })
@@ -589,7 +593,7 @@ where
     );
 
     if class_val_ref.is_exception() {
-        return if let Some(e) = QuickJsContext::get_exception(context) {
+        return if let Some(e) = QuickJsRealmAdapter::get_exception(context) {
             Err(e)
         } else {
             Err(JsError::new_str("could not create callback class"))
@@ -617,7 +621,7 @@ where
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::functions::{
         call_function_q, call_to_string_q, invoke_member_function_q, new_function_q,
     };
@@ -924,13 +928,13 @@ unsafe extern "C" fn callback_function(
 
 #[cfg(test)]
 pub mod tests2 {
-    use crate::esruntimebuilder::EsRuntimeBuilder;
+    use crate::builder::QuickjsRuntimeBuilder;
     use crate::quickjs_utils::functions::{new_function_q, CALLBACK_IDS, CALLBACK_REGISTRY};
     use crate::quickjs_utils::new_null_ref;
 
     #[test]
     fn test_function() {
-        let rt = EsRuntimeBuilder::new().build();
+        let rt = QuickjsRuntimeBuilder::new().build();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let func = new_function_q(

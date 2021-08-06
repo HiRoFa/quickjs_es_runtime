@@ -1,25 +1,25 @@
-use crate::esruntime::{EsRuntime, FetchResponseProvider};
+use crate::facades::{FetchResponseProvider, QuickJsRuntimeFacade};
 use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
-use crate::quickjsruntime::{NativeModuleLoader, QuickJsRuntime, ScriptModuleLoader};
+use crate::quickjsruntime::{NativeModuleLoader, QuickJsRuntimeAdapter, ScriptModuleLoader};
 use hirofa_utils::js_utils::facades::JsRuntimeBuilder;
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::ScriptPreProcessor;
 use std::time::Duration;
 
 pub type EsRuntimeInitHooks =
-    Vec<Box<dyn FnOnce(&EsRuntime) -> Result<(), JsError> + Send + 'static>>;
+    Vec<Box<dyn FnOnce(&QuickJsRuntimeFacade) -> Result<(), JsError> + Send + 'static>>;
 
 /// the EsRuntimeBuilder is used to init an EsRuntime
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// // init a rt which may use 16MB of memory
-/// let rt = EsRuntimeBuilder::new()
+/// let rt = QuickjsRuntimeBuilder::new()
 /// .memory_limit(1024*1024*16)
 /// .build();
 /// ```
-pub struct EsRuntimeBuilder {
+pub struct QuickjsRuntimeBuilder {
     pub(crate) script_module_loaders: Vec<Box<dyn ScriptModuleLoader + Send>>,
     pub(crate) native_module_loaders: Vec<Box<dyn NativeModuleLoader + Send>>,
     pub(crate) opt_fetch_response_provider: Option<Box<FetchResponseProvider>>,
@@ -29,13 +29,13 @@ pub struct EsRuntimeBuilder {
     pub(crate) opt_gc_interval: Option<Duration>,
     pub(crate) runtime_init_hooks: EsRuntimeInitHooks,
     pub(crate) script_pre_processors: Vec<Box<dyn ScriptPreProcessor + Send>>,
-    pub(crate) interrupt_handler: Option<Box<dyn Fn(&QuickJsRuntime) -> bool + Send>>,
+    pub(crate) interrupt_handler: Option<Box<dyn Fn(&QuickJsRuntimeAdapter) -> bool + Send>>,
 }
 
-impl EsRuntimeBuilder {
+impl QuickjsRuntimeBuilder {
     /// build an EsRuntime
-    pub fn build(self) -> EsRuntime {
-        EsRuntime::new(self)
+    pub fn build(self) -> QuickJsRuntimeFacade {
+        QuickJsRuntimeFacade::new(self)
     }
 
     /// init a new EsRuntimeBuilder
@@ -58,8 +58,8 @@ impl EsRuntimeBuilder {
     /// # Example
     /// ```rust
     /// use hirofa_utils::js_utils::Script;
-    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// use quickjs_runtime::quickjscontext::QuickJsContext;
+    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+    /// use quickjs_runtime::quickjscontext::QuickJsRealmAdapter;
     /// use quickjs_runtime::quickjsruntime::ScriptModuleLoader;
     /// struct MyModuleLoader {}
     /// impl ScriptModuleLoader for MyModuleLoader {
@@ -72,7 +72,7 @@ impl EsRuntimeBuilder {
     ///     }
     /// }
     ///
-    /// let rt = EsRuntimeBuilder::new()
+    /// let rt = QuickjsRuntimeBuilder::new()
     ///     .script_module_loader(Box::new(MyModuleLoader{}))
     ///     .build();
     /// rt.eval_module_sync(Script::new("test_module.es", "import {foo} from 'some_module.mes';\nconsole.log('foo = %s', foo);")).ok().unwrap();
@@ -96,7 +96,7 @@ impl EsRuntimeBuilder {
 
     pub fn runtime_init_hook<H>(mut self, hook: H) -> Self
     where
-        H: FnOnce(&EsRuntime) -> Result<(), JsError> + Send + 'static,
+        H: FnOnce(&QuickJsRuntimeFacade) -> Result<(), JsError> + Send + 'static,
     {
         self.runtime_init_hooks.push(Box::new(hook));
         self
@@ -105,10 +105,10 @@ impl EsRuntimeBuilder {
     /// add a module loader which can load native functions and proxy classes
     /// # Example
     /// ```rust
-    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
     /// use quickjs_runtime::quickjsruntime::NativeModuleLoader;
     /// use quickjs_runtime::valueref::JSValueRef;
-    /// use quickjs_runtime::quickjscontext::QuickJsContext;
+    /// use quickjs_runtime::quickjscontext::QuickJsRealmAdapter;
     /// use quickjs_runtime::quickjs_utils::functions;
     /// use quickjs_runtime::quickjs_utils::primitives::{from_bool, from_i32};
     /// use quickjs_runtime::reflection::Proxy;
@@ -116,15 +116,15 @@ impl EsRuntimeBuilder {
     ///
     /// struct MyModuleLoader{}
     /// impl NativeModuleLoader for MyModuleLoader {
-    ///     fn has_module(&self, _q_ctx: &QuickJsContext,module_name: &str) -> bool {
+    ///     fn has_module(&self, _q_ctx: &QuickJsRealmAdapter,module_name: &str) -> bool {
     ///         module_name.eq("my_module")
     ///     }
     ///
-    ///     fn get_module_export_names(&self, _q_ctx: &QuickJsContext, _module_name: &str) -> Vec<&str> {
+    ///     fn get_module_export_names(&self, _q_ctx: &QuickJsRealmAdapter, _module_name: &str) -> Vec<&str> {
     ///         vec!["someVal", "someFunc", "SomeClass"]
     ///     }
     ///
-    ///     fn get_module_exports(&self, q_ctx: &QuickJsContext, _module_name: &str) -> Vec<(&str, JSValueRef)> {
+    ///     fn get_module_exports(&self, q_ctx: &QuickJsRealmAdapter, _module_name: &str) -> Vec<(&str, JSValueRef)> {
     ///         
     ///         let js_val = from_i32(1470);
     ///         let js_func = functions::new_function_q(
@@ -145,7 +145,7 @@ impl EsRuntimeBuilder {
     ///     }
     /// }
     ///
-    /// let rt = EsRuntimeBuilder::new()
+    /// let rt = QuickjsRuntimeBuilder::new()
     /// .native_module_loader(Box::new(MyModuleLoader{}))
     /// .build();
     ///
@@ -163,7 +163,7 @@ impl EsRuntimeBuilder {
     /// # Example
     /// ```rust
     ///
-    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
     /// use quickjs_runtime::features::fetch::response::FetchResponse;
     /// use quickjs_runtime::features::fetch::request::FetchRequest;
     /// use hirofa_utils::js_utils::Script;
@@ -198,7 +198,7 @@ impl EsRuntimeBuilder {
     ///     }
     /// }
     ///
-    /// let rt = EsRuntimeBuilder::new()
+    /// let rt = QuickjsRuntimeBuilder::new()
     /// .fetch_response_provider(|req| {Box::new(SimpleResponse::new(req))})
     /// .build();
     ///
@@ -241,7 +241,7 @@ impl EsRuntimeBuilder {
     }
 
     /// add an interrupt handler, this will be called several times during script execution and may be used to cancel a running script
-    pub fn set_interrupt_handler<I: Fn(&QuickJsRuntime) -> bool + Send + 'static>(
+    pub fn set_interrupt_handler<I: Fn(&QuickJsRuntimeAdapter) -> bool + Send + 'static>(
         mut self,
         interrupt_handler: I,
     ) -> Self {
@@ -250,20 +250,22 @@ impl EsRuntimeBuilder {
     }
 }
 
-impl Default for EsRuntimeBuilder {
+impl Default for QuickjsRuntimeBuilder {
     fn default() -> Self {
-        EsRuntimeBuilder::new()
+        QuickjsRuntimeBuilder::new()
     }
 }
 
-impl JsRuntimeBuilder for EsRuntimeBuilder {
-    type JsRuntimeFacadeType = EsRuntime;
+impl JsRuntimeBuilder for QuickjsRuntimeBuilder {
+    type JsRuntimeFacadeType = QuickJsRuntimeFacade;
 
-    fn js_build(self) -> EsRuntime {
+    fn js_build(self) -> QuickJsRuntimeFacade {
         self.build()
     }
 
-    fn js_runtime_init_hook<H: FnOnce(&EsRuntime) -> Result<(), JsError> + Send + 'static>(
+    fn js_runtime_init_hook<
+        H: FnOnce(&QuickJsRuntimeFacade) -> Result<(), JsError> + Send + 'static,
+    >(
         &mut self,
         hook: H,
     ) -> &mut Self {
@@ -274,7 +276,7 @@ impl JsRuntimeBuilder for EsRuntimeBuilder {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntimebuilder::EsRuntimeBuilder;
+    use crate::builder::QuickjsRuntimeBuilder;
     use crate::quickjsruntime::ScriptModuleLoader;
     use hirofa_utils::js_utils::Script;
 
@@ -291,7 +293,7 @@ pub mod tests {
             }
         }
 
-        let rt = EsRuntimeBuilder::new()
+        let rt = QuickjsRuntimeBuilder::new()
             .script_module_loader(Box::new(MyModuleLoader {}))
             .build();
         match rt.eval_module_sync(Script::new(

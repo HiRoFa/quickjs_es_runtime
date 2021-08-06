@@ -1,7 +1,7 @@
-use crate::esruntime_utils::promises::new_resolving_promise;
 use crate::quickjs_utils::{json, primitives};
-use crate::quickjscontext::QuickJsContext;
+use crate::quickjscontext::QuickJsRealmAdapter;
 use crate::reflection;
+use crate::runtimefacade_utils::promises::new_resolving_promise;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use std::cell::RefCell;
@@ -24,7 +24,7 @@ pub trait FetchResponse {
 const RESPONSE_PROXY_NAME: &str = "Response";
 
 fn response_text(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     instance_id: &usize,
     _args: Vec<JSValueRef>,
 ) -> Result<JSValueRef, JsError> {
@@ -51,7 +51,7 @@ fn response_text(
             Err(_e) => Err("UTF8Error while reading text".to_string()),
         }
     };
-    let mapper = |q_ctx: &QuickJsContext, res: String| {
+    let mapper = |q_ctx: &QuickJsRealmAdapter, res: String| {
         // map string to js_str
         primitives::from_string_q(q_ctx, res.as_str())
     };
@@ -60,7 +60,7 @@ fn response_text(
 }
 
 fn response_json(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     instance_id: &usize,
     _args: Vec<JSValueRef>,
 ) -> Result<JSValueRef, JsError> {
@@ -87,7 +87,7 @@ fn response_json(
             Err(_e) => Err("UTF8Error while reading text".to_string()),
         }
     };
-    let mapper = |q_ctx: &QuickJsContext, res: String| {
+    let mapper = |q_ctx: &QuickJsRealmAdapter, res: String| {
         // map string to js_str and then parse
 
         log::trace!("fetch::response::json parsing: {}", res);
@@ -97,7 +97,7 @@ fn response_json(
     new_resolving_promise(q_ctx, producer, mapper)
 }
 
-pub(crate) fn init_response_proxy(q_ctx: &QuickJsContext) -> Result<(), JsError> {
+pub(crate) fn init_response_proxy(q_ctx: &QuickJsRealmAdapter) -> Result<(), JsError> {
     reflection::Proxy::new()
         .name(RESPONSE_PROXY_NAME)
         // todo native_methods
@@ -133,7 +133,7 @@ pub(crate) fn init_response_proxy(q_ctx: &QuickJsContext) -> Result<(), JsError>
 }
 
 pub(crate) fn new_response_ref(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     fetch_response: Box<dyn FetchResponse + Send>,
 ) -> Result<JSValueRef, JsError> {
     let res = reflection::new_instance(RESPONSE_PROXY_NAME, q_ctx)?;

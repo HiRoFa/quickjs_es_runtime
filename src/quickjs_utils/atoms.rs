@@ -1,6 +1,6 @@
 //JS_AtomToCString(ctx: *mut JSContext, atom: JSAtom) -> *const ::std::os::raw::c_char
 use crate::quickjs_utils::primitives;
-use crate::quickjscontext::QuickJsContext;
+use crate::quickjscontext::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
@@ -35,7 +35,7 @@ impl Drop for JSAtomRef {
     }
 }
 
-pub fn to_string_q(q_ctx: &QuickJsContext, atom_ref: &JSAtomRef) -> Result<String, JsError> {
+pub fn to_string_q(q_ctx: &QuickJsRealmAdapter, atom_ref: &JSAtomRef) -> Result<String, JsError> {
     unsafe { to_string(q_ctx.context, atom_ref) }
 }
 
@@ -50,7 +50,7 @@ pub unsafe fn to_string(
     primitives::to_string(context, &val_ref)
 }
 
-pub fn to_string2_q(q_ctx: &QuickJsContext, atom: &q::JSAtom) -> Result<String, JsError> {
+pub fn to_string2_q(q_ctx: &QuickJsRealmAdapter, atom: &q::JSAtom) -> Result<String, JsError> {
     unsafe { to_string2(q_ctx.context, atom) }
 }
 
@@ -72,7 +72,7 @@ pub unsafe fn to_str(context: *mut q::JSContext, atom: &q::JSAtom) -> Result<&st
         .map_err(|e| JsError::new_string(format!("{}", e)))
 }
 
-pub fn from_string_q(q_ctx: &QuickJsContext, string: &str) -> Result<JSAtomRef, JsError> {
+pub fn from_string_q(q_ctx: &QuickJsRealmAdapter, string: &str) -> Result<JSAtomRef, JsError> {
     unsafe { from_string(q_ctx.context, string) }
 }
 

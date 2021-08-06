@@ -1,4 +1,4 @@
-use crate::quickjsruntime::QuickJsRuntime;
+use crate::quickjsruntime::QuickJsRuntimeAdapter;
 
 pub mod arrays;
 pub mod atoms;
@@ -21,7 +21,7 @@ pub mod typedarrays;
 
 use crate::quickjs_utils::atoms::JSAtomRef;
 use crate::quickjs_utils::objects::get_property;
-use crate::quickjscontext::QuickJsContext;
+use crate::quickjscontext::QuickJsRealmAdapter;
 use crate::valueref::{JSValueRef, TAG_NULL, TAG_UNDEFINED};
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
@@ -31,7 +31,7 @@ use libquickjs_sys as q;
 // all function (where applicable) get an Option<QuickJSRuntime> which if None will be gotten from the thread_local
 // every function which returns a q::JSValue will return a OwnedValueRef to ensure values are freed on drop
 
-pub fn gc(q_js_rt: &QuickJsRuntime) {
+pub fn gc(q_js_rt: &QuickJsRuntimeAdapter) {
     log::trace!("GC called");
     unsafe { q::JS_RunGC(q_js_rt.runtime) }
     log::trace!("GC done");
@@ -59,7 +59,7 @@ pub fn new_null_ref() -> JSValueRef {
 }
 
 /// get the current filename
-pub fn get_script_or_module_name_q(ctx: &QuickJsContext) -> Result<String, JsError> {
+pub fn get_script_or_module_name_q(ctx: &QuickJsRealmAdapter) -> Result<String, JsError> {
     unsafe { get_script_or_module_name(ctx.context) }
 }
 
@@ -78,7 +78,7 @@ pub unsafe fn get_script_or_module_name(context: *mut q::JSContext) -> Result<St
     Ok("".to_string())
 }
 
-pub fn get_global_q(context: &QuickJsContext) -> JSValueRef {
+pub fn get_global_q(context: &QuickJsRealmAdapter) -> JSValueRef {
     unsafe { get_global(context.context) }
 }
 /// # Safety
@@ -123,8 +123,8 @@ pub unsafe fn parse_args(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
     use crate::esvalue::EsValueConvertible;
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::{get_global_q, get_script_or_module_name_q};
     use hirofa_utils::js_utils::Script;
 

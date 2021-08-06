@@ -1,7 +1,7 @@
 //! serialize and stringify JavaScript objects
 
 use crate::quickjs_utils;
-use crate::quickjscontext::QuickJsContext;
+use crate::quickjscontext::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
@@ -30,7 +30,7 @@ use std::ffi::CString;
 /// });
 /// rt.gc_sync();
 /// ```
-pub fn parse_q(q_ctx: &QuickJsContext, input: &str) -> Result<JSValueRef, JsError> {
+pub fn parse_q(q_ctx: &QuickJsRealmAdapter, input: &str) -> Result<JSValueRef, JsError> {
     unsafe { parse(q_ctx.context, input) }
 }
 
@@ -48,7 +48,7 @@ pub unsafe fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRe
     let ret = JSValueRef::new(context, val, false, true, "json::parse result");
 
     if ret.is_exception() {
-        if let Some(ex) = QuickJsContext::get_exception(context) {
+        if let Some(ex) = QuickJsRealmAdapter::get_exception(context) {
             Err(ex)
         } else {
             Err(JsError::new_str("unknown error while parsing json"))
@@ -60,9 +60,9 @@ pub unsafe fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRe
 /// Stringify an Object in script
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::{json, objects, primitives};
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     let obj_ref = objects::create_object_q(q_ctx).ok().unwrap();
@@ -74,7 +74,7 @@ pub unsafe fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRe
 /// rt.gc_sync();
 /// ```
 pub fn stringify_q(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     input: &JSValueRef,
     opt_space: Option<JSValueRef>,
 ) -> Result<JSValueRef, JsError> {
@@ -109,7 +109,7 @@ pub unsafe fn stringify(
     let ret = JSValueRef::new(context, val, false, true, "json::stringify result");
 
     if ret.is_exception() {
-        if let Some(ex) = QuickJsContext::get_exception(context) {
+        if let Some(ex) = QuickJsRealmAdapter::get_exception(context) {
             Err(ex)
         } else {
             Err(JsError::new_str("unknown error in json::stringify"))
@@ -121,7 +121,7 @@ pub unsafe fn stringify(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::{json, objects, primitives};
 
     #[test]

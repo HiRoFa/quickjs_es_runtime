@@ -1,4 +1,4 @@
-use crate::esruntime::{EsRuntime, EsRuntimeInner};
+use crate::facades::{QuickJsRuntimeFacade, QuickjsRuntimeFacadeInner};
 use crate::quickjs_utils::arrays::{get_element_q, get_length_q, is_array_q};
 use crate::quickjs_utils::dates::is_date_q;
 use crate::quickjs_utils::errors::{error_to_js_error, is_error_q};
@@ -8,8 +8,8 @@ use crate::quickjs_utils::objects::{get_property_names_q, get_property_q};
 use crate::quickjs_utils::primitives::to_string_q;
 use crate::quickjs_utils::promises::{is_promise_q, PromiseRef};
 use crate::quickjs_utils::{functions, new_null_ref, promises};
-use crate::quickjscontext::QuickJsContext;
-use crate::quickjsruntime::QuickJsRuntime;
+use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsruntime::QuickJsRuntimeAdapter;
 use crate::reflection;
 use crate::valueref::*;
 use futures::executor::block_on;
@@ -100,7 +100,7 @@ pub type PromiseReactionType =
     Option<Box<dyn Fn(EsValueFacade) -> Result<EsValueFacade, JsError> + Send + 'static>>;
 
 pub trait EsValueConvertible {
-    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError>;
+    fn as_js_value(&mut self, q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError>;
 
     #[allow(clippy::wrong_self_convention)]
     fn to_es_value_facade(self) -> EsValueFacade
@@ -229,7 +229,7 @@ impl EsProxyInstance {
 }
 
 impl EsValueConvertible for EsProxyInstance {
-    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
         let proxy_opt = reflection::get_proxy(q_ctx, self.class_name);
         if let Some(proxy) = proxy_opt {
             reflection::new_instance3(&proxy, self.instance_id, q_ctx)
@@ -243,7 +243,7 @@ impl EsValueConvertible for EsProxyInstance {
 }
 
 impl EsValueConvertible for EsNullValue {
-    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
+    fn as_js_value(&mut self, _q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
         Ok(crate::quickjs_utils::new_null_ref())
     }
 
@@ -261,7 +261,7 @@ impl EsValueConvertible for EsNullValue {
 }
 
 impl EsValueConvertible for EsUndefinedValue {
-    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
+    fn as_js_value(&mut self, _q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
         Ok(crate::quickjs_utils::new_undefined_ref())
     }
 
@@ -293,14 +293,14 @@ enum EsType {
 struct CachedJSValueRef {
     cached_obj_id: i32,
     context_id: String,
-    rti_ref: Weak<EsRuntimeInner>,
+    rti_ref: Weak<QuickjsRuntimeFacadeInner>,
     es_type: EsType,
 }
 
 impl CachedJSValueRef {
-    fn new(q_ctx: &QuickJsContext, value_ref: &JSValueRef) -> Self {
+    fn new(q_ctx: &QuickJsRealmAdapter, value_ref: &JSValueRef) -> Self {
         log::trace!("> CachedJSValueRef::new");
-        let el_ref = QuickJsRuntime::do_with(|q_js_rt| q_js_rt.get_rti_ref().unwrap());
+        let el_ref = QuickJsRuntimeAdapter::do_with(|q_js_rt| q_js_rt.get_rti_ref().unwrap());
         let cached_obj_id = q_ctx.cache_object(value_ref.clone());
 
         let es_type = if value_ref.is_big_int() {
@@ -331,7 +331,7 @@ impl CachedJSValueRef {
 
     fn do_with_sync<C, R: Send + 'static>(&self, consumer: C) -> R
     where
-        C: FnOnce(&QuickJsRuntime, &QuickJsContext, JSValueRef) -> R + Send + 'static,
+        C: FnOnce(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter, JSValueRef) -> R + Send + 'static,
     {
         let cached_obj_id = self.cached_obj_id;
 
@@ -351,7 +351,7 @@ impl CachedJSValueRef {
 
     fn do_with_async<C>(&self, consumer: C)
     where
-        C: FnOnce(&QuickJsRuntime, &QuickJsContext, JSValueRef) + Send + 'static,
+        C: FnOnce(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter, JSValueRef) + Send + 'static,
     {
         let cached_obj_id = self.cached_obj_id;
 
@@ -386,7 +386,7 @@ impl Drop for CachedJSValueRef {
 }
 
 fn pipe_promise_resolution_to_sender(
-    q_ctx: &QuickJsContext,
+    q_ctx: &QuickJsRealmAdapter,
     prom_obj_ref: &JSValueRef,
     tx: Arc<TaskFutureResolver<Result<EsValueFacade, EsValueFacade>>>,
 ) {
@@ -476,7 +476,7 @@ fn pipe_promise_resolution_to_sender(
 }
 
 impl EsValueConvertible for CachedJSValueRef {
-    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
         Ok(q_ctx.with_cached_obj(self.cached_obj_id, |obj_ref| obj_ref))
     }
 
@@ -616,7 +616,7 @@ impl EsValueConvertible for CachedJSValueRef {
             let then_ref = if let Some(then_fn) = then {
                 let then_fn_rc = Rc::new(then_fn);
 
-                let then_fn_raw = move |q_ctx: &QuickJsContext,
+                let then_fn_raw = move |q_ctx: &QuickJsRealmAdapter,
                                         _this_ref: &JSValueRef,
                                         args_ref: &[JSValueRef]| {
                     let then_fn_rc = then_fn_rc.clone();
@@ -641,7 +641,7 @@ impl EsValueConvertible for CachedJSValueRef {
                 let t = functions::new_function_q(
                     q_ctx,
                     "",
-                    move |q_ctx: &QuickJsContext, _this_ref, args_ref: &[JSValueRef]| {
+                    move |q_ctx: &QuickJsRealmAdapter, _this_ref, args_ref: &[JSValueRef]| {
                         let val_ref = &args_ref[0];
                         let catch_fn_rc = catch_fn_rc.clone();
 
@@ -663,7 +663,7 @@ impl EsValueConvertible for CachedJSValueRef {
                 let t = functions::new_function_q(
                     q_ctx,
                     "",
-                    move |_q_ctx: &QuickJsContext, _this_ref, _args_ref| {
+                    move |_q_ctx: &QuickJsRealmAdapter, _this_ref, _args_ref| {
                         finally_fn();
                         Ok(crate::quickjs_utils::new_null_ref())
                     },
@@ -749,7 +749,7 @@ impl EsValueConvertible for CachedJSValueRef {
 }
 
 impl EsValueConvertible for String {
-    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
         crate::quickjs_utils::primitives::from_string_q(q_ctx, self.as_str())
     }
 
@@ -771,7 +771,7 @@ impl EsValueConvertible for String {
 }
 
 impl EsValueConvertible for i32 {
-    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
+    fn as_js_value(&mut self, _q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
         Ok(crate::quickjs_utils::primitives::from_i32(*self))
     }
 
@@ -793,7 +793,7 @@ impl EsValueConvertible for i32 {
 }
 
 impl EsValueConvertible for bool {
-    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
+    fn as_js_value(&mut self, _q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
         Ok(crate::quickjs_utils::primitives::from_bool(*self))
     }
 
@@ -815,7 +815,7 @@ impl EsValueConvertible for bool {
 }
 
 impl EsValueConvertible for f64 {
-    fn as_js_value(&mut self, _q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
+    fn as_js_value(&mut self, _q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
         Ok(crate::quickjs_utils::primitives::from_f64(*self))
     }
     fn is_f64(&self) -> bool {
@@ -836,7 +836,7 @@ impl EsValueConvertible for f64 {
 }
 
 impl EsValueConvertible for Vec<EsValueFacade> {
-    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
         // create the array
 
         let arr = crate::quickjs_utils::arrays::create_array_q(q_ctx)
@@ -856,7 +856,7 @@ impl EsValueConvertible for Vec<EsValueFacade> {
 }
 
 impl EsValueConvertible for HashMap<String, EsValueFacade> {
-    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
         // create new obj
         let obj_ref = crate::quickjs_utils::objects::create_object_q(q_ctx)
             .ok()
@@ -889,7 +889,7 @@ thread_local! {
 }
 
 struct EsPromiseResolvableHandleInfo {
-    weak_rti_ref: Weak<EsRuntimeInner>,
+    weak_rti_ref: Weak<QuickjsRuntimeFacadeInner>,
     id: usize,
     context_id: String,
 }
@@ -1005,7 +1005,7 @@ impl EsPromiseResolvableHandle {
     }
     fn set_info(
         &self,
-        rti_ref: Weak<EsRuntimeInner>,
+        rti_ref: Weak<QuickjsRuntimeFacadeInner>,
         id: usize,
         context_id: &str,
     ) -> Result<(), JsError> {
@@ -1109,13 +1109,13 @@ impl EsFunction {
     /// # Example
     /// ```rust
     /// use quickjs_runtime::esvalue::{EsFunction, EsValueConvertible, ES_NULL, EsValueFacade};
-    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
     /// async fn do_something(args: Vec<EsValueFacade>) -> Result<EsValueFacade, String> {
     ///     Ok(123.to_es_value_facade())
     /// }
     /// let func_esvf = EsFunction::new_async("my_callback", do_something).to_es_value_facade();
-    /// let rt = EsRuntimeBuilder::new().build();
+    /// let rt = QuickjsRuntimeBuilder::new().build();
     /// rt.eval_sync(Script::new("new_async.es", "this.test_func = function(cb){return cb();};")).ok().expect("func invo failed");
     /// let func_res = rt.call_function_sync(vec![], "test_func", vec![func_esvf]).ok().expect("func invo failed2");
     /// let ret = func_res.get_promise_result_sync().ok().expect("do_something returned err");
@@ -1140,7 +1140,7 @@ impl EsFunction {
 }
 
 impl EsValueConvertible for EsFunction {
-    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
         let func_arc_mtx = self.method.clone();
 
         new_function_q(
@@ -1166,13 +1166,13 @@ impl EsValueConvertible for EsFunction {
 /// can be used to create a new Promise which is resolved with the resolver function
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use quickjs_runtime::esvalue::{EsPromise, EsValueConvertible};
 /// use std::time::Duration;
 /// use hirofa_utils::js_utils::Script;
 /// use log::LevelFilter;
 ///
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.set_function(vec!["my", "comp"], "create_prom", |_q_ctx, _args| {
 ///     Ok(EsPromise::new(|| {
 ///         std::thread::sleep(Duration::from_secs(1));
@@ -1195,7 +1195,7 @@ impl EsPromise {
         let ret = Self::new_unresolving();
 
         let handle = ret.get_handle();
-        EsRuntime::add_helper_task(move || {
+        QuickJsRuntimeFacade::add_helper_task(move || {
             let val = resolver();
             match val {
                 Ok(v) => {
@@ -1214,7 +1214,7 @@ impl EsPromise {
     /// this can be used to implement a resolver which in turn used .await to get results of other async functions
     /// # Example
     /// ```rust
-    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
     /// use quickjs_runtime::esvalue::{EsPromise, EsValueConvertible};
     /// use hirofa_utils::js_utils::Script;
     /// use std::time::Duration;
@@ -1224,7 +1224,7 @@ impl EsPromise {
     ///     i * 3
     /// }
     ///
-    /// let rt = EsRuntimeBuilder::new().build();
+    /// let rt = QuickjsRuntimeBuilder::new().build();
     ///
     /// rt.set_function(vec!["com", "my"], "testasyncfunc", |_q_ctx, args| {
     ///     let input = args[0].get_i32();
@@ -1252,7 +1252,7 @@ impl EsPromise {
 
         let handle = ret.get_handle();
 
-        let _ = EsRuntime::add_helper_task_async(async move {
+        let _ = QuickJsRuntimeFacade::add_helper_task_async(async move {
             let val = resolver.await;
             match val {
                 Ok(v) => {
@@ -1270,11 +1270,11 @@ impl EsPromise {
     /// this achieved by creating a Handle which is wrapped in an Arc and thus may be passed to another thread
     /// # Example
     /// ```rust
-    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
     /// use std::time::Duration;
     /// use quickjs_runtime::esvalue::{EsPromise, EsValueConvertible};
-    /// let rt = EsRuntimeBuilder::new().build();
+    /// let rt = QuickjsRuntimeBuilder::new().build();
     /// // prep a function which reacts to a promise
     /// rt.eval_sync(Script::new("new_unresolving.es", "this.new_unresolving = function(prom){prom.then((res) => {console.log('promise resolved to %s', res);});};")).ok().expect("script failed");
     /// // prep a EsPromise object
@@ -1304,7 +1304,7 @@ impl EsPromise {
 }
 
 impl EsValueConvertible for EsPromise {
-    fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
+    fn as_js_value(&mut self, q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
         log::trace!("EsPromise::to_js_value");
 
         let prom_ref = promises::new_promise_q(q_ctx)?;
@@ -1314,7 +1314,7 @@ impl EsValueConvertible for EsPromise {
             let map = &mut *rc.borrow_mut();
             map.insert(prom_ref)
         });
-        let el_ref = QuickJsRuntime::do_with(|q_js_rt| q_js_rt.get_rti_ref().unwrap());
+        let el_ref = QuickJsRuntimeAdapter::do_with(|q_js_rt| q_js_rt.get_rti_ref().unwrap());
 
         self.handle
             .set_info(Arc::downgrade(&el_ref), id, q_ctx.id.as_str())?;
@@ -1334,12 +1334,15 @@ impl EsValueFacade {
     }
 
     /// convert the value to a JSValueRef
-    pub fn as_js_value(&mut self, q_ctx: &QuickJsContext) -> Result<JSValueRef, JsError> {
+    pub fn as_js_value(&mut self, q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
         self.convertible.as_js_value(q_ctx)
     }
 
     /// convert a JSValueRef to an EsValueFacade
-    pub fn from_jsval(q_ctx: &QuickJsContext, value_ref: &JSValueRef) -> Result<Self, JsError> {
+    pub fn from_jsval(
+        q_ctx: &QuickJsRealmAdapter,
+        value_ref: &JSValueRef,
+    ) -> Result<Self, JsError> {
         log::trace!("EsValueFacade::from_jsval: tag:{}", value_ref.get_tag());
 
         let r = value_ref.borrow_value();
@@ -1508,7 +1511,7 @@ impl EsValueFacade {
     /// The Result will be an Ok if the Promise was resolved or an Err if the Promise was rejected
     /// # Example
     /// ```rust
-    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
     /// use futures::executor::block_on;
     /// use quickjs_runtime::esvalue::EsValueFacade;
@@ -1518,7 +1521,7 @@ impl EsValueFacade {
     ///    return res_esvf.get_i32();
     /// }
     ///
-    /// let rt = EsRuntimeBuilder::new().build();
+    /// let rt = QuickjsRuntimeBuilder::new().build();
     /// let esvf = rt.eval_sync(Script::new("test_async_prom,es", "(new Promise((resolve, reject) => {setTimeout(() => {resolve(1360)}, 1000);}));")).ok().expect("script failed");
     /// let i = block_on(test_async(esvf));
     /// assert_eq!(i, 1360);
@@ -1567,10 +1570,10 @@ impl Debug for EsValueFacade {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
-    use crate::esruntime::EsRuntime;
-    use crate::esruntimebuilder::EsRuntimeBuilder;
+    use crate::builder::QuickjsRuntimeBuilder;
     use crate::esvalue::{EsPromise, EsValueConvertible, EsValueFacade};
+    use crate::facades::tests::init_test_rt;
+    use crate::facades::QuickJsRuntimeFacade;
     use futures::executor::block_on;
     use hirofa_utils::js_utils::Script;
     use std::sync::{Arc, Weak};
@@ -1631,7 +1634,7 @@ pub mod tests {
             return res_esvf.get_i32();
         }
 
-        let rt = EsRuntimeBuilder::new().build();
+        let rt = QuickjsRuntimeBuilder::new().build();
         let esvf = rt
             .eval_sync(Script::new(
                 "test_async_prom,es",
@@ -1643,7 +1646,7 @@ pub mod tests {
         assert_eq!(i, 1360);
     }
 
-    async fn a(i: i32, rt_ref: Weak<EsRuntime>) -> i32 {
+    async fn a(i: i32, rt_ref: Weak<QuickJsRuntimeFacade>) -> i32 {
         let rt = rt_ref.upgrade().unwrap();
         let second_prom = rt
             .eval(Script::new(
@@ -1665,7 +1668,7 @@ pub mod tests {
 
     #[test]
     fn test_promise_async2() {
-        let rt = Arc::new(EsRuntimeBuilder::new().build());
+        let rt = Arc::new(QuickjsRuntimeBuilder::new().build());
         let rt_ref = Arc::downgrade(&rt);
         rt.set_function(vec!["com", "my"], "testasyncfunc", move |_q_ctx, args| {
             let rt_ref = rt_ref.clone();

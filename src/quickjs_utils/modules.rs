@@ -2,8 +2,8 @@
 
 use crate::quickjs_utils::atoms;
 use crate::quickjs_utils::atoms::JSAtomRef;
-use crate::quickjscontext::QuickJsContext;
-use crate::quickjsruntime::QuickJsRuntime;
+use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsruntime::QuickJsRuntimeAdapter;
 use crate::valueref::JSValueRef;
 use core::ptr;
 use hirofa_utils::js_utils::JsError;
@@ -42,7 +42,7 @@ pub unsafe fn compile_module(
     log::trace!("compile module yielded a {}", ret.borrow_value().tag);
 
     if ret.is_exception() {
-        let ex_opt = QuickJsContext::get_exception(context);
+        let ex_opt = QuickJsRealmAdapter::get_exception(context);
         if let Some(ex) = ex_opt {
             Err(ex)
         } else {
@@ -62,7 +62,7 @@ pub fn get_module_def(value: &JSValueRef) -> *mut q::JSModuleDef {
 }
 
 #[allow(dead_code)]
-pub fn set_module_loader(q_js_rt: &QuickJsRuntime) {
+pub fn set_module_loader(q_js_rt: &QuickJsRuntimeAdapter) {
     log::trace!("setting up module loader");
 
     let module_normalize: q::JSModuleNormalizeFunc = Some(js_module_normalize);
@@ -167,7 +167,7 @@ unsafe extern "C" fn js_module_normalize(
         name_str
     );
 
-    QuickJsRuntime::do_with(|q_js_rt| {
+    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(ctx);
 
         if let Some(res) = q_js_rt.with_all_module_loaders(|loader| {
@@ -198,8 +198,8 @@ unsafe extern "C" fn js_module_loader(
 
     log::trace!("js_module_loader called: {}", module_name);
 
-    QuickJsRuntime::do_with(|q_js_rt| {
-        QuickJsContext::with_context(ctx, |q_ctx| {
+    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
+        QuickJsRealmAdapter::with_context(ctx, |q_ctx| {
             if let Some(res) = q_js_rt.with_all_module_loaders(|module_loader| {
                 if module_loader.has_module(q_ctx, module_name) {
                     let mod_val_res = module_loader.load_module(q_ctx, module_name);
@@ -228,7 +228,7 @@ unsafe extern "C" fn js_module_loader(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::modules::detect_module;
     use hirofa_utils::js_utils::Script;
     use std::time::Duration;

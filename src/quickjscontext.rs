@@ -1,7 +1,7 @@
 use crate::quickjs_utils::primitives::{from_bool, from_f64, from_i32, from_string_q};
 use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjs_utils::{arrays, errors, functions, json, new_null_ref, objects};
-use crate::quickjsruntime::{make_cstring, QuickJsRuntime};
+use crate::quickjsruntime::{make_cstring, QuickJsRuntimeAdapter};
 use crate::reflection::{Proxy, ProxyInstanceInfo};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
@@ -27,7 +27,7 @@ type ProxyEventListenerMaps = HashMap<
     >,
 >;
 
-pub struct QuickJsContext {
+pub struct QuickJsRealmAdapter {
     object_cache: RefCell<AutoIdMap<JSValueRef>>,
     pub(crate) proxy_instance_id_mappings: RefCell<HashMap<usize, Box<ProxyInstanceInfo>>>,
     pub(crate) proxy_registry: RefCell<HashMap<String, Rc<Proxy>>>, // todo is this Rc needed or can we just borrow the Proxy when needed?
@@ -40,7 +40,7 @@ thread_local! {
     static ID_REGISTRY: RefCell<HashMap<String, Box<String>>> = RefCell::new(HashMap::new());
 }
 
-impl QuickJsContext {
+impl QuickJsRealmAdapter {
     pub(crate) fn free(&self) {
         log::trace!("QuickJsContext:free {}", self.id);
         {
@@ -60,7 +60,7 @@ impl QuickJsContext {
         unsafe { q::JS_FreeContext(self.context) };
         log::trace!("after QuickJsContext:free {}", self.id);
     }
-    pub(crate) fn new(id: String, q_js_rt: &QuickJsRuntime) -> Self {
+    pub(crate) fn new(id: String, q_js_rt: &QuickJsRuntimeAdapter) -> Self {
         let context = unsafe { q::JS_NewContext(q_js_rt.runtime) };
 
         let mut bx = Box::new(id.clone());
@@ -119,7 +119,7 @@ impl QuickJsContext {
     ) -> Result<JSValueRef, JsError> {
         log::debug!("q_js_rt.eval file {}", script.get_path());
 
-        script = QuickJsRuntime::pre_process(script)?;
+        script = QuickJsRuntimeAdapter::pre_process(script)?;
 
         let filename_c = make_cstring(script.get_path())?;
         let code_c = make_cstring(script.get_code())?;
@@ -168,7 +168,7 @@ impl QuickJsContext {
     ) -> Result<JSValueRef, JsError> {
         log::debug!("q_js_rt.eval_module file {}", script.get_path());
 
-        script = QuickJsRuntime::pre_process(script)?;
+        script = QuickJsRuntimeAdapter::pre_process(script)?;
 
         let filename_c = make_cstring(script.get_path())?;
         let code_c = make_cstring(script.get_code())?;
@@ -279,17 +279,17 @@ impl QuickJsContext {
     /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
     pub unsafe fn with_context<C, R>(context: *mut q::JSContext, consumer: C) -> R
     where
-        C: FnOnce(&QuickJsContext) -> R,
+        C: FnOnce(&QuickJsRealmAdapter) -> R,
     {
-        QuickJsRuntime::do_with(|q_js_rt| {
-            let id = QuickJsContext::get_id(context);
+        QuickJsRuntimeAdapter::do_with(|q_js_rt| {
+            let id = QuickJsRealmAdapter::get_id(context);
             let q_ctx = q_js_rt.get_context(id);
             consumer(q_ctx)
         })
     }
 }
 
-impl Drop for QuickJsContext {
+impl Drop for QuickJsRealmAdapter {
     fn drop(&mut self) {
         log::trace!("before drop QuickJSContext {}", self.id);
 
@@ -313,8 +313,12 @@ impl Drop for QuickJsContext {
     }
 }
 
-impl JsRealmAdapter for QuickJsContext {
-    type JsRuntimeAdapterType = QuickJsRuntime;
+impl JsRealmAdapter for QuickJsRealmAdapter {
+    type JsRuntimeAdapterType = QuickJsRuntimeAdapter;
+
+    fn js_get_script_or_module_name(&self) -> Result<String, JsError> {
+        crate::quickjs_utils::get_script_or_module_name_q(self)
+    }
 
     fn js_eval(&self, script: Script) -> Result<JSValueRef, JsError> {
         self.eval(script)
@@ -590,8 +594,8 @@ impl JsRealmAdapter for QuickJsContext {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
-    use crate::esruntimebuilder::EsRuntimeBuilder;
+    use crate::builder::QuickjsRuntimeBuilder;
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils;
     use crate::quickjs_utils::primitives::to_i32;
     use crate::quickjs_utils::{functions, get_global_q, objects};
@@ -620,7 +624,7 @@ pub mod tests {
 
     #[test]
     fn test_multi_ctx() {
-        let rt = EsRuntimeBuilder::new().build();
+        let rt = QuickjsRuntimeBuilder::new().build();
         rt.create_context("a").ok().expect("could not create ctx a");
         rt.create_context("b").ok().expect("could not create ctx b");
 

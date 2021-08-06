@@ -1,12 +1,12 @@
-use crate::esruntimebuilder::EsRuntimeBuilder;
+use crate::builder::QuickjsRuntimeBuilder;
 use crate::esvalue::EsValueFacade;
 use crate::features;
 use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
 use crate::quickjs_utils::{functions, objects};
-use crate::quickjscontext::QuickJsContext;
+use crate::quickjscontext::QuickJsRealmAdapter;
 use crate::quickjsruntime::{
-    NativeModuleLoaderAdapter, QuickJsRuntime, ScriptModuleLoaderAdapter, QJS_RT,
+    NativeModuleLoaderAdapter, QuickJsRuntimeAdapter, ScriptModuleLoaderAdapter, QJS_RT,
 };
 use crate::valueref::JSValueRef;
 use hirofa_utils::eventloop::EventLoop;
@@ -31,7 +31,7 @@ lazy_static! {
 pub type FetchResponseProvider =
     dyn Fn(&FetchRequest) -> Box<dyn FetchResponse + Send> + Send + Sync + 'static;
 
-impl Drop for EsRuntime {
+impl Drop for QuickJsRuntimeFacade {
     fn drop(&mut self) {
         log::trace!("> EsRuntime::drop");
         self.clear_contexts();
@@ -39,13 +39,13 @@ impl Drop for EsRuntime {
     }
 }
 
-pub struct EsRuntimeInner {
+pub struct QuickjsRuntimeFacadeInner {
     event_loop: EventLoop,
     pub(crate) fetch_response_provider: Option<Box<FetchResponseProvider>>,
 }
 
-impl JsRuntimeFacadeInner for EsRuntimeInner {
-    type JsRuntimeFacadeType = EsRuntime;
+impl JsRuntimeFacadeInner for QuickjsRuntimeFacadeInner {
+    type JsRuntimeFacadeType = QuickJsRuntimeFacade;
 
     fn js_exe_rt_task_in_event_loop<
         R: Send + 'static,
@@ -66,7 +66,7 @@ impl JsRuntimeFacadeInner for EsRuntimeInner {
     }
 }
 
-impl EsRuntimeInner {
+impl QuickjsRuntimeFacadeInner {
     /// this can be used to run a function in the event_queue thread for the QuickJSRuntime
     /// without borrowing the q_js_rt
     pub fn add_task_to_event_loop_void<C>(&self, task: C)
@@ -76,7 +76,7 @@ impl EsRuntimeInner {
         self.event_loop.add_void(move || {
             task();
             EventLoop::add_local_void(|| {
-                QuickJsRuntime::do_with(|q_js_rt| {
+                QuickJsRuntimeAdapter::do_with(|q_js_rt| {
                     q_js_rt.run_pending_jobs_if_any();
                 })
             })
@@ -90,7 +90,7 @@ impl EsRuntimeInner {
         self.event_loop.exe(move || {
             let res = task();
             EventLoop::add_local_void(|| {
-                QuickJsRuntime::do_with(|q_js_rt| {
+                QuickJsRuntimeAdapter::do_with(|q_js_rt| {
                     q_js_rt.run_pending_jobs_if_any();
                 })
             });
@@ -105,7 +105,7 @@ impl EsRuntimeInner {
         self.event_loop.add(move || {
             let res = task();
             EventLoop::add_local_void(|| {
-                QuickJsRuntime::do_with(|q_js_rt| {
+                QuickJsRuntimeAdapter::do_with(|q_js_rt| {
                     q_js_rt.run_pending_jobs_if_any();
                 });
             });
@@ -117,8 +117,8 @@ impl EsRuntimeInner {
     /// this will run asynchronously
     /// # example
     /// ```rust
-    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// let rt = EsRuntimeBuilder::new().build();
+    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+    /// let rt = QuickjsRuntimeBuilder::new().build();
     /// rt.add_rt_task_to_event_loop(|q_js_rt| {
     ///     // here you are in the worker thread and you can use the quickjs_utils
     ///     q_js_rt.gc();
@@ -129,36 +129,36 @@ impl EsRuntimeInner {
         consumer: C,
     ) -> impl Future<Output = R>
     where
-        C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,
+        C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static,
     {
-        self.add_task_to_event_loop(|| QuickJsRuntime::do_with(consumer))
+        self.add_task_to_event_loop(|| QuickJsRuntimeAdapter::do_with(consumer))
     }
 
     pub fn add_rt_task_to_event_loop_void<C>(&self, consumer: C)
     where
-        C: FnOnce(&QuickJsRuntime) + Send + 'static,
+        C: FnOnce(&QuickJsRuntimeAdapter) + Send + 'static,
     {
-        self.add_task_to_event_loop_void(|| QuickJsRuntime::do_with(consumer))
+        self.add_task_to_event_loop_void(|| QuickJsRuntimeAdapter::do_with(consumer))
     }
 
     pub fn exe_rt_task_in_event_loop<C, R: Send + 'static>(&self, consumer: C) -> R
     where
-        C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,
+        C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static,
     {
-        self.exe_task_in_event_loop(|| QuickJsRuntime::do_with(consumer))
+        self.exe_task_in_event_loop(|| QuickJsRuntimeAdapter::do_with(consumer))
     }
 
     /// used to add tasks from the worker threads which require run_pending_jobs_if_any to run after it
     pub(crate) fn add_local_task_to_event_loop<C>(consumer: C)
     where
-        C: FnOnce(&QuickJsRuntime) + 'static,
+        C: FnOnce(&QuickJsRuntimeAdapter) + 'static,
     {
         EventLoop::add_local_void(move || {
-            QuickJsRuntime::do_with(|q_js_rt| {
+            QuickJsRuntimeAdapter::do_with(|q_js_rt| {
                 consumer(q_js_rt);
             });
             EventLoop::add_local_void(|| {
-                QuickJsRuntime::do_with(|q_js_rt| {
+                QuickJsRuntimeAdapter::do_with(|q_js_rt| {
                     q_js_rt.run_pending_jobs_if_any();
                 })
             })
@@ -170,21 +170,21 @@ impl EsRuntimeInner {
 /// You can construct a new EsRuntime by using the [EsRuntimeBuilder] struct
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-/// let rt = EsRuntimeBuilder::new().build();
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// ```
-pub struct EsRuntime {
-    inner: Arc<EsRuntimeInner>,
+pub struct QuickJsRuntimeFacade {
+    inner: Arc<QuickjsRuntimeFacadeInner>,
     js_contexts: HashSet<String>,
 }
 
-impl EsRuntime {
-    pub(crate) fn new(mut builder: EsRuntimeBuilder) -> Self {
+impl QuickJsRuntimeFacade {
+    pub(crate) fn new(mut builder: QuickjsRuntimeBuilder) -> Self {
         let fetch_response_provider =
             std::mem::replace(&mut builder.opt_fetch_response_provider, None);
 
         let ret = Self {
-            inner: Arc::new(EsRuntimeInner {
+            inner: Arc::new(QuickjsRuntimeFacadeInner {
                 event_loop: EventLoop::new(),
                 fetch_response_provider,
             }),
@@ -193,8 +193,8 @@ impl EsRuntime {
 
         ret.exe_task_in_event_loop(|| {
             let rt_ptr = unsafe { q::JS_NewRuntime() };
-            let rt = QuickJsRuntime::new(rt_ptr);
-            QuickJsRuntime::init_rt_for_current_thread(rt);
+            let rt = QuickJsRuntimeAdapter::new(rt_ptr);
+            QuickJsRuntimeAdapter::init_rt_for_current_thread(rt);
         });
 
         // init ref in q_js_rt
@@ -202,7 +202,7 @@ impl EsRuntime {
         let rti_weak = Arc::downgrade(&ret.inner);
 
         ret.exe_task_in_event_loop(move || {
-            QuickJsRuntime::do_with_mut(move |m_q_js_rt| {
+            QuickJsRuntimeAdapter::do_with_mut(move |m_q_js_rt| {
                 m_q_js_rt.init_rti_ref(rti_weak);
             })
         });
@@ -215,7 +215,7 @@ impl EsRuntime {
         }
 
         if let Some(interval) = builder.opt_gc_interval {
-            let rti_ref: Weak<EsRuntimeInner> = Arc::downgrade(&ret.inner);
+            let rti_ref: Weak<QuickjsRuntimeFacadeInner> = Arc::downgrade(&ret.inner);
             std::thread::spawn(move || loop {
                 std::thread::sleep(interval);
                 if let Some(el) = rti_ref.upgrade() {
@@ -237,7 +237,7 @@ impl EsRuntime {
         let init_hooks: Vec<_> = builder.runtime_init_hooks.drain(..).collect();
 
         ret.exe_task_in_event_loop(|| {
-            QuickJsRuntime::do_with_mut(|q_js_rt| {
+            QuickJsRuntimeAdapter::do_with_mut(|q_js_rt| {
                 for native_module_loader in builder.native_module_loaders {
                     q_js_rt.add_native_module_loader(NativeModuleLoaderAdapter::new(
                         native_module_loader,
@@ -286,9 +286,9 @@ impl EsRuntime {
     pub(crate) fn clear_contexts(&self) {
         log::trace!("EsRuntime::clear_contexts");
         self.exe_task_in_event_loop(|| {
-            let context_ids = QuickJsRuntime::get_context_ids();
+            let context_ids = QuickJsRuntimeAdapter::get_context_ids();
             for id in context_ids {
-                QuickJsRuntime::remove_context(id.as_str());
+                QuickJsRuntimeAdapter::remove_context(id.as_str());
             }
         });
     }
@@ -320,8 +320,8 @@ impl EsRuntime {
     /// this will run asynchronously
     /// # example
     /// ```rust
-    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-    /// let rt = EsRuntimeBuilder::new().build();
+    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+    /// let rt = QuickjsRuntimeBuilder::new().build();
     /// rt.add_rt_task_to_event_loop(|q_js_rt| {
     ///     // here you are in the worker thread and you can use the quickjs_utils
     ///     q_js_rt.gc();
@@ -332,14 +332,14 @@ impl EsRuntime {
         task: C,
     ) -> impl Future<Output = R>
     where
-        C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,
+        C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static,
     {
         self.inner.add_rt_task_to_event_loop(task)
     }
 
     pub fn add_rt_task_to_event_loop_void<C>(&self, task: C)
     where
-        C: FnOnce(&QuickJsRuntime) + Send + 'static,
+        C: FnOnce(&QuickJsRuntimeAdapter) + Send + 'static,
     {
         self.inner.add_rt_task_to_event_loop_void(task)
     }
@@ -347,13 +347,13 @@ impl EsRuntime {
     /// used to add tasks from the worker threads which require run_pending_jobs_if_any to run after it
     pub(crate) fn add_local_task_to_event_loop<C>(consumer: C)
     where
-        C: FnOnce(&QuickJsRuntime) + 'static,
+        C: FnOnce(&QuickJsRuntimeAdapter) + 'static,
     {
-        EsRuntimeInner::add_local_task_to_event_loop(consumer)
+        QuickjsRuntimeFacadeInner::add_local_task_to_event_loop(consumer)
     }
 
-    pub fn builder() -> EsRuntimeBuilder {
-        EsRuntimeBuilder::new()
+    pub fn builder() -> QuickjsRuntimeBuilder {
+        QuickjsRuntimeBuilder::new()
     }
 
     /// Evaluate a script asynchronously
@@ -372,9 +372,9 @@ impl EsRuntime {
     /// Evaluate a script and return the result synchronously
     /// # example
     /// ```rust
-    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
-    /// let rt = EsRuntimeBuilder::new().build();
+    /// let rt = QuickjsRuntimeBuilder::new().build();
     /// let script = Script::new("my_file.es", "(9 * 3);");
     /// let res = rt.eval_sync(script).ok().expect("script failed");
     /// assert_eq!(res.get_i32(), 27);
@@ -403,12 +403,12 @@ impl EsRuntime {
     /// call a function in the engine and await the result
     /// # example
     /// ```rust
-    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
     /// use quickjs_runtime::es_args;
     /// use quickjs_runtime::esvalue::EsValueConvertible;
     /// use quickjs_runtime::esvalue::EsValueFacade;
     /// use hirofa_utils::js_utils::Script;
-    /// let rt = EsRuntimeBuilder::new().build();
+    /// let rt = QuickjsRuntimeBuilder::new().build();
     /// let script = Script::new("my_file.es", "this.com = {my: {methodA: function(a, b, someStr, someBool){return a*b;}}};");
     /// rt.eval_sync(script).ok().expect("script failed");
     /// let res = rt.call_function_sync(vec!["com", "my"], "methodA", vec![7i32.to_es_value_facade(), 5i32.to_es_value_facade(), "abc".to_string().to_es_value_facade(), true.to_es_value_facade()]).ok().expect("func failed");
@@ -442,10 +442,10 @@ impl EsRuntime {
     /// N.B. func_name is not a &str because of https://github.com/rust-lang/rust/issues/56238 (i think)
     /// # example
     /// ```rust
-    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
     /// use quickjs_runtime::esvalue::EsValueConvertible;
     /// use hirofa_utils::js_utils::Script;
-    /// let rt = EsRuntimeBuilder::new().build();
+    /// let rt = QuickjsRuntimeBuilder::new().build();
     /// let script = Script::new("my_file.es", "this.com = {my: {methodA: function(a, b){return a*b;}}};");
     /// rt.eval_sync(script).ok().expect("script failed");
     /// rt.call_function(vec!["com", "my"], "methodA".to_string(), vec![7.to_es_value_facade(), 5.to_es_value_facade()]);
@@ -491,7 +491,7 @@ impl EsRuntime {
     /// also to use this you need to build the EsRuntime with a module loader closure
     /// # example
     /// ```rust
-    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
     /// use quickjs_runtime::esvalue::EsValueConvertible;
     /// use quickjs_runtime::quickjsruntime::ScriptModuleLoader;
@@ -505,7 +505,7 @@ impl EsRuntime {
     ///         "export const util = function(a, b, c){return a+b+c;};".to_string()
     ///     }
     /// }
-    /// let rt = EsRuntimeBuilder::new().script_module_loader(Box::new(TestModuleLoader{})).build();
+    /// let rt = QuickjsRuntimeBuilder::new().script_module_loader(Box::new(TestModuleLoader{})).build();
     /// let script = Script::new("/opt/files/my_module.mes", "import {util} from 'other_module.mes';\n
     /// console.log(util(1, 2, 3));");
     /// rt.eval_module(script);
@@ -538,10 +538,10 @@ impl EsRuntime {
     /// this will run and return synchronously
     /// # example
     /// ```rust
-    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
     /// use quickjs_runtime::quickjs_utils::primitives;
-    /// let rt = EsRuntimeBuilder::new().build();
+    /// let rt = QuickjsRuntimeBuilder::new().build();
     /// let res = rt.exe_rt_task_in_event_loop(|q_js_rt| {
     ///     let q_ctx = q_js_rt.get_main_context();
     ///     // here you are in the worker thread and you can use the quickjs_utils
@@ -552,20 +552,20 @@ impl EsRuntime {
     /// ```
     pub fn exe_rt_task_in_event_loop<C, R>(&self, consumer: C) -> R
     where
-        C: FnOnce(&QuickJsRuntime) -> R + Send + 'static,
+        C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static,
         R: Send + 'static,
     {
-        self.exe_task_in_event_loop(|| QuickJsRuntime::do_with(consumer))
+        self.exe_task_in_event_loop(|| QuickJsRuntimeAdapter::do_with(consumer))
     }
 
     /// this adds a rust function to JavaScript, it is added for all current and future contexts
     /// # Example
     /// ```rust
-    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
     /// use quickjs_runtime::quickjs_utils::primitives;
     /// use quickjs_runtime::esvalue::{EsValueFacade, EsValueConvertible};
-    /// let rt = EsRuntimeBuilder::new().build();
+    /// let rt = QuickjsRuntimeBuilder::new().build();
     /// rt.set_function(vec!["com", "mycompany", "util"], "methodA", |q_ctx, args: Vec<EsValueFacade>|{
     ///     let a = args[0].get_i32();
     ///     let b = args[1].get_i32();
@@ -581,7 +581,7 @@ impl EsRuntime {
         function: F,
     ) -> Result<(), JsError>
     where
-        F: Fn(&QuickJsContext, Vec<EsValueFacade>) -> Result<EsValueFacade, JsError>
+        F: Fn(&QuickJsRealmAdapter, Vec<EsValueFacade>) -> Result<EsValueFacade, JsError>
             + Send
             + 'static,
     {
@@ -644,9 +644,9 @@ impl EsRuntime {
     /// EsRuntime needs some more pub methods using context like eval / call_func
     /// # Example
     /// ```
-    /// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
-    /// let rt = EsRuntimeBuilder::new().build();
+    /// let rt = QuickjsRuntimeBuilder::new().build();
     /// rt.create_context("my_context");
     /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
     ///    let my_ctx = q_js_rt.get_context("my_context");
@@ -657,7 +657,7 @@ impl EsRuntime {
         let id = id.to_string();
         self.inner
             .event_loop
-            .exe(move || QuickJsRuntime::create_context(id.as_str()))
+            .exe(move || QuickJsRuntimeAdapter::create_context(id.as_str()))
     }
 
     /// drop a context which was created earlier with a call to [create_context()](struct.EsRuntime.html#method.create_context)
@@ -665,15 +665,15 @@ impl EsRuntime {
         let id = id.to_string();
         self.inner
             .event_loop
-            .exe(move || QuickJsRuntime::remove_context(id.as_str()))
+            .exe(move || QuickJsRuntimeAdapter::remove_context(id.as_str()))
     }
 }
 
-impl JsRuntimeFacade for EsRuntime {
-    type JsRuntimeAdapterType = QuickJsRuntime;
-    type JsRuntimeFacadeInnerType = EsRuntimeInner;
+impl JsRuntimeFacade for QuickJsRuntimeFacade {
+    type JsRuntimeAdapterType = QuickJsRuntimeAdapter;
+    type JsRuntimeFacadeInnerType = QuickjsRuntimeFacadeInner;
 
-    fn js_get_runtime_facade_inner(&self) -> Weak<EsRuntimeInner> {
+    fn js_get_runtime_facade_inner(&self) -> Weak<QuickjsRuntimeFacadeInner> {
         Arc::downgrade(&self.inner)
     }
 
@@ -691,27 +691,27 @@ impl JsRuntimeFacade for EsRuntime {
         Ok(self.js_contexts.contains(name))
     }
 
-    fn js_loop_sync<R: Send + 'static, C: FnOnce(&QuickJsRuntime) -> R + Send + 'static>(
+    fn js_loop_sync<R: Send + 'static, C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static>(
         &self,
         consumer: C,
     ) -> R {
         self.exe_rt_task_in_event_loop(consumer)
     }
 
-    fn js_loop<R: Send + 'static, C: FnOnce(&QuickJsRuntime) -> R + Send + 'static>(
+    fn js_loop<R: Send + 'static, C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static>(
         &self,
         consumer: C,
     ) -> Pin<Box<dyn Future<Output = R> + Send>> {
         Box::pin(self.add_rt_task_to_event_loop(consumer))
     }
 
-    fn js_loop_void<C: FnOnce(&QuickJsRuntime) + Send + 'static>(&self, consumer: C) {
+    fn js_loop_void<C: FnOnce(&QuickJsRuntimeAdapter) + Send + 'static>(&self, consumer: C) {
         self.add_rt_task_to_event_loop_void(consumer)
     }
 
     fn js_loop_realm_sync<
         R: Send + 'static,
-        C: FnOnce(&QuickJsRuntime, &QuickJsContext) -> R + Send + 'static,
+        C: FnOnce(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> R + Send + 'static,
     >(
         &self,
         realm_name: Option<&str>,
@@ -730,7 +730,7 @@ impl JsRuntimeFacade for EsRuntime {
 
     fn js_loop_realm<
         R: Send + 'static,
-        C: FnOnce(&QuickJsRuntime, &QuickJsContext) -> R + Send + 'static,
+        C: FnOnce(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> R + Send + 'static,
     >(
         &self,
         realm_name: Option<&str>,
@@ -747,7 +747,9 @@ impl JsRuntimeFacade for EsRuntime {
         })
     }
 
-    fn js_loop_realm_void<C: FnOnce(&QuickJsRuntime, &QuickJsContext) + Send + 'static>(
+    fn js_loop_realm_void<
+        C: FnOnce(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) + Send + 'static,
+    >(
         &self,
         realm_name: Option<&str>,
         consumer: C,
@@ -913,10 +915,10 @@ impl JsRuntimeFacade for EsRuntime {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::EsRuntime;
     use crate::esvalue::{EsValueConvertible, EsValueFacade};
+    use crate::facades::QuickJsRuntimeFacade;
     use crate::quickjs_utils::{primitives, promises};
-    use crate::quickjscontext::QuickJsContext;
+    use crate::quickjscontext::QuickJsRealmAdapter;
     use crate::quickjsruntime::{NativeModuleLoader, ScriptModuleLoader};
     use crate::valueref::JSValueRef;
     use backtrace::Backtrace;
@@ -932,13 +934,13 @@ pub mod tests {
     struct TestScriptModuleLoader {}
 
     impl NativeModuleLoader for TestNativeModuleLoader {
-        fn has_module(&self, _q_ctx: &QuickJsContext, module_name: &str) -> bool {
+        fn has_module(&self, _q_ctx: &QuickJsRealmAdapter, module_name: &str) -> bool {
             module_name.starts_with("greco://")
         }
 
         fn get_module_export_names(
             &self,
-            _q_ctx: &QuickJsContext,
+            _q_ctx: &QuickJsRealmAdapter,
             _module_name: &str,
         ) -> Vec<&str> {
             vec!["a", "b", "c"]
@@ -946,7 +948,7 @@ pub mod tests {
 
         fn get_module_exports(
             &self,
-            _q_ctx: &QuickJsContext,
+            _q_ctx: &QuickJsRealmAdapter,
             _module_name: &str,
         ) -> Vec<(&str, JSValueRef)> {
             vec![
@@ -990,7 +992,7 @@ pub mod tests {
         log::trace!("after sleep");
     }
 
-    pub fn init_test_rt() -> EsRuntime {
+    pub fn init_test_rt() -> QuickJsRuntimeFacade {
         panic::set_hook(Box::new(|panic_info| {
             let backtrace = Backtrace::new();
             println!(
@@ -1004,11 +1006,11 @@ pub mod tests {
             );
         }));
 
-        simple_logging::log_to_file("esruntime.log", LevelFilter::max())
+        simple_logging::log_to_file("quickjs_runtime.log", LevelFilter::max())
             .ok()
             .expect("could not init logger");
 
-        EsRuntime::builder()
+        QuickJsRuntimeFacade::builder()
             .gc_interval(Duration::from_secs(1))
             .max_stack_size(u64::MAX)
             .script_module_loader(Box::new(TestScriptModuleLoader {}))
@@ -1022,7 +1024,7 @@ pub mod tests {
         let res = rt.set_function(vec!["nl", "my", "utils"], "methodA", |_q_ctx, args| {
             if args.len() != 2 || !args.get(0).unwrap().is_i32() || !args.get(1).unwrap().is_i32() {
                 Err(JsError::new_str(
-                    "i'd realy like 2 args of the int32 kind please",
+                    "i'd really like 2 args of the int32 kind please",
                 ))
             } else {
                 let a = args.get(0).unwrap().get_i32();
@@ -1210,7 +1212,7 @@ pub mod tests {
 
 #[cfg(test)]
 pub mod abstraction_tests {
-    use crate::esruntimebuilder::EsRuntimeBuilder;
+    use crate::builder::QuickjsRuntimeBuilder;
     use futures::executor::block_on;
     use hirofa_utils::js_utils::adapters::JsRealmAdapter;
     use hirofa_utils::js_utils::facades::{JsRuntimeFacade, JsValueFacade};
@@ -1233,7 +1235,7 @@ pub mod abstraction_tests {
     #[test]
     fn test1() {
         // start a new runtime
-        let rt = EsRuntimeBuilder::new().build();
+        let rt = QuickjsRuntimeBuilder::new().build();
         let val = block_on(example(&rt));
         assert_eq!(val.js_as_i32(), 20);
     }

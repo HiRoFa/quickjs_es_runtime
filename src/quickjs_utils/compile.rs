@@ -1,6 +1,6 @@
 //! Utils to compile script to bytecode and run script from bytecode
 
-use crate::quickjscontext::QuickJsContext;
+use crate::quickjscontext::QuickJsRealmAdapter;
 use crate::quickjsruntime::make_cstring;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
@@ -12,11 +12,11 @@ use std::os::raw::c_void;
 ///  It can be executed with run_compiled_function().
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use hirofa_utils::js_utils::Script;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::compile::{compile, run_compiled_function};
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     unsafe {
 ///         let q_ctx = q_js_rt.get_main_context();
@@ -57,7 +57,7 @@ pub unsafe fn compile(context: *mut q::JSContext, script: Script) -> Result<JSVa
         format!("eval result of {}", script.get_path()).as_str(),
     );
     if ret.is_exception() {
-        let ex_opt = QuickJsContext::get_exception(context);
+        let ex_opt = QuickJsRealmAdapter::get_exception(context);
         if let Some(ex) = ex_opt {
             Err(ex)
         } else {
@@ -81,7 +81,7 @@ pub unsafe fn run_compiled_function(
     let val = q::JS_EvalFunction(context, compiled_func.clone_value_incr_rc());
     let val_ref = JSValueRef::new(context, val, false, true, "run_compiled_function result");
     if val_ref.is_exception() {
-        let ex_opt = QuickJsContext::get_exception(context);
+        let ex_opt = QuickJsRealmAdapter::get_exception(context);
         if let Some(ex) = ex_opt {
             Err(ex)
         } else {
@@ -97,11 +97,11 @@ pub unsafe fn run_compiled_function(
 /// write a function to bytecode
 /// # Example
 /// ```rust
-/// use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
 /// use hirofa_utils::js_utils::Script;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::compile::{compile, run_compiled_function, to_bytecode, from_bytecode};
-/// let rt = EsRuntimeBuilder::new().build();
+/// let rt = QuickjsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     unsafe {
 ///     let q_ctx = q_js_rt.get_main_context();
@@ -157,7 +157,7 @@ pub unsafe fn from_bytecode(
 
         let func_ref = JSValueRef::new(context, raw, false, true, "from_bytecode result");
         if func_ref.is_exception() {
-            let ex_opt = QuickJsContext::get_exception(context);
+            let ex_opt = QuickJsRealmAdapter::get_exception(context);
             if let Some(ex) = ex_opt {
                 Err(ex)
             } else {
@@ -173,8 +173,8 @@ pub unsafe fn from_bytecode(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
-    use crate::esruntimebuilder::EsRuntimeBuilder;
+    use crate::builder::QuickjsRuntimeBuilder;
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::compile::{
         compile, from_bytecode, run_compiled_function, to_bytecode,
     };
@@ -251,7 +251,7 @@ pub mod tests {
 
     #[test]
     fn test_bytecode_bad_compile() {
-        let rt = EsRuntimeBuilder::new().build();
+        let rt = QuickjsRuntimeBuilder::new().build();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
@@ -270,7 +270,7 @@ pub mod tests {
 
     #[test]
     fn test_bytecode_bad_run() {
-        let rt = EsRuntimeBuilder::new().build();
+        let rt = QuickjsRuntimeBuilder::new().build();
         rt.exe_rt_task_in_event_loop(|q_js_rt| unsafe {
             let q_ctx = q_js_rt.get_main_context();
 

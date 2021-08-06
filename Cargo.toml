@@ -30,6 +30,9 @@ thread-id = "3.3.0"
 futures = "0.3"
 tokio = {version = "1.4", features = ["rt-multi-thread", "rt", "bytes", "fs", "io-std", "io-util", "libc", "macros", "memchr", "winapi", "tracing", "time", "tokio-macros", "test-util", "sync", "parking_lot", "once_cell", "mio", "net", "num_cpus"]}
 
+[dev-dependencies]
+#green_copper_runtime =  { git = 'https://github.com/HiRoFa/GreenCopperRuntime', branch="main", features = ["console"]}
+
 [dev-dependencies.cargo-husky]
 version = "1.5.0"
 default-features = false # Disable features which are enabled by default

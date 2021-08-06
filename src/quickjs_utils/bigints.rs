@@ -1,11 +1,11 @@
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, primitives};
-use crate::quickjscontext::QuickJsContext;
+use crate::quickjscontext::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 
-pub fn new_bigint_i64_q(context: &QuickJsContext, int: i64) -> Result<JSValueRef, JsError> {
+pub fn new_bigint_i64_q(context: &QuickJsRealmAdapter, int: i64) -> Result<JSValueRef, JsError> {
     unsafe { new_bigint_i64(context.context, int) }
 }
 
@@ -29,7 +29,10 @@ pub unsafe fn new_bigint_u64(context: *mut q::JSContext, int: u64) -> Result<JSV
     Ok(ret)
 }
 
-pub fn new_bigint_str_q(context: &QuickJsContext, input_str: &str) -> Result<JSValueRef, JsError> {
+pub fn new_bigint_str_q(
+    context: &QuickJsRealmAdapter,
+    input_str: &str,
+) -> Result<JSValueRef, JsError> {
     unsafe { new_bigint_str(context.context, input_str) }
 }
 
@@ -49,7 +52,10 @@ pub unsafe fn new_bigint_str(
     Ok(ret)
 }
 
-pub fn to_string_q(context: &QuickJsContext, big_int_ref: &JSValueRef) -> Result<String, JsError> {
+pub fn to_string_q(
+    context: &QuickJsRealmAdapter,
+    big_int_ref: &JSValueRef,
+) -> Result<String, JsError> {
     unsafe { to_string(context.context, big_int_ref) }
 }
 
@@ -68,7 +74,7 @@ pub unsafe fn to_string(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esruntime::tests::init_test_rt;
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::bigints;
     use crate::quickjs_utils::bigints::new_bigint_str_q;
 
