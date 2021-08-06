@@ -272,6 +272,14 @@ impl JsRuntimeBuilder for QuickjsRuntimeBuilder {
         self.runtime_init_hooks.push(Box::new(hook));
         self
     }
+
+    fn js_script_pre_processor<S: ScriptPreProcessor + Send + 'static>(
+        &mut self,
+        preprocessor: S,
+    ) -> &mut Self {
+        self.script_pre_processors.push(Box::new(preprocessor));
+        self
+    }
 }
 
 #[cfg(test)]
