@@ -350,19 +350,37 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         &self,
         namespace: &[&str],
         name: &str,
-        js_function: fn(&Self, &JSValueRef, &[JSValueRef]) -> Result<JSValueRef, JsError>,
+        js_function: fn(
+            &QuickJsRuntimeAdapter,
+            &Self,
+            &JSValueRef,
+            &[JSValueRef],
+        ) -> Result<JSValueRef, JsError>,
         arg_count: u32,
     ) -> Result<(), JsError> {
         // todo namespace as slice?
         let ns = self.js_get_namespace(&namespace)?;
 
-        let func = functions::new_function_q(self, name, js_function, arg_count)?;
+        let func = functions::new_function_q(
+            self,
+            name,
+            move |ctx, this, args| {
+                QuickJsRuntimeAdapter::do_with(|rt| js_function(rt, ctx, this, args))
+            },
+            arg_count,
+        )?;
         self.js_object_set_property(&ns, name, &func)?;
         Ok(())
     }
 
     fn js_install_closure<
-        F: Fn(&Self, &JSValueRef, &[JSValueRef]) -> Result<JSValueRef, JsError> + 'static,
+        F: Fn(
+                &QuickJsRuntimeAdapter,
+                &Self,
+                &JSValueRef,
+                &[JSValueRef],
+            ) -> Result<JSValueRef, JsError>
+            + 'static,
     >(
         &self,
         namespace: &[&str],
@@ -373,7 +391,14 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         // todo namespace as slice?
         let ns = self.js_get_namespace(&namespace)?;
 
-        let func = functions::new_function_q(self, name, js_function, arg_count)?;
+        let func = functions::new_function_q(
+            self,
+            name,
+            move |ctx, this, args| {
+                QuickJsRuntimeAdapter::do_with(|rt| js_function(rt, ctx, this, args))
+            },
+            arg_count,
+        )?;
         self.js_object_set_property(&ns, name, &func)?;
         Ok(())
     }

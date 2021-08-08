@@ -526,6 +526,10 @@ impl JsRuntimeAdapter for QuickJsRuntimeAdapter {
     type JsPromiseAdapterType = PromiseRef;
     type JsRealmAdapterType = QuickJsRealmAdapter;
 
+    fn js_load_module_script(&self, ref_path: &str, path: &str) -> Option<Script> {
+        self.load_module_script_opt(ref_path, path)
+    }
+
     fn js_create_realm(&self, _id: &str) -> Result<&Self::JsRealmAdapterType, JsError> {
         todo!();
     }
