@@ -315,6 +315,8 @@ impl Drop for QuickJsRealmAdapter {
 
 impl JsRealmAdapter for QuickJsRealmAdapter {
     type JsRuntimeAdapterType = QuickJsRuntimeAdapter;
+    type JsValueAdapterType = JSValueRef;
+    type JsPromiseAdapterType = PromiseRef;
 
     fn js_get_script_or_module_name(&self) -> Result<String, JsError> {
         crate::quickjs_utils::get_script_or_module_name_q(self)
@@ -324,7 +326,7 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         self.eval(script)
     }
 
-    fn js_proxy_install(&self, _proxy: JsProxy<Self::JsRuntimeAdapterType>) {
+    fn js_proxy_install(&self, _proxy: JsProxy<QuickJsRealmAdapter>) {
         unimplemented!()
     }
 
@@ -569,8 +571,10 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         Ok(from_f64(val))
     }
 
-    fn js_promise_create(&self) -> Result<PromiseRef, JsError> {
-        crate::quickjs_utils::promises::new_promise_q(self)
+    fn js_promise_create(&self) -> Result<Box<PromiseRef>, JsError> {
+        Ok(Box::new(crate::quickjs_utils::promises::new_promise_q(
+            self,
+        )?))
     }
 
     fn js_cache_add(&self, object: JSValueRef) -> i32 {

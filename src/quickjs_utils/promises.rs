@@ -83,7 +83,7 @@ impl Clone for PromiseRef {
 }
 
 impl JsPromiseAdapter for PromiseRef {
-    type JsRuntimeAdapterType = QuickJsRuntimeAdapter;
+    type JsRealmAdapterType = QuickJsRealmAdapter;
 
     fn js_promise_resolve(
         &self,

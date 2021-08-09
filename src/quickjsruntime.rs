@@ -5,7 +5,6 @@ use crate::quickjs_utils::modules::{
     add_module_export, compile_module, get_module_def, get_module_name, new_module,
     set_module_export,
 };
-use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjs_utils::{gc, interrupthandler, modules, promises};
 use crate::quickjscontext::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
@@ -522,8 +521,6 @@ impl Drop for QuickJsRuntimeAdapter {
 }
 
 impl JsRuntimeAdapter for QuickJsRuntimeAdapter {
-    type JsValueAdapterType = JSValueRef;
-    type JsPromiseAdapterType = PromiseRef;
     type JsRealmAdapterType = QuickJsRealmAdapter;
 
     fn js_load_module_script(&self, ref_path: &str, path: &str) -> Option<Script> {
