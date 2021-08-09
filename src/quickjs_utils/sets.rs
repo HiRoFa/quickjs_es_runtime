@@ -181,7 +181,7 @@ pub fn size_q(q_ctx: &QuickJsRealmAdapter, set: &JSValueRef) -> Result<i32, JsEr
 /// # Safety
 /// please ensure the passed JSContext is still valid
 pub unsafe fn size(ctx: *mut q::JSContext, set: &JSValueRef) -> Result<i32, JsError> {
-    let res = objects::get_property(ctx, &set, "size")?;
+    let res = objects::get_property(ctx, set, "size")?;
     primitives::to_i32(&res)
 }
 
@@ -212,7 +212,7 @@ pub fn clear_q(q_ctx: &QuickJsRealmAdapter, map: &JSValueRef) -> Result<(), JsEr
 /// # Safety
 /// please ensure the passed JSContext is still valid
 pub unsafe fn clear(ctx: *mut q::JSContext, set: &JSValueRef) -> Result<(), JsError> {
-    let _ = functions::invoke_member_function(ctx, &set, "clear", vec![])?;
+    let _ = functions::invoke_member_function(ctx, set, "clear", vec![])?;
     Ok(())
 }
 
@@ -250,7 +250,7 @@ pub unsafe fn values<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
     set: &JSValueRef,
     consumer_producer: C,
 ) -> Result<Vec<R>, JsError> {
-    let iter_ref = functions::invoke_member_function(ctx, &set, "values", vec![])?;
+    let iter_ref = functions::invoke_member_function(ctx, set, "values", vec![])?;
 
     iterators::iterate(ctx, &iter_ref, consumer_producer)
 }

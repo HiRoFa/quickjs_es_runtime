@@ -260,7 +260,7 @@ pub unsafe fn add_promise_reactions(
     if let Some(then_func_obj_ref) = then_func_obj_ref_opt {
         functions::invoke_member_function(
             context,
-            &promise_obj_ref,
+            promise_obj_ref,
             "then",
             vec![then_func_obj_ref],
         )?;
@@ -268,7 +268,7 @@ pub unsafe fn add_promise_reactions(
     if let Some(catch_func_obj_ref) = catch_func_obj_ref_opt {
         functions::invoke_member_function(
             context,
-            &promise_obj_ref,
+            promise_obj_ref,
             "catch",
             vec![catch_func_obj_ref],
         )?;
@@ -276,7 +276,7 @@ pub unsafe fn add_promise_reactions(
     if let Some(finally_func_obj_ref) = finally_func_obj_ref_opt {
         functions::invoke_member_function(
             context,
-            &promise_obj_ref,
+            promise_obj_ref,
             "finally",
             vec![finally_func_obj_ref],
         )?;

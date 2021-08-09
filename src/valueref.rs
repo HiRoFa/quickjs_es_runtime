@@ -274,7 +274,7 @@ impl JsValueAdapter for JSValueRef {
             TAG_FLOAT64 => JsValueType::F64,
             TAG_STRING => JsValueType::String,
             TAG_OBJECT => {
-                if unsafe { functions::is_function(self.context, &self) } {
+                if unsafe { functions::is_function(self.context, self) } {
                     JsValueType::Function
                 } else {
                     JsValueType::Object

@@ -297,9 +297,9 @@ pub unsafe fn define_getter_setter(
 
     log::trace!("objects::define_getter_setter 1");
 
-    debug_assert!(functions::is_function(context, &getter_func_ref));
+    debug_assert!(functions::is_function(context, getter_func_ref));
     log::trace!("objects::define_getter_setter 2");
-    debug_assert!(functions::is_function(context, &setter_func_ref));
+    debug_assert!(functions::is_function(context, setter_func_ref));
     log::trace!("objects::define_getter_setter 3");
 
     let prop_atom = atoms::from_string(context, prop_name)?;

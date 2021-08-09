@@ -31,7 +31,7 @@ fn response_text(
     let resp_arc: FetchResponseMapType = RESPONSES.with(move |rrc| {
         let responses_map = &*rrc.borrow();
         responses_map
-            .get(&instance_id)
+            .get(instance_id)
             .expect("no such response found")
             .clone()
     });
@@ -67,7 +67,7 @@ fn response_json(
     let resp_arc: FetchResponseMapType = RESPONSES.with(move |rrc| {
         let responses_map = &*rrc.borrow();
         responses_map
-            .get(&instance_id)
+            .get(instance_id)
             .expect("no such response found")
             .clone()
     });

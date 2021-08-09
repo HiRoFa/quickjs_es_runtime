@@ -56,7 +56,7 @@ unsafe extern "C" fn fetch_func(
             return q_ctx.report_ex("url argument needs to be a string");
         }
 
-        let url = primitives::to_string(ctx, &url_arg).ok().unwrap();
+        let url = primitives::to_string(ctx, url_arg).ok().unwrap();
 
         if let Some(rt_ref) = q_js_rt.get_rti_ref() {
             if rt_ref.fetch_response_provider.is_some() {

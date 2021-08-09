@@ -225,7 +225,7 @@ pub fn size_q(q_ctx: &QuickJsRealmAdapter, map: &JSValueRef) -> Result<i32, JsEr
 /// # Safety
 /// please ensure the passed JSContext is still valid
 pub unsafe fn size(ctx: *mut q::JSContext, map: &JSValueRef) -> Result<i32, JsError> {
-    let res = objects::get_property(ctx, &map, "size")?;
+    let res = objects::get_property(ctx, map, "size")?;
     primitives::to_i32(&res)
 }
 
@@ -257,7 +257,7 @@ pub fn clear_q(q_ctx: &QuickJsRealmAdapter, map: &JSValueRef) -> Result<(), JsEr
 /// # Safety
 /// please ensure the passed JSContext is still valid
 pub unsafe fn clear(ctx: *mut q::JSContext, map: &JSValueRef) -> Result<(), JsError> {
-    let _ = functions::invoke_member_function(ctx, &map, "clear", vec![])?;
+    let _ = functions::invoke_member_function(ctx, map, "clear", vec![])?;
     Ok(())
 }
 
@@ -296,7 +296,7 @@ pub unsafe fn keys<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
     map: &JSValueRef,
     consumer_producer: C,
 ) -> Result<Vec<R>, JsError> {
-    let iter_ref = functions::invoke_member_function(ctx, &map, "keys", vec![])?;
+    let iter_ref = functions::invoke_member_function(ctx, map, "keys", vec![])?;
 
     iterators::iterate(ctx, &iter_ref, consumer_producer)
 }
@@ -336,7 +336,7 @@ pub unsafe fn values<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
     map: &JSValueRef,
     consumer_producer: C,
 ) -> Result<Vec<R>, JsError> {
-    let iter_ref = functions::invoke_member_function(ctx, &map, "values", vec![])?;
+    let iter_ref = functions::invoke_member_function(ctx, map, "values", vec![])?;
 
     iterators::iterate(ctx, &iter_ref, consumer_producer)
 }
@@ -376,7 +376,7 @@ pub unsafe fn entries<C: Fn(JSValueRef, JSValueRef) -> Result<R, JsError>, R>(
     map: &JSValueRef,
     consumer_producer: C,
 ) -> Result<Vec<R>, JsError> {
-    let iter_ref = functions::invoke_member_function(ctx, &map, "entries", vec![])?;
+    let iter_ref = functions::invoke_member_function(ctx, map, "entries", vec![])?;
 
     iterators::iterate(ctx, &iter_ref, |arr_ref| {
         let key = arrays::get_element(ctx, &arr_ref, 0)?;

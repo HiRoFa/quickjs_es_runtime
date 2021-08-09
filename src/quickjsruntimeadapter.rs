@@ -281,10 +281,10 @@ impl QuickJsRuntimeAdapter {
         });
 
         Self::do_with(|q_js_rt| {
-            let ctx = q_js_rt.get_context(&id);
+            let ctx = q_js_rt.get_context(id);
             let hooks = &*q_js_rt.context_init_hooks.borrow();
             for hook in hooks {
-                hook(q_js_rt, &ctx)?;
+                hook(q_js_rt, ctx)?;
             }
             Ok(())
         })

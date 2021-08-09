@@ -602,7 +602,7 @@ impl QuickJsRuntimeFacade {
                         let mut args_facades = vec![];
 
                         for arg_ref in args {
-                            args_facades.push(EsValueFacade::from_jsval(q_ctx, &arg_ref)?);
+                            args_facades.push(EsValueFacade::from_jsval(q_ctx, arg_ref)?);
                         }
 
                         let res = func_rc(q_ctx, args_facades);

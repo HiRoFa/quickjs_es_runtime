@@ -378,7 +378,7 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         arg_count: u32,
     ) -> Result<(), JsError> {
         // todo namespace as slice?
-        let ns = self.js_get_namespace(&namespace)?;
+        let ns = self.js_get_namespace(namespace)?;
 
         let func = functions::new_function_q(
             self,
@@ -408,7 +408,7 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         arg_count: u32,
     ) -> Result<(), JsError> {
         // todo namespace as slice?
-        let ns = self.js_get_namespace(&namespace)?;
+        let ns = self.js_get_namespace(namespace)?;
 
         let func = functions::new_function_q(
             self,

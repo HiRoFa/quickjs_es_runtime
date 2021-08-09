@@ -16,7 +16,7 @@ pub unsafe fn iterate<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
     let mut res = vec![];
 
     loop {
-        let next_obj = functions::invoke_member_function(ctx, &iterator_ref, "next", vec![])?;
+        let next_obj = functions::invoke_member_function(ctx, iterator_ref, "next", vec![])?;
         if primitives::to_bool(&objects::get_property(ctx, &next_obj, "done")?)? {
             break;
         } else {
