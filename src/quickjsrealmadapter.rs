@@ -338,6 +338,11 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
                 QuickJsRuntimeAdapter::do_with(|rt| constructor(rt, realm, &id, args.as_slice()))
             });
         }
+        if let Some(finalizer) = proxy.finalizer.take() {
+            q_proxy = q_proxy.finalizer(move |realm, id| {
+                QuickJsRuntimeAdapter::do_with(|rt| finalizer(rt, realm, &id))
+            });
+        }
 
         q_proxy.install(self, true)
     }
