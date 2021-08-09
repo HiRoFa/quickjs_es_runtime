@@ -1,6 +1,6 @@
 //JS_AtomToCString(ctx: *mut JSContext, atom: JSAtom) -> *const ::std::os::raw::c_char
 use crate::quickjs_utils::primitives;
-use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;

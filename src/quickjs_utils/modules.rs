@@ -2,8 +2,8 @@
 
 use crate::quickjs_utils::atoms;
 use crate::quickjs_utils::atoms::JSAtomRef;
-use crate::quickjscontext::QuickJsRealmAdapter;
-use crate::quickjsruntime::QuickJsRuntimeAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
+use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use crate::valueref::JSValueRef;
 use core::ptr;
 use hirofa_utils::js_utils::JsError;

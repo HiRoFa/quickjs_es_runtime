@@ -3,8 +3,8 @@ use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, objects, parse_args, primitives};
-use crate::quickjscontext::QuickJsRealmAdapter;
-use crate::quickjsruntime::QuickJsRuntimeAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
+use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use crate::runtimefacade_utils::promises;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
@@ -103,7 +103,7 @@ unsafe extern "C" fn fetch_func(
 #[cfg(test)]
 pub mod tests {
 
-    use crate::builder::QuickjsRuntimeBuilder;
+    use crate::builder::QuickJsRuntimeBuilder;
     use crate::facades::tests::init_test_rt;
     use crate::facades::QuickJsRuntimeFacade;
     use crate::features::fetch::FetchResponse;
@@ -136,7 +136,7 @@ pub mod tests {
     fn test_fetch() {
         let main_rt: QuickJsRuntimeFacade = init_test_rt();
 
-        let rt = QuickjsRuntimeBuilder::new()
+        let rt = QuickJsRuntimeBuilder::new()
             .fetch_response_provider(|_req| {
                 let res = TestResponse {
                     txt: Some("{\"test\": \"response\"}".to_string()),

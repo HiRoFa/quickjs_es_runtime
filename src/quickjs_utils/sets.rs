@@ -3,7 +3,7 @@
 
 use crate::quickjs_utils::objects::{construct_object, is_instance_of_by_name};
 use crate::quickjs_utils::{functions, get_constructor, iterators, objects, primitives};
-use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
@@ -11,11 +11,11 @@ use libquickjs_sys as q;
 /// create new instance of Set
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::sets::new_set_q;
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
@@ -48,12 +48,12 @@ pub unsafe fn is_set(ctx: *mut q::JSContext, obj: &JSValueRef) -> Result<bool, J
 /// add a value to the Set
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::sets::{new_set_q, add_q};
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
@@ -83,12 +83,12 @@ pub unsafe fn add(
 /// delete a value from a set
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::sets::{add_q, new_set_q, delete_q};
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
@@ -120,12 +120,12 @@ pub unsafe fn delete(
 /// check whether a Set has a certain value
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::sets::{new_set_q, add_q, has_q};
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
@@ -158,12 +158,12 @@ pub unsafe fn has(
 /// get the number of entries in a Set
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::sets::{add_q, new_set_q, size_q};
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
@@ -188,12 +188,12 @@ pub unsafe fn size(ctx: *mut q::JSContext, set: &JSValueRef) -> Result<i32, JsEr
 /// remove all entries from a Set
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::sets::{size_q, clear_q, add_q, new_set_q};
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();
@@ -219,12 +219,12 @@ pub unsafe fn clear(ctx: *mut q::JSContext, set: &JSValueRef) -> Result<(), JsEr
 /// iterate over all values of a Set
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::sets::{new_set_q, add_q, values_q};
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_set: JSValueRef = new_set_q(q_ctx).ok().unwrap();

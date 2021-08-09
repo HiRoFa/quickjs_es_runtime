@@ -1,5 +1,5 @@
 use crate::quickjs_utils::{functions, primitives};
-use crate::quickjsruntime::QuickJsRuntimeAdapter;
+use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use hirofa_utils::js_utils::adapters::JsValueAdapter;
 use hirofa_utils::js_utils::facades::JsValueType;
 use hirofa_utils::js_utils::JsError;

@@ -25,13 +25,13 @@
 //! * %f Outputs a floating-point value. Formatting is supported, for example  console.log("Foo %.2f", 1.1) will output the number to 2 decimal places: Foo 1.10
 //! # Example
 //! ```rust
-//! use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+//! use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 //! use hirofa_utils::js_utils::Script;
 //! use log::LevelFilter;
 //! simple_logging::log_to_file("console_test.log", LevelFilter::max())
 //!             .ok()
 //!             .expect("could not init logger");
-//! let rt = QuickjsRuntimeBuilder::new().build();
+//! let rt = QuickJsRuntimeBuilder::new().build();
 //! rt.eval_sync(Script::new(
 //! "console.es",
 //! "console.log('the %s %s %s jumped over %i fences with a accuracy of %.2f', 'quick', 'brown', 'fox', 32, 0.512);"
@@ -44,8 +44,8 @@
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions::call_to_string;
 use crate::quickjs_utils::{functions, json, parse_args, primitives};
-use crate::quickjscontext::QuickJsRealmAdapter;
-use crate::quickjsruntime::QuickJsRuntimeAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
+use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use crate::reflection::Proxy;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;

@@ -2,8 +2,8 @@ use crate::quickjs_utils;
 use crate::quickjs_utils::functions::new_native_function_q;
 use crate::quickjs_utils::primitives::from_string;
 use crate::quickjs_utils::{atoms, errors, functions, objects, parse_args, primitives};
-use crate::quickjscontext::QuickJsRealmAdapter;
-use crate::quickjsruntime::QuickJsRuntimeAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
+use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
@@ -135,9 +135,9 @@ fn next_id(q_ctx: &QuickJsRealmAdapter) -> usize {
 /// The Proxy struct can be used to create a class in JavaScript who's methods can be implemented in rust
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::reflection::Proxy;
-/// use quickjs_runtime::quickjscontext::QuickJsRealmAdapter;
+/// use quickjs_runtime::quickjsrealmadapter::QuickJsRealmAdapter;
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use std::cell::RefCell;
 /// use std::collections::HashMap;
@@ -159,7 +159,7 @@ fn next_id(q_ctx: &QuickJsRealmAdapter) -> usize {
 /// }
 ///
 /// //create a new EsRuntime
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 ///
 /// // install our proxy class as com.hirofa.FunkyClass
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {

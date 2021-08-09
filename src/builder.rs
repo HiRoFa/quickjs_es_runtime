@@ -1,7 +1,7 @@
 use crate::facades::{FetchResponseProvider, QuickJsRuntimeFacade};
 use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
-use crate::quickjsruntime::{NativeModuleLoader, QuickJsRuntimeAdapter, ScriptModuleLoader};
+use crate::quickjsruntimeadapter::{NativeModuleLoader, QuickJsRuntimeAdapter, ScriptModuleLoader};
 use hirofa_utils::js_utils::facades::JsRuntimeBuilder;
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::ScriptPreProcessor;
@@ -13,13 +13,13 @@ pub type EsRuntimeInitHooks =
 /// the EsRuntimeBuilder is used to init an EsRuntime
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// // init a rt which may use 16MB of memory
-/// let rt = QuickjsRuntimeBuilder::new()
+/// let rt = QuickJsRuntimeBuilder::new()
 /// .memory_limit(1024*1024*16)
 /// .build();
 /// ```
-pub struct QuickjsRuntimeBuilder {
+pub struct QuickJsRuntimeBuilder {
     pub(crate) script_module_loaders: Vec<Box<dyn ScriptModuleLoader + Send>>,
     pub(crate) native_module_loaders: Vec<Box<dyn NativeModuleLoader + Send>>,
     pub(crate) opt_fetch_response_provider: Option<Box<FetchResponseProvider>>,
@@ -32,7 +32,7 @@ pub struct QuickjsRuntimeBuilder {
     pub(crate) interrupt_handler: Option<Box<dyn Fn(&QuickJsRuntimeAdapter) -> bool + Send>>,
 }
 
-impl QuickjsRuntimeBuilder {
+impl QuickJsRuntimeBuilder {
     /// build an EsRuntime
     pub fn build(self) -> QuickJsRuntimeFacade {
         QuickJsRuntimeFacade::new(self)
@@ -58,9 +58,9 @@ impl QuickjsRuntimeBuilder {
     /// # Example
     /// ```rust
     /// use hirofa_utils::js_utils::Script;
-    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
-    /// use quickjs_runtime::quickjscontext::QuickJsRealmAdapter;
-    /// use quickjs_runtime::quickjsruntime::ScriptModuleLoader;
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+    /// use quickjs_runtime::quickjsrealmadapter::QuickJsRealmAdapter;
+    /// use quickjs_runtime::quickjsruntimeadapter::ScriptModuleLoader;
     /// struct MyModuleLoader {}
     /// impl ScriptModuleLoader for MyModuleLoader {
     ///     fn normalize_path(&self,ref_path: &str,path: &str) -> Option<String> {
@@ -72,7 +72,7 @@ impl QuickjsRuntimeBuilder {
     ///     }
     /// }
     ///
-    /// let rt = QuickjsRuntimeBuilder::new()
+    /// let rt = QuickJsRuntimeBuilder::new()
     ///     .script_module_loader(Box::new(MyModuleLoader{}))
     ///     .build();
     /// rt.eval_module_sync(Script::new("test_module.es", "import {foo} from 'some_module.mes';\nconsole.log('foo = %s', foo);")).ok().unwrap();
@@ -105,10 +105,10 @@ impl QuickjsRuntimeBuilder {
     /// add a module loader which can load native functions and proxy classes
     /// # Example
     /// ```rust
-    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
-    /// use quickjs_runtime::quickjsruntime::NativeModuleLoader;
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+    /// use quickjs_runtime::quickjsruntimeadapter::NativeModuleLoader;
     /// use quickjs_runtime::valueref::JSValueRef;
-    /// use quickjs_runtime::quickjscontext::QuickJsRealmAdapter;
+    /// use quickjs_runtime::quickjsrealmadapter::QuickJsRealmAdapter;
     /// use quickjs_runtime::quickjs_utils::functions;
     /// use quickjs_runtime::quickjs_utils::primitives::{from_bool, from_i32};
     /// use quickjs_runtime::reflection::Proxy;
@@ -145,7 +145,7 @@ impl QuickjsRuntimeBuilder {
     ///     }
     /// }
     ///
-    /// let rt = QuickjsRuntimeBuilder::new()
+    /// let rt = QuickJsRuntimeBuilder::new()
     /// .native_module_loader(Box::new(MyModuleLoader{}))
     /// .build();
     ///
@@ -163,7 +163,7 @@ impl QuickjsRuntimeBuilder {
     /// # Example
     /// ```rust
     ///
-    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
     /// use quickjs_runtime::features::fetch::response::FetchResponse;
     /// use quickjs_runtime::features::fetch::request::FetchRequest;
     /// use hirofa_utils::js_utils::Script;
@@ -198,7 +198,7 @@ impl QuickjsRuntimeBuilder {
     ///     }
     /// }
     ///
-    /// let rt = QuickjsRuntimeBuilder::new()
+    /// let rt = QuickJsRuntimeBuilder::new()
     /// .fetch_response_provider(|req| {Box::new(SimpleResponse::new(req))})
     /// .build();
     ///
@@ -250,13 +250,13 @@ impl QuickjsRuntimeBuilder {
     }
 }
 
-impl Default for QuickjsRuntimeBuilder {
+impl Default for QuickJsRuntimeBuilder {
     fn default() -> Self {
-        QuickjsRuntimeBuilder::new()
+        QuickJsRuntimeBuilder::new()
     }
 }
 
-impl JsRuntimeBuilder for QuickjsRuntimeBuilder {
+impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
     type JsRuntimeFacadeType = QuickJsRuntimeFacade;
 
     fn js_build(self) -> QuickJsRuntimeFacade {
@@ -284,8 +284,8 @@ impl JsRuntimeBuilder for QuickjsRuntimeBuilder {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::builder::QuickjsRuntimeBuilder;
-    use crate::quickjsruntime::ScriptModuleLoader;
+    use crate::builder::QuickJsRuntimeBuilder;
+    use crate::quickjsruntimeadapter::ScriptModuleLoader;
     use hirofa_utils::js_utils::Script;
 
     #[test]
@@ -301,7 +301,7 @@ pub mod tests {
             }
         }
 
-        let rt = QuickjsRuntimeBuilder::new()
+        let rt = QuickJsRuntimeBuilder::new()
             .script_module_loader(Box::new(MyModuleLoader {}))
             .build();
         match rt.eval_module_sync(Script::new(

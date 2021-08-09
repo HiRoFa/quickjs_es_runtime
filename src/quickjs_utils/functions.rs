@@ -1,8 +1,8 @@
 //! utils to create and invoke functions
 
 use crate::quickjs_utils::{atoms, errors, objects, parse_args, primitives};
-use crate::quickjscontext::QuickJsRealmAdapter;
-use crate::quickjsruntime::{make_cstring, QuickJsRuntimeAdapter};
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
+use crate::quickjsruntimeadapter::{make_cstring, QuickJsRuntimeAdapter};
 use crate::valueref::JSValueRef;
 use hirofa_utils::auto_id_map::AutoIdMap;
 use hirofa_utils::js_utils::JsError;
@@ -509,13 +509,13 @@ thread_local! {
 /// create a new Function which is backed by a closure
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::functions::new_function_q;
 /// use quickjs_runtime::quickjs_utils::primitives::from_i32;
 /// use quickjs_runtime::quickjs_utils::get_global_q;
 /// use quickjs_runtime::quickjs_utils::objects::set_property_q;
 /// use hirofa_utils::js_utils::Script;
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     // create a function which always returns 1253
@@ -928,13 +928,13 @@ unsafe extern "C" fn callback_function(
 
 #[cfg(test)]
 pub mod tests2 {
-    use crate::builder::QuickjsRuntimeBuilder;
+    use crate::builder::QuickJsRuntimeBuilder;
     use crate::quickjs_utils::functions::{new_function_q, CALLBACK_IDS, CALLBACK_REGISTRY};
     use crate::quickjs_utils::new_null_ref;
 
     #[test]
     fn test_function() {
-        let rt = QuickjsRuntimeBuilder::new().build();
+        let rt = QuickJsRuntimeBuilder::new().build();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let func = new_function_q(

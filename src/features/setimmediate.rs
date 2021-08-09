@@ -1,17 +1,17 @@
 use crate::facades::QuickJsRuntimeFacade;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, get_global_q, objects, parse_args};
-use crate::quickjsruntime::QuickJsRuntimeAdapter;
+use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 
 /// provides the setImmediate methods for the runtime
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use hirofa_utils::js_utils::Script;
 /// use std::time::Duration;
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.eval(Script::new("test_immediate.es", "setImmediate(() => {console.log('immediate logging')});"));
 /// std::thread::sleep(Duration::from_secs(1));
 /// ```

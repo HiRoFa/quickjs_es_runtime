@@ -1,8 +1,8 @@
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions;
 use crate::quickjs_utils::objects::is_instance_of_by_name;
-use crate::quickjscontext::QuickJsRealmAdapter;
-use crate::quickjsruntime::QuickJsRuntimeAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
+use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::adapters::{JsPromiseAdapter, JsRealmAdapter};
 use hirofa_utils::js_utils::JsError;
@@ -320,7 +320,7 @@ pub mod tests {
     use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::promises::{add_promise_reactions_q, is_promise_q, new_promise_q};
     use crate::quickjs_utils::{functions, new_null_ref, primitives};
-    use crate::quickjsruntime::QuickJsRuntimeAdapter;
+    use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
     use hirofa_utils::js_utils::Script;
     use std::time::Duration;
 

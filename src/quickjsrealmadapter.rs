@@ -1,7 +1,7 @@
 use crate::quickjs_utils::primitives::{from_bool, from_f64, from_i32, from_string_q};
 use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjs_utils::{arrays, errors, functions, json, new_null_ref, objects};
-use crate::quickjsruntime::{make_cstring, QuickJsRuntimeAdapter};
+use crate::quickjsruntimeadapter::{make_cstring, QuickJsRuntimeAdapter};
 use crate::reflection::{Proxy, ProxyInstanceInfo};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
@@ -326,8 +326,20 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         self.eval(script)
     }
 
-    fn js_proxy_install(&self, _proxy: JsProxy<QuickJsRealmAdapter>) {
-        unimplemented!()
+    fn js_proxy_install(
+        &self,
+        mut proxy: JsProxy<QuickJsRealmAdapter>,
+    ) -> Result<JSValueRef, JsError> {
+        // create qjs proxy from proxy
+        let mut q_proxy = Proxy::new();
+
+        if let Some(constructor) = proxy.constructor.take() {
+            q_proxy = q_proxy.constructor(move |realm, id, args| {
+                QuickJsRuntimeAdapter::do_with(|rt| constructor(rt, realm, &id, args.as_slice()))
+            });
+        }
+
+        q_proxy.install(self, true)
     }
 
     fn js_proxy_instantiate(
@@ -623,7 +635,7 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::builder::QuickjsRuntimeBuilder;
+    use crate::builder::QuickJsRuntimeBuilder;
     use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils;
     use crate::quickjs_utils::primitives::to_i32;
@@ -653,7 +665,7 @@ pub mod tests {
 
     #[test]
     fn test_multi_ctx() {
-        let rt = QuickjsRuntimeBuilder::new().build();
+        let rt = QuickJsRuntimeBuilder::new().build();
         rt.create_context("a").ok().expect("could not create ctx a");
         rt.create_context("b").ok().expect("could not create ctx b");
 

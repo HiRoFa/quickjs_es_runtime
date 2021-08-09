@@ -2,8 +2,8 @@ use crate::facades::QuickJsRuntimeFacade;
 use crate::quickjs_utils::primitives;
 use crate::quickjs_utils::promises::new_promise_q;
 use crate::quickjs_utils::promises::PromiseRef;
-use crate::quickjscontext::QuickJsRealmAdapter;
-use crate::quickjsruntime::QuickJsRuntimeAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
+use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::auto_id_map::AutoIdMap;
 use hirofa_utils::js_utils::JsError;
@@ -18,14 +18,14 @@ thread_local! {
 /// the promise which was returned is then resolved with the value which is returned by the mapper
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::{functions, objects, primitives};
 /// use quickjs_runtime::quickjs_utils;
 /// use hirofa_utils::js_utils::Script;
 /// use std::time::Duration;
 /// use quickjs_runtime::runtimefacade_utils::promises;
-/// use quickjs_runtime::quickjsruntime::QuickJsRuntimeAdapter;
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// use quickjs_runtime::quickjsruntimeadapter::QuickJsRuntimeAdapter;
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(move |q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///      // create rust function, please note that using new_native_function_data will be the faster option

@@ -1,11 +1,11 @@
-use crate::builder::QuickjsRuntimeBuilder;
+use crate::builder::QuickJsRuntimeBuilder;
 use crate::esvalue::EsValueFacade;
 use crate::features;
 use crate::features::fetch::request::FetchRequest;
 use crate::features::fetch::response::FetchResponse;
 use crate::quickjs_utils::{functions, objects};
-use crate::quickjscontext::QuickJsRealmAdapter;
-use crate::quickjsruntime::{
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
+use crate::quickjsruntimeadapter::{
     NativeModuleLoaderAdapter, QuickJsRuntimeAdapter, ScriptModuleLoaderAdapter, QJS_RT,
 };
 use crate::valueref::JSValueRef;
@@ -117,8 +117,8 @@ impl QuickjsRuntimeFacadeInner {
     /// this will run asynchronously
     /// # example
     /// ```rust
-    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
-    /// let rt = QuickjsRuntimeBuilder::new().build();
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+    /// let rt = QuickJsRuntimeBuilder::new().build();
     /// rt.add_rt_task_to_event_loop(|q_js_rt| {
     ///     // here you are in the worker thread and you can use the quickjs_utils
     ///     q_js_rt.gc();
@@ -170,8 +170,8 @@ impl QuickjsRuntimeFacadeInner {
 /// You can construct a new EsRuntime by using the [EsRuntimeBuilder] struct
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// ```
 pub struct QuickJsRuntimeFacade {
     inner: Arc<QuickjsRuntimeFacadeInner>,
@@ -179,7 +179,7 @@ pub struct QuickJsRuntimeFacade {
 }
 
 impl QuickJsRuntimeFacade {
-    pub(crate) fn new(mut builder: QuickjsRuntimeBuilder) -> Self {
+    pub(crate) fn new(mut builder: QuickJsRuntimeBuilder) -> Self {
         let fetch_response_provider =
             std::mem::replace(&mut builder.opt_fetch_response_provider, None);
 
@@ -320,8 +320,8 @@ impl QuickJsRuntimeFacade {
     /// this will run asynchronously
     /// # example
     /// ```rust
-    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
-    /// let rt = QuickjsRuntimeBuilder::new().build();
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+    /// let rt = QuickJsRuntimeBuilder::new().build();
     /// rt.add_rt_task_to_event_loop(|q_js_rt| {
     ///     // here you are in the worker thread and you can use the quickjs_utils
     ///     q_js_rt.gc();
@@ -352,8 +352,8 @@ impl QuickJsRuntimeFacade {
         QuickjsRuntimeFacadeInner::add_local_task_to_event_loop(consumer)
     }
 
-    pub fn builder() -> QuickjsRuntimeBuilder {
-        QuickjsRuntimeBuilder::new()
+    pub fn builder() -> QuickJsRuntimeBuilder {
+        QuickJsRuntimeBuilder::new()
     }
 
     /// Evaluate a script asynchronously
@@ -372,9 +372,9 @@ impl QuickJsRuntimeFacade {
     /// Evaluate a script and return the result synchronously
     /// # example
     /// ```rust
-    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
-    /// let rt = QuickjsRuntimeBuilder::new().build();
+    /// let rt = QuickJsRuntimeBuilder::new().build();
     /// let script = Script::new("my_file.es", "(9 * 3);");
     /// let res = rt.eval_sync(script).ok().expect("script failed");
     /// assert_eq!(res.get_i32(), 27);
@@ -403,12 +403,12 @@ impl QuickJsRuntimeFacade {
     /// call a function in the engine and await the result
     /// # example
     /// ```rust
-    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
     /// use quickjs_runtime::es_args;
     /// use quickjs_runtime::esvalue::EsValueConvertible;
     /// use quickjs_runtime::esvalue::EsValueFacade;
     /// use hirofa_utils::js_utils::Script;
-    /// let rt = QuickjsRuntimeBuilder::new().build();
+    /// let rt = QuickJsRuntimeBuilder::new().build();
     /// let script = Script::new("my_file.es", "this.com = {my: {methodA: function(a, b, someStr, someBool){return a*b;}}};");
     /// rt.eval_sync(script).ok().expect("script failed");
     /// let res = rt.call_function_sync(vec!["com", "my"], "methodA", vec![7i32.to_es_value_facade(), 5i32.to_es_value_facade(), "abc".to_string().to_es_value_facade(), true.to_es_value_facade()]).ok().expect("func failed");
@@ -442,10 +442,10 @@ impl QuickJsRuntimeFacade {
     /// N.B. func_name is not a &str because of https://github.com/rust-lang/rust/issues/56238 (i think)
     /// # example
     /// ```rust
-    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
     /// use quickjs_runtime::esvalue::EsValueConvertible;
     /// use hirofa_utils::js_utils::Script;
-    /// let rt = QuickjsRuntimeBuilder::new().build();
+    /// let rt = QuickJsRuntimeBuilder::new().build();
     /// let script = Script::new("my_file.es", "this.com = {my: {methodA: function(a, b){return a*b;}}};");
     /// rt.eval_sync(script).ok().expect("script failed");
     /// rt.call_function(vec!["com", "my"], "methodA".to_string(), vec![7.to_es_value_facade(), 5.to_es_value_facade()]);
@@ -491,10 +491,10 @@ impl QuickJsRuntimeFacade {
     /// also to use this you need to build the EsRuntime with a module loader closure
     /// # example
     /// ```rust
-    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
     /// use quickjs_runtime::esvalue::EsValueConvertible;
-    /// use quickjs_runtime::quickjsruntime::ScriptModuleLoader;
+    /// use quickjs_runtime::quickjsruntimeadapter::ScriptModuleLoader;
     /// struct TestModuleLoader {}
     /// impl ScriptModuleLoader for TestModuleLoader {
     ///     fn normalize_path(&self,ref_path: &str,path: &str) -> Option<String> {
@@ -505,7 +505,7 @@ impl QuickJsRuntimeFacade {
     ///         "export const util = function(a, b, c){return a+b+c;};".to_string()
     ///     }
     /// }
-    /// let rt = QuickjsRuntimeBuilder::new().script_module_loader(Box::new(TestModuleLoader{})).build();
+    /// let rt = QuickJsRuntimeBuilder::new().script_module_loader(Box::new(TestModuleLoader{})).build();
     /// let script = Script::new("/opt/files/my_module.mes", "import {util} from 'other_module.mes';\n
     /// console.log(util(1, 2, 3));");
     /// rt.eval_module(script);
@@ -538,10 +538,10 @@ impl QuickJsRuntimeFacade {
     /// this will run and return synchronously
     /// # example
     /// ```rust
-    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
     /// use quickjs_runtime::quickjs_utils::primitives;
-    /// let rt = QuickjsRuntimeBuilder::new().build();
+    /// let rt = QuickJsRuntimeBuilder::new().build();
     /// let res = rt.exe_rt_task_in_event_loop(|q_js_rt| {
     ///     let q_ctx = q_js_rt.get_main_context();
     ///     // here you are in the worker thread and you can use the quickjs_utils
@@ -561,11 +561,11 @@ impl QuickJsRuntimeFacade {
     /// this adds a rust function to JavaScript, it is added for all current and future contexts
     /// # Example
     /// ```rust
-    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
     /// use quickjs_runtime::quickjs_utils::primitives;
     /// use quickjs_runtime::esvalue::{EsValueFacade, EsValueConvertible};
-    /// let rt = QuickjsRuntimeBuilder::new().build();
+    /// let rt = QuickJsRuntimeBuilder::new().build();
     /// rt.set_function(vec!["com", "mycompany", "util"], "methodA", |q_ctx, args: Vec<EsValueFacade>|{
     ///     let a = args[0].get_i32();
     ///     let b = args[1].get_i32();
@@ -644,9 +644,9 @@ impl QuickJsRuntimeFacade {
     /// EsRuntime needs some more pub methods using context like eval / call_func
     /// # Example
     /// ```
-    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
-    /// let rt = QuickjsRuntimeBuilder::new().build();
+    /// let rt = QuickJsRuntimeBuilder::new().build();
     /// rt.create_context("my_context");
     /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
     ///    let my_ctx = q_js_rt.get_context("my_context");
@@ -918,8 +918,8 @@ pub mod tests {
     use crate::esvalue::{EsValueConvertible, EsValueFacade};
     use crate::facades::QuickJsRuntimeFacade;
     use crate::quickjs_utils::{primitives, promises};
-    use crate::quickjscontext::QuickJsRealmAdapter;
-    use crate::quickjsruntime::{NativeModuleLoader, ScriptModuleLoader};
+    use crate::quickjsrealmadapter::QuickJsRealmAdapter;
+    use crate::quickjsruntimeadapter::{NativeModuleLoader, ScriptModuleLoader};
     use crate::valueref::JSValueRef;
     use backtrace::Backtrace;
     use futures::executor::block_on;
@@ -1212,7 +1212,7 @@ pub mod tests {
 
 #[cfg(test)]
 pub mod abstraction_tests {
-    use crate::builder::QuickjsRuntimeBuilder;
+    use crate::builder::QuickJsRuntimeBuilder;
     use futures::executor::block_on;
     use hirofa_utils::js_utils::adapters::JsRealmAdapter;
     use hirofa_utils::js_utils::facades::{JsRuntimeFacade, JsValueFacade};
@@ -1235,7 +1235,7 @@ pub mod abstraction_tests {
     #[test]
     fn test1() {
         // start a new runtime
-        let rt = QuickjsRuntimeBuilder::new().build();
+        let rt = QuickJsRuntimeBuilder::new().build();
         let val = block_on(example(&rt));
         assert_eq!(val.js_as_i32(), 20);
     }

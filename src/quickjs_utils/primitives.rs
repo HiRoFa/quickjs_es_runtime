@@ -1,4 +1,4 @@
-use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
 use core::ptr;
 use hirofa_utils::js_utils::JsError;

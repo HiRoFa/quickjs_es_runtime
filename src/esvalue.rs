@@ -8,8 +8,8 @@ use crate::quickjs_utils::objects::{get_property_names_q, get_property_q};
 use crate::quickjs_utils::primitives::to_string_q;
 use crate::quickjs_utils::promises::{is_promise_q, PromiseRef};
 use crate::quickjs_utils::{functions, new_null_ref, promises};
-use crate::quickjscontext::QuickJsRealmAdapter;
-use crate::quickjsruntime::QuickJsRuntimeAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
+use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use crate::reflection;
 use crate::valueref::*;
 use futures::executor::block_on;
@@ -1109,13 +1109,13 @@ impl EsFunction {
     /// # Example
     /// ```rust
     /// use quickjs_runtime::esvalue::{EsFunction, EsValueConvertible, ES_NULL, EsValueFacade};
-    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
     /// async fn do_something(args: Vec<EsValueFacade>) -> Result<EsValueFacade, String> {
     ///     Ok(123.to_es_value_facade())
     /// }
     /// let func_esvf = EsFunction::new_async("my_callback", do_something).to_es_value_facade();
-    /// let rt = QuickjsRuntimeBuilder::new().build();
+    /// let rt = QuickJsRuntimeBuilder::new().build();
     /// rt.eval_sync(Script::new("new_async.es", "this.test_func = function(cb){return cb();};")).ok().expect("func invo failed");
     /// let func_res = rt.call_function_sync(vec![], "test_func", vec![func_esvf]).ok().expect("func invo failed2");
     /// let ret = func_res.get_promise_result_sync().ok().expect("do_something returned err");
@@ -1166,13 +1166,13 @@ impl EsValueConvertible for EsFunction {
 /// can be used to create a new Promise which is resolved with the resolver function
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::esvalue::{EsPromise, EsValueConvertible};
 /// use std::time::Duration;
 /// use hirofa_utils::js_utils::Script;
 /// use log::LevelFilter;
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.set_function(vec!["my", "comp"], "create_prom", |_q_ctx, _args| {
 ///     Ok(EsPromise::new(|| {
 ///         std::thread::sleep(Duration::from_secs(1));
@@ -1214,7 +1214,7 @@ impl EsPromise {
     /// this can be used to implement a resolver which in turn used .await to get results of other async functions
     /// # Example
     /// ```rust
-    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
     /// use quickjs_runtime::esvalue::{EsPromise, EsValueConvertible};
     /// use hirofa_utils::js_utils::Script;
     /// use std::time::Duration;
@@ -1224,7 +1224,7 @@ impl EsPromise {
     ///     i * 3
     /// }
     ///
-    /// let rt = QuickjsRuntimeBuilder::new().build();
+    /// let rt = QuickJsRuntimeBuilder::new().build();
     ///
     /// rt.set_function(vec!["com", "my"], "testasyncfunc", |_q_ctx, args| {
     ///     let input = args[0].get_i32();
@@ -1270,11 +1270,11 @@ impl EsPromise {
     /// this achieved by creating a Handle which is wrapped in an Arc and thus may be passed to another thread
     /// # Example
     /// ```rust
-    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
     /// use std::time::Duration;
     /// use quickjs_runtime::esvalue::{EsPromise, EsValueConvertible};
-    /// let rt = QuickjsRuntimeBuilder::new().build();
+    /// let rt = QuickJsRuntimeBuilder::new().build();
     /// // prep a function which reacts to a promise
     /// rt.eval_sync(Script::new("new_unresolving.es", "this.new_unresolving = function(prom){prom.then((res) => {console.log('promise resolved to %s', res);});};")).ok().expect("script failed");
     /// // prep a EsPromise object
@@ -1511,7 +1511,7 @@ impl EsValueFacade {
     /// The Result will be an Ok if the Promise was resolved or an Err if the Promise was rejected
     /// # Example
     /// ```rust
-    /// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
     /// use futures::executor::block_on;
     /// use quickjs_runtime::esvalue::EsValueFacade;
@@ -1521,7 +1521,7 @@ impl EsValueFacade {
     ///    return res_esvf.get_i32();
     /// }
     ///
-    /// let rt = QuickjsRuntimeBuilder::new().build();
+    /// let rt = QuickJsRuntimeBuilder::new().build();
     /// let esvf = rt.eval_sync(Script::new("test_async_prom,es", "(new Promise((resolve, reject) => {setTimeout(() => {resolve(1360)}, 1000);}));")).ok().expect("script failed");
     /// let i = block_on(test_async(esvf));
     /// assert_eq!(i, 1360);
@@ -1570,7 +1570,7 @@ impl Debug for EsValueFacade {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::builder::QuickjsRuntimeBuilder;
+    use crate::builder::QuickJsRuntimeBuilder;
     use crate::esvalue::{EsPromise, EsValueConvertible, EsValueFacade};
     use crate::facades::tests::init_test_rt;
     use crate::facades::QuickJsRuntimeFacade;
@@ -1634,7 +1634,7 @@ pub mod tests {
             return res_esvf.get_i32();
         }
 
-        let rt = QuickjsRuntimeBuilder::new().build();
+        let rt = QuickJsRuntimeBuilder::new().build();
         let esvf = rt
             .eval_sync(Script::new(
                 "test_async_prom,es",
@@ -1668,7 +1668,7 @@ pub mod tests {
 
     #[test]
     fn test_promise_async2() {
-        let rt = Arc::new(QuickjsRuntimeBuilder::new().build());
+        let rt = Arc::new(QuickJsRuntimeBuilder::new().build());
         let rt_ref = Arc::downgrade(&rt);
         rt.set_function(vec!["com", "my"], "testasyncfunc", move |_q_ctx, args| {
             let rt_ref = rt_ref.clone();

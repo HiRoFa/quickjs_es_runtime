@@ -6,7 +6,7 @@ use crate::quickjs_utils::modules::{
     set_module_export,
 };
 use crate::quickjs_utils::{gc, interrupthandler, modules, promises};
-use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::adapters::JsRuntimeAdapter;
 use hirofa_utils::js_utils::JsError;
@@ -565,8 +565,8 @@ pub(crate) fn make_cstring(value: &str) -> Result<CString, JsError> {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::builder::QuickjsRuntimeBuilder;
-    use crate::quickjsruntime::ScriptModuleLoader;
+    use crate::builder::QuickJsRuntimeBuilder;
+    use crate::quickjsruntimeadapter::ScriptModuleLoader;
 
     struct FooScriptModuleLoader {}
     impl ScriptModuleLoader for FooScriptModuleLoader {
@@ -583,7 +583,7 @@ pub mod tests {
     #[test]
     fn test_script_load() {
         log::debug!("testing1");
-        let rt = QuickjsRuntimeBuilder::new()
+        let rt = QuickJsRuntimeBuilder::new()
             .script_module_loader(Box::new(FooScriptModuleLoader {}))
             .build();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {

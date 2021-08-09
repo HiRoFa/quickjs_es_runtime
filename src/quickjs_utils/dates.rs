@@ -2,7 +2,7 @@
 
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, objects, primitives};
-use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;

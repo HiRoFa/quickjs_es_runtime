@@ -81,7 +81,7 @@ Cargo.toml
 
 ```toml
 [dependencies]
-quickjs_runtime = "0.4"
+quickjs_runtime = "0.5"
 log = "0.4.11"
 simple-logging = "2.0.2"
 ```
@@ -96,7 +96,7 @@ use futures::executor::block_on;
 use std::sync::Arc;
 use quickjs_runtime::esruntime::EsRuntime;
 
-async fn test(rt: &QuickjsRuntimeFacade){
+async fn test(rt: &QuickJsRuntimeFacade){
     let res = rt.eval(Script::new(
         "basics.es",
         "7 * 12;",

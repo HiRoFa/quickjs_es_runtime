@@ -1,5 +1,5 @@
 use crate::quickjs_utils::{json, primitives};
-use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::reflection;
 use crate::runtimefacade_utils::promises::new_resolving_promise;
 use crate::valueref::JSValueRef;

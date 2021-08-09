@@ -3,7 +3,7 @@
 
 use crate::quickjs_utils::objects::{construct_object, is_instance_of_by_name};
 use crate::quickjs_utils::{arrays, functions, get_constructor, iterators, objects, primitives};
-use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
@@ -11,11 +11,11 @@ use libquickjs_sys as q;
 /// create new instance of Map
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::new_map_q;
 /// use quickjs_runtime::valueref::JSValueRef;
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
@@ -48,12 +48,12 @@ pub unsafe fn is_map(ctx: *mut q::JSContext, obj: &JSValueRef) -> Result<bool, J
 /// set a key/value pair in a Map
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q};
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
@@ -86,12 +86,12 @@ pub unsafe fn set(
 /// get a value from a map by key
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, get_q, set_q};
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
@@ -124,12 +124,12 @@ pub unsafe fn get(
 /// delete a value from a map by key
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, delete_q};
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
@@ -162,12 +162,12 @@ pub unsafe fn delete(
 /// check whether a Map has a value for a key
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, has_q};
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
@@ -201,12 +201,12 @@ pub unsafe fn has(
 /// get the number of entries in a map
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, size_q};
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
@@ -232,12 +232,12 @@ pub unsafe fn size(ctx: *mut q::JSContext, map: &JSValueRef) -> Result<i32, JsEr
 /// remove all entries from a map
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, clear_q, size_q};
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
@@ -264,12 +264,12 @@ pub unsafe fn clear(ctx: *mut q::JSContext, map: &JSValueRef) -> Result<(), JsEr
 /// iterate over all keys of a map
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, keys_q};
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
@@ -304,12 +304,12 @@ pub unsafe fn keys<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
 /// iterate over all values of a map
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, values_q};
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
@@ -344,12 +344,12 @@ pub unsafe fn values<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
 /// iterate over all entries of a map
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, entries_q};
 /// use quickjs_runtime::valueref::JSValueRef;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();

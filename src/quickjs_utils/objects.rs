@@ -2,8 +2,8 @@
 
 use crate::quickjs_utils::properties::JSPropertyEnumRef;
 use crate::quickjs_utils::{atoms, functions, get_constructor, get_global};
-use crate::quickjscontext::QuickJsRealmAdapter;
-use crate::quickjsruntime::{make_cstring, QuickJsRuntimeAdapter};
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
+use crate::quickjsruntimeadapter::{make_cstring, QuickJsRuntimeAdapter};
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
@@ -12,9 +12,9 @@ use libquickjs_sys as q;
 /// this is used to get nested object properties which are used as namespaces
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::objects::get_namespace_q;
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     let ns_obj = get_namespace_q(q_ctx, vec!["com", "hirofa", "examplepackage"], true).ok().unwrap();
@@ -160,11 +160,11 @@ pub unsafe fn set_property(
 /// * q::JS_PROP_AUTOINIT
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::objects::{create_object_q, set_property2_q};
 /// use quickjs_runtime::quickjs_utils::primitives::from_i32;
 /// use libquickjs_sys as q;
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
 ///    let obj = create_object_q(q_ctx).ok().unwrap();

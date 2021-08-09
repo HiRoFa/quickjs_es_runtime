@@ -1,4 +1,4 @@
-use crate::quickjsruntime::QuickJsRuntimeAdapter;
+use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use libquickjs_sys as q;
 use std::ffi::c_void;
 use std::os::raw::c_int;
@@ -29,7 +29,7 @@ unsafe extern "C" fn interrupt_handler(_rt: *mut q::JSRuntime, _opaque: *mut c_v
 
 #[cfg(test)]
 pub mod tests {
-    use crate::builder::QuickjsRuntimeBuilder;
+    use crate::builder::QuickJsRuntimeBuilder;
     use crate::quickjs_utils::get_script_or_module_name_q;
     use backtrace::Backtrace;
     use hirofa_utils::js_utils::Script;
@@ -62,7 +62,7 @@ pub mod tests {
             .ok()
             .expect("could not init logger");
 
-        let rt = QuickjsRuntimeBuilder::new()
+        let rt = QuickJsRuntimeBuilder::new()
             .set_interrupt_handler(move |qjs_rt| {
                 log::debug!("interrupt_handler called / 1");
                 let script_name = get_script_or_module_name_q(qjs_rt.get_main_context());

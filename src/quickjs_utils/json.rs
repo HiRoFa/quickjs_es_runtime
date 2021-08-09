@@ -1,7 +1,7 @@
 //! serialize and stringify JavaScript objects
 
 use crate::quickjs_utils;
-use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
@@ -60,9 +60,9 @@ pub unsafe fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRe
 /// Stringify an Object in script
 /// # Example
 /// ```rust
-/// use quickjs_runtime::builder::QuickjsRuntimeBuilder;
+/// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::{json, objects, primitives};
-/// let rt = QuickjsRuntimeBuilder::new().build();
+/// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
 ///     let obj_ref = objects::create_object_q(q_ctx).ok().unwrap();

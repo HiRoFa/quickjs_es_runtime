@@ -1,4 +1,4 @@
-use crate::quickjsruntime::QuickJsRuntimeAdapter;
+use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 
 pub mod arrays;
 pub mod atoms;
@@ -21,7 +21,7 @@ pub mod typedarrays;
 
 use crate::quickjs_utils::atoms::JSAtomRef;
 use crate::quickjs_utils::objects::get_property;
-use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::valueref::{JSValueRef, TAG_NULL, TAG_UNDEFINED};
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;

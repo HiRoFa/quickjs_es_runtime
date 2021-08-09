@@ -5,7 +5,7 @@ use crate::quickjs_utils;
 use crate::quickjs_utils::objects::{create_object_q, set_property_q};
 use crate::quickjs_utils::primitives::from_bool;
 use crate::quickjs_utils::{functions, parse_args, primitives};
-use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::reflection::{get_proxy, get_proxy_instance_info, Proxy};
 use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::JsError;

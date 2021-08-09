@@ -1,7 +1,7 @@
 //! utils for getting and reporting exceptions
 
 use crate::quickjs_utils::{objects, primitives};
-use crate::quickjscontext::QuickJsRealmAdapter;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
