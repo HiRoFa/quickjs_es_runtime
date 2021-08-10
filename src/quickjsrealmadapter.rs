@@ -5,7 +5,7 @@ use crate::quickjsruntimeadapter::{make_cstring, QuickJsRuntimeAdapter};
 use crate::reflection::{Proxy, ProxyInstanceInfo};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
-use hirofa_utils::js_utils::adapters::proxies::JsProxy;
+use hirofa_utils::js_utils::adapters::proxies::{JsProxy, JsProxyMember, JsProxyStaticMember};
 use hirofa_utils::js_utils::adapters::{JsRealmAdapter, JsValueAdapter};
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
@@ -333,6 +333,7 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         // create qjs proxy from proxy
         let mut q_proxy = Proxy::new();
 
+        // todo revam qjs proxy to have rt as first arg in methods/getter/setters etc
         if let Some(constructor) = proxy.constructor.take() {
             q_proxy = q_proxy.constructor(move |realm, id, args| {
                 QuickJsRuntimeAdapter::do_with(|rt| constructor(rt, realm, &id, args.as_slice()))
@@ -343,6 +344,45 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
                 QuickJsRuntimeAdapter::do_with(|rt| finalizer(rt, realm, &id))
             });
         }
+        for member in proxy.members {
+            match member.1 {
+                JsProxyMember::Method { method } => {
+                    q_proxy = q_proxy.method(member.0, move |realm, id, args| {
+                        //
+                        QuickJsRuntimeAdapter::do_with(|rt| method(rt, realm, id, args.as_slice()))
+                    })
+                }
+                JsProxyMember::GetterSetter { get, set } => {
+                    q_proxy = q_proxy.getter_setter(
+                        member.0,
+                        move |realm, id| QuickJsRuntimeAdapter::do_with(|rt| get(rt, realm, id)),
+                        move |realm, id, val| {
+                            QuickJsRuntimeAdapter::do_with(|rt| set(rt, realm, id, &val))
+                        },
+                    );
+                }
+            }
+        }
+        for static_member in proxy.static_members {
+            match static_member.1 {
+                JsProxyStaticMember::StaticMethod { method } => {
+                    q_proxy = q_proxy.static_method(static_member.0, move |realm, args| {
+                        //
+                        QuickJsRuntimeAdapter::do_with(|rt| method(rt, realm, args.as_slice()))
+                    })
+                }
+                JsProxyStaticMember::StaticGetterSetter { get, set } => {
+                    q_proxy = q_proxy.static_getter_setter(
+                        static_member.0,
+                        move |realm| QuickJsRuntimeAdapter::do_with(|rt| get(rt, realm)),
+                        move |realm, val| QuickJsRuntimeAdapter::do_with(|rt| set(rt, realm, &val)),
+                    );
+                }
+            }
+        }
+
+        // todo.. eventhandlers should not be in JsProxy at all should they?
+        //
 
         q_proxy.install(self, true)
     }
