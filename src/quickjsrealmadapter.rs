@@ -1,11 +1,16 @@
+use crate::quickjs_utils::objects::construct_object;
 use crate::quickjs_utils::primitives::{from_bool, from_f64, from_i32, from_string_q};
 use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjs_utils::{arrays, errors, functions, json, new_null_ref, objects};
 use crate::quickjsruntimeadapter::{make_cstring, QuickJsRuntimeAdapter};
-use crate::reflection::{Proxy, ProxyInstanceInfo};
+use crate::reflection::eventtarget::dispatch_event;
+use crate::reflection::eventtarget::dispatch_static_event;
+use crate::reflection::{new_instance, Proxy, ProxyInstanceInfo};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
-use hirofa_utils::js_utils::adapters::proxies::{JsProxy, JsProxyMember, JsProxyStaticMember};
+use hirofa_utils::js_utils::adapters::proxies::{
+    JsProxy, JsProxyInstanceId, JsProxyMember, JsProxyStaticMember,
+};
 use hirofa_utils::js_utils::adapters::{JsRealmAdapter, JsValueAdapter};
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
@@ -329,11 +334,18 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
     fn js_proxy_install(
         &self,
         mut proxy: JsProxy<QuickJsRealmAdapter>,
+        add_global_var: bool,
     ) -> Result<JSValueRef, JsError> {
         // create qjs proxy from proxy
         let mut q_proxy = Proxy::new();
+        if proxy.event_target {
+            q_proxy = q_proxy.event_target();
+        }
+        if proxy.static_event_target {
+            q_proxy = q_proxy.static_event_target();
+        }
 
-        // todo revam qjs proxy to have rt as first arg in methods/getter/setters etc
+        // todo revamp qjs proxy to have rt as first arg in methods/getter/setters etc
         if let Some(constructor) = proxy.constructor.take() {
             q_proxy = q_proxy.constructor(move |realm, id, args| {
                 QuickJsRuntimeAdapter::do_with(|rt| constructor(rt, realm, &id, args.as_slice()))
@@ -381,28 +393,74 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
             }
         }
 
-        // todo.. eventhandlers should not be in JsProxy at all should they?
-        //
-
-        q_proxy.install(self, true)
+        q_proxy.install(self, add_global_var)
     }
 
     fn js_proxy_instantiate(
         &self,
-        _namespace: &[&str],
-        _class_name: &str,
-        _arguments: &[JSValueRef],
-    ) -> Result<JSValueRef, JsError> {
-        unimplemented!()
+        namespace: &[&str],
+        class_name: &str,
+        arguments: &[JSValueRef],
+    ) -> Result<(JsProxyInstanceId, JSValueRef), JsError> {
+        // todo store proxies with slice/name as key?
+        let cn = if namespace.is_empty() {
+            class_name.to_string()
+        } else {
+            format!("{}.{}", namespace.join("."), class_name)
+        };
+
+        let proxy_map = self.proxy_registry.borrow();
+        let proxy = proxy_map.get(cn.as_str()).expect("class not found");
+
+        let instance_info = new_instance(cn.as_str(), self)?;
+
+        if let Some(constructor) = &proxy.constructor {
+            // call constructor myself
+            constructor(self, instance_info.0, arguments.to_vec())?;
+        }
+
+        Ok(instance_info)
     }
 
-    fn js_proxy_invoke_event(
+    fn js_proxy_dispatch_event(
         &self,
-        _proxy_handle: &usize,
-        _event_id: &str,
-        _event_obj: &JSValueRef,
-    ) {
-        unimplemented!()
+        namespace: &[&str],
+        class_name: &str,
+        proxy_instance_id: &usize,
+        event_id: &str,
+        event_obj: &JSValueRef,
+    ) -> Result<bool, JsError> {
+        // todo store proxies with slice/name as key?
+        let cn = if namespace.is_empty() {
+            class_name.to_string()
+        } else {
+            format!("{}.{}", namespace.join("."), class_name)
+        };
+
+        let proxy_map = self.proxy_registry.borrow();
+        let proxy = proxy_map.get(cn.as_str()).expect("class not found");
+
+        dispatch_event(self, proxy, *proxy_instance_id, event_id, event_obj.clone())
+    }
+
+    fn js_proxy_dispatch_static_event(
+        &self,
+        namespace: &[&str],
+        class_name: &str,
+        event_id: &str,
+        event_obj: &Self::JsValueAdapterType,
+    ) -> Result<bool, JsError> {
+        // todo store proxies with slice/name as key?
+        let cn = if namespace.is_empty() {
+            class_name.to_string()
+        } else {
+            format!("{}.{}", namespace.join("."), class_name)
+        };
+
+        let proxy_map = self.proxy_registry.borrow();
+        let proxy = proxy_map.get(cn.as_str()).expect("class not found");
+
+        dispatch_static_event(self, proxy, event_id, event_obj.clone())
     }
 
     fn js_install_function(
@@ -547,10 +605,11 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
 
     fn js_object_construct(
         &self,
-        _constructor: &JSValueRef,
-        _args: &[JSValueRef],
+        constructor: &JSValueRef,
+        args: &[JSValueRef],
     ) -> Result<JSValueRef, JsError> {
-        unimplemented!()
+        // todo alter constructor method to accept slice
+        unsafe { construct_object(self.context, constructor, args.to_vec()) }
     }
 
     fn js_object_get_properties(&self, object: &JSValueRef) -> Result<Vec<String>, JsError> {

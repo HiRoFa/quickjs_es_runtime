@@ -54,6 +54,18 @@ where
     })
 }
 
+fn with_static_listener_map<C, R>(
+    _q_ctx: &QuickJsRealmAdapter,
+    _proxy_class_name: &str,
+    _event_id: &str,
+    _consumer: C,
+) -> R
+where
+    C: FnOnce(&mut HashMap<JSValueRef, JSValueRef>) -> R,
+{
+    todo!()
+}
+
 pub fn add_event_listener(
     q_ctx: &QuickJsRealmAdapter,
     proxy_class_name: &str,
@@ -117,6 +129,35 @@ pub fn dispatch_event(
         q_ctx,
         proxy_class_name.as_str(),
         instance_id,
+        event_id,
+        |listeners| -> Result<(), JsError> {
+            for entry in listeners {
+                let listener = entry.0;
+                let _res = functions::call_function_q(q_ctx, listener, vec![event.clone()], None)?;
+
+                // todo chekc if _res is bool, for cancel and such
+                // and if event is cancelabble and preventDefault was called and such
+            }
+            Ok(())
+        },
+    )?;
+
+    Ok(true)
+}
+
+/// dispatch an Event on a Proxy class
+/// the return value is false if event is cancelable and at least one of the event listeners which received event called Event.preventDefault. Otherwise it returns true
+pub fn dispatch_static_event(
+    q_ctx: &QuickJsRealmAdapter,
+    proxy: &Proxy,
+    event_id: &str,
+    event: JSValueRef,
+) -> Result<bool, JsError> {
+    let proxy_class_name = proxy.get_class_name();
+
+    with_static_listener_map(
+        q_ctx,
+        proxy_class_name.as_str(),
         event_id,
         |listeners| -> Result<(), JsError> {
             for entry in listeners {

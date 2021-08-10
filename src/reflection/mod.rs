@@ -221,7 +221,7 @@ fn next_id(q_ctx: &QuickJsRealmAdapter) -> usize {
 pub struct Proxy {
     name: Option<String>,
     namespace: Option<Vec<String>>,
-    constructor: Option<Box<ProxyConstructor>>,
+    pub(crate) constructor: Option<Box<ProxyConstructor>>,
     finalizers: Vec<Box<ProxyFinalizer>>,
     methods: HashMap<String, Box<ProxyMethod>>,
     native_methods: HashMap<String, ProxyNativeMethod>,
@@ -381,8 +381,9 @@ impl Proxy {
         self
     }
     /// indicate the Proxy class should implement the EventTarget interface, this will result in the addEventListener, removeEventListener and dispatchEvent methods to be available
-    pub fn static_event_target(mut self) {
-        self.is_static_event_target = true
+    pub fn static_event_target(mut self) -> Self {
+        self.is_static_event_target = true;
+        self
     }
     /// install the Proxy class in a QuickJsContext, this is always needed as a final step to actually make the Proxy class work
     pub fn install(
