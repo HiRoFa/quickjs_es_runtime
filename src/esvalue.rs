@@ -13,88 +13,18 @@ use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use crate::reflection;
 use crate::valueref::*;
 use futures::executor::block_on;
-use futures::task::{Context, Poll};
 use hirofa_utils::auto_id_map::AutoIdMap;
 use hirofa_utils::debug_mutex::DebugMutex;
 use hirofa_utils::js_utils::JsError;
+use hirofa_utils::resolvable_future::{ResolvableFuture, ResolvableFutureResolver};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
 use std::future::Future;
-use std::pin::Pin;
 use std::rc::Rc;
-use std::sync::mpsc::{sync_channel, Receiver, SendError, SyncSender};
 use std::sync::{Arc, Mutex, Weak};
-use std::task::Waker;
 
-pub struct TaskFutureResolver<R> {
-    sender: SyncSender<R>,
-    waker: DebugMutex<Option<Waker>>,
-}
-
-impl<R> TaskFutureResolver<R> {
-    pub fn new(tx: SyncSender<R>) -> Self {
-        Self {
-            sender: tx,
-            waker: DebugMutex::new(None, "TaskFutureResolver::waker"),
-        }
-    }
-    pub fn resolve(&self, resolution: R) -> Result<(), SendError<R>> {
-        log::trace!("TaskFutureResolver.resolve");
-        self.sender.send(resolution)?;
-
-        let waker_opt = &mut *self.waker.lock("resolve2").unwrap();
-        if let Some(waker) = waker_opt.take() {
-            waker.wake();
-        }
-        Ok(())
-    }
-}
-
-pub struct TaskFuture<R> {
-    result: Receiver<R>,
-    resolver: Arc<TaskFutureResolver<R>>,
-}
-impl<R> TaskFuture<R> {
-    pub fn new() -> Self {
-        let (tx, rx) = sync_channel(1);
-
-        Self {
-            result: rx,
-            resolver: Arc::new(TaskFutureResolver::new(tx)),
-        }
-    }
-    pub fn get_resolver(&self) -> Arc<TaskFutureResolver<R>> {
-        self.resolver.clone()
-    }
-}
-impl<R> Default for TaskFuture<R> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl<R> Future for TaskFuture<R> {
-    type Output = R;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        log::trace!("TaskFuture::poll");
-        match self.result.try_recv() {
-            Ok(res) => {
-                log::trace!("TaskFuture::poll -> Ready");
-                Poll::Ready(res)
-            }
-            Err(_) => {
-                log::trace!("TaskFuture::poll -> Pending");
-                let mtx = &self.resolver.waker;
-                let waker_opt = &mut *mtx.lock("poll").unwrap();
-                let _ = waker_opt.replace(cx.waker().clone());
-                Poll::Pending
-            }
-        }
-    }
-}
-
-pub type EsValueFacadeFuture<R, E> = TaskFuture<Result<R, E>>;
+pub type EsValueFacadeFuture<R, E> = ResolvableFuture<Result<R, E>>;
 
 pub type PromiseReactionType =
     Option<Box<dyn Fn(EsValueFacade) -> Result<EsValueFacade, JsError> + Send + 'static>>;
@@ -388,7 +318,7 @@ impl Drop for CachedJSValueRef {
 fn pipe_promise_resolution_to_sender(
     q_ctx: &QuickJsRealmAdapter,
     prom_obj_ref: &JSValueRef,
-    tx: Arc<TaskFutureResolver<Result<EsValueFacade, EsValueFacade>>>,
+    tx: Arc<ResolvableFutureResolver<Result<EsValueFacade, EsValueFacade>>>,
 ) {
     log::trace!("pipe_promise_resolution_to_sender");
     let tx2 = tx.clone();
@@ -597,7 +527,7 @@ impl EsValueConvertible for CachedJSValueRef {
 
     fn get_promise_result(&self) -> EsValueFacadeFuture<EsValueFacade, EsValueFacade> {
         assert!(self.is_promise());
-        let fut = TaskFuture::new();
+        let fut = EsValueFacadeFuture::new();
         let tx = fut.get_resolver();
         self.do_with_async(move |_q_js_rt, q_ctx, prom_obj_ref| {
             pipe_promise_resolution_to_sender(q_ctx, &prom_obj_ref, tx);
