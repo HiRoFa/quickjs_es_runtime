@@ -1,6 +1,6 @@
 // store in thread_local
 
-use crate::facades::QuickjsRuntimeFacadeInner;
+use crate::facades::{QuickJsRuntimeFacade, QuickjsRuntimeFacadeInner};
 use crate::quickjs_utils::modules::{
     add_module_export, compile_module, get_module_def, get_module_name, new_module,
     set_module_export,
@@ -522,6 +522,7 @@ impl Drop for QuickJsRuntimeAdapter {
 
 impl JsRuntimeAdapter for QuickJsRuntimeAdapter {
     type JsRealmAdapterType = QuickJsRealmAdapter;
+    type JsRuntimeFacadeType = QuickJsRuntimeFacade;
 
     fn js_load_module_script(&self, ref_path: &str, path: &str) -> Option<Script> {
         self.load_module_script_opt(ref_path, path)

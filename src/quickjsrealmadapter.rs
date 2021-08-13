@@ -1,3 +1,4 @@
+use crate::facades::QuickjsRuntimeFacadeInner;
 use crate::quickjs_utils::objects::construct_object;
 use crate::quickjs_utils::primitives::{from_bool, from_f64, from_i32, from_string_q};
 use crate::quickjs_utils::promises::PromiseRef;
@@ -20,6 +21,7 @@ use std::collections::HashMap;
 use std::ffi::CString;
 use std::os::raw::c_void;
 use std::rc::Rc;
+use std::sync::{Arc, Weak};
 
 type ProxyEventListenerMaps = HashMap<
     String, /*proxy_class_name*/
@@ -322,6 +324,16 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
     type JsRuntimeAdapterType = QuickJsRuntimeAdapter;
     type JsValueAdapterType = JSValueRef;
     type JsPromiseAdapterType = PromiseRef;
+
+    fn js_get_realm_id(&self) -> &str {
+        self.id.as_str()
+    }
+
+    fn js_get_runtime_facade_inner(&self) -> Weak<QuickjsRuntimeFacadeInner> {
+        QuickJsRuntimeAdapter::do_with(|rt| {
+            Arc::downgrade(&rt.get_rti_ref().expect("Runtime was dropped"))
+        })
+    }
 
     fn js_get_script_or_module_name(&self) -> Result<String, JsError> {
         crate::quickjs_utils::get_script_or_module_name_q(self)
@@ -693,8 +705,18 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         )?))
     }
 
-    fn js_cache_add(&self, object: JSValueRef) -> i32 {
-        self.cache_object(object)
+    fn js_promise_add_reactions(
+        &self,
+        promise: &Self::JsValueAdapterType,
+        then: Option<Self::JsValueAdapterType>,
+        catch: Option<Self::JsValueAdapterType>,
+        finally: Option<Self::JsValueAdapterType>,
+    ) -> Result<(), JsError> {
+        crate::quickjs_utils::promises::add_promise_reactions_q(self, promise, then, catch, finally)
+    }
+
+    fn js_cache_add(&self, object: &JSValueRef) -> i32 {
+        self.cache_object(object.clone())
     }
 
     fn js_cache_dispose(&self, id: i32) {

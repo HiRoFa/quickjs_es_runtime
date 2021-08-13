@@ -1,4 +1,4 @@
-use crate::quickjs_utils::{functions, primitives};
+use crate::quickjs_utils::{functions, primitives, promises};
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use hirofa_utils::js_utils::adapters::JsValueAdapter;
 use hirofa_utils::js_utils::facades::JsValueType;
@@ -276,6 +276,8 @@ impl JsValueAdapter for JSValueRef {
             TAG_OBJECT => {
                 if unsafe { functions::is_function(self.context, self) } {
                     JsValueType::Function
+                } else if unsafe { promises::is_promise(self.context, self) } {
+                    JsValueType::Promise
                 } else {
                     JsValueType::Object
                 }

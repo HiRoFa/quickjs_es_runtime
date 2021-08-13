@@ -4,7 +4,7 @@ use crate::quickjs_utils::objects::is_instance_of_by_name;
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use crate::valueref::JSValueRef;
-use hirofa_utils::js_utils::adapters::{JsPromiseAdapter, JsRealmAdapter};
+use hirofa_utils::js_utils::adapters::JsPromiseAdapter;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 
@@ -99,65 +99,6 @@ impl JsPromiseAdapter for PromiseRef {
         rejection: &JSValueRef,
     ) -> Result<(), JsError> {
         self.reject_q(context, rejection.clone())
-    }
-
-    fn js_promise_add_reactions<F>(
-        &self,
-        context: &QuickJsRealmAdapter,
-        then: Option<F>,
-        catch: Option<F>,
-        finally: Option<F>,
-    ) -> Result<(), JsError>
-    where
-        F: Fn(&JSValueRef) -> Result<(), JsError> + 'static,
-    {
-        let then = then.map(|t_clos| {
-            context
-                .js_function_create(
-                    "then",
-                    move |_ctx, _this, args| {
-                        t_clos(&args[0])?;
-                        Ok(crate::quickjs_utils::new_null_ref())
-                    },
-                    1,
-                )
-                .ok()
-                .expect("could not create function")
-        });
-        let catch = catch.map(|t_clos| {
-            context
-                .js_function_create(
-                    "catch",
-                    move |_ctx, _this, args| {
-                        t_clos(&args[0])?;
-                        Ok(crate::quickjs_utils::new_null_ref())
-                    },
-                    1,
-                )
-                .ok()
-                .expect("could not create function")
-        });
-        let finally = finally.map(|t_clos| {
-            context
-                .js_function_create(
-                    "finally",
-                    move |_ctx, _this, args| {
-                        t_clos(&args[0])?;
-                        Ok(crate::quickjs_utils::new_null_ref())
-                    },
-                    1,
-                )
-                .ok()
-                .expect("could not create function")
-        });
-
-        crate::quickjs_utils::promises::add_promise_reactions_q(
-            context,
-            &self.promise_obj_ref,
-            then,
-            catch,
-            finally,
-        )
     }
 
     fn js_promise_get_value(&self) -> JSValueRef {
