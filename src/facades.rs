@@ -1012,7 +1012,7 @@ pub mod tests {
 
         QuickJsRuntimeFacade::builder()
             .gc_interval(Duration::from_secs(1))
-            .max_stack_size(u64::MAX)
+            .max_stack_size(0)
             .script_module_loader(Box::new(TestScriptModuleLoader {}))
             .native_module_loader(Box::new(TestNativeModuleLoader {}))
             .build()
@@ -1193,8 +1193,12 @@ pub mod tests {
 
     async fn test_async1() -> i32 {
         let rt = init_test_rt();
+
         let a = rt.eval(Script::new("test_async.es", "122 + 1;")).await;
-        a.ok().expect("script failed").get_i32()
+        match a {
+            Ok(a) => a.get_i32(),
+            Err(e) => panic!("script failed: {}", e),
+        }
     }
 
     #[test]

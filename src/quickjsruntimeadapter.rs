@@ -427,12 +427,12 @@ impl QuickJsRuntimeAdapter {
         C: FnOnce(&QuickJsRuntimeAdapter) -> R,
     {
         QJS_RT.with(|qjs_rc| {
-            let qjs_rt = &*qjs_rc.borrow();
-            task(
-                qjs_rt
-                    .as_ref()
-                    .expect("runtime was not yet initialized for this thread"),
-            )
+            let qjs_rt_opt = &*qjs_rc.borrow();
+            let q_js_rt = qjs_rt_opt
+                .as_ref()
+                .expect("runtime was not yet initialized for this thread");
+            //unsafe { libquickjs_sys::JS_UpdateStackTop(q_js_rt.runtime) };
+            task(q_js_rt)
         })
     }
 
