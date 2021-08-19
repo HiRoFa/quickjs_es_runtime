@@ -1505,7 +1505,7 @@ pub mod tests {
     use crate::facades::tests::init_test_rt;
     use crate::facades::QuickJsRuntimeFacade;
     use futures::executor::block_on;
-    use hirofa_utils::js_utils::{JsError, Script};
+    use hirofa_utils::js_utils::Script;
     use std::sync::{Arc, Weak};
     use std::time::Duration;
 

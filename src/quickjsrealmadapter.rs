@@ -649,9 +649,9 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         &self,
         array: &JSValueRef,
         index: u32,
-        element: JSValueRef,
+        element: &JSValueRef,
     ) -> Result<(), JsError> {
-        arrays::set_element_q(self, array, index, element)
+        arrays::set_element_q(self, array, index, element.clone())
     }
 
     fn js_array_get_length(&self, array: &JSValueRef) -> Result<u32, JsError> {
