@@ -11,7 +11,8 @@ use crate::quickjsruntimeadapter::{
 use crate::valueref::JSValueRef;
 use hirofa_utils::eventloop::EventLoop;
 use hirofa_utils::js_utils::adapters::{JsRealmAdapter, JsRuntimeAdapter};
-use hirofa_utils::js_utils::facades::{JsRuntimeFacade, JsRuntimeFacadeInner, JsValueFacade};
+use hirofa_utils::js_utils::facades::values::JsValueFacade;
+use hirofa_utils::js_utils::facades::{JsRuntimeFacade, JsRuntimeFacadeInner};
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use hirofa_utils::task_manager::TaskManager;
@@ -770,7 +771,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         &self,
         realm_name: Option<&str>,
         script: Script,
-    ) -> Pin<Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, JsError>>>> {
+    ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>>>> {
         self.js_loop_realm(realm_name, |_rt, realm| {
             let res = realm.js_eval(script);
             match res {
@@ -786,8 +787,8 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         realm_name: Option<&str>,
         namespace: &[&str],
         method_name: &str,
-        args: Vec<Box<dyn JsValueFacade>>,
-    ) -> Result<Box<dyn JsValueFacade>, JsError> {
+        args: Vec<JsValueFacade>,
+    ) -> Result<JsValueFacade, JsError> {
         let movable_namespace: Vec<String> = namespace.iter().map(|s| s.to_string()).collect();
         let movable_method_name = method_name.to_string();
 
@@ -796,7 +797,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
                 .into_iter()
                 .map(|jsvf| {
                     realm
-                        .from_js_value_facade(&*jsvf)
+                        .from_js_value_facade(jsvf)
                         .ok()
                         .expect("conversion failed")
                 })
@@ -826,8 +827,8 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         realm_name: Option<&str>,
         namespace: &[&str],
         method_name: &str,
-        args: Vec<Box<dyn JsValueFacade>>,
-    ) -> Pin<Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, JsError>>>> {
+        args: Vec<JsValueFacade>,
+    ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>>>> {
         let movable_namespace: Vec<String> = namespace.iter().map(|s| s.to_string()).collect();
         let movable_method_name = method_name.to_string();
 
@@ -836,7 +837,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
                 .into_iter()
                 .map(|jsvf| {
                     realm
-                        .from_js_value_facade(&*jsvf)
+                        .from_js_value_facade(jsvf)
                         .ok()
                         .expect("conversion failed")
                 })
@@ -865,7 +866,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         realm_name: Option<&str>,
         namespace: &[&str],
         method_name: &str,
-        args: Vec<Box<dyn JsValueFacade>>,
+        args: Vec<JsValueFacade>,
     ) {
         let movable_namespace: Vec<String> = namespace.iter().map(|s| s.to_string()).collect();
         let movable_method_name = method_name.to_string();
@@ -875,7 +876,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
                 .into_iter()
                 .map(|jsvf| {
                     realm
-                        .from_js_value_facade(&*jsvf)
+                        .from_js_value_facade(jsvf)
                         .ok()
                         .expect("conversion failed")
                 })
@@ -1219,10 +1220,11 @@ pub mod abstraction_tests {
     use crate::builder::QuickJsRuntimeBuilder;
     use futures::executor::block_on;
     use hirofa_utils::js_utils::adapters::JsRealmAdapter;
-    use hirofa_utils::js_utils::facades::{JsRuntimeFacade, JsValueFacade};
+    use hirofa_utils::js_utils::facades::values::JsValueFacade;
+    use hirofa_utils::js_utils::facades::JsRuntimeFacade;
     use hirofa_utils::js_utils::Script;
 
-    async fn example<T: JsRuntimeFacade>(rt: &T) -> Box<dyn JsValueFacade> {
+    async fn example<T: JsRuntimeFacade>(rt: &T) -> JsValueFacade {
         // add a job for the main realm (None as realm_name)
         rt.js_loop_realm(None, |_rt_adapter, realm_adapter| {
             let script = Script::new("example.js", "7 + 13");
@@ -1241,6 +1243,10 @@ pub mod abstraction_tests {
         // start a new runtime
         let rt = QuickJsRuntimeBuilder::new().build();
         let val = block_on(example(&rt));
-        assert_eq!(val.js_as_i32(), 20);
+        if let JsValueFacade::I32 { val } = val {
+            assert_eq!(val, 20);
+        } else {
+            panic!("not an i32");
+        }
     }
 }
