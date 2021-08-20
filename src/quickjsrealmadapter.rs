@@ -1,7 +1,6 @@
 use crate::facades::QuickjsRuntimeFacadeInner;
 use crate::quickjs_utils::objects::construct_object;
 use crate::quickjs_utils::primitives::{from_bool, from_f64, from_i32, from_string_q};
-use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjs_utils::{arrays, errors, functions, json, new_null_ref, objects};
 use crate::quickjsruntimeadapter::{make_cstring, QuickJsRuntimeAdapter};
 use crate::reflection::eventtarget::dispatch_event;
@@ -12,7 +11,7 @@ use hirofa_utils::auto_id_map::AutoIdMap;
 use hirofa_utils::js_utils::adapters::proxies::{
     JsProxy, JsProxyInstanceId, JsProxyMember, JsProxyStaticMember,
 };
-use hirofa_utils::js_utils::adapters::{JsRealmAdapter, JsValueAdapter};
+use hirofa_utils::js_utils::adapters::{JsPromiseAdapter, JsRealmAdapter, JsValueAdapter};
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
@@ -323,7 +322,6 @@ impl Drop for QuickJsRealmAdapter {
 impl JsRealmAdapter for QuickJsRealmAdapter {
     type JsRuntimeAdapterType = QuickJsRuntimeAdapter;
     type JsValueAdapterType = JSValueRef;
-    type JsPromiseAdapterType = PromiseRef;
 
     fn js_get_realm_id(&self) -> &str {
         self.id.as_str()
@@ -699,7 +697,7 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         Ok(from_f64(val))
     }
 
-    fn js_promise_create(&self) -> Result<Box<PromiseRef>, JsError> {
+    fn js_promise_create(&self) -> Result<Box<dyn JsPromiseAdapter<Self>>, JsError> {
         Ok(Box::new(crate::quickjs_utils::promises::new_promise_q(
             self,
         )?))
