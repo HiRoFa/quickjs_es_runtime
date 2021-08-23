@@ -35,6 +35,7 @@ type ProxyEventListenerMaps = HashMap<
 
 pub struct QuickJsRealmAdapter {
     object_cache: RefCell<AutoIdMap<JSValueRef>>,
+    promise_cache: RefCell<AutoIdMap<Box<dyn JsPromiseAdapter<Self>>>>,
     pub(crate) proxy_instance_id_mappings: RefCell<HashMap<usize, Box<ProxyInstanceInfo>>>,
     pub(crate) proxy_registry: RefCell<HashMap<String, Rc<Proxy>>>, // todo is this Rc needed or can we just borrow the Proxy when needed?
     pub(crate) proxy_event_listeners: RefCell<ProxyEventListenerMaps>,
@@ -89,6 +90,7 @@ impl QuickJsRealmAdapter {
             id,
             context,
             object_cache: RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize)),
+            promise_cache: RefCell::new(AutoIdMap::new()),
             proxy_instance_id_mappings: RefCell::new(Default::default()),
             proxy_registry: RefCell::new(Default::default()),
             proxy_event_listeners: RefCell::new(Default::default()),
@@ -713,12 +715,14 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         crate::quickjs_utils::promises::add_promise_reactions_q(self, promise, then, catch, finally)
     }
 
-    fn js_promise_cache_add(&self, _promise_ref: Box<dyn JsPromiseAdapter<Self>>) -> usize {
-        unimplemented!()
+    fn js_promise_cache_add(&self, promise_ref: Box<dyn JsPromiseAdapter<Self>>) -> usize {
+        let map = &mut *self.promise_cache.borrow_mut();
+        map.insert(promise_ref)
     }
 
-    fn js_promise_cache_consume(&self, _id: usize) -> Box<dyn JsPromiseAdapter<Self>> {
-        unimplemented!()
+    fn js_promise_cache_consume(&self, id: usize) -> Box<dyn JsPromiseAdapter<Self>> {
+        let map = &mut *self.promise_cache.borrow_mut();
+        map.remove(&id)
     }
 
     fn js_cache_add(&self, object: &JSValueRef) -> i32 {
