@@ -99,7 +99,7 @@ impl JsPromiseAdapter<QuickJsRealmAdapter> for PromiseRef {
         self.reject_q(context, rejection.clone())
     }
 
-    fn js_promise_get_value(&self) -> JSValueRef {
+    fn js_promise_get_value(&self, _realm: &QuickJsRealmAdapter) -> JSValueRef {
         self.promise_obj_ref.clone()
     }
 }

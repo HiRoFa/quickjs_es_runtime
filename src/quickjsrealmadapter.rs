@@ -713,6 +713,14 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         crate::quickjs_utils::promises::add_promise_reactions_q(self, promise, then, catch, finally)
     }
 
+    fn js_promise_cache_add(&self, _promise_ref: Box<dyn JsPromiseAdapter<Self>>) -> usize {
+        unimplemented!()
+    }
+
+    fn js_promise_cache_consume(&self, _id: usize) -> Box<dyn JsPromiseAdapter<Self>> {
+        unimplemented!()
+    }
+
     fn js_cache_add(&self, object: &JSValueRef) -> i32 {
         self.cache_object(object.clone())
     }
