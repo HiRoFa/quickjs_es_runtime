@@ -350,6 +350,8 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
     ) -> Result<JSValueRef, JsError> {
         // create qjs proxy from proxy
         let mut q_proxy = Proxy::new();
+        q_proxy = q_proxy.name(proxy.name);
+        q_proxy = q_proxy.namespace(proxy.namespace.to_vec());
         if proxy.event_target {
             q_proxy = q_proxy.event_target();
         }
