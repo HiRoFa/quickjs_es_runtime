@@ -1,8 +1,6 @@
 use crate::builder::QuickJsRuntimeBuilder;
 use crate::esvalue::EsValueFacade;
 use crate::features;
-use crate::features::fetch::request::FetchRequest;
-use crate::features::fetch::response::FetchResponse;
 use crate::quickjs_utils::{functions, objects};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::{
@@ -29,9 +27,6 @@ lazy_static! {
     static ref HELPER_TASKS: TaskManager = TaskManager::new(std::cmp::max(2, num_cpus::get()));
 }
 
-pub type FetchResponseProvider =
-    dyn Fn(&FetchRequest) -> Box<dyn FetchResponse + Send> + Send + Sync + 'static;
-
 impl Drop for QuickJsRuntimeFacade {
     fn drop(&mut self) {
         log::trace!("> EsRuntime::drop");
@@ -42,7 +37,6 @@ impl Drop for QuickJsRuntimeFacade {
 
 pub struct QuickjsRuntimeFacadeInner {
     event_loop: EventLoop,
-    pub(crate) fetch_response_provider: Option<Box<FetchResponseProvider>>,
 }
 
 impl JsRuntimeFacadeInner for QuickjsRuntimeFacadeInner {
@@ -181,13 +175,9 @@ pub struct QuickJsRuntimeFacade {
 
 impl QuickJsRuntimeFacade {
     pub(crate) fn new(mut builder: QuickJsRuntimeBuilder) -> Self {
-        let fetch_response_provider =
-            std::mem::replace(&mut builder.opt_fetch_response_provider, None);
-
         let ret = Self {
             inner: Arc::new(QuickjsRuntimeFacadeInner {
                 event_loop: EventLoop::new(),
-                fetch_response_provider,
             }),
             js_contexts: Default::default(),
         };

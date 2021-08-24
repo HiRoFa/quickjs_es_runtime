@@ -2,6 +2,7 @@
 
 * reverted back to EsRuntime having an Arc<EsRuntimeInner> (helps me with my abstraction project)
 * renamed EsRuntime to QuickJsRuntimeFacade, and others to follow same conventions
+* removed fetch api (moved to greencopperruntime)
 
 # 0.5.1
 

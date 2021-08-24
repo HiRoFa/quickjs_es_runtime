@@ -39,7 +39,7 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 * Create promises in JavaScript which execute async
 * Eval modules ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html#method.eval_module_sync))
 * Load modules (dynamic and static) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntimebuilder/struct.EsRuntimeBuilder.html#method.module_script_loader))
-* fetch api ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntimebuilder/struct.EsRuntimeBuilder.html#method.fetch_response_provider))
+* fetch api (moved to [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime))
 * setImmediate
 * setTimeout/Interval (and clear)
 * script preprocessing (impls for ifdef/macro's/typescript can be found in [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime))

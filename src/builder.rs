@@ -1,6 +1,4 @@
-use crate::facades::{FetchResponseProvider, QuickJsRuntimeFacade};
-use crate::features::fetch::request::FetchRequest;
-use crate::features::fetch::response::FetchResponse;
+use crate::facades::QuickJsRuntimeFacade;
 use crate::quickjsruntimeadapter::{NativeModuleLoader, QuickJsRuntimeAdapter, ScriptModuleLoader};
 use hirofa_utils::js_utils::facades::JsRuntimeBuilder;
 use hirofa_utils::js_utils::JsError;
@@ -22,7 +20,6 @@ pub type EsRuntimeInitHooks =
 pub struct QuickJsRuntimeBuilder {
     pub(crate) script_module_loaders: Vec<Box<dyn ScriptModuleLoader + Send>>,
     pub(crate) native_module_loaders: Vec<Box<dyn NativeModuleLoader + Send>>,
-    pub(crate) opt_fetch_response_provider: Option<Box<FetchResponseProvider>>,
     pub(crate) opt_memory_limit_bytes: Option<u64>,
     pub(crate) opt_gc_threshold: Option<u64>,
     pub(crate) opt_max_stack_size: Option<u64>,
@@ -43,7 +40,6 @@ impl QuickJsRuntimeBuilder {
         Self {
             script_module_loaders: vec![],
             native_module_loaders: vec![],
-            opt_fetch_response_provider: None,
             opt_memory_limit_bytes: None,
             opt_gc_threshold: None,
             opt_max_stack_size: None,
@@ -156,63 +152,6 @@ impl QuickJsRuntimeBuilder {
         loader: Box<M>,
     ) -> Self {
         self.native_module_loaders.push(loader);
-        self
-    }
-
-    /// Provide a fetch response provider in order to make the fetch api work in the EsRuntime
-    /// # Example
-    /// ```rust
-    ///
-    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-    /// use quickjs_runtime::features::fetch::response::FetchResponse;
-    /// use quickjs_runtime::features::fetch::request::FetchRequest;
-    /// use hirofa_utils::js_utils::Script;
-    /// use std::time::Duration;   
-    ///
-    /// struct SimpleResponse{
-    ///     read_done: bool
-    /// }
-    ///
-    /// impl SimpleResponse {
-    ///     fn new(_req: &FetchRequest) -> Self {
-    ///         Self{read_done:false}
-    ///     }
-    /// }
-    ///
-    /// impl FetchResponse for SimpleResponse {
-    ///     fn get_http_status(&self) -> u16 {
-    ///         200
-    ///     }
-    ///
-    ///     fn get_header(&self,name: &str) -> Option<&str> {
-    ///         unimplemented!()
-    ///     }
-    ///
-    ///     fn read(&mut self) -> Option<Vec<u8>> {
-    ///         if self.read_done {
-    ///             None
-    ///         } else {
-    ///             self.read_done = true;      
-    ///             Some("Hello world".as_bytes().to_vec())
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// let rt = QuickJsRuntimeBuilder::new()
-    /// .fetch_response_provider(|req| {Box::new(SimpleResponse::new(req))})
-    /// .build();
-    ///
-    /// let res_prom = rt.eval_sync(Script::new("test_fetch.es", "(fetch('something')).then((fetchRes) => {return fetchRes.text();});")).ok().expect("script failed");
-    /// let res = res_prom.get_promise_result_sync();
-    /// let str_esvf = res.ok().expect("promise did not resolve ok");
-    /// assert_eq!(str_esvf.get_str(), "Hello world");
-    /// ```
-    pub fn fetch_response_provider<P>(mut self, provider: P) -> Self
-    where
-        P: Fn(&FetchRequest) -> Box<dyn FetchResponse + Send> + Send + Sync + 'static,
-    {
-        assert!(self.opt_fetch_response_provider.is_none());
-        self.opt_fetch_response_provider = Some(Box::new(provider));
         self
     }
 

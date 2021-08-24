@@ -643,6 +643,17 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         objects::traverse_properties_q(self, object, visitor)
     }
 
+    fn js_object_traverse_mut<F>(
+        &self,
+        object: &Self::JsValueAdapterType,
+        visitor: F,
+    ) -> Result<(), JsError>
+    where
+        F: FnMut(&str, &Self::JsValueAdapterType) -> Result<(), JsError>,
+    {
+        objects::traverse_properties_q_mut(self, object, visitor)
+    }
+
     fn js_array_get_element(&self, array: &JSValueRef, index: u32) -> Result<JSValueRef, JsError> {
         arrays::get_element_q(self, array, index)
     }
@@ -675,6 +686,22 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
             ret.push(visitor(x, &val)?)
         }
         Ok(ret)
+    }
+
+    fn js_array_traverse_mut<F>(
+        &self,
+        array: &Self::JsValueAdapterType,
+        mut visitor: F,
+    ) -> Result<(), JsError>
+    where
+        F: FnMut(u32, &Self::JsValueAdapterType) -> Result<(), JsError>,
+    {
+        // todo impl real traverse methods
+        for x in 0..arrays::get_length_q(self, array)? {
+            let val = arrays::get_element_q(self, array, x)?;
+            visitor(x, &val)?;
+        }
+        Ok(())
     }
 
     fn js_null_create(&self) -> Result<JSValueRef, JsError> {

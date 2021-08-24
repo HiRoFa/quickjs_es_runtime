@@ -441,6 +441,17 @@ where
     unsafe { traverse_properties(q_ctx.context, obj_ref, visitor) }
 }
 
+pub fn traverse_properties_q_mut<V, R>(
+    q_ctx: &QuickJsRealmAdapter,
+    obj_ref: &JSValueRef,
+    visitor: V,
+) -> Result<(), JsError>
+where
+    V: FnMut(&str, &JSValueRef) -> Result<R, JsError>,
+{
+    unsafe { traverse_properties_mut(q_ctx.context, obj_ref, visitor) }
+}
+
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn traverse_properties<V, R>(
@@ -483,6 +494,46 @@ where
     }
 
     Ok(result)
+}
+
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn traverse_properties_mut<V, R>(
+    context: *mut q::JSContext,
+    obj_ref: &JSValueRef,
+    mut visitor: V,
+) -> Result<(), JsError>
+where
+    V: FnMut(&str, &JSValueRef) -> Result<R, JsError>,
+{
+    let enum_ref = get_own_property_names(context, obj_ref)?;
+
+    for index in 0..enum_ref.len() {
+        let atom = enum_ref.get_atom_raw(index) as q::JSAtom;
+        let prop_name = atoms::to_str(context, &atom)?;
+
+        let raw_value = q::JS_GetPropertyInternal(
+            context,
+            *obj_ref.borrow_value(),
+            atom,
+            *obj_ref.borrow_value(),
+            0,
+        );
+        let prop_val_ref = JSValueRef::new(
+            context,
+            raw_value,
+            false,
+            true,
+            "objects::traverse_properties raw_value",
+        );
+        if prop_val_ref.is_exception() {
+            return Err(JsError::new_str("Could not get object property"));
+        }
+
+        visitor(prop_name, &prop_val_ref)?;
+    }
+
+    Ok(())
 }
 
 pub fn is_instance_of_q(

@@ -266,7 +266,7 @@ impl JsValueAdapter for JSValueRef {
 
     fn js_get_type(&self) -> JsValueType {
         match self.get_tag() {
-            TAG_EXCEPTION => todo!(),
+            TAG_EXCEPTION => JsValueType::Error,
             TAG_NULL => JsValueType::Null,
             TAG_UNDEFINED => JsValueType::Undefined,
             TAG_BOOL => JsValueType::Boolean,
