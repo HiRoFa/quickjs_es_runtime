@@ -7,8 +7,8 @@ use crate::quickjs_utils::modules::{
 };
 use crate::quickjs_utils::{gc, interrupthandler, modules, promises};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-use crate::valueref::JSValueRef;
 use hirofa_utils::js_utils::adapters::JsRuntimeAdapter;
+use hirofa_utils::js_utils::modules::{NativeModuleLoader, ScriptModuleLoader};
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use hirofa_utils::js_utils::ScriptPreProcessor;
@@ -49,11 +49,6 @@ pub trait ModuleLoader {
 }
 
 // these are the external (util) loaders (todo move these to esruntime?)
-
-pub trait ScriptModuleLoader {
-    fn normalize_path(&self, ref_path: &str, path: &str) -> Option<String>;
-    fn load_module(&self, absolute_path: &str) -> String;
-}
 
 pub struct ScriptModuleLoaderAdapter {
     inner: Box<dyn ScriptModuleLoader>,
@@ -104,11 +99,11 @@ impl ModuleLoader for ScriptModuleLoaderAdapter {
 }
 
 pub struct NativeModuleLoaderAdapter {
-    inner: Box<dyn NativeModuleLoader>,
+    inner: Box<dyn NativeModuleLoader<QuickJsRealmAdapter>>,
 }
 
 impl NativeModuleLoaderAdapter {
-    pub fn new(loader: Box<dyn NativeModuleLoader>) -> Self {
+    pub fn new(loader: Box<dyn NativeModuleLoader<QuickJsRealmAdapter>>) -> Self {
         Self { inner: loader }
     }
 }
@@ -199,16 +194,6 @@ unsafe extern "C" fn native_module_init(
             }
         })
     })
-}
-
-pub trait NativeModuleLoader {
-    fn has_module(&self, q_ctx: &QuickJsRealmAdapter, module_name: &str) -> bool;
-    fn get_module_export_names(&self, q_ctx: &QuickJsRealmAdapter, module_name: &str) -> Vec<&str>;
-    fn get_module_exports(
-        &self,
-        q_ctx: &QuickJsRealmAdapter,
-        module_name: &str,
-    ) -> Vec<(&str, JSValueRef)>;
 }
 
 thread_local! {

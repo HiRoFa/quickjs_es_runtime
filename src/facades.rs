@@ -485,7 +485,7 @@ impl QuickJsRuntimeFacade {
     /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
     /// use hirofa_utils::js_utils::Script;
     /// use quickjs_runtime::esvalue::EsValueConvertible;
-    /// use quickjs_runtime::quickjsruntimeadapter::ScriptModuleLoader;
+    /// use hirofa_utils::js_utils::modules::ScriptModuleLoader;
     /// struct TestModuleLoader {}
     /// impl ScriptModuleLoader for TestModuleLoader {
     ///     fn normalize_path(&self,ref_path: &str,path: &str) -> Option<String> {
@@ -910,10 +910,10 @@ pub mod tests {
     use crate::facades::QuickJsRuntimeFacade;
     use crate::quickjs_utils::{primitives, promises};
     use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-    use crate::quickjsruntimeadapter::{NativeModuleLoader, ScriptModuleLoader};
     use crate::valueref::JSValueRef;
     use backtrace::Backtrace;
     use futures::executor::block_on;
+    use hirofa_utils::js_utils::modules::{NativeModuleLoader, ScriptModuleLoader};
     use hirofa_utils::js_utils::JsError;
     use hirofa_utils::js_utils::Script;
     use log::debug;
@@ -924,7 +924,7 @@ pub mod tests {
     struct TestNativeModuleLoader {}
     struct TestScriptModuleLoader {}
 
-    impl NativeModuleLoader for TestNativeModuleLoader {
+    impl NativeModuleLoader<QuickJsRealmAdapter> for TestNativeModuleLoader {
         fn has_module(&self, _q_ctx: &QuickJsRealmAdapter, module_name: &str) -> bool {
             module_name.starts_with("greco://")
         }

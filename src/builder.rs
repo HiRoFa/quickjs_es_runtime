@@ -1,6 +1,9 @@
 use crate::facades::QuickJsRuntimeFacade;
-use crate::quickjsruntimeadapter::{NativeModuleLoader, QuickJsRuntimeAdapter, ScriptModuleLoader};
-use hirofa_utils::js_utils::facades::JsRuntimeBuilder;
+use crate::quickjsrealmadapter::QuickJsRealmAdapter;
+use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
+use hirofa_utils::js_utils::adapters::JsRuntimeAdapter;
+use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
+use hirofa_utils::js_utils::modules::{NativeModuleLoader, ScriptModuleLoader};
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::ScriptPreProcessor;
 use std::time::Duration;
@@ -19,7 +22,7 @@ pub type EsRuntimeInitHooks =
 /// ```
 pub struct QuickJsRuntimeBuilder {
     pub(crate) script_module_loaders: Vec<Box<dyn ScriptModuleLoader + Send>>,
-    pub(crate) native_module_loaders: Vec<Box<dyn NativeModuleLoader + Send>>,
+    pub(crate) native_module_loaders: Vec<Box<dyn NativeModuleLoader<QuickJsRealmAdapter> + Send>>,
     pub(crate) opt_memory_limit_bytes: Option<u64>,
     pub(crate) opt_gc_threshold: Option<u64>,
     pub(crate) opt_max_stack_size: Option<u64>,
@@ -56,7 +59,7 @@ impl QuickJsRuntimeBuilder {
     /// use hirofa_utils::js_utils::Script;
     /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
     /// use quickjs_runtime::quickjsrealmadapter::QuickJsRealmAdapter;
-    /// use quickjs_runtime::quickjsruntimeadapter::ScriptModuleLoader;
+    /// use hirofa_utils::js_utils::modules::ScriptModuleLoader;
     /// struct MyModuleLoader {}
     /// impl ScriptModuleLoader for MyModuleLoader {
     ///     fn normalize_path(&self,ref_path: &str,path: &str) -> Option<String> {
@@ -102,16 +105,16 @@ impl QuickJsRuntimeBuilder {
     /// # Example
     /// ```rust
     /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-    /// use quickjs_runtime::quickjsruntimeadapter::NativeModuleLoader;
     /// use quickjs_runtime::valueref::JSValueRef;
     /// use quickjs_runtime::quickjsrealmadapter::QuickJsRealmAdapter;
     /// use quickjs_runtime::quickjs_utils::functions;
     /// use quickjs_runtime::quickjs_utils::primitives::{from_bool, from_i32};
     /// use quickjs_runtime::reflection::Proxy;
     /// use hirofa_utils::js_utils::Script;
+    /// use hirofa_utils::js_utils::modules::NativeModuleLoader;
     ///
     /// struct MyModuleLoader{}
-    /// impl NativeModuleLoader for MyModuleLoader {
+    /// impl NativeModuleLoader<QuickJsRealmAdapter> for MyModuleLoader {
     ///     fn has_module(&self, _q_ctx: &QuickJsRealmAdapter,module_name: &str) -> bool {
     ///         module_name.eq("my_module")
     ///     }
@@ -147,7 +150,7 @@ impl QuickJsRuntimeBuilder {
     ///
     /// rt.eval_module_sync(Script::new("test_native_mod.es", "import {someVal, someFunc, SomeClass} from 'my_module';\nlet i = (someVal + someFunc() + SomeClass.doIt());\nif (i !== 2087){throw Error('i was not 2087');}")).ok().expect("script failed");
     /// ```
-    pub fn native_module_loader<M: NativeModuleLoader + Send + 'static>(
+    pub fn native_module_loader<M: NativeModuleLoader<QuickJsRealmAdapter> + Send + 'static>(
         mut self,
         loader: Box<M>,
     ) -> Self {
@@ -219,12 +222,30 @@ impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
         self.script_pre_processors.push(Box::new(preprocessor));
         self
     }
+
+    fn js_script_module_loader<S: ScriptModuleLoader + Send + 'static>(
+        &mut self,
+        module_loader: S,
+    ) -> &mut Self {
+        self.script_module_loaders.push(Box::new(module_loader));
+        self
+    }
+
+    fn js_native_module_loader<
+        S: NativeModuleLoader<<<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType>
+        + Send
+        + 'static,
+    >(&mut self, module_loader: S) -> &mut Self where
+    Self: Sized{
+        self.native_module_loaders.push(Box::new(module_loader));
+        self
+    }
 }
 
 #[cfg(test)]
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
-    use crate::quickjsruntimeadapter::ScriptModuleLoader;
+    use hirofa_utils::js_utils::modules::ScriptModuleLoader;
     use hirofa_utils::js_utils::Script;
 
     #[test]
