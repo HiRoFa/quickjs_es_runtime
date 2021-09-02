@@ -314,6 +314,7 @@ impl QuickJsRuntimeAdapter {
         let id = QuickJsRealmAdapter::get_id(context);
         self.get_context(id)
     }
+
     pub fn get_rti_ref(&self) -> Option<Arc<QuickjsRuntimeFacadeInner>> {
         if let Some(rt_ref) = &self.rti_ref {
             rt_ref.upgrade()

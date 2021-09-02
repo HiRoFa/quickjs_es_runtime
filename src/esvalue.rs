@@ -1518,15 +1518,13 @@ pub mod tests {
     #[test]
     fn test_async_func() {
         let rt = init_test_rt();
-        let func_esvf_res = rt.eval_sync(Script::new(
-            "test_async_func.es",
-            "(function someFunc(){return 147;});",
-        ));
-        let func_esvf = match func_esvf_res {
-            Ok(fe) => fe,
-            Err(e) => panic!("script failed: {}", e),
-        };
-
+        let func_esvf = rt
+            .eval_sync(Script::new(
+                "test_async_func.es",
+                "(function someFunc(){return 147;});",
+            ))
+            .ok()
+            .expect("script failed");
         let fut = block_on(test_async_func1(func_esvf));
         assert_eq!(fut, 147);
     }

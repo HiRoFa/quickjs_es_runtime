@@ -362,12 +362,12 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         // todo revamp qjs proxy to have rt as first arg in methods/getter/setters etc
         if let Some(constructor) = proxy.constructor.take() {
             q_proxy = q_proxy.constructor(move |realm, id, args| {
-                QuickJsRuntimeAdapter::do_with(|rt| constructor(rt, realm, &id, args.as_slice()))
+                QuickJsRuntimeAdapter::do_with(|rt| constructor(rt, realm, id, args.as_slice()))
             });
         }
         if let Some(finalizer) = proxy.finalizer.take() {
             q_proxy = q_proxy.finalizer(move |realm, id| {
-                QuickJsRuntimeAdapter::do_with(|rt| finalizer(rt, realm, &id))
+                QuickJsRuntimeAdapter::do_with(|rt| finalizer(rt, realm, id))
             });
         }
         for member in proxy.members {
@@ -375,15 +375,15 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
                 JsProxyMember::Method { method } => {
                     q_proxy = q_proxy.method(member.0, move |realm, id, args| {
                         //
-                        QuickJsRuntimeAdapter::do_with(|rt| method(rt, realm, id, args.as_slice()))
+                        QuickJsRuntimeAdapter::do_with(|rt| method(rt, realm, *id, args.as_slice()))
                     })
                 }
                 JsProxyMember::GetterSetter { get, set } => {
                     q_proxy = q_proxy.getter_setter(
                         member.0,
-                        move |realm, id| QuickJsRuntimeAdapter::do_with(|rt| get(rt, realm, id)),
+                        move |realm, id| QuickJsRuntimeAdapter::do_with(|rt| get(rt, realm, *id)),
                         move |realm, id, val| {
-                            QuickJsRuntimeAdapter::do_with(|rt| set(rt, realm, id, &val))
+                            QuickJsRuntimeAdapter::do_with(|rt| set(rt, realm, *id, &val))
                         },
                     );
                 }
