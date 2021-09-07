@@ -771,6 +771,17 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         })
     }
 
+    fn js_eval_module(
+        &self,
+        realm_name: Option<&str>,
+        script: Script,
+    ) -> Pin<Box<dyn Future<Output = Result<(), JsError>>>> {
+        self.js_loop_realm(realm_name, |_rt, realm| {
+            let res = realm.js_eval_module(script);
+            res.map(|_| ())
+        })
+    }
+
     #[warn(clippy::type_complexity)]
     fn js_function_invoke_sync(
         &self,
