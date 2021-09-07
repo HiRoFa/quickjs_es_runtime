@@ -514,7 +514,7 @@ impl JsRuntimeAdapter for QuickJsRuntimeAdapter {
         self.load_module_script_opt(ref_path, path)
     }
 
-    fn js_create_realm(&self, _id: &str) -> Result<&Self::JsRealmAdapterType, JsError> {
+    fn js_create_realm(&mut self, _id: &str) -> Result<&Self::JsRealmAdapterType, JsError> {
         todo!();
     }
 
@@ -530,7 +530,7 @@ impl JsRuntimeAdapter for QuickJsRuntimeAdapter {
         self.get_main_context()
     }
 
-    fn js_add_realm_init_hook<H>(&self, hook: H) -> Result<(), JsError>
+    fn js_add_realm_init_hook<H>(&mut self, hook: H) -> Result<(), JsError>
     where
         H: Fn(&Self, &QuickJsRealmAdapter) -> Result<(), JsError> + 'static,
     {
