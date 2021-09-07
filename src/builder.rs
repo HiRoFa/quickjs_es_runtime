@@ -208,25 +208,25 @@ impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
     fn js_runtime_init_hook<
         H: FnOnce(&QuickJsRuntimeFacade) -> Result<(), JsError> + Send + 'static,
     >(
-        &mut self,
+        mut self,
         hook: H,
-    ) -> &mut Self {
+    ) -> Self {
         self.runtime_init_hooks.push(Box::new(hook));
         self
     }
 
     fn js_script_pre_processor<S: ScriptPreProcessor + Send + 'static>(
-        &mut self,
+        mut self,
         preprocessor: S,
-    ) -> &mut Self {
+    ) -> Self {
         self.script_pre_processors.push(Box::new(preprocessor));
         self
     }
 
     fn js_script_module_loader<S: ScriptModuleLoader + Send + 'static>(
-        &mut self,
+        mut self,
         module_loader: S,
-    ) -> &mut Self {
+    ) -> Self {
         self.script_module_loaders.push(Box::new(module_loader));
         self
     }
@@ -235,7 +235,7 @@ impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
         S: NativeModuleLoader<<<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType>
         + Send
         + 'static,
-    >(&mut self, module_loader: S) -> &mut Self where
+    >(mut self, module_loader: S) -> Self where
     Self: Sized{
         self.native_module_loaders.push(Box::new(module_loader));
         self
