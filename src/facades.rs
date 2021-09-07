@@ -689,6 +689,16 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         self.exe_rt_task_in_event_loop(consumer)
     }
 
+    fn js_loop_sync_mut<
+        R: Send + 'static,
+        C: FnOnce(&mut Self::JsRuntimeAdapterType) -> R + Send + 'static,
+    >(
+        &self,
+        consumer: C,
+    ) -> R {
+        self.exe_task_in_event_loop(|| QuickJsRuntimeAdapter::do_with_mut(consumer))
+    }
+
     fn js_loop<R: Send + 'static, C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static>(
         &self,
         consumer: C,
