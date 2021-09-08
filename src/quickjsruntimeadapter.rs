@@ -243,12 +243,23 @@ impl QuickJsRuntimeAdapter {
     where
         H: Fn(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> Result<(), JsError> + 'static,
     {
-        for ctx in self.contexts.values() {
-            hook(self, ctx)?;
-        }
-
         let hooks = &mut *self.context_init_hooks.borrow_mut();
         hooks.push(Box::new(hook));
+        let i = hooks.len() - 1;
+
+        // add event to queue to run hooks for existing contexts
+        if let Some(rti) = self.rti_ref.as_ref().expect("invalid state").upgrade() {
+            rti.add_rt_task_to_event_loop_void(move |rt| {
+                let hooks = &*rt.context_init_hooks.borrow();
+                let hook = hooks.get(i).expect("invalid state");
+                for ctx in rt.contexts.values() {
+                    if let Err(e) = hook(rt, ctx) {
+                        panic!("hook failed {}", e);
+                    }
+                }
+            });
+        }
+
         Ok(())
     }
     // todo, this needs to be static, create a context, then borrowmut and add it (do not borrow mut while instantiating context)
