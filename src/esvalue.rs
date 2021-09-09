@@ -288,11 +288,13 @@ impl CachedJSValueRef {
         if let Some(rti_ref) = self.rti_ref.upgrade() {
             let context_id_then = self.context_id.clone();
             rti_ref.add_rt_task_to_event_loop_void(move |q_js_rt| {
-                let q_ctx = q_js_rt.get_context(context_id_then.as_str());
-
-                q_ctx.with_cached_obj(cached_obj_id, |cached_obj_ref| {
-                    consumer(q_js_rt, q_ctx, cached_obj_ref);
-                });
+                if let Some(q_ctx) = q_js_rt.opt_context(context_id_then.as_str()) {
+                    q_ctx.with_cached_obj(cached_obj_id, |cached_obj_ref| {
+                        consumer(q_js_rt, q_ctx, cached_obj_ref);
+                    });
+                } else {
+                    log::error!("do_with_async failed, no such context: {}", context_id_then)
+                }
             });
         } else {
             panic!("rt was dropped");
@@ -307,8 +309,9 @@ impl Drop for CachedJSValueRef {
             let context_id = self.context_id.clone();
             rti_ref.add_rt_task_to_event_loop_void(move |q_js_rt| {
                 if q_js_rt.has_context(context_id.as_str()) {
-                    let q_ctx = q_js_rt.get_context(context_id.as_str());
-                    q_ctx.remove_cached_obj_if_present(cached_obj_id);
+                    if let Some(q_ctx) = q_js_rt.opt_context(context_id.as_str()) {
+                        q_ctx.remove_cached_obj_if_present(cached_obj_id);
+                    }
                 }
             });
         }
@@ -877,20 +880,23 @@ impl EsPromiseResolvableHandle {
         if let Some((rti_ref, id, context_id, mut value)) = rt_opt {
             rti_ref.add_rt_task_to_event_loop_void(move |q_js_rt| {
                 log::trace!("resolving handle with val, stage 2: {:?}", value);
-                let q_ctx = q_js_rt.get_context(context_id.as_str());
-                ESPROMISE_REFS.with(move |rc| {
-                    let map = &*rc.borrow();
-                    let p_ref = map.get(&id).expect("no such promise");
+                if let Some(q_ctx) = q_js_rt.opt_context(context_id.as_str()) {
+                    ESPROMISE_REFS.with(move |rc| {
+                        let map = &*rc.borrow();
+                        let p_ref = map.get(&id).expect("no such promise");
 
-                    let js_val = value
-                        .as_js_value(q_ctx)
-                        .ok()
-                        .expect("could not convert to JSValue");
-                    let resolve_res = unsafe { p_ref.resolve(q_ctx.context, js_val) };
-                    if resolve_res.is_err() {
-                        log::error!("resolve failed: {}", resolve_res.err().unwrap());
-                    }
-                });
+                        let js_val = value
+                            .as_js_value(q_ctx)
+                            .ok()
+                            .expect("could not convert to JSValue");
+                        let resolve_res = unsafe { p_ref.resolve(q_ctx.context, js_val) };
+                        if resolve_res.is_err() {
+                            log::error!("resolve failed: {}", resolve_res.err().unwrap());
+                        }
+                    });
+                } else {
+                    log::error!("resolve failed: no such context {}", context_id);
+                }
             });
         }
     }
@@ -917,19 +923,22 @@ impl EsPromiseResolvableHandle {
         if let Some((rti_ref, id, context_id, mut value)) = rt_opt {
             rti_ref.add_rt_task_to_event_loop_void(move |q_js_rt| {
                 log::trace!("rejecting handle with val, stage 2: {:?}", value);
-                let q_ctx = q_js_rt.get_context(context_id.as_str());
-                ESPROMISE_REFS.with(move |rc| {
-                    let map = &*rc.borrow();
-                    let p_ref = map.get(&id).expect("no such promise");
-                    let js_val = value
-                        .as_js_value(q_ctx)
-                        .ok()
-                        .expect("could not convert to JSValue");
-                    let reject_res = unsafe { p_ref.reject(q_ctx.context, js_val) };
-                    if reject_res.is_err() {
-                        log::error!("reject failed: {}", reject_res.err().unwrap());
-                    }
-                });
+                if let Some(q_ctx) = q_js_rt.opt_context(context_id.as_str()) {
+                    ESPROMISE_REFS.with(move |rc| {
+                        let map = &*rc.borrow();
+                        let p_ref = map.get(&id).expect("no such promise");
+                        let js_val = value
+                            .as_js_value(q_ctx)
+                            .ok()
+                            .expect("could not convert to JSValue");
+                        let reject_res = unsafe { p_ref.reject(q_ctx.context, js_val) };
+                        if reject_res.is_err() {
+                            log::error!("reject failed: {}", reject_res.err().unwrap());
+                        }
+                    });
+                } else {
+                    log::error!("reject failed: no such context {}", context_id);
+                }
             });
         }
     }

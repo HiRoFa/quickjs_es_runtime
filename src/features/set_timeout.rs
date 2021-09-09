@@ -87,13 +87,16 @@ unsafe extern "C" fn set_timeout(
                 QuickJsRuntimeAdapter::do_with(|q_js_rt| {
                     let mut args = args.clone();
                     let func = args.remove(0);
-                    let q_ctx = q_js_rt.get_context(q_ctx_id.as_str());
-                    match functions::call_function_q(q_ctx, &func, args, None) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            log::error!("setTimeout func failed: {}", e);
-                        }
-                    };
+                    if let Some(q_ctx) = q_js_rt.opt_context(q_ctx_id.as_str()) {
+                        match functions::call_function_q(q_ctx, &func, args, None) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                log::error!("setTimeout func failed: {}", e);
+                            }
+                        };
+                    } else {
+                        log::error!("setTimeout func failed: no such context: {}", q_ctx_id);
+                    }
                     q_js_rt.run_pending_jobs_if_any();
                 })
             },
@@ -143,18 +146,20 @@ unsafe extern "C" fn set_interval(
         let id = EventLoop::add_interval(
             move || {
                 QuickJsRuntimeAdapter::do_with(|q_js_rt| {
-                    let q_ctx = q_js_rt.get_context(q_ctx_id.as_str());
-                    let mut args = args.clone();
+                    if let Some(q_ctx) = q_js_rt.opt_context(q_ctx_id.as_str()) {
+                        let mut args = args.clone();
 
-                    let func = args.remove(0);
+                        let func = args.remove(0);
 
-                    match functions::call_function_q(q_ctx, &func, args, None) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            log::error!("setInterval func failed: {}", e);
-                        }
-                    };
-
+                        match functions::call_function_q(q_ctx, &func, args, None) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                log::error!("setInterval func failed: {}", e);
+                            }
+                        };
+                    } else {
+                        log::error!("setInterval func failed: no such context: {}", q_ctx_id);
+                    }
                     q_js_rt.run_pending_jobs_if_any();
                 })
             },

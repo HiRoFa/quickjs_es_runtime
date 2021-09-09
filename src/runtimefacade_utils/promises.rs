@@ -86,49 +86,52 @@ where
         // in helper thread, produce result
         let produced_result = producer();
         rti_ref.add_rt_task_to_event_loop_void(move |q_js_rt| {
-            let q_ctx = q_js_rt.get_context(ctx_id.as_str());
-            // in q_js_rt worker thread, resolve promise
-            // retrieve promise
-            let prom_ref = RESOLVING_PROMISES.with(|map_rc| {
-                let map = &mut *map_rc.borrow_mut();
-                map.remove(&id)
-            });
+            if let Some(q_ctx) = q_js_rt.opt_context(ctx_id.as_str()) {
+                // in q_js_rt worker thread, resolve promise
+                // retrieve promise
+                let prom_ref = RESOLVING_PROMISES.with(|map_rc| {
+                    let map = &mut *map_rc.borrow_mut();
+                    map.remove(&id)
+                });
 
-            match produced_result {
-                Ok(ok_res) => {
-                    // map result to JSValueRef
-                    let raw_res = mapper(q_ctx, ok_res);
+                match produced_result {
+                    Ok(ok_res) => {
+                        // map result to JSValueRef
+                        let raw_res = mapper(q_ctx, ok_res);
 
-                    // resolve or reject promise
-                    match raw_res {
-                        Ok(val_ref) => {
-                            prom_ref
-                                .resolve_q(q_ctx, val_ref)
-                                .ok()
-                                .expect("prom resolution failed");
-                        }
-                        Err(err) => {
-                            // todo use error:new_error(err.get_message)
-                            let err_ref = primitives::from_string_q(q_ctx, err.get_message())
-                                .ok()
-                                .expect("could not create str");
-                            prom_ref
-                                .reject_q(q_ctx, err_ref)
-                                .ok()
-                                .expect("prom rejection failed");
+                        // resolve or reject promise
+                        match raw_res {
+                            Ok(val_ref) => {
+                                prom_ref
+                                    .resolve_q(q_ctx, val_ref)
+                                    .ok()
+                                    .expect("prom resolution failed");
+                            }
+                            Err(err) => {
+                                // todo use error:new_error(err.get_message)
+                                let err_ref = primitives::from_string_q(q_ctx, err.get_message())
+                                    .ok()
+                                    .expect("could not create str");
+                                prom_ref
+                                    .reject_q(q_ctx, err_ref)
+                                    .ok()
+                                    .expect("prom rejection failed");
+                            }
                         }
                     }
+                    Err(err) => {
+                        // todo use error:new_error(err)
+                        let err_ref = primitives::from_string_q(q_ctx, err.as_str())
+                            .ok()
+                            .expect("could not create str");
+                        prom_ref
+                            .reject_q(q_ctx, err_ref)
+                            .ok()
+                            .expect("prom rejection failed");
+                    }
                 }
-                Err(err) => {
-                    // todo use error:new_error(err)
-                    let err_ref = primitives::from_string_q(q_ctx, err.as_str())
-                        .ok()
-                        .expect("could not create str");
-                    prom_ref
-                        .reject_q(q_ctx, err_ref)
-                        .ok()
-                        .expect("prom rejection failed");
-                }
+            } else {
+                log::error!("resolving_promise failed, context was dropped: {}", ctx_id);
             }
         });
     });
