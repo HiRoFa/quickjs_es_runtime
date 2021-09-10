@@ -1,8 +1,10 @@
-# 0.6.0 (WiP)
+# 0.6.0
 
 * reverted back to EsRuntime having an Arc<EsRuntimeInner> (helps me with my abstraction project)
 * renamed EsRuntime to QuickJsRuntimeFacade, and others to follow same conventions
 * removed fetch api (moved to greencopperruntime)
+* removed all panics when async promise resolution fails because of the realm being invalid
+* implemented a lot of js_utils abstractions, please note that js_utils::JsValueFacade will someday deprecate quickjs_runtime::EsValueFacade
 
 # 0.5.1
 
