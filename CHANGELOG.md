@@ -1,5 +1,6 @@
 # 0.6.0
 
+* updated quickjs to 2021-03-27
 * reverted back to EsRuntime having an Arc<EsRuntimeInner> (helps me with my abstraction project)
 * renamed EsRuntime to QuickJsRuntimeFacade, and others to follow same conventions
 * removed fetch api (moved to greencopperruntime)
