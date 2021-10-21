@@ -5,7 +5,7 @@ use crate::quickjs_utils::{arrays, errors, functions, json, new_null_ref, object
 use crate::quickjsruntimeadapter::{make_cstring, QuickJsRuntimeAdapter};
 use crate::reflection::eventtarget::dispatch_event;
 use crate::reflection::eventtarget::dispatch_static_event;
-use crate::reflection::{new_instance, Proxy, ProxyInstanceInfo};
+use crate::reflection::{new_instance, new_instance3, Proxy, ProxyInstanceInfo};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
 use hirofa_utils::js_utils::adapters::proxies::{
@@ -408,6 +408,25 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         }
 
         q_proxy.install(self, add_global_var)
+    }
+
+    fn js_proxy_instantiate_with_id(
+        &self,
+        namespace: &[&str],
+        class_name: &str,
+        instance_id: usize,
+    ) -> Result<Self::JsValueAdapterType, JsError> {
+        // todo store proxies with slice/name as key?
+        let cn = if namespace.is_empty() {
+            class_name.to_string()
+        } else {
+            format!("{}.{}", namespace.join("."), class_name)
+        };
+
+        let proxy_map = self.proxy_registry.borrow();
+        let proxy = proxy_map.get(cn.as_str()).expect("class not found");
+
+        new_instance3(proxy, instance_id, self)
     }
 
     fn js_proxy_instantiate(
