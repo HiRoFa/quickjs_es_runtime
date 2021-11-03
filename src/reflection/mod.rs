@@ -119,8 +119,8 @@ thread_local! {
 
 const MAX_INSTANCE_NUM: usize = u32::MAX as usize;
 
-fn next_id(q_ctx: &QuickJsRealmAdapter) -> usize {
-    let mappings = &*q_ctx.proxy_instance_id_mappings.borrow();
+fn next_id(proxy: &Proxy) -> usize {
+    let mappings = &*proxy.proxy_instance_id_mappings.borrow();
     if mappings.len() == MAX_INSTANCE_NUM {
         panic!("too many instances"); // todo report ex
     }
@@ -231,6 +231,7 @@ pub struct Proxy {
     getters_setters: HashMap<String, (Box<ProxyGetter>, Box<ProxySetter>)>,
     is_event_target: bool,
     is_static_event_target: bool,
+    pub(crate) proxy_instance_id_mappings: RefCell<HashMap<usize, Box<ProxyInstanceInfo>>>,
 }
 
 impl Default for crate::reflection::Proxy {
@@ -261,6 +262,7 @@ impl Proxy {
             getters_setters: Default::default(),
             is_event_target: false,
             is_static_event_target: false,
+            proxy_instance_id_mappings: RefCell::new(Default::default()),
         }
     }
 
@@ -536,7 +538,7 @@ pub fn new_instance2(
     proxy: &Proxy,
     q_ctx: &QuickJsRealmAdapter,
 ) -> Result<(usize, JSValueRef), JsError> {
-    let instance_id = next_id(q_ctx);
+    let instance_id = next_id(proxy);
     Ok((instance_id, new_instance3(proxy, instance_id, q_ctx)?))
 }
 
@@ -574,7 +576,7 @@ pub(crate) fn new_instance3(
         };
     }
 
-    let mappings = &mut *q_ctx.proxy_instance_id_mappings.borrow_mut();
+    let mappings = &mut *proxy.proxy_instance_id_mappings.borrow_mut();
     assert!(!mappings.contains_key(&instance_id));
 
     let mut bx = Box::new(ProxyInstanceInfo {
@@ -643,7 +645,7 @@ unsafe extern "C" fn constructor(
                 // construct
 
                 let args_vec = parse_args(context, argc, argv);
-                let instance_id = next_id(q_ctx);
+                let instance_id = next_id(proxy);
                 let constructor_res = constructor(q_ctx, instance_id, args_vec);
 
                 match constructor_res {
@@ -709,7 +711,7 @@ unsafe extern "C" fn finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
 
         {
             log::trace!("reflection::finalizer: remove from INSTANCE_ID_MAPPINGS");
-            let id_map = &mut *q_ctx.proxy_instance_id_mappings.borrow_mut();
+            let id_map = &mut *proxy.proxy_instance_id_mappings.borrow_mut();
             let _ = id_map.remove(&info.id).expect("no such id to finalize");
             log::trace!("reflection::finalizer: remove from INSTANCE_ID_MAPPINGS -> done");
         }

@@ -5,7 +5,7 @@ use crate::quickjs_utils::{arrays, errors, functions, json, new_null_ref, object
 use crate::quickjsruntimeadapter::{make_cstring, QuickJsRuntimeAdapter};
 use crate::reflection::eventtarget::dispatch_event;
 use crate::reflection::eventtarget::dispatch_static_event;
-use crate::reflection::{new_instance, new_instance3, Proxy, ProxyInstanceInfo};
+use crate::reflection::{new_instance, new_instance3, Proxy};
 use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
 use hirofa_utils::js_utils::adapters::proxies::{
@@ -36,7 +36,6 @@ type ProxyEventListenerMaps = HashMap<
 pub struct QuickJsRealmAdapter {
     object_cache: RefCell<AutoIdMap<JSValueRef>>,
     promise_cache: RefCell<AutoIdMap<Box<dyn JsPromiseAdapter<Self>>>>,
-    pub(crate) proxy_instance_id_mappings: RefCell<HashMap<usize, Box<ProxyInstanceInfo>>>,
     pub(crate) proxy_registry: RefCell<HashMap<String, Rc<Proxy>>>, // todo is this Rc needed or can we just borrow the Proxy when needed?
     pub(crate) proxy_event_listeners: RefCell<ProxyEventListenerMaps>,
     pub id: String,
@@ -91,7 +90,6 @@ impl QuickJsRealmAdapter {
             context,
             object_cache: RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize)),
             promise_cache: RefCell::new(AutoIdMap::new()),
-            proxy_instance_id_mappings: RefCell::new(Default::default()),
             proxy_registry: RefCell::new(Default::default()),
             proxy_event_listeners: RefCell::new(Default::default()),
         }
@@ -311,10 +309,6 @@ impl Drop for QuickJsRealmAdapter {
         {
             let proxies = &mut *self.proxy_registry.borrow_mut();
             proxies.clear();
-        }
-        {
-            let id_mappings = &mut *self.proxy_instance_id_mappings.borrow_mut();
-            id_mappings.clear();
         }
 
         log::trace!("after drop QuickJSContext {}", self.id);
