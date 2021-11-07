@@ -345,10 +345,22 @@ impl JsValueAdapter for JSValueRef {
     }
 
     fn js_to_string(&self) -> Result<String, JsError> {
-        if self.js_get_type() == JsValueType::String {
-            unsafe { primitives::to_string(self.context, self) }
-        } else {
-            unsafe { functions::call_to_string(self.context, self) }
+        match self.js_get_type() {
+            JsValueType::I32 => Ok(self.js_to_i32().to_string()),
+            JsValueType::F64 => Ok(self.js_to_f64().to_string()),
+            JsValueType::String => unsafe { primitives::to_string(self.context, self) },
+            JsValueType::Boolean => {
+                if self.js_to_bool() {
+                    Ok("true".to_string())
+                } else {
+                    Ok("false".to_string())
+                }
+            }
+            JsValueType::Error => {
+                let js_error = unsafe { errors::error_to_js_error(self.context, self) };
+                Ok(format!("{}", js_error))
+            }
+            _ => unsafe { functions::call_to_string(self.context, self) },
         }
     }
 }
