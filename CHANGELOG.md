@@ -1,3 +1,8 @@
+# 0.6.1 (work in progress)
+
+* implemented js_proxy_new_instance_with_id from utils which allows you to create an instance of a proxy with a predefined id
+* implemented set_prop / has_prop functions in proxies 
+
 # 0.6.0
 
 * updated quickjs to 2021-03-27

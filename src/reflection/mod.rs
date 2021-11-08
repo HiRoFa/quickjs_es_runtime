@@ -927,8 +927,7 @@ unsafe extern "C" fn proxy_instance_has_prop(
     _obj: q::JSValue,
     _atom: q::JSAtom,
 ) -> ::std::os::raw::c_int {
-    trace!("proxy_instance_has_prop");
-    0
+    todo!()
 }
 #[allow(dead_code)]
 unsafe extern "C" fn proxy_static_has_prop(
@@ -936,8 +935,7 @@ unsafe extern "C" fn proxy_static_has_prop(
     _obj: q::JSValue,
     _atom: q::JSAtom,
 ) -> ::std::os::raw::c_int {
-    trace!("proxy_static_has_prop");
-    0
+    todo!()
 }
 
 unsafe extern "C" fn proxy_instance_method(
@@ -1056,27 +1054,133 @@ unsafe extern "C" fn proxy_static_method(
 }
 
 unsafe extern "C" fn proxy_static_set_prop(
-    _context: *mut q::JSContext,
+    context: *mut q::JSContext,
     _obj: q::JSValue,
-    _atom: q::JSAtom,
-    _value: q::JSValue,
-    _receiver: q::JSValue,
+    atom: q::JSAtom,
+    value: q::JSValue,
+    receiver: q::JSValue,
     _flags: ::std::os::raw::c_int,
 ) -> ::std::os::raw::c_int {
-    trace!("proxy_static_set_prop");
-    0
+    trace!("proxy_instance_set_prop");
+
+    let value_ref = JSValueRef::new(
+        context,
+        value,
+        false,
+        false,
+        "reflection::proxy_instance_set_prop value",
+    );
+    let receiver_ref = JSValueRef::new(
+        context,
+        receiver,
+        false,
+        false,
+        "reflection::proxy_instance_set_prop value",
+    );
+
+    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
+        let q_ctx = q_js_rt.get_quickjs_context(context);
+
+        let prop_name = atoms::to_string2(context, &atom)
+            .ok()
+            .expect("could not get name");
+        trace!("proxy_static_set_prop: {}", prop_name);
+
+        // see if we have a matching gettersetter
+
+        let proxy_name_ref = objects::get_property(context, &receiver_ref, "name")
+            .ok()
+            .unwrap();
+        let proxy_name = primitives::to_string(context, &proxy_name_ref)
+            .ok()
+            .unwrap();
+        trace!("proxy_static_get_prop: {}", proxy_name);
+
+        let prop_name = atoms::to_string2(context, &atom)
+            .ok()
+            .expect("could not get name");
+        trace!("proxy_static_get_prop: prop: {}", prop_name);
+
+        let registry = &*q_ctx.proxy_registry.borrow();
+        if let Some(proxy) = registry.get(proxy_name.as_str()) {
+            if let Some(getter_setter) = proxy.static_getters_setters.get(&prop_name) {
+                // call the setter
+                let setter = &getter_setter.1;
+                let res: Result<(), JsError> = setter(q_ctx, value_ref);
+                match res {
+                    Ok(_) => 0,
+                    Err(e) => {
+                        // fail, todo do i need ex?
+                        let err = format!("proxy_instance_set_prop failed: {}", e);
+                        log::error!("{}", err);
+                        //let _ = q_ctx.report_ex(err.as_str());
+                        -1
+                    }
+                }
+            } else {
+                // fail
+                -1
+            }
+        } else {
+            -1
+        }
+    })
 }
 
 unsafe extern "C" fn proxy_instance_set_prop(
-    _context: *mut q::JSContext,
-    _obj: q::JSValue,
-    _atom: q::JSAtom,
-    _value: q::JSValue,
+    context: *mut q::JSContext,
+    obj: q::JSValue,
+    atom: q::JSAtom,
+    value: q::JSValue,
     _receiver: q::JSValue,
     _flags: ::std::os::raw::c_int,
 ) -> ::std::os::raw::c_int {
     trace!("proxy_instance_set_prop");
-    0
+
+    let value_ref = JSValueRef::new(
+        context,
+        value,
+        false,
+        false,
+        "reflection::proxy_instance_set_prop value",
+    );
+
+    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
+        let q_ctx = q_js_rt.get_quickjs_context(context);
+
+        let prop_name = atoms::to_string2(context, &atom)
+            .ok()
+            .expect("could not get name");
+        trace!("proxy_instance_set_prop: {}", prop_name);
+
+        let info = get_proxy_instance_info(&obj);
+
+        trace!("obj_ref.classname = {}", info.class_name);
+
+        // see if we have a matching gettersetter
+
+        let registry = &*q_ctx.proxy_registry.borrow();
+        let proxy = registry.get(&info.class_name).unwrap();
+
+        if let Some(getter_setter) = proxy.getters_setters.get(&prop_name) {
+            // call the setter
+            let setter = &getter_setter.1;
+            let res: Result<(), JsError> = setter(q_ctx, &info.id, value_ref);
+            match res {
+                Ok(_) => 0,
+                Err(e) => {
+                    // fail, todo do i need ex?
+                    let err = format!("proxy_instance_set_prop failed: {}", e);
+                    log::error!("{}", err);
+                    //let _ = q_ctx.report_ex(err.as_str());
+                    -1
+                }
+            }
+        } else {
+            // fail
+            -1
+        }
+    })
 }
 
 #[cfg(test)]
