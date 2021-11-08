@@ -129,7 +129,21 @@ pub mod tests {
     use std::time::Duration;
 
     #[test]
-    fn test_ex() {
+    fn test_ex0() {
+        // check if stacktrace is preserved when invoking native methods
+
+        let rt = init_test_rt();
+        let res = rt.eval_sync(Script::new(
+            "ex.js",
+            "console.log('foo');\nconsole.log('bar');let a = __c_v__ * 7;",
+        ));
+        let ex = res.err().expect("sciprt should have failed;");
+
+        assert_eq!(ex.get_message(), "'__c_v__' is not defined");
+    }
+
+    #[test]
+    fn test_ex1() {
         // check if stacktrace is preserved when invoking native methods
 
         let rt = init_test_rt();
