@@ -9,10 +9,11 @@
 //!
 //! These are the structs you'll use the most
 //!
-//! | Thread safe | Runtime Thread-local |
-//! | --- | --- |
-//! | [EsRuntime](esruntime/struct.EsRuntime.html) the 'starting point' | [QuickJsRuntime](quickjsruntime/struct.QuickJsRuntime.html) the wrapper for all things quickjs |
-//! | [EsValueFacade](esvalue/struct.EsValueFacade.html) copy of or reference to a value in the Runtime | [JSValueRef](valueref/struct.JSValueRef.html) reference counting pointer to a Value |
+//! | Thread safe | Abstracted in hirofa_utils as | Runtime Thread-local | Abstracted in hirofa_utils as |
+//! | --- | --- | --- |
+//! | [QuickjsRuntimeFacade](facades/struct.QuickjsRuntimeFacade.html) the 'starting point' | [JsRuntimeFacade](https://hirofa.github.io/utils/hirofa_utils/js_utils/facades/trait.JsRuntimeFacade.html) | [QuickJsRuntimeAdapter](quickjsruntimeadapter/struct.QuickJsRuntimeAdapter.html) the wrapper for all things quickjs | [JsRuntimeAdapter](https://hirofa.github.io/utils/hirofa_utils/js_utils/adapters/trait.JsRuntimeAdapter.html) |
+//! | - | [QuickJsRealmAdapter](quickjsrealmadapter/struct.QuickJsRealmAdapter.html) a realm or context | [JsRealmAdapter](https://hirofa.github.io/utils/hirofa_utils/js_utils/adapters/trait.JsRealmAdapter.html) |
+//! | - | [JsValueFacade](https://hirofa.github.io/utils/hirofa_utils/js_utils/facades/values/enum.JsValueFacade.html) copy of or reference to a value in the Runtime | [JSValueRef](valueref/struct.JSValueRef.html) reference counting pointer to a Value | [JsValueAdapter](https://hirofa.github.io/utils/hirofa_utils/js_utils/adapters/trait.JsValueAdapter.html) |
 //!
 //! ## Doing something in the runtime worker thread
 //!
