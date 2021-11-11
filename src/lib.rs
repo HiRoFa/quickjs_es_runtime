@@ -10,27 +10,28 @@
 //! These are the structs you'll use the most
 //!
 //! | Thread safe | Abstracted in hirofa_utils as | Runtime Thread-local | Abstracted in hirofa_utils as |
-//! | --- | --- | --- |
+//! | --- | --- | --- | --- |
 //! | [QuickjsRuntimeFacade](facades/struct.QuickjsRuntimeFacade.html) the 'starting point' | [JsRuntimeFacade](https://hirofa.github.io/utils/hirofa_utils/js_utils/facades/trait.JsRuntimeFacade.html) | [QuickJsRuntimeAdapter](quickjsruntimeadapter/struct.QuickJsRuntimeAdapter.html) the wrapper for all things quickjs | [JsRuntimeAdapter](https://hirofa.github.io/utils/hirofa_utils/js_utils/adapters/trait.JsRuntimeAdapter.html) |
 //! | - | - | [QuickJsRealmAdapter](quickjsrealmadapter/struct.QuickJsRealmAdapter.html) a realm or context | [JsRealmAdapter](https://hirofa.github.io/utils/hirofa_utils/js_utils/adapters/trait.JsRealmAdapter.html) |
 //! | - | [JsValueFacade](https://hirofa.github.io/utils/hirofa_utils/js_utils/facades/values/enum.JsValueFacade.html) copy of or reference to a value in the Runtime | [JSValueRef](valueref/struct.JSValueRef.html) reference counting pointer to a Value | [JsValueAdapter](https://hirofa.github.io/utils/hirofa_utils/js_utils/adapters/trait.JsValueAdapter.html) |
 //!
 //! ## Doing something in the runtime worker thread
 //!
-//! You always start with building a new [EsRuntime](esruntime/struct.EsRuntime.html)
+//! You always start with building a new [QuickjsRuntimeFacade](facades/struct.QuickjsRuntimeFacade.html)
 //!
 //! ```dontrun
-//! use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-//! let rt: EsRuntime = EsRuntimeBuilder::new().build();
+//! use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+//! let rt: JsRuntimeFacade = QuickJsRuntimeBuilder::new().js_build();
 //! ```
 //!
-//! [EsRuntime](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html) has plenty public methods you can check out but one of the things you'll need to understand is how to communicate with the QuickJsRuntime
-//! This is done by adding a job to the [EventQueue](utils/single_threaded_event_queue/struct.SingleThreadedEventQueue.html) of the [EsRuntime](esruntime/struct.EsRuntime.html)
+//! [JsRuntimeFacade](https://hirofa.github.io/utils/hirofa_utils/js_utils/facades/trait.JsRuntimeFacade.html) has plenty public methods you can check out but one of the things you'll need to understand is how to communicate with the [JsRuntimeAdapter](https://hirofa.github.io/utils/hirofa_utils/js_utils/adapters/trait.JsRuntimeAdapter.html) and the [JsRealmAdapter](https://hirofa.github.io/utils/hirofa_utils/js_utils/adapters/trait.JsRealmAdapter.html)
+//! This is done by adding a job to the [EventLoop](https://hirofa.github.io/utils/hirofa_utils/eventloop/struct.EventLoop.html) of the [JsRuntimeFacade](https://hirofa.github.io/utils/hirofa_utils/js_utils/facades/trait.JsRuntimeFacade.html)
 //!
 //! ```dontrun
-//! use quickjs_runtime::quickjsruntime::QuickJsRuntime;
-//! let res = rt.add_to_event_queue(|q_js_rt: &QuickJsRuntime| {
-//!    // this will run in the Worker thread, here we can use the quickjs API
+//! // with the first Option you may specify which realm to use, None indicates the default or main realm
+//! let res = rt.js_loop_realm(None, |rt: JsRuntimeAdapter, realm: JsRealmAdapter| {
+//!    // this will run in the Worker thread, here we can use the Adapters
+//!    
 //!    return true;
 //! }).await;
 //! ```
@@ -39,10 +40,31 @@
 //! In order to do something and get the result synchronously you can use the sync variant
 //! ```dontrun
 //! use quickjs_runtime::quickjsruntime::QuickJsRuntime;
-//! let res = rt.add_to_event_queue_sync(|q_js_rt: &QuickJsRuntime| {
+//! let res = rt.js_loop_realm_sync(None, |rt, realm| {
 //!    // this will run in the Worker thread, here we can use the quickjs API
 //!    return 1;
 //! });
+//! ```
+//!
+//! One last thing you need to know is how to pass values from the js engine out of the worker thread
+//!
+//! This is where the JsValueFacade comes in
+//!
+//! ```dontrun
+//!
+//! // init a simple function
+//! rt.js_eval(Script::new("init_func.js", "globalThis.myObj = {someMember: {someFunction: function(input){return(input + " > hello rust!");}}};")).await;
+//!
+//! let input_facade = JsValueFacade::new_str("hello js!");
+//! let res = rt.js_loop_realm(None, move |rt: JsRuntimeAdapter, realm: JsRealmAdapter| {
+//!    // convert JsValueFacade to JsValueAdapter
+//!    let input_adapter = realm.from_js_value_facade(input_facade);
+//!    // call myObj.someMember.someFunction();
+//!    let result_adapter = realm.js_function_invoke_by_name(&["myObj", "someMember"], "someFunction", &[input_adapter])?;
+//!    // convert adapter to facade again so it may move out of the worker thread
+//!    return realm.to_js_value_facade();
+//! }).await;
+//! assert_eq!(res.get_str(), "hello_js! > hello rust!");
 //! ```
 //!
 //! For more details and examples please explore the packages below
