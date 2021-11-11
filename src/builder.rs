@@ -1,3 +1,5 @@
+//! contains the QuickJsRuntimeBuilder which may be used to instantiate a new QuickjsRuntimeFacade
+
 use crate::facades::QuickJsRuntimeFacade;
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;

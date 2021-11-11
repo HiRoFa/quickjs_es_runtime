@@ -1,3 +1,5 @@
+//! contains the legacy EsValueFacade which will be deprecated in favour of utils::JsValueFacade in the near future
+
 use crate::facades::{QuickJsRuntimeFacade, QuickjsRuntimeFacadeInner};
 use crate::quickjs_utils::arrays::{get_element_q, get_length_q, is_array_q};
 use crate::quickjs_utils::dates::is_date_q;

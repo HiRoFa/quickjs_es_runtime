@@ -1,3 +1,5 @@
+//! contains engine features like console, setTimeout, setInterval and setImmediate
+
 use crate::facades::QuickJsRuntimeFacade;
 use hirofa_utils::js_utils::JsError;
 

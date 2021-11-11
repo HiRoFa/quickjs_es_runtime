@@ -1,3 +1,5 @@
+//! utils for implementing proxy classes which can be used to use rust structs from JS (define method/getters/setters/etc)
+
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions::new_native_function_q;
 use crate::quickjs_utils::primitives::from_string;

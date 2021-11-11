@@ -1,3 +1,5 @@
+//! contains the QuickJsRuntimeFacade
+
 use crate::builder::QuickJsRuntimeBuilder;
 use crate::esvalue::EsValueFacade;
 use crate::features;

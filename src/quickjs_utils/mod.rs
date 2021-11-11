@@ -1,3 +1,5 @@
+//! low level contains utils for calling the quickjs api
+
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 
 pub mod arrays;

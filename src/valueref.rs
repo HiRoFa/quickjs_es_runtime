@@ -1,3 +1,5 @@
+//! JSValueRef is a wrapper for quickjs's JSValue. it provides automatic reference counting making it safer to use  
+
 use crate::quickjs_utils::{arrays, errors, functions, primitives, promises};
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use hirofa_utils::js_utils::adapters::JsValueAdapter;

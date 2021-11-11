@@ -1,7 +1,7 @@
 //! # quickjs_runtime
-//! This crate is made up of two main parts:
+//! This crate consists of two main parts:
 //! * thread-safe utils and wrappers
-//!   you can call these from any thread, all logic is directed to a single worker-thread which talks to the quickjs API
+//!   you can call these from any thread, all logic is directed to a single worker-thread(EventLoop) which invokes the quickjs API
 //! * quickjs bindings and utils
 //!   these talk to the quickjs API directly and need to run in the same thread as the Runtime
 //!
@@ -13,7 +13,7 @@
 //! | --- | --- | --- | --- |
 //! | [QuickjsRuntimeFacade](facades/struct.QuickjsRuntimeFacade.html) the 'starting point' | [JsRuntimeFacade](https://hirofa.github.io/utils/hirofa_utils/js_utils/facades/trait.JsRuntimeFacade.html) | [QuickJsRuntimeAdapter](quickjsruntimeadapter/struct.QuickJsRuntimeAdapter.html) the wrapper for all things quickjs | [JsRuntimeAdapter](https://hirofa.github.io/utils/hirofa_utils/js_utils/adapters/trait.JsRuntimeAdapter.html) |
 //! | - | - | [QuickJsRealmAdapter](quickjsrealmadapter/struct.QuickJsRealmAdapter.html) a realm or context | [JsRealmAdapter](https://hirofa.github.io/utils/hirofa_utils/js_utils/adapters/trait.JsRealmAdapter.html) |
-//! | - | [JsValueFacade](https://hirofa.github.io/utils/hirofa_utils/js_utils/facades/values/enum.JsValueFacade.html) copy of or reference to a value in the Runtime | [JSValueRef](valueref/struct.JSValueRef.html) reference counting pointer to a Value | [JsValueAdapter](https://hirofa.github.io/utils/hirofa_utils/js_utils/adapters/trait.JsValueAdapter.html) |
+//! | - | [JsValueFacade](https://hirofa.github.io/utils/hirofa_utils/js_utils/facades/values/enum.JsValueFacade.html) copy of- or reference to a value in the JsRuntimeAdapter | [JSValueRef](valueref/struct.JSValueRef.html) reference counting pointer to a Value | [JsValueAdapter](https://hirofa.github.io/utils/hirofa_utils/js_utils/adapters/trait.JsValueAdapter.html) |
 //!
 //! ## Doing something in the runtime worker thread
 //!
