@@ -1006,6 +1006,34 @@ pub mod tests {
         log::trace!("after sleep");
     }
 
+    #[test]
+    pub fn test_stack_size() {
+        let rt = init_test_rt();
+        // 150 is ok, 200 fails
+        let res = rt.eval_sync(Script::new(
+            "stack_test.js",
+            "let f = function(a){let f2 = arguments.callee; if (a < 150) {f2(a + 1);}}; f(1);",
+        ));
+        match res {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("fail: {}", e);
+                panic!("fail: {}", e);
+            }
+        }
+
+        let res = rt.eval_sync(Script::new(
+            "stack_test.js",
+            "let f = function(a){let f2 = arguments.callee; if (a < 1000) {f2(a + 1);}}; f(1);",
+        ));
+        match res {
+            Ok(_) => {
+                panic!("stack should have overflowed");
+            }
+            Err(_) => {}
+        }
+    }
+
     pub fn init_test_rt() -> QuickJsRuntimeFacade {
         panic::set_hook(Box::new(|panic_info| {
             let backtrace = Backtrace::new();
@@ -1026,7 +1054,7 @@ pub mod tests {
 
         QuickJsRuntimeFacade::builder()
             .gc_interval(Duration::from_secs(1))
-            .max_stack_size(0)
+            .max_stack_size(128 * 1024)
             .script_module_loader(Box::new(TestScriptModuleLoader {}))
             .native_module_loader(Box::new(TestNativeModuleLoader {}))
             .build()

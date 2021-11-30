@@ -222,6 +222,10 @@ pub struct QuickJsRuntimeAdapter {
     pub(crate) interrupt_handler: Option<Box<dyn Fn(&QuickJsRuntimeAdapter) -> bool>>,
 }
 
+thread_local! {
+    static NESTED: RefCell<bool> = RefCell::new(false);
+}
+
 impl QuickJsRuntimeAdapter {
     pub(crate) fn init_rt_for_current_thread(rt: QuickJsRuntimeAdapter) {
         QJS_RT.with(|rc| {
@@ -423,28 +427,66 @@ impl QuickJsRuntimeAdapter {
     where
         C: FnOnce(&QuickJsRuntimeAdapter) -> R,
     {
-        QJS_RT.with(|qjs_rc| {
+        let most_outer = NESTED.with(|rc| {
+            if *rc.borrow() {
+                false
+            } else {
+                *rc.borrow_mut() = true;
+                true
+            }
+        });
+
+        let res = QJS_RT.with(|qjs_rc| {
             let qjs_rt_opt = &*qjs_rc.borrow();
             let q_js_rt = qjs_rt_opt
                 .as_ref()
                 .expect("runtime was not yet initialized for this thread");
-            //unsafe { libquickjs_sys::JS_UpdateStackTop(q_js_rt.runtime) };
+            if most_outer {
+                unsafe { libquickjs_sys::JS_UpdateStackTop(q_js_rt.runtime) };
+            }
             task(q_js_rt)
-        })
+        });
+
+        if most_outer {
+            NESTED.with(|rc| {
+                *rc.borrow_mut() = false;
+            });
+        }
+
+        res
     }
 
     pub fn do_with_mut<C, R>(task: C) -> R
     where
         C: FnOnce(&mut QuickJsRuntimeAdapter) -> R,
     {
-        QJS_RT.with(|qjs_rc| {
-            let qjs_rt = &mut *qjs_rc.borrow_mut();
-            task(
-                qjs_rt
-                    .as_mut()
-                    .expect("runtime was not yet initialized for this thread"),
-            )
-        })
+        let most_outer = NESTED.with(|rc| {
+            if *rc.borrow() {
+                false
+            } else {
+                *rc.borrow_mut() = true;
+                true
+            }
+        });
+
+        let res = QJS_RT.with(|qjs_rc| {
+            let qjs_rt_opt = &mut *qjs_rc.borrow_mut();
+            let qjs_rt = qjs_rt_opt
+                .as_mut()
+                .expect("runtime was not yet initialized for this thread");
+            if most_outer {
+                unsafe { libquickjs_sys::JS_UpdateStackTop(qjs_rt.runtime) };
+            }
+            task(qjs_rt)
+        });
+
+        if most_outer {
+            NESTED.with(|rc| {
+                *rc.borrow_mut() = false;
+            });
+        }
+
+        res
     }
 
     /// run pending jobs if avail

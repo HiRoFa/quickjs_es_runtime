@@ -1,11 +1,11 @@
 [package]
 name = "quickjs_runtime"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Andries Hiemstra <info@hirofa.com>"]
 edition = "2018"
-description = "Wrapper API and utils for the QuickJS JavaScript engine"
+description = "Wrapper API and utils for the QuickJS JavaScript engine with support for Promise, Module, Async/await"
 homepage = "https://github.com/HiRoFa/quickjs_es_runtime"
-keywords = ["quickjs", "javascript", "runtime", "engine", "js"]
+keywords = ["quickjs", "javascript", "runtime", "async", "engine"]
 repository = "https://github.com/HiRoFa/quickjs_es_runtime"
 license = "MIT"
 documentation = "https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/index.html"
