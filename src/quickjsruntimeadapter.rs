@@ -1,6 +1,7 @@
 // store in thread_local
 
 use crate::facades::{QuickJsRuntimeFacade, QuickjsRuntimeFacadeInner};
+use crate::quickjs_utils::compile::from_bytecode;
 use crate::quickjs_utils::modules::{
     add_module_export, compile_module, get_module_def, get_module_name, new_module,
     set_module_export,
@@ -8,7 +9,9 @@ use crate::quickjs_utils::modules::{
 use crate::quickjs_utils::{gc, interrupthandler, modules, promises};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use hirofa_utils::js_utils::adapters::JsRuntimeAdapter;
-use hirofa_utils::js_utils::modules::{NativeModuleLoader, ScriptModuleLoader};
+use hirofa_utils::js_utils::modules::{
+    CompiledModuleLoader, NativeModuleLoader, ScriptModuleLoader,
+};
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use hirofa_utils::js_utils::ScriptPreProcessor;
@@ -50,6 +53,16 @@ pub trait ModuleLoader {
 
 // these are the external (util) loaders (todo move these to esruntime?)
 
+pub struct CompiledModuleLoaderAdapter {
+    inner: Box<dyn CompiledModuleLoader>,
+}
+
+impl CompiledModuleLoaderAdapter {
+    pub fn new(loader: Box<dyn CompiledModuleLoader>) -> Self {
+        Self { inner: loader }
+    }
+}
+
 pub struct ScriptModuleLoaderAdapter {
     inner: Box<dyn ScriptModuleLoader>,
 }
@@ -57,6 +70,41 @@ pub struct ScriptModuleLoaderAdapter {
 impl ScriptModuleLoaderAdapter {
     pub fn new(loader: Box<dyn ScriptModuleLoader>) -> Self {
         Self { inner: loader }
+    }
+}
+
+impl ModuleLoader for CompiledModuleLoaderAdapter {
+    fn normalize_path(
+        &self,
+        _q_ctx: &QuickJsRealmAdapter,
+        ref_path: &str,
+        path: &str,
+    ) -> Option<String> {
+        self.inner.normalize_path(ref_path, path)
+    }
+
+    fn load_module(
+        &self,
+        q_ctx: &QuickJsRealmAdapter,
+        absolute_path: &str,
+    ) -> Result<*mut q::JSModuleDef, JsError> {
+        let bytes = self.inner.load_module(absolute_path);
+
+        let compiled_module = unsafe { from_bytecode(q_ctx.context, bytes)? };
+        Ok(get_module_def(&compiled_module))
+    }
+
+    fn has_module(&self, q_ctx: &QuickJsRealmAdapter, absolute_path: &str) -> bool {
+        self.normalize_path(q_ctx, absolute_path, absolute_path)
+            .is_some()
+    }
+
+    unsafe fn init_module(
+        &self,
+        _q_ctx: &QuickJsRealmAdapter,
+        _module: *mut q::JSModuleDef,
+    ) -> Result<(), JsError> {
+        Ok(())
     }
 }
 
@@ -218,6 +266,7 @@ pub struct QuickJsRuntimeAdapter {
     context_init_hooks: RefCell<ContextInitHooks>,
     script_module_loaders: Vec<ScriptModuleLoaderAdapter>,
     native_module_loaders: Vec<NativeModuleLoaderAdapter>,
+    compiled_module_loaders: Vec<CompiledModuleLoaderAdapter>,
     pub(crate) script_pre_processors: Vec<Box<dyn ScriptPreProcessor + Send>>,
     pub(crate) interrupt_handler: Option<Box<dyn Fn(&QuickJsRuntimeAdapter) -> bool>>,
 }
@@ -364,6 +413,7 @@ impl QuickJsRuntimeAdapter {
             context_init_hooks: RefCell::new(vec![]),
             script_module_loaders: vec![],
             native_module_loaders: vec![],
+            compiled_module_loaders: vec![],
             script_pre_processors: vec![],
             interrupt_handler: None,
         };
@@ -390,6 +440,10 @@ impl QuickJsRuntimeAdapter {
         self.script_module_loaders.push(sml);
     }
 
+    pub fn add_compiled_module_loader(&mut self, cml: CompiledModuleLoaderAdapter) {
+        self.compiled_module_loaders.push(cml);
+    }
+
     pub fn add_native_module_loader(&mut self, nml: NativeModuleLoaderAdapter) {
         self.native_module_loaders.push(nml);
     }
@@ -403,6 +457,12 @@ impl QuickJsRuntimeAdapter {
     where
         C: Fn(&dyn ModuleLoader) -> Option<R>,
     {
+        for loader in &self.compiled_module_loaders {
+            let res = consumer(loader);
+            if res.is_some() {
+                return res;
+            }
+        }
         for loader in &self.native_module_loaders {
             let res = consumer(loader);
             if res.is_some() {

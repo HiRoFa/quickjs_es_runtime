@@ -309,4 +309,12 @@ pub mod tests {
             assert_eq!(1, func2.get_ref_count());
         });
     }
+
+    #[test]
+    fn test_bytecode_module() {
+        //let rt = QuickJsRuntimeBuilder::new().script_module_loader().build();
+
+
+
+    }
 }

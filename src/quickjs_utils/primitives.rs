@@ -88,6 +88,41 @@ pub unsafe fn to_string(
     Ok(s)
 }
 
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn to_str(
+    context: *mut q::JSContext,
+    value_ref: &JSValueRef,
+) -> Result<&str, JsError> {
+    log::trace!("primitives::to_str on {}", value_ref.borrow_value().tag);
+
+    assert!(value_ref.is_string());
+
+    let mut len = 0;
+
+    let ptr: *const c_char = q::JS_ToCStringLen2(context, &mut len, *value_ref.borrow_value(), 0);
+    // Free the c string.
+    q::JS_FreeCString(context, ptr);
+    // ptr should still be valid as long as value_ref lives
+
+    if len == 0 {
+        return Ok("");
+    }
+
+    if ptr.is_null() {
+        return Err(JsError::new_str(
+            "Could not convert string: got a null pointer",
+        ));
+    }
+
+    let cstr = std::ffi::CStr::from_ptr(ptr);
+    Ok(cstr.to_str().expect("bad cstr bad!"))
+
+    //let s = cstr.to_string_lossy();
+
+    //Ok(s.as_ref())
+}
+
 pub fn from_string_q(q_ctx: &QuickJsRealmAdapter, s: &str) -> Result<JSValueRef, JsError> {
     unsafe { from_string(q_ctx.context, s) }
 }

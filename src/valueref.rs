@@ -365,4 +365,44 @@ impl JsValueAdapter for JSValueRef {
             _ => unsafe { functions::call_to_string(self.context, self) },
         }
     }
+
+    fn js_to_str(&self) -> Result<&str, JsError> {
+        if self.js_get_type() == JsValueType::String {
+            unsafe { primitives::to_str(self.context, self) }
+        } else {
+            Err(JsError::new_str("this value is not a string"))
+        }
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::facades::tests::init_test_rt;
+    use hirofa_utils::js_utils::adapters::JsValueAdapter;
+    use hirofa_utils::js_utils::facades::JsValueType;
+    use hirofa_utils::js_utils::Script;
+
+    #[test]
+    fn test_to_str() {
+        let rt = init_test_rt();
+        rt.exe_rt_task_in_event_loop(|q_js_rt| {
+            let q_ctx = q_js_rt.get_main_context();
+            let res = q_ctx.eval(Script::new("test_to_str.es", "('hello ' + 'world');"));
+
+            match res {
+                Ok(res) => {
+                    log::info!("script ran ok: {:?}", res);
+                    assert!(res.js_get_type() == JsValueType::String);
+                    assert_eq!(
+                        res.js_to_str().ok().expect("str conv failed"),
+                        "hello world"
+                    );
+                }
+                Err(e) => {
+                    log::error!("script failed: {}", e);
+                    panic!("script failed");
+                }
+            }
+        });
+    }
 }

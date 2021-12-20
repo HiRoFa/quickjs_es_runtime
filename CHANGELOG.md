@@ -1,7 +1,10 @@
-# 0.6.1 (work in progress)
+# 0.7.0 (work in progress)
 
 * implemented js_proxy_new_instance_with_id from utils which allows you to create an instance of a proxy with a predefined id
-* implemented set_prop / has_prop functions in proxies 
+* implemented set_prop / has_prop functions in proxies
+* implemented CompiledModuleLoader
+* implemented jsValueAdapter.js_to_str()
+* changed some deps to minor version x.x instead of x.x.x
 
 # 0.6.0
 

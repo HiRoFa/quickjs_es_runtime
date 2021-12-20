@@ -43,6 +43,7 @@ pub struct QuickJsRealmAdapter {
 }
 
 thread_local! {
+    #[allow(clippy::box_collection)]
     static ID_REGISTRY: RefCell<HashMap<String, Box<String>>> = RefCell::new(HashMap::new());
 }
 

@@ -5,7 +5,7 @@ use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use hirofa_utils::js_utils::adapters::JsRuntimeAdapter;
 use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
-use hirofa_utils::js_utils::modules::{NativeModuleLoader, ScriptModuleLoader};
+use hirofa_utils::js_utils::modules::{CompiledModuleLoader, NativeModuleLoader, ScriptModuleLoader};
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::ScriptPreProcessor;
 use std::time::Duration;
@@ -25,6 +25,7 @@ pub type EsRuntimeInitHooks =
 pub struct QuickJsRuntimeBuilder {
     pub(crate) script_module_loaders: Vec<Box<dyn ScriptModuleLoader + Send>>,
     pub(crate) native_module_loaders: Vec<Box<dyn NativeModuleLoader<QuickJsRealmAdapter> + Send>>,
+    pub(crate) compiled_module_loaders: Vec<Box<dyn CompiledModuleLoader + Send>>,
     pub(crate) opt_memory_limit_bytes: Option<u64>,
     pub(crate) opt_gc_threshold: Option<u64>,
     pub(crate) opt_max_stack_size: Option<u64>,
@@ -45,6 +46,7 @@ impl QuickJsRuntimeBuilder {
         Self {
             script_module_loaders: vec![],
             native_module_loaders: vec![],
+            compiled_module_loaders: vec![],
             opt_memory_limit_bytes: None,
             opt_gc_threshold: None,
             opt_max_stack_size: None,
@@ -230,6 +232,11 @@ impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
         module_loader: S,
     ) -> Self {
         self.script_module_loaders.push(Box::new(module_loader));
+        self
+    }
+
+    fn js_compiled_module_loader<S: CompiledModuleLoader + Send + 'static>(mut self, module_loader: S) -> Self {
+        self.compiled_module_loaders.push(Box::new(module_loader));
         self
     }
 

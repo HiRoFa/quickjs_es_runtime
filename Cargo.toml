@@ -1,6 +1,6 @@
 [package]
 name = "quickjs_runtime"
-version = "0.6.1"
+version = "0.7.0"
 authors = ["Andries Hiemstra <info@hirofa.com>"]
 edition = "2018"
 description = "Wrapper API and utils for the QuickJS JavaScript engine with support for Promise, Module, Async/await"
@@ -22,11 +22,11 @@ hirofa_utils = {git="https://github.com/HiRoFa/utils"}
 backtrace = "0.3.56"
 libquickjs-sys = "0.10.0"
 lazy_static = "1.4.0"
-log = "0.4.11"
-simple-logging = "2.0.2"
-num_cpus = "1.13.0"
-rand = "0.7.3"
-thread-id = "3.3.0"
+log = "0.4"
+simple-logging = "2.0"
+num_cpus = "1.13"
+rand = "0.7"
+thread-id = "3.3"
 futures = "0.3"
 tokio = {version = "1.4", features = ["rt-multi-thread", "rt", "bytes", "fs", "io-std", "io-util", "libc", "macros", "memchr", "winapi", "tracing", "time", "tokio-macros", "test-util", "sync", "parking_lot", "once_cell", "mio", "net", "num_cpus"]}
 

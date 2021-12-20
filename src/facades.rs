@@ -5,9 +5,7 @@ use crate::esvalue::EsValueFacade;
 use crate::features;
 use crate::quickjs_utils::{functions, objects};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-use crate::quickjsruntimeadapter::{
-    NativeModuleLoaderAdapter, QuickJsRuntimeAdapter, ScriptModuleLoaderAdapter, QJS_RT,
-};
+use crate::quickjsruntimeadapter::{NativeModuleLoaderAdapter, QuickJsRuntimeAdapter, ScriptModuleLoaderAdapter, QJS_RT, CompiledModuleLoaderAdapter};
 use crate::valueref::JSValueRef;
 use hirofa_utils::eventloop::EventLoop;
 use hirofa_utils::js_utils::adapters::{JsRealmAdapter, JsRuntimeAdapter};
@@ -239,6 +237,11 @@ impl QuickJsRuntimeFacade {
                 for script_module_loader in builder.script_module_loaders {
                     q_js_rt.add_script_module_loader(ScriptModuleLoaderAdapter::new(
                         script_module_loader,
+                    ));
+                }
+                for compiled_module_loader in builder.compiled_module_loaders {
+                    q_js_rt.add_compiled_module_loader(CompiledModuleLoaderAdapter::new(
+                        compiled_module_loader,
                     ));
                 }
                 q_js_rt.script_pre_processors = builder.script_pre_processors;
