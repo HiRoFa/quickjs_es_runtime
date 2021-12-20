@@ -90,10 +90,7 @@ pub unsafe fn to_string(
 
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn to_str(
-    context: *mut q::JSContext,
-    value_ref: &JSValueRef,
-) -> Result<&str, JsError> {
+pub unsafe fn to_str(context: *mut q::JSContext, value_ref: &JSValueRef) -> Result<&str, JsError> {
     log::trace!("primitives::to_str on {}", value_ref.borrow_value().tag);
 
     assert!(value_ref.is_string());

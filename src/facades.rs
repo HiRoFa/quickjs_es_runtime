@@ -5,7 +5,10 @@ use crate::esvalue::EsValueFacade;
 use crate::features;
 use crate::quickjs_utils::{functions, objects};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-use crate::quickjsruntimeadapter::{NativeModuleLoaderAdapter, QuickJsRuntimeAdapter, ScriptModuleLoaderAdapter, QJS_RT, CompiledModuleLoaderAdapter};
+use crate::quickjsruntimeadapter::{
+    CompiledModuleLoaderAdapter, NativeModuleLoaderAdapter, QuickJsRuntimeAdapter,
+    ScriptModuleLoaderAdapter, QJS_RT,
+};
 use crate::valueref::JSValueRef;
 use hirofa_utils::eventloop::EventLoop;
 use hirofa_utils::js_utils::adapters::{JsRealmAdapter, JsRuntimeAdapter};

@@ -313,8 +313,5 @@ pub mod tests {
     #[test]
     fn test_bytecode_module() {
         //let rt = QuickJsRuntimeBuilder::new().script_module_loader().build();
-
-
-
     }
 }

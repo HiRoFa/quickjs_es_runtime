@@ -5,7 +5,9 @@ use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use hirofa_utils::js_utils::adapters::JsRuntimeAdapter;
 use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
-use hirofa_utils::js_utils::modules::{CompiledModuleLoader, NativeModuleLoader, ScriptModuleLoader};
+use hirofa_utils::js_utils::modules::{
+    CompiledModuleLoader, NativeModuleLoader, ScriptModuleLoader,
+};
 use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::ScriptPreProcessor;
 use std::time::Duration;
@@ -235,7 +237,10 @@ impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
         self
     }
 
-    fn js_compiled_module_loader<S: CompiledModuleLoader + Send + 'static>(mut self, module_loader: S) -> Self {
+    fn js_compiled_module_loader<S: CompiledModuleLoader + Send + 'static>(
+        mut self,
+        module_loader: S,
+    ) -> Self {
         self.compiled_module_loaders.push(Box::new(module_loader));
         self
     }
