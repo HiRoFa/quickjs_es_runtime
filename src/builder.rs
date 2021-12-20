@@ -27,7 +27,8 @@ pub type EsRuntimeInitHooks =
 pub struct QuickJsRuntimeBuilder {
     pub(crate) script_module_loaders: Vec<Box<dyn ScriptModuleLoader + Send>>,
     pub(crate) native_module_loaders: Vec<Box<dyn NativeModuleLoader<QuickJsRealmAdapter> + Send>>,
-    pub(crate) compiled_module_loaders: Vec<Box<dyn CompiledModuleLoader + Send>>,
+    pub(crate) compiled_module_loaders:
+        Vec<Box<dyn CompiledModuleLoader<QuickJsRealmAdapter> + Send>>,
     pub(crate) opt_memory_limit_bytes: Option<u64>,
     pub(crate) opt_gc_threshold: Option<u64>,
     pub(crate) opt_max_stack_size: Option<u64>,
@@ -237,10 +238,14 @@ impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
         self
     }
 
-    fn js_compiled_module_loader<S: CompiledModuleLoader + Send + 'static>(
+    fn js_compiled_module_loader<
+        S: CompiledModuleLoader<<<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType>
+        + Send
+        + 'static
+    >(
         mut self,
         module_loader: S,
-    ) -> Self {
+    ) -> Self{
         self.compiled_module_loaders.push(Box::new(module_loader));
         self
     }

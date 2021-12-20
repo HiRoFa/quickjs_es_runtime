@@ -54,11 +54,11 @@ pub trait ModuleLoader {
 // these are the external (util) loaders (todo move these to esruntime?)
 
 pub struct CompiledModuleLoaderAdapter {
-    inner: Box<dyn CompiledModuleLoader>,
+    inner: Box<dyn CompiledModuleLoader<QuickJsRealmAdapter>>,
 }
 
 impl CompiledModuleLoaderAdapter {
-    pub fn new(loader: Box<dyn CompiledModuleLoader>) -> Self {
+    pub fn new(loader: Box<dyn CompiledModuleLoader<QuickJsRealmAdapter>>) -> Self {
         Self { inner: loader }
     }
 }
@@ -76,11 +76,11 @@ impl ScriptModuleLoaderAdapter {
 impl ModuleLoader for CompiledModuleLoaderAdapter {
     fn normalize_path(
         &self,
-        _q_ctx: &QuickJsRealmAdapter,
+        q_ctx: &QuickJsRealmAdapter,
         ref_path: &str,
         path: &str,
     ) -> Option<String> {
-        self.inner.normalize_path(ref_path, path)
+        self.inner.normalize_path(q_ctx, ref_path, path)
     }
 
     fn load_module(
@@ -88,7 +88,7 @@ impl ModuleLoader for CompiledModuleLoaderAdapter {
         q_ctx: &QuickJsRealmAdapter,
         absolute_path: &str,
     ) -> Result<*mut q::JSModuleDef, JsError> {
-        let bytes = self.inner.load_module(absolute_path);
+        let bytes = self.inner.load_module(q_ctx, absolute_path);
 
         let compiled_module = unsafe { from_bytecode(q_ctx.context, bytes)? };
         Ok(get_module_def(&compiled_module))

@@ -180,6 +180,7 @@ pub mod tests {
     };
     use crate::quickjs_utils::modules::compile_module;
     use crate::quickjs_utils::primitives;
+    use crate::quickjsrealmadapter::QuickJsRealmAdapter;
     use backtrace::Backtrace;
     use futures::executor::block_on;
     use hirofa_utils::js_utils::facades::values::JsValueFacade;
@@ -340,12 +341,17 @@ pub mod tests {
     }
 
     struct Cml {}
-    impl CompiledModuleLoader for Cml {
-        fn normalize_path(&self, _ref_path: &str, path: &str) -> Option<String> {
+    impl CompiledModuleLoader<QuickJsRealmAdapter> for Cml {
+        fn normalize_path(
+            &self,
+            _q_ctx: &QuickJsRealmAdapter,
+            _ref_path: &str,
+            path: &str,
+        ) -> Option<String> {
             Some(path.to_string())
         }
 
-        fn load_module(&self, _absolute_path: &str) -> &Vec<u8> {
+        fn load_module(&self, _q_ctx: &QuickJsRealmAdapter, _absolute_path: &str) -> &Vec<u8> {
             &COMPILED_BYTES
         }
     }
