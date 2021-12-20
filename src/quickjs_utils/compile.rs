@@ -189,6 +189,7 @@ pub mod tests {
     use hirofa_utils::js_utils::Script;
     use log::LevelFilter;
     use std::panic;
+    use std::sync::Arc;
 
     #[test]
     fn test_compile() {
@@ -320,10 +321,10 @@ pub mod tests {
     }
 
     lazy_static! {
-        static ref COMPILED_BYTES: Vec<u8> = init_bytes();
+        static ref COMPILED_BYTES: Arc<Vec<u8>> = init_bytes();
     }
 
-    fn init_bytes() -> Vec<u8> {
+    fn init_bytes() -> Arc<Vec<u8>> {
         // in order to init our bytes fgor our module we lazy init a rt
         let rt = QuickJsRuntimeBuilder::new().build();
         rt.js_loop_realm_sync(None, |_rt, realm| unsafe {
@@ -336,7 +337,7 @@ pub mod tests {
                 .ok()
                 .expect("compile failed");
 
-            to_bytecode(realm.context, &module)
+            Arc::new(to_bytecode(realm.context, &module))
         })
     }
 
@@ -351,8 +352,8 @@ pub mod tests {
             Some(path.to_string())
         }
 
-        fn load_module(&self, _q_ctx: &QuickJsRealmAdapter, _absolute_path: &str) -> &Vec<u8> {
-            &COMPILED_BYTES
+        fn load_module(&self, _q_ctx: &QuickJsRealmAdapter, _absolute_path: &str) -> Arc<Vec<u8>> {
+            COMPILED_BYTES.clone()
         }
     }
 

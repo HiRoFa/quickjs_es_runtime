@@ -90,7 +90,7 @@ impl ModuleLoader for CompiledModuleLoaderAdapter {
     ) -> Result<*mut q::JSModuleDef, JsError> {
         let bytes = self.inner.load_module(q_ctx, absolute_path);
 
-        let compiled_module = unsafe { from_bytecode(q_ctx.context, bytes)? };
+        let compiled_module = unsafe { from_bytecode(q_ctx.context, &bytes)? };
         Ok(get_module_def(&compiled_module))
     }
 
