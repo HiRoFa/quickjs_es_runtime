@@ -110,7 +110,7 @@ pub unsafe fn run_compiled_function(
 ///     let bytecode: Vec<u8> = to_bytecode(q_ctx.context, &func);
 ///     drop(func);
 ///     assert!(!bytecode.is_empty());
-///         let func2_res = from_bytecode(q_ctx.context, bytecode);
+///         let func2_res = from_bytecode(q_ctx.context, &bytecode);
 ///         let func2 = func2_res.ok().expect("could not read bytecode");
 ///         let run_res = run_compiled_function(q_ctx.context, &func2);
 ///         let res = run_res.ok().expect("run_compiled_function failed");
@@ -146,7 +146,7 @@ pub unsafe fn to_bytecode(context: *mut q::JSContext, compiled_func: &JSValueRef
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn from_bytecode(
     context: *mut q::JSContext,
-    bytecode: Vec<u8>,
+    bytecode: &[u8],
 ) -> Result<JSValueRef, JsError> {
     assert!(!bytecode.is_empty());
     {
@@ -208,7 +208,7 @@ pub mod tests {
             let bytecode: Vec<u8> = unsafe { to_bytecode(q_ctx.context, &func) };
             drop(func);
             assert!(!bytecode.is_empty());
-            let func2_res = unsafe { from_bytecode(q_ctx.context, bytecode) };
+            let func2_res = unsafe { from_bytecode(q_ctx.context, &bytecode) };
             let func2 = func2_res.ok().expect("could not read bytecode");
             let run_res = unsafe { run_compiled_function(q_ctx.context, &func2) };
             match run_res {
@@ -240,7 +240,7 @@ pub mod tests {
             let bytecode: Vec<u8> = to_bytecode(q_ctx.context, &func);
             drop(func);
             assert!(!bytecode.is_empty());
-            let func2_res = from_bytecode(q_ctx.context, bytecode);
+            let func2_res = from_bytecode(q_ctx.context, &bytecode);
             let func2 = func2_res.ok().expect("could not read bytecode");
             let run_res = run_compiled_function(q_ctx.context, &func2);
 
@@ -297,7 +297,7 @@ pub mod tests {
 
             assert!(!bytecode.is_empty());
 
-            let func2_res = from_bytecode(q_ctx.context, bytecode);
+            let func2_res = from_bytecode(q_ctx.context, &bytecode);
             let func2 = func2_res.ok().expect("could not read bytecode");
             //should fail the second time you run this because abcdef is already defined
 
@@ -345,8 +345,8 @@ pub mod tests {
             Some(path.to_string())
         }
 
-        fn load_module(&self, _absolute_path: &str) -> Vec<u8> {
-            COMPILED_BYTES.clone()
+        fn load_module(&self, _absolute_path: &str) -> &Vec<u8> {
+            &COMPILED_BYTES
         }
     }
 
