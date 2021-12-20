@@ -123,7 +123,7 @@ pub unsafe fn run_compiled_function(
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn to_bytecode(context: *mut q::JSContext, compiled_func: &JSValueRef) -> Vec<u8> {
-    assert!(compiled_func.is_compiled_function());
+    assert!(compiled_func.is_compiled_function() || compiled_func.is_module());
 
     let mut len = 0;
 
@@ -178,8 +178,16 @@ pub mod tests {
     use crate::quickjs_utils::compile::{
         compile, from_bytecode, run_compiled_function, to_bytecode,
     };
+    use crate::quickjs_utils::modules::compile_module;
     use crate::quickjs_utils::primitives;
+    use backtrace::Backtrace;
+    use futures::executor::block_on;
+    use hirofa_utils::js_utils::facades::values::JsValueFacade;
+    use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
+    use hirofa_utils::js_utils::modules::CompiledModuleLoader;
     use hirofa_utils::js_utils::Script;
+    use log::LevelFilter;
+    use std::panic;
 
     #[test]
     fn test_compile() {
@@ -310,8 +318,80 @@ pub mod tests {
         });
     }
 
+    lazy_static! {
+        static ref COMPILED_BYTES: Vec<u8> = init_bytes();
+    }
+
+    fn init_bytes() -> Vec<u8> {
+        // in order to init our bytes fgor our module we lazy init a rt
+        let rt = QuickJsRuntimeBuilder::new().build();
+        rt.js_loop_realm_sync(None, |_rt, realm| unsafe {
+            let script = Script::new(
+                "test_module.js",
+                "export function someFunction(a, b){return a*b;};",
+            );
+
+            let module = compile_module(realm.context, script)
+                .ok()
+                .expect("compile failed");
+
+            to_bytecode(realm.context, &module)
+        })
+    }
+
+    struct Cml {}
+    impl CompiledModuleLoader for Cml {
+        fn normalize_path(&self, _ref_path: &str, path: &str) -> Option<String> {
+            Some(path.to_string())
+        }
+
+        fn load_module(&self, _absolute_path: &str) -> Vec<u8> {
+            COMPILED_BYTES.clone()
+        }
+    }
+
     #[test]
     fn test_bytecode_module() {
-        //let rt = QuickJsRuntimeBuilder::new().script_module_loader().build();
+        panic::set_hook(Box::new(|panic_info| {
+            let backtrace = Backtrace::new();
+            println!(
+                "thread panic occurred: {}\nbacktrace: {:?}",
+                panic_info, backtrace
+            );
+            log::error!(
+                "thread panic occurred: {}\nbacktrace: {:?}",
+                panic_info,
+                backtrace
+            );
+        }));
+
+        simple_logging::log_to_file("quickjs_runtime.log", LevelFilter::max())
+            .ok()
+            .expect("could not init logger");
+
+        let rt = QuickJsRuntimeBuilder::new()
+            .js_compiled_module_loader(Cml {})
+            .build();
+
+        let test_script = Script::new(
+            "test_bytecode_module.js",
+            "import('testcompiledmodule').then((mod) => {return mod.someFunction(3, 5);})",
+        );
+        let res_fut = rt.js_eval(None, test_script);
+        let res_prom = block_on(res_fut).ok().expect("script failed");
+        let rti_weak = rt.js_get_runtime_facade_inner();
+        if let JsValueFacade::JsPromise { cached_promise } = res_prom {
+            let rti = rti_weak.upgrade().expect("invalid state");
+            let prom_res_fut = cached_promise.js_get_promise_result(&*rti);
+            let prom_res = block_on(prom_res_fut)
+                .ok()
+                .expect("prom failed")
+                .ok()
+                .expect("prom was rejected");
+            assert!(prom_res.is_i32());
+            assert_eq!(prom_res.get_i32(), 15);
+        } else {
+            panic!("did not get a prom");
+        }
     }
 }
