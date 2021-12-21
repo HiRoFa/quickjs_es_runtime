@@ -13,7 +13,13 @@ readme = "README.md"
 categories = ["development-tools"]
 
 [features]
+default = ["console", "setimmediate", "setinterval", "settimeout"]
 tokio_full = ["tokio/full"]
+console = []
+settimeout = []
+setinterval = []
+setimmediate = []
+
 
 [dependencies]
 #hirofa_utils = "0.3"

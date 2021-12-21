@@ -2,7 +2,7 @@
 
 use crate::builder::QuickJsRuntimeBuilder;
 use crate::esvalue::EsValueFacade;
-use crate::features;
+
 use crate::quickjs_utils::{functions, objects};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::{
@@ -147,6 +147,7 @@ impl QuickjsRuntimeFacadeInner {
     }
 
     /// used to add tasks from the worker threads which require run_pending_jobs_if_any to run after it
+    #[allow(dead_code)]
     pub(crate) fn add_local_task_to_event_loop<C>(consumer: C)
     where
         C: FnOnce(&QuickJsRuntimeAdapter) + 'static,
@@ -203,9 +204,17 @@ impl QuickJsRuntimeFacade {
 
         // run single job in eventQueue to init thread_local weak<rtref>
 
-        let res = features::init(&ret);
-        if res.is_err() {
-            panic!("could not init features: {}", res.err().unwrap());
+        #[cfg(any(
+            feature = "settimeout",
+            feature = "setinterval",
+            feature = "console",
+            feature = "setimmediate"
+        ))]
+        {
+            let res = crate::features::init(&ret);
+            if res.is_err() {
+                panic!("could not init features: {}", res.err().unwrap());
+            }
         }
 
         if let Some(interval) = builder.opt_gc_interval {
@@ -344,6 +353,7 @@ impl QuickJsRuntimeFacade {
     }
 
     /// used to add tasks from the worker threads which require run_pending_jobs_if_any to run after it
+    #[allow(dead_code)]
     pub(crate) fn add_local_task_to_event_loop<C>(consumer: C)
     where
         C: FnOnce(&QuickJsRuntimeAdapter) + 'static,

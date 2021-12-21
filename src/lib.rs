@@ -88,6 +88,12 @@ macro_rules! es_args {
 pub mod builder;
 pub mod esvalue;
 pub mod facades;
+#[cfg(any(
+    feature = "settimeout",
+    feature = "setinterval",
+    feature = "console",
+    feature = "setimmediate"
+))]
 pub mod features;
 pub mod quickjs_utils;
 pub mod quickjsrealmadapter;
