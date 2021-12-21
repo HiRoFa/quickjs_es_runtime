@@ -504,13 +504,14 @@ impl QuickJsRuntimeFacade {
     /// use hirofa_utils::js_utils::Script;
     /// use quickjs_runtime::esvalue::EsValueConvertible;
     /// use hirofa_utils::js_utils::modules::ScriptModuleLoader;
+    /// use quickjs_runtime::quickjsrealmadapter::QuickJsRealmAdapter;
     /// struct TestModuleLoader {}
-    /// impl ScriptModuleLoader for TestModuleLoader {
-    ///     fn normalize_path(&self,ref_path: &str,path: &str) -> Option<String> {
+    /// impl ScriptModuleLoader<QuickJsRealmAdapter> for TestModuleLoader {
+    ///     fn normalize_path(&self, _realm: &QuickJsRealmAdapter, ref_path: &str,path: &str) -> Option<String> {
     ///         Some(path.to_string())
     ///     }
     ///
-    ///     fn load_module(&self,absolute_path: &str) -> String {
+    ///     fn load_module(&self, _realm: &QuickJsRealmAdapter, absolute_path: &str) -> String {
     ///         "export const util = function(a, b, c){return a+b+c;};".to_string()
     ///     }
     /// }
@@ -989,8 +990,13 @@ pub mod tests {
         }
     }
 
-    impl ScriptModuleLoader for TestScriptModuleLoader {
-        fn normalize_path(&self, _ref_path: &str, path: &str) -> Option<String> {
+    impl ScriptModuleLoader<QuickJsRealmAdapter> for TestScriptModuleLoader {
+        fn normalize_path(
+            &self,
+            _realm: &QuickJsRealmAdapter,
+            _ref_path: &str,
+            path: &str,
+        ) -> Option<String> {
             if path.eq("notfound.mes") || path.starts_with("greco://") {
                 None
             } else if path.eq("invalid.mes") {
@@ -1000,7 +1006,7 @@ pub mod tests {
             }
         }
 
-        fn load_module(&self, absolute_path: &str) -> String {
+        fn load_module(&self, _realm: &QuickJsRealmAdapter, absolute_path: &str) -> String {
             if absolute_path.eq("notfound.mes") || absolute_path.starts_with("greco://") {
                 panic!("tht realy should not happen");
             } else if absolute_path.eq("invalid.mes") {

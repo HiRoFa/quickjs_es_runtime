@@ -331,7 +331,7 @@ unsafe extern "C" fn console_error(
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
     use hirofa_utils::js_utils::Script;
-    use log::LevelFilter;
+    //use log::LevelFilter;
 
     #[test]
     pub fn test_console() {

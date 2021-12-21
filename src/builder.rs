@@ -25,7 +25,7 @@ pub type EsRuntimeInitHooks =
 /// .build();
 /// ```
 pub struct QuickJsRuntimeBuilder {
-    pub(crate) script_module_loaders: Vec<Box<dyn ScriptModuleLoader + Send>>,
+    pub(crate) script_module_loaders: Vec<Box<dyn ScriptModuleLoader<QuickJsRealmAdapter> + Send>>,
     pub(crate) native_module_loaders: Vec<Box<dyn NativeModuleLoader<QuickJsRealmAdapter> + Send>>,
     pub(crate) compiled_module_loaders:
         Vec<Box<dyn CompiledModuleLoader<QuickJsRealmAdapter> + Send>>,
@@ -68,12 +68,12 @@ impl QuickJsRuntimeBuilder {
     /// use quickjs_runtime::quickjsrealmadapter::QuickJsRealmAdapter;
     /// use hirofa_utils::js_utils::modules::ScriptModuleLoader;
     /// struct MyModuleLoader {}
-    /// impl ScriptModuleLoader for MyModuleLoader {
-    ///     fn normalize_path(&self,ref_path: &str,path: &str) -> Option<String> {
+    /// impl ScriptModuleLoader<QuickJsRealmAdapter> for MyModuleLoader {
+    ///     fn normalize_path(&self, realm: &QuickJsRealmAdapter ,ref_path: &str,path: &str) -> Option<String> {
     ///         Some(path.to_string())
     ///     }
     ///
-    ///     fn load_module(&self, absolute_path: &str) -> String {
+    ///     fn load_module(&self, realm: &QuickJsRealmAdapter, absolute_path: &str) -> String {
     ///         "export const foo = 12;".to_string()
     ///     }
     /// }
@@ -83,7 +83,7 @@ impl QuickJsRuntimeBuilder {
     ///     .build();
     /// rt.eval_module_sync(Script::new("test_module.es", "import {foo} from 'some_module.mes';\nconsole.log('foo = %s', foo);")).ok().unwrap();
     /// ```
-    pub fn script_module_loader<M: ScriptModuleLoader + Send + 'static>(
+    pub fn script_module_loader<M: ScriptModuleLoader<QuickJsRealmAdapter> + Send + 'static>(
         mut self,
         loader: Box<M>,
     ) -> Self {
@@ -230,7 +230,7 @@ impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
         self
     }
 
-    fn js_script_module_loader<S: ScriptModuleLoader + Send + 'static>(
+    fn js_script_module_loader<S: ScriptModuleLoader<QuickJsRealmAdapter> + Send + 'static>(
         mut self,
         module_loader: S,
     ) -> Self {
@@ -264,18 +264,24 @@ impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
 #[cfg(test)]
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
+    use crate::quickjsrealmadapter::QuickJsRealmAdapter;
     use hirofa_utils::js_utils::modules::ScriptModuleLoader;
     use hirofa_utils::js_utils::Script;
 
     #[test]
     fn test_module_loader() {
         struct MyModuleLoader {}
-        impl ScriptModuleLoader for MyModuleLoader {
-            fn normalize_path(&self, _ref_path: &str, path: &str) -> Option<String> {
+        impl ScriptModuleLoader<QuickJsRealmAdapter> for MyModuleLoader {
+            fn normalize_path(
+                &self,
+                _realm: &QuickJsRealmAdapter,
+                _ref_path: &str,
+                path: &str,
+            ) -> Option<String> {
                 Some(path.to_string())
             }
 
-            fn load_module(&self, _absolute_path: &str) -> String {
+            fn load_module(&self, _realm: &QuickJsRealmAdapter, _absolute_path: &str) -> String {
                 "export const foo = 12;".to_string()
             }
         }

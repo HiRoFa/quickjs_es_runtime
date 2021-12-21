@@ -64,11 +64,11 @@ impl CompiledModuleLoaderAdapter {
 }
 
 pub struct ScriptModuleLoaderAdapter {
-    inner: Box<dyn ScriptModuleLoader>,
+    inner: Box<dyn ScriptModuleLoader<QuickJsRealmAdapter>>,
 }
 
 impl ScriptModuleLoaderAdapter {
-    pub fn new(loader: Box<dyn ScriptModuleLoader>) -> Self {
+    pub fn new(loader: Box<dyn ScriptModuleLoader<QuickJsRealmAdapter>>) -> Self {
         Self { inner: loader }
     }
 }
@@ -111,24 +111,24 @@ impl ModuleLoader for CompiledModuleLoaderAdapter {
 impl ModuleLoader for ScriptModuleLoaderAdapter {
     fn normalize_path(
         &self,
-        _q_ctx: &QuickJsRealmAdapter,
+        realm: &QuickJsRealmAdapter,
         ref_path: &str,
         path: &str,
     ) -> Option<String> {
-        self.inner.normalize_path(ref_path, path)
+        self.inner.normalize_path(realm, ref_path, path)
     }
 
     fn load_module(
         &self,
-        q_ctx: &QuickJsRealmAdapter,
+        realm: &QuickJsRealmAdapter,
         absolute_path: &str,
     ) -> Result<*mut q::JSModuleDef, JsError> {
-        let code = self.inner.load_module(absolute_path);
+        let code = self.inner.load_module(realm, absolute_path);
 
         let mut script = Script::new(absolute_path, code.as_str());
         script = QuickJsRuntimeAdapter::pre_process(script)?;
 
-        let compiled_module = unsafe { compile_module(q_ctx.context, script)? };
+        let compiled_module = unsafe { compile_module(realm.context, script)? };
         Ok(get_module_def(&compiled_module))
     }
 
@@ -593,10 +593,11 @@ impl QuickJsRuntimeAdapter {
 
     /// this method tries to load a module script using the runtimes script_module loaders
     pub fn load_module_script_opt(&self, ref_path: &str, path: &str) -> Option<Script> {
+        let realm = self.js_get_main_realm();
         for loader in &self.script_module_loaders {
             let i = &loader.inner;
-            if let Some(normalized) = i.normalize_path(ref_path, path) {
-                let code = i.load_module(normalized.as_str());
+            if let Some(normalized) = i.normalize_path(realm, ref_path, path) {
+                let code = i.load_module(realm, normalized.as_str());
                 return Some(Script::new(normalized.as_str(), code.as_str()));
             }
         }
@@ -666,15 +667,21 @@ pub(crate) fn make_cstring(value: &str) -> Result<CString, JsError> {
 #[cfg(test)]
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
+    use crate::quickjsrealmadapter::QuickJsRealmAdapter;
     use crate::quickjsruntimeadapter::ScriptModuleLoader;
 
     struct FooScriptModuleLoader {}
-    impl ScriptModuleLoader for FooScriptModuleLoader {
-        fn normalize_path(&self, _ref_path: &str, path: &str) -> Option<String> {
+    impl ScriptModuleLoader<QuickJsRealmAdapter> for FooScriptModuleLoader {
+        fn normalize_path(
+            &self,
+            _realm: &QuickJsRealmAdapter,
+            _ref_path: &str,
+            path: &str,
+        ) -> Option<String> {
             Some(path.to_string())
         }
 
-        fn load_module(&self, _absolute_path: &str) -> String {
+        fn load_module(&self, _realm: &QuickJsRealmAdapter, _absolute_path: &str) -> String {
             log::debug!("load_module");
             "{}".to_string()
         }
