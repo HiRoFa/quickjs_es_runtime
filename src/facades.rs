@@ -1015,10 +1015,10 @@ pub mod tests {
     #[test]
     pub fn test_stack_size() {
         let rt = init_test_rt();
-        // 150 is ok, 200 fails
+        // 124 is ok, 200 fails
         let res = rt.eval_sync(Script::new(
             "stack_test.js",
-            "let f = function(a){let f2 = arguments.callee; if (a < 150) {f2(a + 1);}}; f(1);",
+            "let f = function(a){let f2 = arguments.callee; if (a < 124) {f2(a + 1);}}; f(1);",
         ));
         match res {
             Ok(_) => {}
