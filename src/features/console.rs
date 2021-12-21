@@ -43,11 +43,14 @@
 
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions::call_to_string;
+use crate::quickjs_utils::json::stringify;
 use crate::quickjs_utils::{functions, json, parse_args, primitives};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use crate::reflection::Proxy;
 use crate::valueref::JSValueRef;
+use hirofa_utils::js_utils::adapters::JsValueAdapter;
+use hirofa_utils::js_utils::facades::JsValueType;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 use log::LevelFilter;
@@ -163,41 +166,84 @@ unsafe fn parse_field_value(ctx: *mut q::JSContext, field: &str, value: &JSValue
         .unwrap()
 }
 
+unsafe fn stringify_log_obj(ctx: *mut q::JSContext, arg: &JSValueRef) -> String {
+    match stringify(ctx, arg, None) {
+        Ok(r) => match primitives::to_string(ctx, &r) {
+            Ok(s) => s,
+            Err(e) => format!("Error: {}", e),
+        },
+        Err(e) => format!("Error: {}", e),
+    }
+}
+
 #[allow(clippy::or_fun_call)]
 unsafe fn parse_line(ctx: *mut q::JSContext, args: Vec<JSValueRef>) -> String {
+    let mut output = String::new();
+
+    output.push_str("JS_REALM:[");
+    QuickJsRealmAdapter::with_context(ctx, |realm| output.push_str(realm.id.as_str()));
+    output.push_str("]: ");
+
     if args.is_empty() {
-        return "".to_string();
+        return output;
     }
 
-    let message = functions::call_to_string(ctx, &args[0])
-        .or::<String>(Ok(String::new()))
-        .unwrap();
+    let message = match &args[0].js_get_type() {
+        JsValueType::Object => stringify_log_obj(ctx, &args[0]),
+        JsValueType::Function => stringify_log_obj(ctx, &args[0]),
+        JsValueType::Array => stringify_log_obj(ctx, &args[0]),
+        _ => functions::call_to_string(ctx, &args[0])
+            .or::<String>(Ok(String::new()))
+            .unwrap(),
+    };
 
-    let mut output = String::new();
     let mut field_code = String::new();
     let mut in_field = false;
 
     let mut x = 1;
 
-    for chr in message.chars() {
-        if in_field {
-            field_code.push(chr);
-            if chr.eq(&'s') || chr.eq(&'d') || chr.eq(&'f') || chr.eq(&'o') || chr.eq(&'i') {
-                // end field
+    let mut filled = 1;
 
-                if x < args.len() {
-                    output.push_str(parse_field_value(ctx, field_code.as_str(), &args[x]).as_str());
-                    x += 1;
+    if args[0].is_string() {
+        for chr in message.chars() {
+            if in_field {
+                field_code.push(chr);
+                if chr.eq(&'s') || chr.eq(&'d') || chr.eq(&'f') || chr.eq(&'o') || chr.eq(&'i') {
+                    // end field
+
+                    if x < args.len() {
+                        output.push_str(
+                            parse_field_value(ctx, field_code.as_str(), &args[x]).as_str(),
+                        );
+                        x += 1;
+                        filled += 1;
+                    }
+
+                    in_field = false;
+                    field_code = String::new();
                 }
-
-                in_field = false;
-                field_code = String::new();
+            } else if chr.eq(&'%') {
+                in_field = true;
+            } else {
+                output.push(chr);
             }
-        } else if chr.eq(&'%') {
-            in_field = true;
-        } else {
-            output.push(chr);
         }
+    } else {
+        output.push_str(message.as_str());
+    }
+
+    for arg in args.iter().skip(filled) {
+        // add args which we're not filled in str
+        output.push(' ');
+        let tail_arg = match arg.js_get_type() {
+            JsValueType::Object => stringify_log_obj(ctx, arg),
+            JsValueType::Function => stringify_log_obj(ctx, arg),
+            JsValueType::Array => stringify_log_obj(ctx, arg),
+            _ => functions::call_to_string(ctx, arg)
+                .or::<String>(Ok(String::new()))
+                .unwrap(),
+        };
+        output.push_str(tail_arg.as_str());
     }
 
     output
@@ -283,16 +329,23 @@ unsafe extern "C" fn console_error(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::facades::tests::init_test_rt;
+    use crate::builder::QuickJsRuntimeBuilder;
     use hirofa_utils::js_utils::Script;
+    use log::LevelFilter;
 
     #[test]
     pub fn test_console() {
+        //simple_logging::log_to_stderr(LevelFilter::Info);
         log::info!("> test_console");
-        let rt = init_test_rt();
+        let rt = QuickJsRuntimeBuilder::new().build();
         rt.eval_sync(Script::new(
             "test_console.es",
-            "console.log('one %s %s', 'two', 3)",
+            "console.log('one %s', 'two', 3);\
+            console.log('two %s %s', 'two', 3);\
+            console.log('date:', new Date());\
+            console.log('err:', new Error('testpoof'));\
+            console.log('array:', [1, 2, true, {a: 1}]);\
+            console.log({obj: true}, {obj: false});",
         ))
         .ok()
         .expect("test_console.es failed");
