@@ -697,7 +697,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         todo!()
     }
 
-    fn js_realm_has(&mut self, name: &str) -> Result<bool, JsError> {
+    fn js_realm_has(&self, name: &str) -> Result<bool, JsError> {
         Ok(self.js_contexts.contains(name))
     }
 
