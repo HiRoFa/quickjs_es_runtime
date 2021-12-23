@@ -18,7 +18,6 @@ use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use hirofa_utils::task_manager::TaskManager;
 use libquickjs_sys as q;
-use std::collections::HashSet;
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -174,7 +173,6 @@ impl QuickjsRuntimeFacadeInner {
 /// ```
 pub struct QuickJsRuntimeFacade {
     inner: Arc<QuickjsRuntimeFacadeInner>,
-    js_contexts: HashSet<String>,
 }
 
 impl QuickJsRuntimeFacade {
@@ -183,7 +181,6 @@ impl QuickJsRuntimeFacade {
             inner: Arc::new(QuickjsRuntimeFacadeInner {
                 event_loop: EventLoop::new(),
             }),
-            js_contexts: Default::default(),
         };
 
         ret.exe_task_in_event_loop(|| {
@@ -650,8 +647,6 @@ impl QuickJsRuntimeFacade {
     }
 
     /// create a new context besides the always existing main_context
-    /// # todo
-    /// EsRuntime needs some more pub methods using context like eval / call_func
     /// # Example
     /// ```
     /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
@@ -679,6 +674,44 @@ impl QuickJsRuntimeFacade {
     }
 }
 
+fn loop_realm_func<
+    R: Send + 'static,
+    C: FnOnce(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> R + Send + 'static,
+>(
+    realm_name: Option<String>,
+    consumer: C,
+) -> R {
+    let res = QuickJsRuntimeAdapter::do_with(|q_js_rt| {
+        if let Some(realm_str) = realm_name.as_ref() {
+            if let Some(realm) = q_js_rt.js_get_realm(realm_str) {
+                (Some(consumer(q_js_rt, realm)), None)
+            } else {
+                (None, Some(consumer))
+            }
+        } else {
+            (Some(consumer(q_js_rt, q_js_rt.js_get_main_realm())), None)
+        }
+    });
+
+    if let Some(res) = res.0 {
+        res
+    } else {
+        // create realm first
+        let consumer = res.1.unwrap();
+        let realm_str = realm_name.expect("invalid state");
+        QuickJsRuntimeAdapter::do_with_mut(|m_rt| match m_rt.js_create_realm(realm_str.as_str()) {
+            Ok(_) => {}
+            Err(e) => panic!("could not create realm: {}: {}", realm_str, e),
+        });
+        QuickJsRuntimeAdapter::do_with(|q_js_rt| {
+            let realm = q_js_rt
+                .js_get_realm(realm_str.as_str())
+                .expect("invalid state");
+            consumer(q_js_rt, realm)
+        })
+    }
+}
+
 impl JsRuntimeFacade for QuickJsRuntimeFacade {
     type JsRuntimeAdapterType = QuickJsRuntimeAdapter;
     type JsRuntimeFacadeInnerType = QuickjsRuntimeFacadeInner;
@@ -687,18 +720,28 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         Arc::downgrade(&self.inner)
     }
 
-    fn js_realm_create(&mut self, name: &str) -> Result<(), JsError> {
-        self.create_context(name).map(|_| {
-            self.js_contexts.insert(name.to_string());
+    fn js_realm_create(&self, name: &str) -> Result<(), JsError> {
+        let name = name.to_string();
+        self.inner
+            .event_loop
+            .exe(move || QuickJsRuntimeAdapter::create_context(name.as_str()))
+    }
+
+    fn js_realm_destroy(&self, name: &str) -> Result<(), JsError> {
+        let name = name.to_string();
+        self.exe_task_in_event_loop(move || {
+            QuickJsRuntimeAdapter::do_with_mut(|rt| {
+                if rt.js_get_realm(name.as_str()).is_some() {
+                    rt.js_remove_realm(name.as_str());
+                }
+                Ok(())
+            })
         })
     }
 
-    fn js_realm_destroy(&mut self, _name: &str) -> Result<(), JsError> {
-        todo!()
-    }
-
     fn js_realm_has(&self, name: &str) -> Result<bool, JsError> {
-        Ok(self.js_contexts.contains(name))
+        let name = name.to_string();
+        self.exe_rt_task_in_event_loop(move |rt| Ok(rt.js_get_realm(name.as_str()).is_some()))
     }
 
     fn js_loop_sync<R: Send + 'static, C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static>(
@@ -738,14 +781,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         consumer: C,
     ) -> R {
         let realm_name = realm_name.map(|s| s.to_string());
-        self.js_loop_sync(|rt| {
-            let realm = if let Some(realm_name) = realm_name {
-                rt.js_get_realm(realm_name.as_str()).expect("no such realm")
-            } else {
-                rt.js_get_main_realm()
-            };
-            consumer(rt, realm)
-        })
+        self.exe_task_in_event_loop(|| loop_realm_func(realm_name, consumer))
     }
 
     fn js_loop_realm<
@@ -757,14 +793,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         consumer: C,
     ) -> Pin<Box<dyn Future<Output = R>>> {
         let realm_name = realm_name.map(|s| s.to_string());
-        self.js_loop(|rt| {
-            let realm = if let Some(realm_name) = realm_name {
-                rt.js_get_realm(realm_name.as_str()).expect("no such realm")
-            } else {
-                rt.js_get_main_realm()
-            };
-            consumer(rt, realm)
-        })
+        Box::pin(self.add_task_to_event_loop(|| loop_realm_func(realm_name, consumer)))
     }
 
     fn js_loop_realm_void<
@@ -775,14 +804,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         consumer: C,
     ) {
         let realm_name = realm_name.map(|s| s.to_string());
-        self.js_loop_void(|rt| {
-            let realm = if let Some(realm_name) = realm_name {
-                rt.js_get_realm(realm_name.as_str()).expect("no such realm")
-            } else {
-                rt.js_get_main_realm()
-            };
-            consumer(rt, realm)
-        })
+        self.add_task_to_event_loop_void(|| loop_realm_func(realm_name, consumer));
     }
 
     #[allow(clippy::type_complexity)]

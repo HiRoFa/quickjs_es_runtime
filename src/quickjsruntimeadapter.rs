@@ -296,21 +296,18 @@ impl QuickJsRuntimeAdapter {
     where
         H: Fn(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> Result<(), JsError> + 'static,
     {
-        let hooks = &mut *self.context_init_hooks.borrow_mut();
-        hooks.push(Box::new(hook));
-        let i = hooks.len() - 1;
+        let i = {
+            let hooks = &mut *self.context_init_hooks.borrow_mut();
+            hooks.push(Box::new(hook));
+            hooks.len() - 1
+        };
 
-        // add event to queue to run hooks for existing contexts
-        if let Some(rti) = self.rti_ref.as_ref().expect("invalid state").upgrade() {
-            rti.add_rt_task_to_event_loop_void(move |rt| {
-                let hooks = &*rt.context_init_hooks.borrow();
-                let hook = hooks.get(i).expect("invalid state");
-                for ctx in rt.contexts.values() {
-                    if let Err(e) = hook(rt, ctx) {
-                        panic!("hook failed {}", e);
-                    }
-                }
-            });
+        let hooks = &*self.context_init_hooks.borrow();
+        let hook = hooks.get(i).expect("invalid state");
+        for ctx in self.contexts.values() {
+            if let Err(e) = hook(self, ctx) {
+                panic!("hook failed {}", e);
+            }
         }
 
         Ok(())
@@ -628,12 +625,26 @@ impl JsRuntimeAdapter for QuickJsRuntimeAdapter {
         self.load_module_script_opt(ref_path, path)
     }
 
-    fn js_create_realm(&mut self, _id: &str) -> Result<&Self::JsRealmAdapterType, JsError> {
-        todo!()
+    fn js_create_realm(&mut self, id: &str) -> Result<&Self::JsRealmAdapterType, JsError> {
+        if self.js_get_realm(id).is_some() {
+            return Err(JsError::new_str("realm already exists"));
+        }
+
+        let ctx = QuickJsRealmAdapter::new(id.to_string(), self);
+
+        self.contexts.insert(id.to_string(), ctx);
+
+        let ctx = self.js_get_realm(id).expect("invalid state");
+        let hooks = &*self.context_init_hooks.borrow();
+        for hook in hooks {
+            hook(self, ctx)?;
+        }
+
+        Ok(ctx)
     }
 
-    fn js_remove_realm(&mut self, _id: &str) {
-        todo!()
+    fn js_remove_realm(&mut self, id: &str) {
+        let _ = self.contexts.remove(id);
     }
 
     fn js_get_realm(&self, id: &str) -> Option<&Self::JsRealmAdapterType> {
