@@ -1,7 +1,7 @@
 use crate::facades::QuickjsRuntimeFacadeInner;
 use crate::quickjs_utils::objects::construct_object;
 use crate::quickjs_utils::primitives::{from_bool, from_f64, from_i32, from_string_q};
-use crate::quickjs_utils::{arrays, errors, functions, json, new_null_ref, objects};
+use crate::quickjs_utils::{arrays, errors, functions, get_global_q, json, new_null_ref, objects};
 use crate::quickjsruntimeadapter::{make_cstring, QuickJsRuntimeAdapter};
 use crate::reflection::eventtarget::dispatch_event;
 use crate::reflection::eventtarget::dispatch_static_event;
@@ -552,6 +552,10 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         self.eval_module(script)
     }
 
+    fn js_get_global(&self) -> Result<Self::JsValueAdapterType, JsError> {
+        Ok(get_global_q(self))
+    }
+
     fn js_get_namespace(&self, namespace: &[&str]) -> Result<JSValueRef, JsError> {
         let namespace_vec = namespace.to_vec();
         objects::get_namespace_q(self, namespace_vec, true)
@@ -584,10 +588,9 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         &self,
         this_obj: Option<&JSValueRef>,
         function_obj: &JSValueRef,
-        args: &[JSValueRef],
+        args: &[&JSValueRef],
     ) -> Result<JSValueRef, JsError> {
-        let args_vec = args.to_vec();
-        functions::call_function_q(self, function_obj, args_vec, this_obj)
+        functions::call_function_q_ref_args(self, function_obj, args, this_obj)
     }
 
     fn js_function_create<
@@ -678,7 +681,7 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         index: u32,
         element: &JSValueRef,
     ) -> Result<(), JsError> {
-        arrays::set_element_q(self, array, index, element.clone())
+        arrays::set_element_q(self, array, index, element)
     }
 
     fn js_array_get_length(&self, array: &JSValueRef) -> Result<u32, JsError> {

@@ -222,6 +222,14 @@ impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
         self
     }
 
+    fn js_realm_adapter_init_hook<H: FnOnce(&<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType, &<<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType) -> Result<(), JsError> + Send + 'static>(self, _hook: H) -> Self{
+        todo!()
+    }
+
+    fn js_runtime_adapter_init_hook<H: FnOnce(&<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) -> Result<(), JsError> + Send + 'static>(self, _hook: H) -> Self{
+        todo!()
+    }
+
     fn js_script_pre_processor<S: ScriptPreProcessor + Send + 'static>(
         mut self,
         preprocessor: S,

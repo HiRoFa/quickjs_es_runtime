@@ -67,13 +67,24 @@ pub unsafe fn parse_function(
 }
 
 /// call a function
+pub fn call_function_q_ref_args(
+    q_ctx: &QuickJsRealmAdapter,
+    function_ref: &JSValueRef,
+    arguments: &[&JSValueRef],
+    this_ref_opt: Option<&JSValueRef>,
+) -> Result<JSValueRef, JsError> {
+    unsafe { call_function_ref_args(q_ctx.context, function_ref, arguments, this_ref_opt) }
+}
+
+/// call a function
 pub fn call_function_q(
     q_ctx: &QuickJsRealmAdapter,
     function_ref: &JSValueRef,
     arguments: Vec<JSValueRef>,
     this_ref_opt: Option<&JSValueRef>,
 ) -> Result<JSValueRef, JsError> {
-    unsafe { call_function(q_ctx.context, function_ref, arguments, this_ref_opt) }
+    let r: Vec<&JSValueRef> = arguments.iter().collect();
+    unsafe { call_function_ref_args(q_ctx.context, function_ref, &r, this_ref_opt) }
 }
 
 /// call a function
@@ -83,6 +94,19 @@ pub unsafe fn call_function(
     context: *mut q::JSContext,
     function_ref: &JSValueRef,
     arguments: Vec<JSValueRef>,
+    this_ref_opt: Option<&JSValueRef>,
+) -> Result<JSValueRef, JsError> {
+    let r: Vec<&JSValueRef> = arguments.iter().collect();
+    call_function_ref_args(context, function_ref, &r, this_ref_opt)
+}
+
+/// call a function
+/// # Safety
+/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+pub unsafe fn call_function_ref_args(
+    context: *mut q::JSContext,
+    function_ref: &JSValueRef,
+    arguments: &[&JSValueRef],
     this_ref_opt: Option<&JSValueRef>,
 ) -> Result<JSValueRef, JsError> {
     log::trace!("functions::call_function()");

@@ -629,7 +629,11 @@ impl JsRuntimeAdapter for QuickJsRuntimeAdapter {
     }
 
     fn js_create_realm(&mut self, _id: &str) -> Result<&Self::JsRealmAdapterType, JsError> {
-        todo!();
+        todo!()
+    }
+
+    fn js_remove_realm(&mut self, _id: &str) {
+        todo!()
     }
 
     fn js_get_realm(&self, id: &str) -> Option<&Self::JsRealmAdapterType> {

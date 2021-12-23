@@ -784,7 +784,7 @@ impl EsValueConvertible for Vec<EsValueFacade> {
 
             let item_val_ref = item.as_js_value(q_ctx)?;
 
-            crate::quickjs_utils::arrays::set_element_q(q_ctx, &arr, index as u32, item_val_ref)?;
+            crate::quickjs_utils::arrays::set_element_q(q_ctx, &arr, index as u32, &item_val_ref)?;
         }
         Ok(arr)
     }
