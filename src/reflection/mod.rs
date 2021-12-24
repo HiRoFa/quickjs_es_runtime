@@ -987,7 +987,11 @@ unsafe extern "C" fn proxy_instance_method(
             match m_res {
                 Ok(m_res_ref) => m_res_ref.clone_value_incr_rc(),
                 Err(e) => {
-                    let msg = format!("proxy_instance_method failed: {}", e.get_message());
+                    let msg = format!(
+                        "proxy_instance_method [{}] failed: {}",
+                        func_name,
+                        e.get_message()
+                    );
                     let err = errors::new_error(context, e.get_name(), msg.as_str(), e.get_stack())
                         .ok()
                         .expect("create error failed");
@@ -1378,7 +1382,7 @@ pub mod tests {
         assert!(i6_res.is_err());
         let e = i6_res.err().unwrap();
         let e_msg = e.get_message();
-        assert_eq!(e_msg, "proxy_instance_method failed: aaargh");
+        assert_eq!(e_msg, "proxy_instance_method [doIt2] failed: aaargh");
 
         rt.gc_sync();
 
