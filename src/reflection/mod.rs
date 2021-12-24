@@ -121,6 +121,12 @@ thread_local! {
 
 const MAX_INSTANCE_NUM: usize = u32::MAX as usize;
 
+pub(crate) fn init_statics() {
+    PROXY_INSTANCE_CLASS_ID.with(|_rc| {
+        //
+    });
+}
+
 fn next_id(proxy: &Proxy) -> usize {
     let mappings = &*proxy.proxy_instance_id_mappings.borrow();
     if mappings.len() == MAX_INSTANCE_NUM {

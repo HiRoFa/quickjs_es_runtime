@@ -644,7 +644,9 @@ impl JsRuntimeAdapter for QuickJsRuntimeAdapter {
     }
 
     fn js_remove_realm(&mut self, id: &str) {
-        let _ = self.contexts.remove(id);
+        if !id.eq("__main__") {
+            let _ = self.contexts.remove(id);
+        }
     }
 
     fn js_get_realm(&self, id: &str) -> Option<&Self::JsRealmAdapterType> {
@@ -683,7 +685,10 @@ pub(crate) fn make_cstring(value: &str) -> Result<CString, JsError> {
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
     use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-    use crate::quickjsruntimeadapter::ScriptModuleLoader;
+    use crate::quickjsruntimeadapter::{QuickJsRuntimeAdapter, ScriptModuleLoader};
+    use hirofa_utils::js_utils::adapters::{JsRealmAdapter, JsRuntimeAdapter};
+    use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
+    use hirofa_utils::js_utils::Script;
 
     struct FooScriptModuleLoader {}
     impl ScriptModuleLoader<QuickJsRealmAdapter> for FooScriptModuleLoader {
@@ -713,6 +718,33 @@ pub mod tests {
             let script = q_js_rt.load_module_script_opt("", "test.mjs").unwrap();
             assert_eq!(script.get_code(), "{}");
             log::debug!("tested");
+        });
+    }
+
+    #[test]
+    fn test_realm_init() {
+        let rt = QuickJsRuntimeBuilder::new().js_build();
+
+        rt.exe_task_in_event_loop(|| {
+            QuickJsRuntimeAdapter::do_with_mut(|rt| {
+                rt.js_add_realm_init_hook(|_rt, realm| {
+                    realm.js_install_function(
+                        &["utils"],
+                        "doSomething",
+                        |_rt, realm, _this, _args| realm.js_null_create(),
+                        0,
+                    )
+                })
+                .ok()
+                .expect("init hook addition failed");
+            })
+        });
+
+        rt.js_loop_realm_void(Some("testrealm1"), |_rt, realm| {
+            realm
+                .eval(Script::new("test.js", "console.log(utils.doSomething());"))
+                .ok()
+                .expect("script failed");
         });
     }
 }

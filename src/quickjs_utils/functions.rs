@@ -530,6 +530,13 @@ thread_local! {
 
     static CALLBACK_IDS: RefCell<HashSet<Box<i32>>> = RefCell::new(HashSet::new());
 }
+
+pub(crate) fn init_statics() {
+    CALLBACK_CLASS_ID.with(|_rc| {
+        //
+    });
+}
+
 /// create a new Function which is backed by a closure
 /// # Example
 /// ```rust

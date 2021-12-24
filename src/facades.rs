@@ -2,13 +2,13 @@
 
 use crate::builder::QuickJsRuntimeBuilder;
 use crate::esvalue::EsValueFacade;
-
 use crate::quickjs_utils::{functions, objects};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::{
     CompiledModuleLoaderAdapter, NativeModuleLoaderAdapter, QuickJsRuntimeAdapter,
     ScriptModuleLoaderAdapter, QJS_RT,
 };
+use crate::reflection;
 use crate::valueref::JSValueRef;
 use hirofa_utils::eventloop::EventLoop;
 use hirofa_utils::js_utils::adapters::{JsRealmAdapter, JsRuntimeAdapter};
@@ -187,6 +187,8 @@ impl QuickJsRuntimeFacade {
             let rt_ptr = unsafe { q::JS_NewRuntime() };
             let rt = QuickJsRuntimeAdapter::new(rt_ptr);
             QuickJsRuntimeAdapter::init_rt_for_current_thread(rt);
+            functions::init_statics();
+            reflection::init_statics();
         });
 
         // init ref in q_js_rt
