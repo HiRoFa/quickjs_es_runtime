@@ -701,14 +701,24 @@ fn loop_realm_func<
         // create realm first
         let consumer = res.1.unwrap();
         let realm_str = realm_name.expect("invalid state");
-        QuickJsRuntimeAdapter::do_with_mut(|m_rt| match m_rt.js_create_realm(realm_str.as_str()) {
-            Ok(_) => {}
-            Err(e) => panic!("could not create realm: {}: {}", realm_str, e),
+
+        QuickJsRuntimeAdapter::do_with_mut(|m_rt| {
+            let ctx = QuickJsRealmAdapter::new(realm_str.to_string(), m_rt);
+            m_rt.contexts.insert(realm_str.to_string(), ctx);
         });
+
         QuickJsRuntimeAdapter::do_with(|q_js_rt| {
             let realm = q_js_rt
                 .js_get_realm(realm_str.as_str())
                 .expect("invalid state");
+            let hooks = &*q_js_rt.context_init_hooks.borrow();
+            for hook in hooks {
+                let res = hook(q_js_rt, realm);
+                if res.is_err() {
+                    panic!("realm init hook failed: {}", res.err().unwrap());
+                }
+            }
+
             consumer(q_js_rt, realm)
         })
     }

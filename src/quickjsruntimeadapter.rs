@@ -260,10 +260,10 @@ pub type ContextInitHooks =
 
 pub struct QuickJsRuntimeAdapter {
     pub(crate) runtime: *mut q::JSRuntime,
-    contexts: HashMap<String, QuickJsRealmAdapter>,
+    pub(crate) contexts: HashMap<String, QuickJsRealmAdapter>,
     rti_ref: Option<Weak<QuickjsRuntimeFacadeInner>>,
     id: String,
-    context_init_hooks: RefCell<ContextInitHooks>,
+    pub(crate) context_init_hooks: RefCell<ContextInitHooks>,
     script_module_loaders: Vec<ScriptModuleLoaderAdapter>,
     native_module_loaders: Vec<NativeModuleLoaderAdapter>,
     compiled_module_loaders: Vec<CompiledModuleLoaderAdapter>,
@@ -625,28 +625,33 @@ impl JsRuntimeAdapter for QuickJsRuntimeAdapter {
         self.load_module_script_opt(ref_path, path)
     }
 
-    fn js_create_realm(&mut self, id: &str) -> Result<&Self::JsRealmAdapterType, JsError> {
-        if self.js_get_realm(id).is_some() {
-            return Err(JsError::new_str("realm already exists"));
-        }
+    fn js_create_realm(&self, _id: &str) -> Result<&Self::JsRealmAdapterType, JsError> {
+        todo!()
+        /*
+                if self.js_get_realm(id).is_some() {
 
-        let ctx = QuickJsRealmAdapter::new(id.to_string(), self);
+                    return Err(JsError::new_str("realm already exists"));
+                }
 
-        self.contexts.insert(id.to_string(), ctx);
+                let ctx = QuickJsRealmAdapter::new(id.to_string(), self);
 
-        let ctx = self.js_get_realm(id).expect("invalid state");
-        let hooks = &*self.context_init_hooks.borrow();
-        for hook in hooks {
-            hook(self, ctx)?;
-        }
+                self.contexts.insert(id.to_string(), ctx);
 
-        Ok(ctx)
+                let ctx = self.js_get_realm(id).expect("invalid state");
+                let hooks = &*self.context_init_hooks.borrow();
+                for hook in hooks {
+                    hook(self, ctx)?;
+                }
+
+                Ok(ctx)
+        */
     }
 
-    fn js_remove_realm(&mut self, id: &str) {
-        if !id.eq("__main__") {
-            let _ = self.contexts.remove(id);
-        }
+    fn js_remove_realm(&self, _id: &str) {
+        todo!();
+        //if !id.eq("__main__") {
+        //            let _ = self.contexts.remove(id);
+        //        }
     }
 
     fn js_get_realm(&self, id: &str) -> Option<&Self::JsRealmAdapterType> {
@@ -661,7 +666,7 @@ impl JsRuntimeAdapter for QuickJsRuntimeAdapter {
         self.get_main_context()
     }
 
-    fn js_add_realm_init_hook<H>(&mut self, hook: H) -> Result<(), JsError>
+    fn js_add_realm_init_hook<H>(&self, hook: H) -> Result<(), JsError>
     where
         H: Fn(&Self, &QuickJsRealmAdapter) -> Result<(), JsError> + 'static,
     {
@@ -686,9 +691,12 @@ pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
     use crate::quickjsrealmadapter::QuickJsRealmAdapter;
     use crate::quickjsruntimeadapter::{QuickJsRuntimeAdapter, ScriptModuleLoader};
+
     use hirofa_utils::js_utils::adapters::{JsRealmAdapter, JsRuntimeAdapter};
     use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
     use hirofa_utils::js_utils::Script;
+
+    use std::panic;
 
     struct FooScriptModuleLoader {}
     impl ScriptModuleLoader<QuickJsRealmAdapter> for FooScriptModuleLoader {
@@ -723,17 +731,42 @@ pub mod tests {
 
     #[test]
     fn test_realm_init() {
+        /*panic::set_hook(Box::new(|panic_info| {
+                    let backtrace = Backtrace::new();
+                    println!(
+                        "thread panic occurred: {}\nbacktrace: {:?}",
+                        panic_info, backtrace
+                    );
+                    log::error!(
+                        "thread panic occurred: {}\nbacktrace: {:?}",
+                        panic_info,
+                        backtrace
+                    );
+                }));
+
+                simple_logging::log_to_stderr(LevelFilter::max());
+        */
         let rt = QuickJsRuntimeBuilder::new().js_build();
 
         rt.exe_task_in_event_loop(|| {
-            QuickJsRuntimeAdapter::do_with_mut(|rt| {
+            QuickJsRuntimeAdapter::do_with(|rt| {
                 rt.js_add_realm_init_hook(|_rt, realm| {
-                    realm.js_install_function(
-                        &["utils"],
-                        "doSomething",
-                        |_rt, realm, _this, _args| realm.js_null_create(),
-                        0,
-                    )
+                    realm
+                        .js_install_function(
+                            &["utils"],
+                            "doSomething",
+                            |_rt, realm, _this, _args| realm.js_null_create(),
+                            0,
+                        )
+                        .ok()
+                        .expect("failed to install function");
+                    match realm.eval(Script::new("t.js", "1+1")) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            panic!("script failed {}", e);
+                        }
+                    }
+                    Ok(())
                 })
                 .ok()
                 .expect("init hook addition failed");
