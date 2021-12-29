@@ -524,7 +524,7 @@ thread_local! {
         RefCell::new(class_id)
     };
 
-    static CALLBACK_REGISTRY: RefCell<AutoIdMap<Box<Callback>>> = {
+    static CALLBACK_REGISTRY: RefCell<AutoIdMap<(String, Box<Callback>)>> = {
         RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize))
     };
 
@@ -598,7 +598,7 @@ where
 
     let callback_id = CALLBACK_REGISTRY.with(|registry_rc| {
         let registry = &mut *registry_rc.borrow_mut();
-        registry.insert(Box::new(func))
+        registry.insert((name.to_string(), Box::new(func)))
     });
     log::trace!("new_function callback_id = {}", callback_id);
 
@@ -657,7 +657,8 @@ pub mod tests {
         call_function_q, call_to_string_q, invoke_member_function_q, new_function_q,
     };
     use crate::quickjs_utils::{functions, objects, primitives};
-    use hirofa_utils::js_utils::Script;
+    use hirofa_utils::js_utils::adapters::JsRealmAdapter;
+    use hirofa_utils::js_utils::{JsError, Script};
     use std::time::Duration;
 
     #[test]
@@ -887,6 +888,41 @@ pub mod tests {
         });
         std::thread::sleep(Duration::from_secs(1));
     }
+
+    #[test]
+    fn test_ex() {
+        let rt = init_test_rt();
+
+        let err = rt.exe_rt_task_in_event_loop(|q_js_rt| {
+            let q_ctx = q_js_rt.get_main_context();
+
+            q_ctx
+                .js_install_function(
+                    &["test_927"],
+                    "testMe",
+                    |_rt, _q_ctx, _this_ref, _args| {
+                        log::trace!("native callback invoked");
+                        Err(JsError::new_str("poof"))
+                    },
+                    0,
+                )
+                .ok()
+                .expect("could not install func");
+
+            let err = q_ctx
+                .eval(Script::new(
+                    "test_927.es",
+                    "console.log('foo');test_927.testMe();",
+                ))
+                .err()
+                .expect("did not get err");
+
+            format!("{}", err)
+        });
+
+        assert!(err.contains("[testMe]"));
+        assert!(err.contains("test_927.es"));
+    }
 }
 
 unsafe extern "C" fn callback_finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
@@ -932,7 +968,7 @@ unsafe extern "C" fn callback_function(
 
     CALLBACK_REGISTRY.with(|registry_rc| {
         let registry = &*registry_rc.borrow();
-        if let Some(callback) = registry.get(&(callback_id as usize)) {
+        if let Some((name, callback)) = registry.get(&(callback_id as usize)) {
             let args_vec = parse_args(ctx, argc, argv);
 
             let this_ref = JSValueRef::new(ctx, this_val, true, true, "callback_function this_val");
@@ -943,11 +979,11 @@ unsafe extern "C" fn callback_function(
             match callback_res {
                 Ok(res) => res.clone_value_incr_rc(),
                 Err(e) => {
-                    let message =
-                        format!("\n{} at\nnative_code\n{}", e.get_message(), e.get_stack());
-                    let err = errors::new_error(ctx, e.get_name(), message.as_str(), e.get_stack())
-                        .ok()
-                        .expect("could not create err");
+                    let nat_stack = format!("   at native_function [{}]\n{}", name, e.get_stack());
+                    let err =
+                        errors::new_error(ctx, e.get_name(), e.get_message(), nat_stack.as_str())
+                            .ok()
+                            .expect("could not create err");
                     errors::throw(ctx, err)
                 }
             }

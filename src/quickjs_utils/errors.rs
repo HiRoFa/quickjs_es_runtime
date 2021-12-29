@@ -43,18 +43,21 @@ pub unsafe fn error_to_js_error(context: *mut q::JSContext, exception_ref: &JSVa
     let stack_ref = objects::get_property(context, exception_ref, "stack")
         .ok()
         .unwrap();
-    let mut stack_string;
-
-    if stack_ref.is_string() {
-        stack_string = primitives::to_string(context, &stack_ref).ok().unwrap();
-    } else {
-        stack_string = "".to_string();
-    }
+    let mut stack_string = "".to_string();
 
     let stack2_ref = objects::get_property(context, exception_ref, "stack2")
         .ok()
         .unwrap();
     if stack2_ref.is_string() {
+        stack_string.push_str(
+            primitives::to_string(context, &stack2_ref)
+                .ok()
+                .unwrap()
+                .as_str(),
+        );
+    }
+
+    if stack_ref.is_string() {
         stack_string.push_str(
             primitives::to_string(context, &stack_ref)
                 .ok()
@@ -140,6 +143,20 @@ pub mod tests {
     use crate::quickjs_utils::functions;
     use hirofa_utils::js_utils::Script;
     use std::time::Duration;
+
+    #[test]
+    fn test_ex_nat() {
+        // check if stacktrace is preserved when invoking native methods
+
+        let rt = init_test_rt();
+        let res = rt.eval_sync(Script::new(
+            "ex.js",
+            "console.log('foo');\nconsole.log('bar');let a = __c_v__ * 7;",
+        ));
+        let ex = res.err().expect("sciprt should have failed;");
+
+        assert_eq!(ex.get_message(), "'__c_v__' is not defined");
+    }
 
     #[test]
     fn test_ex0() {

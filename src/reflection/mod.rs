@@ -914,8 +914,17 @@ unsafe extern "C" fn proxy_instance_get_prop(
             match res {
                 Ok(g_val) => g_val.clone_value_incr_rc(),
                 Err(e) => {
-                    let err = format!("proxy_instance_get_prop failed: {}", e);
-                    q_ctx.report_ex(err.as_str())
+                    let msg = format!("proxy_instance_get failed: {}", e.get_message());
+                    let nat_stack = format!(
+                        "    at Proxy instance getter [{}]\n{}",
+                        prop_name,
+                        e.get_stack()
+                    );
+                    let err =
+                        errors::new_error(context, e.get_name(), msg.as_str(), nat_stack.as_str())
+                            .ok()
+                            .expect("create error failed");
+                    errors::throw(context, err)
                 }
             }
         } else {
@@ -987,14 +996,16 @@ unsafe extern "C" fn proxy_instance_method(
             match m_res {
                 Ok(m_res_ref) => m_res_ref.clone_value_incr_rc(),
                 Err(e) => {
-                    let msg = format!(
-                        "proxy_instance_method [{}] failed: {}",
+                    let msg = format!("proxy_instance_method failed: {}", e.get_message());
+                    let nat_stack = format!(
+                        "    at Proxy instance method [{}]\n{}",
                         func_name,
-                        e.get_message()
+                        e.get_stack()
                     );
-                    let err = errors::new_error(context, e.get_name(), msg.as_str(), e.get_stack())
-                        .ok()
-                        .expect("create error failed");
+                    let err =
+                        errors::new_error(context, e.get_name(), msg.as_str(), nat_stack.as_str())
+                            .ok()
+                            .expect("create error failed");
                     errors::throw(context, err)
                 }
             }
@@ -1054,8 +1065,17 @@ unsafe extern "C" fn proxy_static_method(
             match m_res {
                 Ok(m_res_ref) => m_res_ref.clone_value_incr_rc(),
                 Err(e) => {
-                    let err = format!("proxy_static_method failed: {}", e);
-                    q_ctx.report_ex(err.as_str())
+                    let msg = format!("proxy_static_method failed: {}", e.get_message());
+                    let nat_stack = format!(
+                        "    at Proxy static method [{}]\n{}",
+                        func_name,
+                        e.get_stack()
+                    );
+                    let err =
+                        errors::new_error(context, e.get_name(), msg.as_str(), nat_stack.as_str())
+                            .ok()
+                            .expect("create error failed");
+                    errors::throw(context, err)
                 }
             }
         } else {
@@ -1254,7 +1274,7 @@ pub mod tests {
         });
 
         assert!(err.contains("test.es:2"));
-        assert!(err.contains("[run]"));
+        assert!(err.contains("at Proxy instance method [run]"));
         assert!(err.contains("cant run"));
     }
 
@@ -1410,7 +1430,9 @@ pub mod tests {
         assert!(i6_res.is_err());
         let e = i6_res.err().unwrap();
         let e_msg = e.get_message();
-        assert_eq!(e_msg, "proxy_instance_method [doIt2] failed: aaargh");
+        assert_eq!(e_msg, "proxy_instance_method failed: aaargh");
+
+        assert!(e.get_stack().contains("[doIt2]"));
 
         rt.gc_sync();
 
