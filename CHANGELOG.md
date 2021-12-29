@@ -6,6 +6,8 @@
 * implemented jsValueAdapter.js_to_str()
 * changed some deps to minor version x.x instead of x.x.x
 * made console/setinterval/settimeout/setimmediate optional(but default) features
+* more complete stacktrace with errors
+* callback functions add name to stacktrace on error
 
 # 0.6.0
 
