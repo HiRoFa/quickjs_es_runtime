@@ -1231,6 +1231,34 @@ pub mod tests {
     }
 
     #[test]
+    pub fn test_proxy_ex() {
+        log::info!("> test_proxy");
+
+        let rt = init_test_rt();
+        let err = rt.exe_rt_task_in_event_loop(|q_js_rt| {
+            q_js_rt.gc();
+            let q_ctx = q_js_rt.get_main_context();
+            let _ = Proxy::new()
+                .constructor(|_q_ctx, _id, _args| Ok(()))
+                .method("run", |_realm, _instance_id, _args| {
+                    Err(JsError::new_str("cant run"))
+                })
+                .name("Test")
+                .install(q_ctx, true);
+            let err = q_ctx
+                .eval(Script::new("test.es", "let t = new Test(); \nt.run();"))
+                .err()
+                .expect("script failed");
+
+            format!("{}", err)
+        });
+
+        assert!(err.contains("test.es:2"));
+        assert!(err.contains("[run]"));
+        assert!(err.contains("cant run"));
+    }
+
+    #[test]
     pub fn test_to_string() {
         log::info!("> test_proxy");
 

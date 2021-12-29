@@ -43,11 +43,24 @@ pub unsafe fn error_to_js_error(context: *mut q::JSContext, exception_ref: &JSVa
     let stack_ref = objects::get_property(context, exception_ref, "stack")
         .ok()
         .unwrap();
-    let stack_string;
+    let mut stack_string;
+
     if stack_ref.is_string() {
         stack_string = primitives::to_string(context, &stack_ref).ok().unwrap();
     } else {
         stack_string = "".to_string();
+    }
+
+    let stack2_ref = objects::get_property(context, exception_ref, "stack2")
+        .ok()
+        .unwrap();
+    if stack2_ref.is_string() {
+        stack_string.push_str(
+            primitives::to_string(context, &stack_ref)
+                .ok()
+                .unwrap()
+                .as_str(),
+        );
     }
 
     JsError::new(name_string, message_string, stack_string)
@@ -85,7 +98,7 @@ pub unsafe fn new_error(
     objects::set_property(
         context,
         &obj_ref,
-        "stack",
+        "stack2",
         &primitives::from_string(context, stack)?,
     )?;
     Ok(obj_ref)
