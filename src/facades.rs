@@ -54,7 +54,7 @@ impl JsRuntimeFacadeInner for QuickjsRuntimeFacadeInner {
     fn js_add_rt_task_to_event_loop<
         R: Send + 'static,
         J: FnOnce(&<<Self as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) -> R + Send + 'static,
-    >(&self, task: J) -> Pin<Box<dyn Future<Output=R>>>{
+    >(&self, task: J) -> Pin<Box<dyn Future<Output=R> + Send>>{
         Box::pin(self.add_rt_task_to_event_loop(task))
     }
 
