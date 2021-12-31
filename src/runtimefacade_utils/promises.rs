@@ -1,5 +1,5 @@
 use crate::facades::QuickJsRuntimeFacade;
-use crate::quickjs_utils::primitives;
+use crate::quickjs_utils::errors;
 use crate::quickjs_utils::promises::new_promise_q;
 use crate::quickjs_utils::promises::PromiseRef;
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
@@ -109,9 +109,16 @@ where
                             }
                             Err(err) => {
                                 // todo use error:new_error(err.get_message)
-                                let err_ref = primitives::from_string_q(q_ctx, err.get_message())
-                                    .ok()
-                                    .expect("could not create str");
+                                let err_ref = unsafe {
+                                    errors::new_error(
+                                        q_ctx.context,
+                                        err.get_name(),
+                                        err.get_message(),
+                                        err.get_stack(),
+                                    )
+                                }
+                                .ok()
+                                .expect("could not create str");
                                 prom_ref
                                     .reject_q(q_ctx, err_ref)
                                     .ok()
@@ -121,9 +128,10 @@ where
                     }
                     Err(err) => {
                         // todo use error:new_error(err)
-                        let err_ref = primitives::from_string_q(q_ctx, err.as_str())
-                            .ok()
-                            .expect("could not create str");
+                        let err_ref =
+                            unsafe { errors::new_error(q_ctx.context, "Error", err.as_str(), "") }
+                                .ok()
+                                .expect("could not create str");
                         prom_ref
                             .reject_q(q_ctx, err_ref)
                             .ok()
