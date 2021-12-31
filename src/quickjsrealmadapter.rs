@@ -604,6 +604,15 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         functions::new_function_q(self, name, js_function, arg_count)
     }
 
+    fn js_error_create(
+        &self,
+        name: &str,
+        message: &str,
+        stack: &str,
+    ) -> Result<Self::JsValueAdapterType, JsError> {
+        unsafe { errors::new_error(self.context, name, message, stack) }
+    }
+
     fn js_object_delete_property(
         &self,
         object: &JSValueRef,
