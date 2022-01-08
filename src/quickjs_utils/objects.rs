@@ -85,7 +85,7 @@ pub unsafe fn construct_object(
         qargs.as_mut_ptr(),
     );
 
-    let res_ref = JSValueRef::new(ctx, res, false, true, "call_function result");
+    let res_ref = JSValueRef::new(ctx, res, false, true, "construct_object result");
 
     if res_ref.is_exception() {
         if let Some(ex) = QuickJsRealmAdapter::get_exception(ctx) {
@@ -534,6 +534,32 @@ where
     }
 
     Ok(())
+}
+
+pub fn get_prototype_of_q(
+    q_ctx: &QuickJsRealmAdapter,
+    obj_ref: &JSValueRef,
+) -> Result<JSValueRef, JsError> {
+    let raw = unsafe { q::JS_GetPrototype(q_ctx.context, *obj_ref.borrow_value()) };
+    let pt_ref = JSValueRef::new(
+        q_ctx.context,
+        raw,
+        false,
+        true,
+        "object::get_prototype_of_q",
+    );
+
+    if pt_ref.is_exception() {
+        if let Some(ex) = unsafe { QuickJsRealmAdapter::get_exception(q_ctx.context) } {
+            Err(ex)
+        } else {
+            Err(JsError::new_str(
+                "get_prototype_of_q failed but could not get ex",
+            ))
+        }
+    } else {
+        Ok(pt_ref)
+    }
 }
 
 pub fn is_instance_of_q(
