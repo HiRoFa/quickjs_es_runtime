@@ -30,7 +30,7 @@ pub fn new_map_q(q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
 /// please ensure the passed JSContext is still valid
 pub unsafe fn new_map(ctx: *mut q::JSContext) -> Result<JSValueRef, JsError> {
     let map_constructor = get_constructor(ctx, "Map")?;
-    construct_object(ctx, &map_constructor, vec![])
+    construct_object(ctx, &map_constructor, &[])
 }
 
 /// see if a JSValueRef is an instance of Map

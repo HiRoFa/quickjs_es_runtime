@@ -646,10 +646,10 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
     fn js_object_construct(
         &self,
         constructor: &JSValueRef,
-        args: &[JSValueRef],
+        args: &[&JSValueRef],
     ) -> Result<JSValueRef, JsError> {
         // todo alter constructor method to accept slice
-        unsafe { construct_object(self.context, constructor, args.to_vec()) }
+        unsafe { construct_object(self.context, constructor, args) }
     }
 
     fn js_object_get_properties(&self, object: &JSValueRef) -> Result<Vec<String>, JsError> {

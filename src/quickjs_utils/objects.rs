@@ -72,7 +72,7 @@ pub unsafe fn get_namespace(
 pub unsafe fn construct_object(
     ctx: *mut q::JSContext,
     constructor_ref: &JSValueRef,
-    args: Vec<JSValueRef>,
+    args: &[&JSValueRef],
 ) -> Result<JSValueRef, JsError> {
     let arg_count = args.len() as i32;
 

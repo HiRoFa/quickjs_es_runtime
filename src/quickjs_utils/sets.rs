@@ -30,7 +30,7 @@ pub fn new_set_q(q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
 /// please ensure the passed JSContext is still valid
 pub unsafe fn new_set(ctx: *mut q::JSContext) -> Result<JSValueRef, JsError> {
     let map_constructor = get_constructor(ctx, "Set")?;
-    construct_object(ctx, &map_constructor, vec![])
+    construct_object(ctx, &map_constructor, &[])
 }
 
 /// see if a JSValueRef is an instance of Set
