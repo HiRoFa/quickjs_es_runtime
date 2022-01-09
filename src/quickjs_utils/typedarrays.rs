@@ -5,11 +5,12 @@
 use crate::quickjs_utils::get_constructor;
 use crate::quickjs_utils::objects::{
     construct_object, get_property_q, get_prototype_of_q, is_instance_of_by_name_q,
-    is_instance_of_q,
+    is_instance_of_q, set_property2, set_property2_q,
 };
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::valueref::JSValueRef;
 use hirofa_utils::auto_id_map::AutoIdMap;
+use hirofa_utils::js_utils::adapters::JsValueAdapter;
 use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 use std::cell::RefCell;
@@ -53,7 +54,8 @@ use std::slice;
 // }
 
 thread_local! {
-    static BUFFERS: RefCell<AutoIdMap<Vec<u8>>> = RefCell::new(AutoIdMap::new());
+    // max size is 32.max because we store id as prop
+    static BUFFERS: RefCell<AutoIdMap<Vec<u8>>> = RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize));
 }
 
 /// this method creates a new ArrayBuffer which is used as a basis for all typed arrays
@@ -70,6 +72,7 @@ pub fn new_array_buffer_q(
     let (buffer_id, buffer_ptr) = BUFFERS.with(|rc| {
         let buffers = &mut *rc.borrow_mut();
         let id = buffers.insert(buf);
+
         let ptr = buffers.get_mut(&id).unwrap().as_mut_ptr();
         (id, ptr)
     });
@@ -103,6 +106,9 @@ pub fn new_array_buffer_q(
     if obj_ref.is_exception() {
         return Err(JsError::new_str("Could not create array buffer"));
     }
+    let prop_ref = crate::quickjs_utils::primitives::from_i32(buffer_id as i32);
+    set_property2_q(q_ctx, &obj_ref, "__buffer_id", &prop_ref, 0);
+
     Ok(obj_ref)
 }
 
@@ -157,21 +163,41 @@ pub fn new_array_buffer_copy_q(
 pub fn detach_array_buffer_buffer_q(
     q_ctx: &QuickJsRealmAdapter,
     array_buffer: &JSValueRef,
-) -> Vec<u8> {
+) -> Result<Vec<u8>, JsError> {
     assert!(is_array_buffer_q(q_ctx, &array_buffer));
 
-    let mut len: u64 = 0;
-    let ptr =
-        unsafe { q::JS_GetArrayBuffer(q_ctx.context, &mut len, *array_buffer.borrow_value()) };
+    // check if vec is one we buffered, if not we create a new one from the slice we got from quickjs
+    // abuf->opaque seems impossible to get at, so we store the id ourselves as well
+    let id_prop = get_property_q(q_ctx, array_buffer, "__buffer_id")?;
+    let id_opt = if id_prop.is_i32() {
+        Some(id_prop.js_to_i32() as usize)
+    } else {
+        None
+    };
 
-    log::trace!("after JS_GetArrayBuffer, ptr={}", ptr as usize);
+    let v = if let Some(id) = id_opt {
+        log::trace!("found id {}, removing from buffers ", id);
+        BUFFERS.with(|rc| {
+            let buffers = &mut *rc.borrow_mut();
+            buffers.remove(&id)
+        })
+    } else {
+        log::trace!("buffer was not buffered by us, construct new vec");
+        let mut len: u64 = 0;
+        let ptr =
+            unsafe { q::JS_GetArrayBuffer(q_ctx.context, &mut len, *array_buffer.borrow_value()) };
 
-    let v = unsafe { slice::from_raw_parts(ptr, len as usize).to_vec() };
+        log::trace!("after JS_GetArrayBuffer, ptr={}", ptr as usize);
+        unsafe { Vec::from_raw_parts(ptr, len as usize, len as usize) }
+    };
+
+    log::trace!("after JS_GetArrayBuffer, vec_ptr={}", v.as_ptr() as usize);
+
     log::trace!("before JS_DetachArrayBuffer");
     unsafe { q::JS_DetachArrayBuffer(q_ctx.context, *array_buffer.borrow_value()) };
     log::trace!("after JS_DetachArrayBuffer");
 
-    v
+    Ok(v)
 }
 
 /// get the underlying arraybuffer of a TypedArray
@@ -207,8 +233,13 @@ pub fn new_uint8_array_copy_q(
 unsafe extern "C" fn free_func(
     _rt: *mut q::JSRuntime,
     opaque: *mut ::std::os::raw::c_void,
-    _ptr: *mut ::std::os::raw::c_void,
+    ptr: *mut ::std::os::raw::c_void,
 ) {
+    if std::ptr::null() == ptr {
+        log::trace!("free buffer ignoring null ptr");
+        return;
+    }
+
     let id = opaque as usize;
     log::trace!("free buffer {}", id);
     BUFFERS.with(|rc| {
@@ -217,7 +248,7 @@ unsafe extern "C" fn free_func(
             let _buf = buffers.remove(&id);
             log::trace!("dropped buffer");
         } else {
-            log::trace!("buffer was already dropped");
+            log::trace!("buffers was already dropped");
         }
     });
 }
@@ -317,7 +348,9 @@ pub mod tests {
                         .expect("did not get buffer");
 
                     log::trace!("reclaiming");
-                    let buf2_reclaimed = detach_array_buffer_buffer_q(realm, &ab);
+                    let buf2_reclaimed = detach_array_buffer_buffer_q(realm, &ab)
+                        .ok()
+                        .expect("detach failed");
 
                     //unsafe { q::JS_DetachArrayBuffer(realm.context, *arr.borrow_value()) };
 
