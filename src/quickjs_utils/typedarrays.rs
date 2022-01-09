@@ -1,3 +1,7 @@
+//! this module is a work in progress and is currently used by me to pass Vec<u8>'s from rust to js and back again
+//!
+//!
+//!
 use crate::quickjs_utils::get_constructor;
 use crate::quickjs_utils::objects::{
     construct_object, get_property_q, get_prototype_of_q, is_instance_of_by_name_q,
@@ -52,7 +56,7 @@ thread_local! {
     static BUFFERS: RefCell<AutoIdMap<Vec<u8>>> = RefCell::new(AutoIdMap::new());
 }
 
-/// this method creates a new ArrayBuffer which is used as a basis ofr all typed arrays
+/// this method creates a new ArrayBuffer which is used as a basis for all typed arrays
 /// the buffer vec is stored and used in js, when it is no longer needed it is destroyed
 /// todo: we can obtain the buffer without it beeing freed by detacharraybuffer
 ///
@@ -73,6 +77,11 @@ pub fn new_array_buffer_q(
     let opaque = buffer_id;
 
     let is_shared = 0;
+
+    log::trace!(
+        "before JS_NewArrayBuffer, buffer_ptr={}",
+        buffer_ptr as usize,
+    );
 
     let raw = unsafe {
         q::JS_NewArrayBuffer(
@@ -124,6 +133,7 @@ pub fn is_typed_array_q(q_ctx: &QuickJsRealmAdapter, arr: &JSValueRef) -> bool {
     }
 }
 
+/// create an array buffer with a copy of the data in a Vec
 pub fn new_array_buffer_copy_q(
     q_ctx: &QuickJsRealmAdapter,
     buf: &Vec<u8>,
@@ -142,20 +152,9 @@ pub fn new_array_buffer_copy_q(
     }
     Ok(obj_ref)
 }
-/*
-pub fn borrow_array_buffer_buffer_q<'a>(
-    _q_ctx: &QuickJsRealmAdapter,
-    _buffer: &'a JSValueRef,
-) -> &'a Vec<u8> {
-    //let mut len: u64 = 0;
-    //let ptr = q::JS_GetArrayBuffer(q_ctx.context, &mut len, buffer.borrow_value());
-    //unsafe {Vec::from_raw_parts(ptr, len as usize, len as usize)}
-    todo!();
-}
 
- */
-
-pub fn get_array_buffer_buffer_q(
+/// detach the array buffer and return it, after this the TypedArray is no longer usable in JS (or at least all items will return undefined)
+pub fn detach_array_buffer_buffer_q(
     q_ctx: &QuickJsRealmAdapter,
     array_buffer: &JSValueRef,
 ) -> Vec<u8> {
@@ -165,30 +164,37 @@ pub fn get_array_buffer_buffer_q(
     let ptr =
         unsafe { q::JS_GetArrayBuffer(q_ctx.context, &mut len, *array_buffer.borrow_value()) };
 
-    let v = unsafe { slice::from_raw_parts(ptr, len as usize).to_vec() };
+    log::trace!("after JS_GetArrayBuffer, ptr={}", ptr as usize);
 
+    let v = unsafe { slice::from_raw_parts(ptr, len as usize).to_vec() };
+    log::trace!("before JS_DetachArrayBuffer");
     unsafe { q::JS_DetachArrayBuffer(q_ctx.context, *array_buffer.borrow_value()) };
+    log::trace!("after JS_DetachArrayBuffer");
 
     v
 }
 
+/// get the underlying arraybuffer of a TypedArray
 pub fn get_array_buffer_q(
     q_ctx: &QuickJsRealmAdapter,
     typed_array: &JSValueRef,
 ) -> Result<JSValueRef, JsError> {
+    // this is probably needed later for different typed arrays
     //let raw = q::JS_GetTypedArrayBuffer()
 
     // todo!();
-
+    // for our Uint8Array uses cases this works fine
     get_property_q(q_ctx, typed_array, "buffer")
 }
 
+/// create a new TypedArray with a buffer, the buffer is consumed and can be reclaimed later by calling detach_array_buffer_buffer_q
 pub fn new_uint8_array_q(q_ctx: &QuickJsRealmAdapter, buf: Vec<u8>) -> Result<JSValueRef, JsError> {
     let array_buffer = new_array_buffer_q(q_ctx, buf)?;
     let constructor = unsafe { get_constructor(q_ctx.context, "Uint8Array") }?;
     unsafe { construct_object(q_ctx.context, &constructor, &[&array_buffer]) }
 }
 
+/// create a new TypedArray with a buffer, the buffer is copied and that copy can be reclaimed later by calling detach_array_buffer_buffer_q
 pub fn new_uint8_array_copy_q(
     q_ctx: &QuickJsRealmAdapter,
     buf: &Vec<u8>,
@@ -220,12 +226,13 @@ unsafe extern "C" fn free_func(
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
     use crate::quickjs_utils::typedarrays::{
-        get_array_buffer_buffer_q, get_array_buffer_q, is_array_buffer_q, is_typed_array_q,
+        detach_array_buffer_buffer_q, get_array_buffer_q, is_array_buffer_q, is_typed_array_q,
         new_array_buffer_q, new_uint8_array_q,
     };
     use hirofa_utils::js_utils::adapters::JsRealmAdapter;
     use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
     use hirofa_utils::js_utils::Script;
+    use std::time::Duration;
 
     #[test]
     fn test_typed() {
@@ -242,7 +249,7 @@ pub mod tests {
             );
         }));
 
-        // simple_logging::log_to_stderr(log::LevelFilter::max());
+        simple_logging::log_to_stderr(log::LevelFilter::max());
 
         let rt = QuickJsRuntimeBuilder::new().js_build();
 
@@ -272,7 +279,6 @@ pub mod tests {
 
         let _blah = rt.js_loop_realm_sync(None, |_rt, realm| {
             let buf = vec![1, 2, 3];
-            let buf2 = vec![1, 2, 3];
 
             let ab_res = new_array_buffer_q(realm, buf);
 
@@ -286,6 +292,11 @@ pub mod tests {
                 Err(e) => {
                     log::debug!("err: {}", e);
                 }
+            }
+
+            let mut buf2 = vec![];
+            for x in 0..(1024 * 1024) {
+                buf2.push(x as u8);
             }
 
             let arr_res = new_uint8_array_q(realm, buf2);
@@ -306,16 +317,17 @@ pub mod tests {
                         .expect("did not get buffer");
 
                     log::trace!("reclaiming");
-                    let buf2_reclaimed = get_array_buffer_buffer_q(realm, &ab);
+                    let buf2_reclaimed = detach_array_buffer_buffer_q(realm, &ab);
 
                     //unsafe { q::JS_DetachArrayBuffer(realm.context, *arr.borrow_value()) };
 
                     log::trace!("reclaimed");
 
-                    //realm
-                    //    .js_function_invoke_by_name(&[], "testTyped", &[arr.clone()])
-                    //    .err()
-                    //    .expect("testTyped should have failed");
+                    // this still works but all values should be undefined..
+                    realm
+                        .js_function_invoke_by_name(&[], "testTyped", &[arr.clone()])
+                        .ok()
+                        .expect("script failed");
 
                     log::trace!("ab dropped");
                     // atm this causes another call to free_buffer, also code above just works ... is detach not working?
