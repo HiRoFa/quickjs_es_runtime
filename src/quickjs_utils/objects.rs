@@ -540,17 +540,21 @@ pub fn get_prototype_of_q(
     q_ctx: &QuickJsRealmAdapter,
     obj_ref: &JSValueRef,
 ) -> Result<JSValueRef, JsError> {
-    let raw = unsafe { q::JS_GetPrototype(q_ctx.context, *obj_ref.borrow_value()) };
-    let pt_ref = JSValueRef::new(
-        q_ctx.context,
-        raw,
-        false,
-        true,
-        "object::get_prototype_of_q",
-    );
+    unsafe { get_prototype_of(q_ctx.context, obj_ref) }
+}
+
+/// Object.prototypeOf
+/// # Safety
+/// please ensure the JSContext is valid and remains valid while using this function
+pub unsafe fn get_prototype_of(
+    ctx: *mut q::JSContext,
+    obj_ref: &JSValueRef,
+) -> Result<JSValueRef, JsError> {
+    let raw = q::JS_GetPrototype(ctx, *obj_ref.borrow_value());
+    let pt_ref = JSValueRef::new(ctx, raw, false, true, "object::get_prototype_of_q");
 
     if pt_ref.is_exception() {
-        if let Some(ex) = unsafe { QuickJsRealmAdapter::get_exception(q_ctx.context) } {
+        if let Some(ex) = QuickJsRealmAdapter::get_exception(ctx) {
             Err(ex)
         } else {
             Err(JsError::new_str(
