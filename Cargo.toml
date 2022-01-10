@@ -22,9 +22,9 @@ setimmediate = []
 
 
 [dependencies]
-#hirofa_utils = "0.3"
+hirofa_utils = "0.4"
 #hirofa_utils = {path="../utils"}
-hirofa_utils = {git="https://github.com/HiRoFa/utils"}
+#hirofa_utils = {git="https://github.com/HiRoFa/utils"}
 backtrace = "0.3.56"
 libquickjs-sys = "0.10.0"
 lazy_static = "1.4.0"

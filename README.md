@@ -2,14 +2,14 @@
 
 quickjs_runtime is a library for quickly getting started with embedding a javascript engine in your rust project.
 
-**DISCLAIMER: This project is far from what I would call "Battle Tested", use at your own risk.**
+**DISCLAIMER: This project is not yet what I would call "Battle Tested", use at your own risk.**
 
 quickjs_runtime focuses purely on making [quickjs](https://bellard.org/quickjs/) easy to use and does not add any additional features, that's where these projects come in:
 * A more feature-rich runtime: [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime).
 * The commandline client: [GreenCopperCmd](https://github.com/HiRoFa/GreenCopperCmd).
-* And then there is GreenCopper which aspires to be a full fledged application platform: [GreenCopperServer](https://github.com/HiRoFa/GreenCopperServer).
+* And then there is [GreenCopperServer](https://github.com/HiRoFa/GreenCopperServer) which aspires to be a full fledged application platform.
 
-This project is heavily inspired by the awesome quickjs wrapper at [theduke/quickjs-rs](https://github.com/theduke/quickjs-rs) and still uses its low level bindings [libquickjs-sys](https://crates.io/crates/libquickjs-sys).
+This project is inspired by the quickjs wrapper at [theduke/quickjs-rs](https://github.com/theduke/quickjs-rs) and still uses its low level bindings [libquickjs-sys](https://crates.io/crates/libquickjs-sys).
 
 The big difference to quickjs-rs is that quickjs_runtime executes all quickjs related code in a dedicated single-threaded EventLoop.
 
@@ -81,145 +81,114 @@ Cargo.toml
 
 ```toml
 [dependencies]
-quickjs_runtime = "0.6"
-log = "0.4.11"
-simple-logging = "2.0.2"
+hirofa_utils = "0.4"
+quickjs_runtime = "0.7"
+log = "0.4"
+simple-logging = "2.0"
 ```
 
-main.rs
-
 ```rust
-use quickjs_runtime::esruntimebuilder::EsRuntimeBuilder;
-use hirofa_utils::js_utils::Script;
-use log::LevelFilter;
-use futures::executor::block_on;
-use std::sync::Arc;
-use quickjs_runtime::esruntime::EsRuntime;
+use crate::builder::QuickJsRuntimeBuilder;
+    use crate::facades::QuickJsRuntimeFacade;
+    use crate::quickjsrealmadapter::QuickJsRealmAdapter;
+    use futures::executor::block_on;
+    use hirofa_utils::js_utils::adapters::proxies::JsProxy;
+    use hirofa_utils::js_utils::adapters::JsRealmAdapter;
+    use hirofa_utils::js_utils::facades::values::{JsValueConvertable, JsValueFacade};
+    use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
+    use hirofa_utils::js_utils::{JsError, Script};
+    use log::LevelFilter;
+    use std::time::Duration;
 
-async fn test(rt: &QuickJsRuntimeFacade){
-    let res = rt.eval(Script::new(
-        "basics.es",
-        "7 * 12;",
-    )).await.ok().unwrap();
-
-    assert_eq!(res.get_i32(), 84);
-}
-
-fn main() {
-    simple_logging::log_to_stderr(LevelFilter::Info);
-
-    let rt = QuickJsRuntimeBuilder::new()
-        .build();
-
-    block_on(test(rt));
-
-}
-```
-
-## invoke a js method from rust
-
-```rust
-    let res = rt.call_function(vec!["myAppUtils"], "some_func", es_args![8, 7]).await;
-    match res {
-        Ok(val) => log::info!("8*7 in JavaScript = {}", val.get_i32()),
-        Err(e) => log::error!("script failed: {}", e),
+    #[test]
+    fn test_examples() {
+        let rt = QuickJsRuntimeBuilder::new().js_build();
+        let outcome = block_on(run_examples(&rt));
+        if outcome.is_err() {
+            log::error!("an error occured: {}", outcome.err().unwrap());
+        }
+        log::info!("done");
     }
-```
 
-## add a function from rust and invoke it
+    async fn take_long() -> i32 {
+        std::thread::sleep(Duration::from_millis(500));
+        537
+    }
 
-```rust
-    rt.set_function(vec!["nl", "my", "utils"], "methodA", |args| {
-        if args.len() != 2 || !args.get(0).unwrap().is_i32() || !args.get(1).unwrap().is_i32() {
-            Err(JsError::new_str(
-                "i'd really like 2 args of the int32 kind please",
-            ))
-        } else {
+    async fn run_examples(rt: &QuickJsRuntimeFacade) -> Result<(), JsError> {
+        // ensure console.log calls get outputted
+        simple_logging::log_to_stderr(LevelFilter::Info);
+
+        // do a simple eval on the main realm
+        let eval_res = rt
+            .js_eval(None, Script::new("simple_eval.js", "2*7;"))
+            .await?;
+        log::info!("simple eval:{}", eval_res.get_i32());
+
+        // invoke a JS method from rust
+
+        let meth_res = rt
+            .js_function_invoke(None, &["Math"], "round", vec![12.321.to_js_value_facade()])
+            .await?;
+        log::info!("Math.round(12.321) = {}", meth_res.get_i32());
+
+        // add a rust function to js as a callback
+
+        let cb = JsValueFacade::new_callback(|args| {
             let a = args[0].get_i32();
             let b = args[1].get_i32();
-            log::info!("rust is multiplying {} and {}", a, b);
-            Ok((a * b).to_es_value_facade())
-        }
-    })
-    .ok()
-    .expect("set_function failed");
+            log::info!("rust cb was called with a:{} and b:{}", a, b);
+            Ok(JsValueFacade::Null)
+        });
+        rt.js_function_invoke(
+            None,
+            &[],
+            "setTimeout",
+            vec![
+                cb,
+                10.to_js_value_facade(),
+                12.to_js_value_facade(),
+                13.to_js_value_facade(),
+            ],
+        )
+        .await?;
+        std::thread::sleep(Duration::from_millis(20));
+        log::info!("rust cb should have been called by now");
 
-    let method_a_res = rt.eval(Script::new(
-        "test_func.es",
-        "(nl.my.utils.methodA(13, 56));",
-    )).await;
+        // create simple proxy class with an async function
+        rt.js_loop_realm_sync(None, |_rt_adapter, realm_adapter| {
+            let proxy = JsProxy::new(&["com", "mystuff"], "MyProxy").add_static_method(
+                "doSomething",
+                |_rt_adapter, realm_adapter: &QuickJsRealmAdapter, _args| {
+                    realm_adapter.js_promise_create_resolving_async(
+                        async { Ok(take_long().await) },
+                        |realm_adapter, producer_result| {
+                            realm_adapter.js_i32_create(producer_result)
+                        },
+                    )
+                },
+            );
+            realm_adapter
+                .js_proxy_install(proxy, true)
+                .ok()
+                .expect("could not install proxy");
+        });
 
-    match method_a_res {
-        Ok(val) => {
-            assert_eq!(val.get_i32(), 13 * 56);
-        }
-        Err(e) => {
-            panic!("test_func.es failed: {}", e);
-        }
+        rt.js_eval(
+            None,
+            Script::new(
+                "testMyProxy.js",
+                "async function a() {\
+                            console.log('a called at %s ms', new Date().getTime());\
+                            let res = await com.mystuff.MyProxy.doSomething();\
+                            console.log('a got result %s at %s ms', res, new Date().getTime());\
+                           }; a();",
+            ),
+        )
+        .await?;
+        std::thread::sleep(Duration::from_millis(600));
+        log::info!("a should have been called by now");
+
+        Ok(())
     }
-```
-
-## eval a module
-
-```rust
-    rt.eval_module(Script::new(
-        "my_app.mes",
-        "\
-    import {foo} from 'example.mes';\
-    console.log('static foo is ' + foo);\
-    ",
-    )).await
-    .ok()
-    .expect("module failed");
-```
-
-## eval a module with a dynamic import
-
-```rust
-    
-    rt.eval_module(Script::new(
-        "my_app2.es",
-        "\
-    import('example.mes')\
-    .then((example_module) => {\
-        console.log('dynamic foo is ' + example_module.foo);\
-    });\
-    ",
-    )).await
-    .ok()
-    .expect("script failed");
-```
-
-##  get a function from js and invoke it in rust
-
-```rust
-    rt.set_function(vec!["nl", "my", "utils"], "methodB", |mut args| {
-        if args.len() != 1 || !args[0].is_function() {
-            Err(JsError::new_str(
-                "i'd really like 1 arg of the function kind please",
-            ))
-        } else {
-            let consumer_func = args.remove(0);
-
-            // invoke the func async, just because we can
-            std::thread::spawn(move || {
-                consumer_func
-                    .invoke_function_sync(es_args![19, 17])
-                    .ok()
-                    .expect("func failed");
-            });
-
-            Ok(quickjs_es_runtime::esvalue::EsNullValue {}.to_es_value_facade())
-        }
-    })
-    .ok()
-    .expect("set_function failed");
-
-    rt.eval(Script::new(
-        "test_func2.es",
-        "(nl.my.utils.methodB(function(a, b){console.log('consumer was called with ' +a + ', ' + b);}));",
-    )).await.ok().expect("test_func2.es failed");
-
-    // wait a sec for the async onvoker to run
-    std::thread::sleep(Duration::from_secs(1));
 ```

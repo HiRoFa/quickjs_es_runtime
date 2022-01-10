@@ -104,9 +104,106 @@ pub mod valueref;
 
 #[cfg(test)]
 pub mod tests {
+    use crate::builder::QuickJsRuntimeBuilder;
+    use crate::facades::QuickJsRuntimeFacade;
+    use crate::quickjsrealmadapter::QuickJsRealmAdapter;
+    use futures::executor::block_on;
+    use hirofa_utils::js_utils::adapters::proxies::JsProxy;
+    use hirofa_utils::js_utils::adapters::JsRealmAdapter;
+    use hirofa_utils::js_utils::facades::values::{JsValueConvertable, JsValueFacade};
+    use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
+    use hirofa_utils::js_utils::{JsError, Script};
+    use std::time::Duration;
 
     #[test]
-    fn test_macro() {
-        let _args = es_args!(1, 2i32, true, "sdf".to_string());
+    fn test_examples() {
+        let rt = QuickJsRuntimeBuilder::new().js_build();
+        let outcome = block_on(run_examples(&rt));
+        if outcome.is_err() {
+            log::error!("an error occured: {}", outcome.err().unwrap());
+        }
+        log::info!("done");
+    }
+
+    async fn take_long() -> i32 {
+        std::thread::sleep(Duration::from_millis(500));
+        537
+    }
+
+    async fn run_examples(rt: &QuickJsRuntimeFacade) -> Result<(), JsError> {
+        // ensure console.log calls get outputted
+        //simple_logging::log_to_stderr(LevelFilter::Info);
+
+        // do a simple eval on the main realm
+        let eval_res = rt
+            .js_eval(None, Script::new("simple_eval.js", "2*7;"))
+            .await?;
+        log::info!("simple eval:{}", eval_res.get_i32());
+
+        // invoke a JS method from rust
+
+        let meth_res = rt
+            .js_function_invoke(None, &["Math"], "round", vec![12.321.to_js_value_facade()])
+            .await?;
+        log::info!("Math.round(12.321) = {}", meth_res.get_i32());
+
+        // add a rust function to js as a callback
+
+        let cb = JsValueFacade::new_callback(|args| {
+            let a = args[0].get_i32();
+            let b = args[1].get_i32();
+            log::info!("rust cb was called with a:{} and b:{}", a, b);
+            Ok(JsValueFacade::Null)
+        });
+        rt.js_function_invoke(
+            None,
+            &[],
+            "setTimeout",
+            vec![
+                cb,
+                10.to_js_value_facade(),
+                12.to_js_value_facade(),
+                13.to_js_value_facade(),
+            ],
+        )
+        .await?;
+        std::thread::sleep(Duration::from_millis(20));
+        log::info!("rust cb should have been called by now");
+
+        // create simple proxy class with an async function
+        rt.js_loop_realm_sync(None, |_rt_adapter, realm_adapter| {
+            let proxy = JsProxy::new(&["com", "mystuff"], "MyProxy").add_static_method(
+                "doSomething",
+                |_rt_adapter, realm_adapter: &QuickJsRealmAdapter, _args| {
+                    realm_adapter.js_promise_create_resolving_async(
+                        async { Ok(take_long().await) },
+                        |realm_adapter, producer_result| {
+                            realm_adapter.js_i32_create(producer_result)
+                        },
+                    )
+                },
+            );
+            realm_adapter
+                .js_proxy_install(proxy, true)
+                .ok()
+                .expect("could not install proxy");
+        });
+
+        rt.js_eval(
+            None,
+            Script::new(
+                "testMyProxy.js",
+                "async function a() {\
+                            console.log('a called at %s ms', new Date().getTime());\
+                            let res = await com.mystuff.MyProxy.doSomething();\
+                            console.log('a got result %s at %s ms', res, new Date().getTime());\
+                           }; a();",
+            ),
+        )
+        .await?;
+        std::thread::sleep(Duration::from_millis(600));
+        log::info!("a should have been called by now");
+
+        Ok(())
     }
 }

@@ -1,4 +1,4 @@
-# 0.7.0 (work in progress)
+# 0.7.0
 
 * implemented js_proxy_new_instance_with_id from utils which allows you to create an instance of a proxy with a predefined id
 * implemented set_prop / has_prop functions in proxies
@@ -8,6 +8,7 @@
 * made console/setinterval/settimeout/setimmediate optional(but default) features
 * more complete stacktrace with errors
 * callback functions add name to stacktrace on error
+* implemented typedarrays (Uint8 only for now)
 
 # 0.6.0
 
