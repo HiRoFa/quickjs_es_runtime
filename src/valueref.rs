@@ -1,5 +1,6 @@
 //! JSValueRef is a wrapper for quickjs's JSValue. it provides automatic reference counting making it safer to use  
 
+use crate::quickjs_utils::typedarrays::is_typed_array;
 use crate::quickjs_utils::{arrays, errors, functions, primitives, promises};
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use hirofa_utils::js_utils::adapters::JsValueAdapter;
@@ -291,6 +292,10 @@ impl JsValueAdapter for JSValueRef {
             TAG_MODULE => todo!(),
             _ => JsValueType::Undefined,
         }
+    }
+
+    fn js_is_typed_array(&self) -> bool {
+        unsafe { is_typed_array(self.context, self) }
     }
 
     fn js_type_of(&self) -> &'static str {

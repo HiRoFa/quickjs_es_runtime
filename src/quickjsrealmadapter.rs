@@ -1,6 +1,10 @@
 use crate::facades::QuickjsRuntimeFacadeInner;
 use crate::quickjs_utils::objects::construct_object;
 use crate::quickjs_utils::primitives::{from_bool, from_f64, from_i32, from_string_q};
+use crate::quickjs_utils::typedarrays::{
+    detach_array_buffer_buffer_q, get_array_buffer_buffer_copy_q, get_array_buffer_q,
+    new_uint8_array_copy_q, new_uint8_array_q,
+};
 use crate::quickjs_utils::{arrays, errors, functions, get_global_q, json, new_null_ref, objects};
 use crate::quickjsruntimeadapter::{make_cstring, QuickJsRuntimeAdapter};
 use crate::reflection::eventtarget::dispatch_event;
@@ -821,6 +825,36 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
 
     fn js_json_parse(&self, json_string: &str) -> Result<JSValueRef, JsError> {
         json::parse_q(self, json_string)
+    }
+
+    fn js_typed_array_uint8_create(
+        &self,
+        buffer: Vec<u8>,
+    ) -> Result<Self::JsValueAdapterType, JsError> {
+        new_uint8_array_q(self, buffer)
+    }
+
+    fn js_typed_array_uint8_create_copy(
+        &self,
+        buffer: &[u8],
+    ) -> Result<Self::JsValueAdapterType, JsError> {
+        new_uint8_array_copy_q(self, buffer)
+    }
+
+    fn js_typed_array_detach_buffer(
+        &self,
+        array: &Self::JsValueAdapterType,
+    ) -> Result<Vec<u8>, JsError> {
+        let abuf = get_array_buffer_q(self, array)?;
+        detach_array_buffer_buffer_q(self, &abuf)
+    }
+
+    fn js_typed_array_copy_buffer(
+        &self,
+        array: &Self::JsValueAdapterType,
+    ) -> Result<Vec<u8>, JsError> {
+        let abuf = get_array_buffer_q(self, array)?;
+        get_array_buffer_buffer_copy_q(self, &abuf)
     }
 }
 
