@@ -5,7 +5,7 @@ use crate::esvalue::EsValueFacade;
 use crate::quickjs_utils::{functions, objects};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::{
-    CompiledModuleLoaderAdapter, NativeModuleLoaderAdapter, QuickJsRuntimeAdapter,
+    CompiledModuleLoaderAdapter, MemoryUsage, NativeModuleLoaderAdapter, QuickJsRuntimeAdapter,
     ScriptModuleLoaderAdapter, QJS_RT,
 };
 use crate::reflection;
@@ -288,6 +288,11 @@ impl QuickJsRuntimeFacade {
         }
 
         ret
+    }
+
+    /// get memory usage for this runtime
+    pub async fn memory_usage(&self) -> MemoryUsage {
+        self.js_loop(|rt| rt.memory_usage()).await
     }
 
     pub(crate) fn clear_contexts(&self) {

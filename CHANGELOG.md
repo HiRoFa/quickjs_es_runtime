@@ -1,3 +1,8 @@
+# 0.8.0 (WiP)
+
+* fn to calc memory usage
+* 
+
 # 0.7.0
 
 * implemented js_proxy_new_instance_with_id from utils which allows you to create an instance of a proxy with a predefined id

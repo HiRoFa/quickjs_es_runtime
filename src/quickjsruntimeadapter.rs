@@ -16,6 +16,7 @@ use hirofa_utils::js_utils::JsError;
 use hirofa_utils::js_utils::Script;
 use hirofa_utils::js_utils::ScriptPreProcessor;
 use libquickjs_sys as q;
+use serde::Serialize;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::CString;
@@ -275,12 +276,77 @@ thread_local! {
     static NESTED: RefCell<bool> = RefCell::new(false);
 }
 
+#[derive(Serialize)]
+pub struct MemoryUsage {
+    pub realm_ct: usize,
+    pub malloc_size: i64,
+    pub malloc_limit: i64,
+    pub memory_used_size: i64,
+    pub malloc_count: i64,
+    pub memory_used_count: i64,
+    pub atom_count: i64,
+    pub atom_size: i64,
+    pub str_count: i64,
+    pub str_size: i64,
+    pub obj_count: i64,
+    pub obj_size: i64,
+    pub prop_count: i64,
+    pub prop_size: i64,
+    pub shape_count: i64,
+    pub shape_size: i64,
+    pub js_func_count: i64,
+    pub js_func_size: i64,
+    pub js_func_code_size: i64,
+    pub js_func_pc2line_count: i64,
+    pub js_func_pc2line_size: i64,
+    pub c_func_count: i64,
+    pub array_count: i64,
+    pub fast_array_count: i64,
+    pub fast_array_elements: i64,
+    pub binary_object_count: i64,
+    pub binary_object_size: i64,
+}
+
 impl QuickJsRuntimeAdapter {
     pub(crate) fn init_rt_for_current_thread(rt: QuickJsRuntimeAdapter) {
         QJS_RT.with(|rc| {
             let opt = &mut *rc.borrow_mut();
             opt.replace(rt);
         })
+    }
+
+    /// get memory usage for this runtime
+    pub fn memory_usage(&self) -> MemoryUsage {
+        let mu = unsafe { crate::quickjs_utils::get_memory_usage(self.runtime) };
+        MemoryUsage {
+            realm_ct: self.contexts.len(),
+            malloc_size: mu.malloc_size,
+            malloc_limit: mu.malloc_limit,
+            memory_used_size: mu.memory_used_size,
+            malloc_count: mu.malloc_count,
+            memory_used_count: mu.memory_used_count,
+            atom_count: mu.atom_count,
+            atom_size: mu.atom_size,
+            str_count: mu.str_count,
+            str_size: mu.str_size,
+            obj_count: mu.obj_count,
+            obj_size: mu.obj_size,
+            prop_count: mu.prop_count,
+            prop_size: mu.prop_size,
+            shape_count: mu.shape_count,
+            shape_size: mu.shape_size,
+            js_func_count: mu.js_func_count,
+            js_func_size: mu.js_func_size,
+            js_func_code_size: mu.js_func_code_size,
+            js_func_pc2line_count: mu.js_func_pc2line_count,
+            js_func_pc2line_size: mu.js_func_pc2line_size,
+            c_func_count: mu.c_func_count,
+            array_count: mu.array_count,
+            fast_array_count: mu.fast_array_count,
+            fast_array_elements: mu.fast_array_elements,
+            binary_object_count: mu.binary_object_count,
+            binary_object_size: mu.binary_object_size,
+        }
     }
 
     pub(crate) fn pre_process(mut script: Script) -> Result<Script, JsError> {
@@ -713,6 +779,22 @@ pub mod tests {
             log::debug!("load_module");
             "{}".to_string()
         }
+    }
+
+    #[test]
+    fn test_mem_usage() {
+        let rt = QuickJsRuntimeBuilder::new().build();
+        rt.eval_sync(Script::new("", "globalThis.f = function(){};"))
+            .ok()
+            .expect("script failed");
+        rt.js_loop_realm_sync(None, |rt, _realm| {
+            let mu = rt.memory_usage();
+            //println!(
+            //    "mem: {}",
+            //    serde_json::to_string(&mu).ok().expect("ser faied")
+            //);
+            assert_eq!(mu.realm_ct, 1);
+        });
     }
 
     #[test]

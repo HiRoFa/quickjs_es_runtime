@@ -108,6 +108,41 @@ pub unsafe fn get_constructor(
         Ok(constructor_ref)
     }
 }
+/// Calculate a runtimes memory usage
+/// # Safety
+/// runtime ref should be a valid existing runtime
+pub unsafe fn get_memory_usage(runtime: *mut q::JSRuntime) -> q::JSMemoryUsage {
+    let mut mu = q::JSMemoryUsage {
+        malloc_size: 0,
+        malloc_limit: 0,
+        memory_used_size: 0,
+        malloc_count: 0,
+        memory_used_count: 0,
+        atom_count: 0,
+        atom_size: 0,
+        str_count: 0,
+        str_size: 0,
+        obj_count: 0,
+        obj_size: 0,
+        prop_count: 0,
+        prop_size: 0,
+        shape_count: 0,
+        shape_size: 0,
+        js_func_count: 0,
+        js_func_size: 0,
+        js_func_code_size: 0,
+        js_func_pc2line_count: 0,
+        js_func_pc2line_size: 0,
+        c_func_count: 0,
+        array_count: 0,
+        fast_array_count: 0,
+        fast_array_elements: 0,
+        binary_object_count: 0,
+        binary_object_size: 0,
+    };
+    q::JS_ComputeMemoryUsage(runtime, &mut mu);
+    mu
+}
 
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
