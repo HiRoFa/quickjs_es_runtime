@@ -385,10 +385,9 @@ unsafe fn get_static_proxy_class_name(q_ctx: &QuickJsRealmAdapter, obj: &JSValue
     let proxy_name_ref = objects::get_property(q_ctx.context, obj, "name")
         .ok()
         .unwrap();
-    let proxy_name = primitives::to_string(q_ctx.context, &proxy_name_ref)
+    primitives::to_string(q_ctx.context, &proxy_name_ref)
         .ok()
-        .unwrap();
-    proxy_name
+        .unwrap()
 }
 
 unsafe extern "C" fn ext_add_static_event_listener(
