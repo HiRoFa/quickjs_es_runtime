@@ -1,7 +1,9 @@
 # 0.8.0 (WiP)
 
+# 0.7.1 
+
 * fn to calc memory usage
-* 
+* implemented static event handlers for proxies
 
 # 0.7.0
 

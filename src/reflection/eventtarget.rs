@@ -4,7 +4,7 @@
 use crate::quickjs_utils;
 use crate::quickjs_utils::objects::{create_object_q, set_property_q};
 use crate::quickjs_utils::primitives::from_bool;
-use crate::quickjs_utils::{functions, parse_args, primitives};
+use crate::quickjs_utils::{functions, objects, parse_args, primitives};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::reflection::{get_proxy, get_proxy_instance_info, Proxy};
 use crate::valueref::JSValueRef;
@@ -94,6 +94,23 @@ pub fn add_event_listener(
     })
 }
 
+pub fn add_static_event_listener(
+    q_ctx: &QuickJsRealmAdapter,
+    proxy_class_name: &str,
+    event_id: &str,
+    listener_func: JSValueRef,
+    options_obj: JSValueRef,
+) {
+    log::trace!(
+        "eventtarget::add_static_listener_to_map p:{} e:{}",
+        proxy_class_name,
+        event_id
+    );
+    with_static_listener_map(q_ctx, proxy_class_name, event_id, |map| {
+        let _ = map.insert(listener_func, options_obj);
+    })
+}
+
 pub fn remove_event_listener(
     q_ctx: &QuickJsRealmAdapter,
     proxy_class_name: &str,
@@ -108,6 +125,22 @@ pub fn remove_event_listener(
         instance_id
     );
     with_listener_map(q_ctx, proxy_class_name, instance_id, event_id, |map| {
+        let _ = map.remove(listener_func);
+    })
+}
+
+pub fn remove_static_event_listener(
+    q_ctx: &QuickJsRealmAdapter,
+    proxy_class_name: &str,
+    event_id: &str,
+    listener_func: &JSValueRef,
+) {
+    log::trace!(
+        "eventtarget::remove_static_listener_from_map p:{} e:{}",
+        proxy_class_name,
+        event_id
+    );
+    with_static_listener_map(q_ctx, proxy_class_name, event_id, |map| {
         let _ = map.remove(listener_func);
     })
 }
@@ -158,15 +191,13 @@ pub fn dispatch_event(
 /// the return value is false if event is cancelable and at least one of the event listeners which received event called Event.preventDefault. Otherwise it returns true
 pub fn dispatch_static_event(
     q_ctx: &QuickJsRealmAdapter,
-    proxy: &Proxy,
+    proxy_class_name: &str,
     event_id: &str,
     event: JSValueRef,
 ) -> Result<bool, JsError> {
-    let proxy_class_name = proxy.get_class_name();
-
     with_static_listener_map(
         q_ctx,
-        proxy_class_name.as_str(),
+        proxy_class_name,
         event_id,
         |listeners| -> Result<(), JsError> {
             for entry in listeners {
@@ -212,9 +243,12 @@ pub(crate) fn impl_event_target(proxy: Proxy) -> Proxy {
     if proxy.is_static_event_target {
         // todo, these should be finalized before context is destroyed, we really need a hook in QuickJsContext for that
         proxy = proxy
-            .static_native_method("addEventListener", Some(ext_add_event_listener))
-            .static_native_method("removeEventListener", Some(ext_remove_event_listener))
-            .static_native_method("dispatchEvent", Some(ext_dispatch_event));
+            .static_native_method("addEventListener", Some(ext_add_static_event_listener))
+            .static_native_method(
+                "removeEventListener",
+                Some(ext_remove_static_event_listener),
+            )
+            .static_native_method("dispatchEvent", Some(ext_dispatch_static_event));
     }
 
     proxy
@@ -334,6 +368,134 @@ unsafe extern "C" fn ext_dispatch_event(
             let proxy = get_proxy(q_ctx, proxy_info.class_name.as_str()).unwrap();
 
             let res = dispatch_event(q_ctx, &proxy, proxy_info.id, event_id.as_str(), evt_obj)?;
+
+            Ok(res)
+        }
+    });
+    match res {
+        Ok(res) => {
+            let b_ref = from_bool(res);
+            b_ref.clone_value_incr_rc()
+        }
+        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{}", e).as_str()),
+    }
+}
+
+unsafe fn get_static_proxy_class_name(q_ctx: &QuickJsRealmAdapter, obj: &JSValueRef) -> String {
+    let proxy_name_ref = objects::get_property(q_ctx.context, obj, "name")
+        .ok()
+        .unwrap();
+    let proxy_name = primitives::to_string(q_ctx.context, &proxy_name_ref)
+        .ok()
+        .unwrap();
+    proxy_name
+}
+
+unsafe extern "C" fn ext_add_static_event_listener(
+    ctx: *mut q::JSContext,
+    this_val: q::JSValue,
+    argc: ::std::os::raw::c_int,
+    argv: *mut q::JSValue,
+) -> q::JSValue {
+    let res = QuickJsRealmAdapter::with_context(ctx, |q_ctx| {
+        let args = parse_args(ctx, argc, argv);
+
+        let this_ref = JSValueRef::new(ctx, this_val, true, true, "add_event_listener_this");
+
+        let proxy_name = get_static_proxy_class_name(q_ctx, &this_ref);
+
+        if args.len() < 2 || !args[0].is_string() || !functions::is_function_q(q_ctx, &args[1]) {
+            Err(JsError::new_str("addEventListener requires at least 2 arguments (eventId: String and Listener: Function"))
+        } else {
+            let event_id = primitives::to_string_q(q_ctx, &args[0])?;
+            let listener_func = args[1].clone();
+
+            // use the passed options arg or create a new obj
+            let options_obj = if args.len() == 3 && args[2].is_object() {
+                args[2].clone()
+            } else {
+                create_object_q(q_ctx)?
+            };
+            // if the third args was a boolean then set that bool as the capture option
+            if args.len() == 3 && args[2].is_bool() {
+                set_property_q(q_ctx, &options_obj, "capture", &args[2])?;
+            }
+
+            add_static_event_listener(
+                q_ctx,
+                proxy_name.as_str(),
+                event_id.as_str(),
+                listener_func,
+                options_obj,
+            );
+
+            Ok(())
+        }
+    });
+    match res {
+        Ok(_) => quickjs_utils::new_null(),
+        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{}", e).as_str()),
+    }
+}
+
+unsafe extern "C" fn ext_remove_static_event_listener(
+    ctx: *mut q::JSContext,
+    this_val: q::JSValue,
+    argc: ::std::os::raw::c_int,
+    argv: *mut q::JSValue,
+) -> q::JSValue {
+    let res = QuickJsRealmAdapter::with_context(ctx, |q_ctx| {
+        let args = parse_args(ctx, argc, argv);
+
+        let this_ref = JSValueRef::new(ctx, this_val, true, true, "remove_event_listener_this");
+
+        let proxy_name = get_static_proxy_class_name(q_ctx, &this_ref);
+
+        if args.len() != 2 || !args[0].is_string() || !functions::is_function_q(q_ctx, &args[1]) {
+            Err(JsError::new_str("removeEventListener requires at least 2 arguments (eventId: String and Listener: Function"))
+        } else {
+            let event_id = primitives::to_string_q(q_ctx, &args[0])?;
+            let listener_func = args[1].clone();
+
+            remove_static_event_listener(
+                q_ctx,
+                proxy_name.as_str(),
+                event_id.as_str(),
+                &listener_func,
+            );
+
+            Ok(())
+        }
+    });
+    match res {
+        Ok(_) => quickjs_utils::new_null(),
+        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{}", e).as_str()),
+    }
+}
+
+unsafe extern "C" fn ext_dispatch_static_event(
+    ctx: *mut q::JSContext,
+    this_val: q::JSValue,
+    argc: ::std::os::raw::c_int,
+    argv: *mut q::JSValue,
+) -> q::JSValue {
+    let res = QuickJsRealmAdapter::with_context(ctx, |q_ctx| {
+        let args = parse_args(ctx, argc, argv);
+
+        let this_ref = JSValueRef::new(ctx, this_val, true, true, "remove_event_listener_this");
+
+        let proxy_name = get_static_proxy_class_name(q_ctx, &this_ref);
+
+        if args.len() != 2 || !args[0].is_string() {
+            Err(JsError::new_str(
+                "dispatchEvent requires at least 2 arguments (eventId: String and eventObj: Object)",
+            ))
+        } else {
+            let event_id = primitives::to_string_q(q_ctx, &args[0])?;
+            let evt_obj = args[1].clone();
+
+            let res =
+                dispatch_static_event(q_ctx, proxy_name.as_str(), event_id.as_str(), evt_obj)?;
 
             Ok(res)
         }

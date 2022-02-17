@@ -502,7 +502,12 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         let proxy_map = self.proxy_registry.borrow();
         let proxy = proxy_map.get(cn.as_str()).expect("class not found");
 
-        dispatch_static_event(self, proxy, event_id, event_obj.clone())
+        dispatch_static_event(
+            self,
+            proxy.get_class_name().as_str(),
+            event_id,
+            event_obj.clone(),
+        )
     }
 
     fn js_install_function(
