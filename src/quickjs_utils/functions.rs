@@ -12,6 +12,7 @@ use log::trace;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::os::raw::{c_char, c_int, c_void};
+use std::rc::Rc;
 
 /// parse a function body and its arg_names into a JSValueRef which is a Function
 /// # Example
@@ -524,7 +525,7 @@ thread_local! {
         RefCell::new(class_id)
     };
 
-    static CALLBACK_REGISTRY: RefCell<AutoIdMap<(String, Box<Callback>)>> = {
+    static CALLBACK_REGISTRY: RefCell<AutoIdMap<(String, Rc<Callback>)>> = {
         RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize))
     };
 
@@ -598,7 +599,7 @@ where
 
     let callback_id = CALLBACK_REGISTRY.with(|registry_rc| {
         let registry = &mut *registry_rc.borrow_mut();
-        registry.insert((name.to_string(), Box::new(func)))
+        registry.insert((name.to_string(), Rc::new(func)))
     });
     log::trace!("new_function callback_id = {}", callback_id);
 
@@ -966,31 +967,31 @@ unsafe extern "C" fn callback_function(
 
     trace!("callback_function id = {}", callback_id);
 
-    CALLBACK_REGISTRY.with(|registry_rc| {
+    let cb_opt = CALLBACK_REGISTRY.with(|registry_rc| {
         let registry = &*registry_rc.borrow();
-        if let Some((name, callback)) = registry.get(&(callback_id as usize)) {
-            let args_vec = parse_args(ctx, argc, argv);
+        registry.get(&(callback_id as usize)).cloned()
+    });
+    if let Some((name, callback)) = cb_opt {
+        let args_vec = parse_args(ctx, argc, argv);
 
-            let this_ref = JSValueRef::new(ctx, this_val, true, true, "callback_function this_val");
+        let this_ref = JSValueRef::new(ctx, this_val, true, true, "callback_function this_val");
 
-            let callback_res: Result<JSValueRef, JsError> =
-                callback(ctx, &this_ref, args_vec.as_slice());
+        let callback_res: Result<JSValueRef, JsError> =
+            callback(ctx, &this_ref, args_vec.as_slice());
 
-            match callback_res {
-                Ok(res) => res.clone_value_incr_rc(),
-                Err(e) => {
-                    let nat_stack = format!("   at native_function [{}]\n{}", name, e.get_stack());
-                    let err =
-                        errors::new_error(ctx, e.get_name(), e.get_message(), nat_stack.as_str())
-                            .ok()
-                            .expect("could not create err");
-                    errors::throw(ctx, err)
-                }
+        match callback_res {
+            Ok(res) => res.clone_value_incr_rc(),
+            Err(e) => {
+                let nat_stack = format!("   at native_function [{}]\n{}", name, e.get_stack());
+                let err = errors::new_error(ctx, e.get_name(), e.get_message(), nat_stack.as_str())
+                    .ok()
+                    .expect("could not create err");
+                errors::throw(ctx, err)
             }
-        } else {
-            panic!("callback not found");
         }
-    })
+    } else {
+        panic!("callback not found");
+    }
 }
 
 #[cfg(test)]
