@@ -55,15 +55,24 @@ where
 }
 
 fn with_static_listener_map<C, R>(
-    _q_ctx: &QuickJsRealmAdapter,
-    _proxy_class_name: &str,
-    _event_id: &str,
-    _consumer: C,
+    q_ctx: &QuickJsRealmAdapter,
+    proxy_class_name: &str,
+    event_id: &str,
+    consumer: C,
 ) -> R
 where
     C: FnOnce(&mut HashMap<JSValueRef, JSValueRef>) -> R,
 {
-    todo!()
+    let static_listeners = &mut *q_ctx.proxy_static_event_listeners.borrow_mut();
+    if !static_listeners.contains_key(proxy_class_name) {
+        static_listeners.insert(proxy_class_name.to_string(), HashMap::new());
+    }
+    let proxy_static_map = static_listeners.get_mut(proxy_class_name).unwrap();
+    if !proxy_static_map.contains_key(event_id) {
+        proxy_static_map.insert(event_id.to_string(), HashMap::new());
+    }
+    let event_map = proxy_static_map.get_mut(event_id).unwrap();
+    consumer(event_map)
 }
 
 pub fn add_event_listener(

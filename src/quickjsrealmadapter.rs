@@ -37,11 +37,20 @@ type ProxyEventListenerMaps = HashMap<
     >,
 >;
 
+type ProxyStaticEventListenerMaps = HashMap<
+    String, /*proxy_class_name*/
+    HashMap<
+        String, /*event_id*/
+        HashMap<JSValueRef /*listener_func*/, JSValueRef /*options_obj*/>,
+    >,
+>;
+
 pub struct QuickJsRealmAdapter {
     object_cache: RefCell<AutoIdMap<JSValueRef>>,
     promise_cache: RefCell<AutoIdMap<Box<dyn JsPromiseAdapter<Self>>>>,
     pub(crate) proxy_registry: RefCell<HashMap<String, Rc<Proxy>>>, // todo is this Rc needed or can we just borrow the Proxy when needed?
     pub(crate) proxy_event_listeners: RefCell<ProxyEventListenerMaps>,
+    pub(crate) proxy_static_event_listeners: RefCell<ProxyStaticEventListenerMaps>,
     pub id: String,
     pub context: *mut q::JSContext,
 }
@@ -97,6 +106,7 @@ impl QuickJsRealmAdapter {
             promise_cache: RefCell::new(AutoIdMap::new()),
             proxy_registry: RefCell::new(Default::default()),
             proxy_event_listeners: RefCell::new(Default::default()),
+            proxy_static_event_listeners: RefCell::new(Default::default()),
         }
     }
     /// get the id of a QuickJsContext from a JSContext
