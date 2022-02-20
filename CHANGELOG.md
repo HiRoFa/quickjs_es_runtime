@@ -1,6 +1,10 @@
-# 0.7.2 (WiP)
+# 0.8 (WiP)
 
-* fix for #62 (nested callback creation fails)
+* 
+
+# 0.7.2 
+
+* fix for #62 (nested callback creation/drop fails)
 
 # 0.7.1 
 
