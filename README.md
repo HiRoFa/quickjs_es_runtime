@@ -37,10 +37,10 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 ## Script and Modules
 
 * console (.log/info/debug/trace/error) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/features/console/index.html))
-* Eval script ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html#method.eval_sync))
+* Eval script ([docs](https://hirofa.github.io/quickjs_es_runtime/hirofa_utils/js_utils/adapters/trait.JsRealmAdapter.html#tymethod.js_eval))
 * Create promises in JavaScript which execute async
-* Eval modules ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html#method.eval_module_sync))
-* Load modules (dynamic and static) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntimebuilder/struct.EsRuntimeBuilder.html#method.module_script_loader))
+* Eval modules ([docs](https://hirofa.github.io/quickjs_es_runtime/hirofa_utils/js_utils/adapters/trait.JsRealmAdapter.html#tymethod.js_eval_module))
+* Load modules (dynamic and static) ([docs](https://hirofa.github.io/quickjs_es_runtime/hirofa_utils/js_utils/facades/trait.JsRuntimeBuilder.html#tymethod.js_script_module_loader))
 * fetch api (moved to [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime))
 * setImmediate
 * setTimeout/Interval (and clear)
@@ -48,13 +48,13 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 
 ## Rust-Script interoperability
 
-* Return Promises from rust functions and resolve them from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime_utils/promises/fn.new_resolving_promise.html))
-* Add functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html#method.set_function))
-* Invoke JS functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntime/struct.EsRuntime.html#method.call_function_sync))
+* Return Promises from rust functions and resolve them from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/hirofa_utils/js_utils/adapters/promises/fn.new_resolving_promise.html))
+* Add functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/quickjsrealmadapter/struct.QuickJsRealmAdapter.html#method.js_install_function))
+* Invoke JS functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/facades/struct.QuickJsRuntimeFacade.html#method.js_function_invoke))
 * Pass primitives, objects and arrays from and to rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/quickjs_utils/primitives/index.html))
-* Create Classes from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/reflection/struct.Proxy.html))
-* async/await support on eval/call_function/promise resolution ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esvalue/struct.EsValueFacade.html#method.get_promise_result))
-* import native Modules (e.g. dynamic loading of rust functions or Proxy classes) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/esruntimebuilder/struct.EsRuntimeBuilder.html#method.native_module_loader))
+* Create Classes from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/hirofa_utils/js_utils/adapters/proxies/struct.JsProxy.html))
+* async/await support on eval/call_function/promise resolution ([docs](https://hirofa.github.io/quickjs_es_runtime/hirofa_utils/js_utils/facades/values/struct.CachedJsPromiseRef.html#method.js_get_promise_result))
+* import native Modules (e.g. dynamic loading of rust functions or Proxy classes) ([docs](https://hirofa.github.io/quickjs_es_runtime/hirofa_utils/js_utils/modules/trait.NativeModuleLoader.html))
 
 ## Future / Todo
 
