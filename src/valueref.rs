@@ -3,6 +3,7 @@
 use crate::quickjs_utils::typedarrays::is_typed_array;
 use crate::quickjs_utils::{arrays, errors, functions, primitives, promises};
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
+use crate::reflection::is_proxy_instance;
 use hirofa_utils::js_utils::adapters::JsValueAdapter;
 use hirofa_utils::js_utils::facades::JsValueType;
 use hirofa_utils::js_utils::JsError;
@@ -296,6 +297,10 @@ impl JsValueAdapter for JSValueRef {
 
     fn js_is_typed_array(&self) -> bool {
         unsafe { is_typed_array(self.context, self) }
+    }
+
+    fn js_is_proxy_instance(&self) -> bool {
+        unsafe { is_proxy_instance(self.context, self) }
     }
 
     fn js_type_of(&self) -> &'static str {

@@ -222,12 +222,30 @@ impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
         self
     }
 
-    fn js_realm_adapter_init_hook<H: FnOnce(&<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType, &<<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType) -> Result<(), JsError> + Send + 'static>(self, _hook: H) -> Self{
-        todo!()
+    fn js_realm_adapter_init_hook<
+        H: Fn(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> Result<(), JsError> + Send + 'static,
+    >(
+        self,
+        hook: H,
+    ) -> Self {
+        self.js_runtime_adapter_init_hook(move |rt| {
+            rt.add_context_init_hook(hook)?;
+            Ok(())
+        })
     }
 
-    fn js_runtime_adapter_init_hook<H: FnOnce(&<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) -> Result<(), JsError> + Send + 'static>(self, _hook: H) -> Self{
-        todo!()
+    fn js_runtime_adapter_init_hook<
+        H: FnOnce(&QuickJsRuntimeAdapter) -> Result<(), JsError> + Send + 'static,
+    >(
+        self,
+        hook: H,
+    ) -> Self {
+        self.runtime_init_hook(|rt| {
+            rt.exe_rt_task_in_event_loop(|rt| {
+                let _ = hook(rt);
+            });
+            Ok(())
+        })
     }
 
     fn js_script_pre_processor<S: ScriptPreProcessor + Send + 'static>(

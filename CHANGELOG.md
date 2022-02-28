@@ -1,6 +1,9 @@
-# 0.8 (WiP)
+# 0.9 (WiP)
 
-* 
+# 0.8.0
+
+* impld realm init hook
+* proxy info functions (see if obj is an instance of a proxy class)
 
 # 0.7.2 
 

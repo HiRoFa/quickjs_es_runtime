@@ -542,6 +542,38 @@ impl Proxy {
     }
 }
 
+pub fn get_proxy_instance_proxy_and_instance_id_q(
+    q_ctx: &QuickJsRealmAdapter,
+    obj: &JSValueRef,
+) -> Option<(Rc<Proxy>, usize)> {
+    if !is_proxy_instance_q(q_ctx, obj) {
+        None
+    } else {
+        let info = get_proxy_instance_info(obj.borrow_value());
+        let cn = info.class_name.as_str();
+        let registry = &*q_ctx.proxy_registry.borrow();
+        if let Some(proxy) = registry.get(cn).cloned() {
+            Some((proxy, info.id))
+        } else {
+            None
+        }
+    }
+}
+
+pub fn is_proxy_instance_q(q_ctx: &QuickJsRealmAdapter, obj: &JSValueRef) -> bool {
+    unsafe { is_proxy_instance(q_ctx.context, obj) }
+}
+
+pub unsafe fn is_proxy_instance(ctx: *mut q::JSContext, obj: &JSValueRef) -> bool {
+    if !obj.is_object() {
+        false
+    } else {
+        let class_id = PROXY_INSTANCE_CLASS_ID.with(|rc| *rc.borrow());
+        let proxy_class_proto: q::JSValue = q::JS_GetClassProto(ctx, class_id);
+        q::JS_IsInstanceOf(ctx, *obj.borrow_value(), proxy_class_proto) != 0
+    }
+}
+
 pub fn new_instance2(
     proxy: &Proxy,
     q_ctx: &QuickJsRealmAdapter,
@@ -686,8 +718,8 @@ unsafe extern "C" fn constructor(
 
 pub(crate) struct ProxyInstanceInfo {
     id: usize,
-    class_name: String, // todo use unsafe to make these &str?
-    context_id: String, // todo use unsafe to make these &str?
+    class_name: String, // todo, store all proxies in an autoidmap with a usize as key and store proxy_class_id here instead of string
+    context_id: String, // todo store all context ids in an autoidmap with a usize as key and store context_id here instead of string
 }
 
 fn get_proxy_instance_info(val: &q::JSValue) -> &ProxyInstanceInfo {
@@ -1219,7 +1251,9 @@ unsafe extern "C" fn proxy_instance_set_prop(
 pub mod tests {
     use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::{functions, primitives};
-    use crate::reflection::Proxy;
+    use crate::reflection::{
+        get_proxy_instance_proxy_and_instance_id_q, is_proxy_instance_q, Proxy,
+    };
     use hirofa_utils::js_utils::JsError;
     use hirofa_utils::js_utils::Script;
     use log::trace;
@@ -1276,6 +1310,33 @@ pub mod tests {
         assert!(err.contains("test.es:2"));
         assert!(err.contains("at Proxy instance method [run]"));
         assert!(err.contains("cant run"));
+    }
+
+    #[test]
+    pub fn test_proxy_instanceof() {
+        log::info!("> test_proxy_instanceof");
+
+        let rt = init_test_rt();
+        rt.exe_rt_task_in_event_loop(|q_js_rt| {
+            q_js_rt.gc();
+            let q_ctx = q_js_rt.get_main_context();
+            let _ = Proxy::new()
+                .constructor(|_q_ctx, _id, _args| Ok(()))
+                .namespace(vec!["com", "company"])
+                .name("Test")
+                .install(q_ctx, true);
+            let res = q_ctx
+                .eval(Script::new("test_tostring.es", "new com.company.Test()"))
+                .ok()
+                .expect("script failed");
+            assert!(is_proxy_instance_q(q_ctx, &res));
+            let info = get_proxy_instance_proxy_and_instance_id_q(q_ctx, &res)
+                .expect("could not get info");
+            let id = info.1;
+            let p = info.0;
+            println!("id={}", id);
+            assert_eq!(p.get_class_name().as_str(), "com.company.Test");
+        });
     }
 
     #[test]

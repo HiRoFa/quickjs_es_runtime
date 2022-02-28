@@ -871,6 +871,22 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         let abuf = get_array_buffer_q(self, array)?;
         get_array_buffer_buffer_copy_q(self, &abuf)
     }
+
+    fn js_proxy_instance_get_info(
+        &self,
+        obj: &Self::JsValueAdapterType,
+    ) -> Result<(String, JsProxyInstanceId), JsError>
+    where
+        Self: Sized,
+    {
+        if let Some((p, i)) =
+            crate::reflection::get_proxy_instance_proxy_and_instance_id_q(self, obj)
+        {
+            Ok((p.get_class_name(), i))
+        } else {
+            Err(JsError::new_str("not a proxy instance"))
+        }
+    }
 }
 
 #[cfg(test)]

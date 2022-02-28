@@ -83,8 +83,8 @@ Cargo.toml
 
 ```toml
 [dependencies]
-hirofa_utils = "0.4"
-quickjs_runtime = "0.7"
+hirofa_utils = "0.5"
+quickjs_runtime = "0.8"
 log = "0.4"
 simple-logging = "2.0"
 ```
