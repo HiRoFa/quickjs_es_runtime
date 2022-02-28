@@ -552,11 +552,7 @@ pub fn get_proxy_instance_proxy_and_instance_id_q(
         let info = get_proxy_instance_info(obj.borrow_value());
         let cn = info.class_name.as_str();
         let registry = &*q_ctx.proxy_registry.borrow();
-        if let Some(proxy) = registry.get(cn).cloned() {
-            Some((proxy, info.id))
-        } else {
-            None
-        }
+        registry.get(cn).cloned().map(|proxy| (proxy, info.id))
     }
 }
 
@@ -564,6 +560,9 @@ pub fn is_proxy_instance_q(q_ctx: &QuickJsRealmAdapter, obj: &JSValueRef) -> boo
     unsafe { is_proxy_instance(q_ctx.context, obj) }
 }
 
+/// check if an object is an instance of a Proxy class
+/// # Safety
+/// please make sure context is still valid
 pub unsafe fn is_proxy_instance(ctx: *mut q::JSContext, obj: &JSValueRef) -> bool {
     if !obj.is_object() {
         false
