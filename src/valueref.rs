@@ -278,14 +278,15 @@ impl JsValueAdapter for JSValueRef {
             TAG_FLOAT64 => JsValueType::F64,
             TAG_STRING => JsValueType::String,
             TAG_OBJECT => {
+                // todo get classProto.name and match
                 if unsafe { functions::is_function(self.context, self) } {
                     JsValueType::Function
-                } else if unsafe { promises::is_promise(self.context, self) } {
-                    JsValueType::Promise
                 } else if unsafe { errors::is_error(self.context, self) } {
                     JsValueType::Error
                 } else if unsafe { arrays::is_array(self.context, self) } {
                     JsValueType::Array
+                } else if unsafe { promises::is_promise(self.context, self) } {
+                    JsValueType::Promise
                 } else {
                     JsValueType::Object
                 }
