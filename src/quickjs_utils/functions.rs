@@ -386,7 +386,7 @@ pub unsafe fn new_native_function(
     log::trace!("functions::new_native_function / 0 : {}", name);
 
     let cname = make_cstring(name)?;
-    let magic = 1;
+    let magic: i32 = 1;
 
     log::trace!("functions::new_native_function / 1");
 
@@ -402,9 +402,9 @@ pub unsafe fn new_native_function(
         context,
         func,
         cname.as_ptr(),
-        arg_count as _,
+        arg_count as c_int,
         cproto,
-        magic as _,
+        magic as c_int,
     );
 
     log::trace!("functions::new_native_function / 3");
