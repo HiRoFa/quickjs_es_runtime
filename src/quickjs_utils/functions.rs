@@ -121,12 +121,11 @@ pub unsafe fn call_function_ref_args(
         .map(|a| *a.borrow_value())
         .collect::<Vec<_>>();
 
-    let this_val;
-    if let Some(this_ref) = this_ref_opt {
-        this_val = *this_ref.borrow_value();
+    let this_val = if let Some(this_ref) = this_ref_opt {
+        *this_ref.borrow_value()
     } else {
-        this_val = crate::quickjs_utils::new_null();
-    }
+        crate::quickjs_utils::new_null()
+    };
 
     let res = q::JS_Call(
         context,

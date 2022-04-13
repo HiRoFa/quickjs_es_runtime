@@ -233,6 +233,7 @@ pub unsafe fn get_array_buffer_buffer_copy(
     debug_assert!(is_array_buffer(ctx, array_buffer));
 
     let mut len: u64 = 0;
+
     let ptr = q::JS_GetArrayBuffer(ctx, &mut len, *array_buffer.borrow_value());
 
     let slice = std::slice::from_raw_parts(ptr, len as usize);
