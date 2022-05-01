@@ -4,7 +4,7 @@ quickjs_runtime is a library for quickly getting started with embedding a javasc
 
 **DISCLAIMER: This project is not yet what I would call "Battle Tested", use at your own risk.**
 
-An example on how to embed a script engine in rust using this lib can be found here: https://github.com/andrieshiemstra/ScriptExtensionLayerExample
+An example on how to embed a script engine in rust using this lib can be found here: [github.com/andrieshiemstra/ScriptExtensionLayerExample](https://github.com/andrieshiemstra/ScriptExtensionLayerExample). It was published in TWIR as a walkthrough. 
 
 quickjs_runtime focuses purely on making [quickjs](https://bellard.org/quickjs/) easy to use and does not add any additional features, that's where these projects come in:
 * TypeScript support can be added by using [typescript_utils](https://github.com/HiRoFa/typescript_utils)
