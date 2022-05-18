@@ -254,6 +254,8 @@ impl JSValueRef {
 }
 
 pub(crate) const TAG_BIG_INT: i64 = -10;
+pub(crate) const TAG_BIG_FLOAT: i64 = -9;
+pub(crate) const TAG_SYMBOL: i64 = -8;
 pub(crate) const TAG_STRING: i64 = -7;
 pub(crate) const TAG_MODULE: i64 = -3;
 pub(crate) const TAG_FUNCTION_BYTECODE: i64 = -2;
