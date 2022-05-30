@@ -60,7 +60,7 @@ pub unsafe fn parse_function(
 
     let file_name = format!("compile_func_{}.es", name);
 
-    let ret = QuickJsRealmAdapter::eval_ctx(context, Script::new(&file_name, &src))?;
+    let ret = QuickJsRealmAdapter::eval_ctx(context, Script::new(&file_name, &src), None)?;
 
     debug_assert!(is_function(context, &ret));
 
