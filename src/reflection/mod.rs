@@ -15,6 +15,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::os::raw::{c_char, c_void};
 use std::rc::Rc;
+use hirofa_utils::js_utils::adapters::{JsValueAdapter};
+use crate::quickjs_utils::objects::{get_property,  set_property2_q};
 
 pub mod eventtarget;
 
@@ -110,6 +112,7 @@ thread_local! {
             let class_def = &*cd_rc.borrow();
             QuickJsRuntimeAdapter::do_with(|q_js_rt| {
                 let res = unsafe { q::JS_NewClass(q_js_rt.runtime, class_id, class_def) };
+
                 log::trace!("new class res {}", res);
                 // todo res should be 0 for ok
             });
@@ -569,7 +572,33 @@ pub unsafe fn is_proxy_instance(ctx: *mut q::JSContext, obj: &JSValueRef) -> boo
     } else {
         let class_id = PROXY_INSTANCE_CLASS_ID.with(|rc| *rc.borrow());
         let proxy_class_proto: q::JSValue = q::JS_GetClassProto(ctx, class_id);
-        q::JS_IsInstanceOf(ctx, *obj.borrow_value(), proxy_class_proto) != 0
+        let proto_ref: JSValueRef = JSValueRef::new(ctx, proxy_class_proto, false, false, "proxy_class_proto");
+
+        let proxy_class_proto_obj = q::JS_GetPrototype(ctx, proxy_class_proto);
+        let res = q::JS_IsInstanceOf(ctx, *obj.borrow_value(), proxy_class_proto_obj);
+
+        if res == -1 {
+            // log err
+            if let Some(ex) = QuickJsRealmAdapter::get_exception(ctx) {
+                log::error!("is_proxy_instance failed: {}", ex);
+            } else {
+                log::error!("is_proxy_instance failed");
+            }
+
+        }
+
+        // workaround
+        if res == -1 {
+            let prop_res = get_property(ctx, obj, "__proxy__");
+            if let Some(prop) = prop_res.ok() {
+                if prop.is_bool() && prop.js_to_bool() {
+                    return true;
+                }
+            }
+        }
+
+        res > 0
+
     }
 }
 
@@ -629,6 +658,9 @@ pub(crate) fn new_instance3(
 
     mappings.insert(instance_id, bx);
     unsafe { q::JS_SetOpaque(*class_val_ref.borrow_value(), info_ptr) };
+
+    // todo this is a workaround.. i need to set a prototype for classes using JS_setClassProto per context on init..
+    set_property2_q(q_ctx, &class_val_ref, "__proxy__", &primitives::from_bool(true), 0)?;
 
     Ok(class_val_ref)
 }
@@ -1250,15 +1282,15 @@ unsafe extern "C" fn proxy_instance_set_prop(
 pub mod tests {
     use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::{functions, primitives};
-    use crate::reflection::{
-        get_proxy_instance_proxy_and_instance_id_q, is_proxy_instance_q, Proxy,
-    };
+    use crate::reflection::{get_proxy_instance_proxy_and_instance_id_q, is_proxy_instance_q, Proxy, PROXY_INSTANCE_CLASS_ID};
     use hirofa_utils::js_utils::JsError;
     use hirofa_utils::js_utils::Script;
     use log::trace;
     use std::cell::RefCell;
     use std::collections::HashMap;
     use std::time::Duration;
+    use crate::quickjs_utils::objects::{create_object_q};
+    use libquickjs_sys as q;
 
     thread_local! {
         static TEST_INSTANCES: RefCell<HashMap<usize, String>> = RefCell::new(HashMap::new())
@@ -1335,6 +1367,18 @@ pub mod tests {
             let p = info.0;
             println!("id={}", id);
             assert_eq!(p.get_class_name().as_str(), "com.company.Test");
+
+            let some_obj = create_object_q(q_ctx).ok().expect("could not create obj");
+            assert!(some_obj.is_object());
+
+            let class_id = PROXY_INSTANCE_CLASS_ID.with(|rc| *rc.borrow());
+            let proxy_class_proto: q::JSValue = unsafe{q::JS_GetClassProto(q_ctx.context, class_id)};
+            //println!("proxy_class_proto = {}", proxy_class_proto);
+            let res = unsafe{q::JS_IsInstanceOf(q_ctx.context, *some_obj.borrow_value(), proxy_class_proto) != 0};
+            println!("res = {}", res);
+            let res2 = is_proxy_instance_q(q_ctx, &some_obj);
+            println!("res2 = {}", res2);
+            assert!(!res2);
         });
     }
 
