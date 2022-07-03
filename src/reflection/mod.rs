@@ -572,7 +572,7 @@ pub unsafe fn is_proxy_instance(ctx: *mut q::JSContext, obj: &JSValueRef) -> boo
     } else {
         let class_id = PROXY_INSTANCE_CLASS_ID.with(|rc| *rc.borrow());
         let proxy_class_proto: q::JSValue = q::JS_GetClassProto(ctx, class_id);
-        let proto_ref: JSValueRef = JSValueRef::new(ctx, proxy_class_proto, false, false, "proxy_class_proto");
+        //let proto_ref: JSValueRef = JSValueRef::new(ctx, proxy_class_proto, false, false, "proxy_class_proto");
 
         let proxy_class_proto_obj = q::JS_GetPrototype(ctx, proxy_class_proto);
         let res = q::JS_IsInstanceOf(ctx, *obj.borrow_value(), proxy_class_proto_obj);
