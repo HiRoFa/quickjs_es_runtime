@@ -142,7 +142,7 @@ impl QuickJsRealmAdapter {
     pub unsafe fn eval_ctx(
         context: *mut q::JSContext,
         mut script: Script,
-        this_opt: Option<JSValueRef>
+        this_opt: Option<JSValueRef>,
     ) -> Result<JSValueRef, JsError> {
         log::debug!("q_js_rt.eval file {}", script.get_path());
 
@@ -151,29 +151,23 @@ impl QuickJsRealmAdapter {
         let filename_c = make_cstring(script.get_path())?;
         let code_c = make_cstring(script.get_code())?;
 
-        let value_raw =
-            match this_opt {
-                None => {
-                    q::JS_Eval(
-                        context,
-                        code_c.as_ptr(),
-                        script.get_code().len() as _,
-                        filename_c.as_ptr(),
-                        q::JS_EVAL_TYPE_GLOBAL as i32,
-                    )
-
-                }
-                Some(this) => {
-                    q::JS_EvalThis(
-                        context,
-                        this.clone_value_incr_rc(),
-                        code_c.as_ptr(),
-                        script.get_code().len() as _,
-                        filename_c.as_ptr(),
-                        q::JS_EVAL_TYPE_GLOBAL as i32,
-                    )
-                }
-            };
+        let value_raw = match this_opt {
+            None => q::JS_Eval(
+                context,
+                code_c.as_ptr(),
+                script.get_code().len() as _,
+                filename_c.as_ptr(),
+                q::JS_EVAL_TYPE_GLOBAL as i32,
+            ),
+            Some(this) => q::JS_EvalThis(
+                context,
+                this.clone_value_incr_rc(),
+                code_c.as_ptr(),
+                script.get_code().len() as _,
+                filename_c.as_ptr(),
+                q::JS_EVAL_TYPE_GLOBAL as i32,
+            ),
+        };
 
         log::trace!("after eval, checking error");
 
