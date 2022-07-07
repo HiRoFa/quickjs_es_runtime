@@ -20,6 +20,7 @@ use serde::Serialize;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::CString;
+use std::fmt::{Debug, Formatter};
 use std::os::raw::c_int;
 use std::panic;
 use std::sync::{Arc, Weak};
@@ -305,6 +306,40 @@ pub struct MemoryUsage {
     pub fast_array_elements: i64,
     pub binary_object_count: i64,
     pub binary_object_size: i64,
+}
+
+impl Debug for MemoryUsage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str("MemoryUsage:")?;
+        f.write_str(format!("\n realm_ct: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n malloc_size: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n malloc_limit: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n memory_used_size: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n malloc_count: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n memory_used_count: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n atom_count: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n atom_size: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n str_count: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n str_size: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n obj_count: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n obj_size: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n prop_count: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n prop_size: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n shape_count: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n shape_size: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n js_func_count: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n js_func_size: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n js_func_code_size: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n js_func_pc2line_count: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n js_func_pc2line_size: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n c_func_count: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n array_count: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n fast_array_count: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n fast_array_elements: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n binary_object_count: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n binary_object_size: {}", self.realm_ct).as_str())?;
+        Ok(())
+    }
 }
 
 impl QuickJsRuntimeAdapter {
