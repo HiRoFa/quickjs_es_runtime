@@ -818,7 +818,9 @@ pub mod tests {
 
     #[test]
     fn test_mem_usage() {
-        let rt = QuickJsRuntimeBuilder::new().memory_limit(1024*1024).build();
+        let rt = QuickJsRuntimeBuilder::new()
+            .memory_limit(1024 * 1024)
+            .build();
         rt.eval_sync(Script::new("", "globalThis.f = function(){};"))
             .ok()
             .expect("script failed");
