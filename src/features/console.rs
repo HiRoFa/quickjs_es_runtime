@@ -87,8 +87,7 @@ unsafe fn parse_field_value(ctx: *mut q::JSContext, field: &str, value: &JSValue
     }
 
     if field.ends_with('d') || field.ends_with('i') {
-        let mut i_val: String = call_to_string(ctx, value)
-            .unwrap_or(String::new());
+        let mut i_val: String = call_to_string(ctx, value).unwrap_or(String::new());
 
         // remove chars behind .
         if let Some(i) = i_val.find('.') {
@@ -116,8 +115,7 @@ unsafe fn parse_field_value(ctx: *mut q::JSContext, field: &str, value: &JSValue
 
         return i_val;
     } else if field.ends_with('f') {
-        let mut f_val: String = call_to_string(ctx, value)
-            .unwrap_or(String::new());
+        let mut f_val: String = call_to_string(ctx, value).unwrap_or(String::new());
 
         if let Some(dot_in_field_idx) = field.find('.') {
             let mut m_field = field.to_string();
@@ -151,15 +149,13 @@ unsafe fn parse_field_value(ctx: *mut q::JSContext, field: &str, value: &JSValue
         } else if field.ends_with('o') || field.ends_with('O') {
             let json_str_res = json::stringify(ctx, value, None);
             let json = match json_str_res {
-                Ok(json_str) => primitives::to_string(ctx, &json_str)
-                    .unwrap_or(String::new()),
+                Ok(json_str) => primitives::to_string(ctx, &json_str).unwrap_or(String::new()),
                 Err(_e) => "".to_string(),
             };
             return json;
         }
     }
-    call_to_string(ctx, value)
-        .unwrap_or(String::new())
+    call_to_string(ctx, value).unwrap_or(String::new())
 }
 
 unsafe fn stringify_log_obj(ctx: *mut q::JSContext, arg: &JSValueRef) -> String {
@@ -188,8 +184,7 @@ unsafe fn parse_line(ctx: *mut q::JSContext, args: Vec<JSValueRef>) -> String {
         JsValueType::Object => stringify_log_obj(ctx, &args[0]),
         JsValueType::Function => stringify_log_obj(ctx, &args[0]),
         JsValueType::Array => stringify_log_obj(ctx, &args[0]),
-        _ => functions::call_to_string(ctx, &args[0])
-            .unwrap_or(String::new())
+        _ => functions::call_to_string(ctx, &args[0]).unwrap_or(String::new()),
     };
 
     let mut field_code = String::new();
@@ -234,9 +229,7 @@ unsafe fn parse_line(ctx: *mut q::JSContext, args: Vec<JSValueRef>) -> String {
             JsValueType::Object => stringify_log_obj(ctx, arg),
             JsValueType::Function => stringify_log_obj(ctx, arg),
             JsValueType::Array => stringify_log_obj(ctx, arg),
-            _ => call_to_string(ctx, arg)
-                .unwrap_or(String::new())
-
+            _ => call_to_string(ctx, arg).unwrap_or(String::new()),
         };
         output.push_str(tail_arg.as_str());
     }
