@@ -354,7 +354,7 @@ impl QuickJsRuntimeAdapter {
     pub fn memory_usage(&self) -> MemoryUsage {
         let mu: q::JSMemoryUsage = unsafe { crate::quickjs_utils::get_memory_usage(self.runtime) };
 
-        let ret = MemoryUsage {
+        MemoryUsage {
             realm_ct: self.contexts.len(),
             malloc_size: mu.malloc_size,
             malloc_limit: mu.malloc_limit,
@@ -382,9 +382,7 @@ impl QuickJsRuntimeAdapter {
             fast_array_elements: mu.fast_array_elements,
             binary_object_count: mu.binary_object_count,
             binary_object_size: mu.binary_object_size,
-        };
-
-        ret
+        }
     }
 
     pub(crate) fn pre_process(mut script: Script) -> Result<Script, JsError> {

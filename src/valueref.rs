@@ -101,7 +101,7 @@ impl Drop for JSValueRef {
     }
 }
 
-impl<'a> std::fmt::Debug for JSValueRef {
+impl std::fmt::Debug for JSValueRef {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.value.tag {
             TAG_EXCEPTION => write!(f, "Exception(?)"),

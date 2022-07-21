@@ -589,7 +589,7 @@ pub unsafe fn is_proxy_instance(ctx: *mut q::JSContext, obj: &JSValueRef) -> boo
         // workaround
         if res == -1 {
             let prop_res = get_property(ctx, obj, "__proxy__");
-            if let Some(prop) = prop_res.ok() {
+            if let Ok(prop) = prop_res {
                 if prop.is_bool() && prop.js_to_bool() {
                     return true;
                 }
