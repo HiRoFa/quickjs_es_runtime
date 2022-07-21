@@ -1,6 +1,6 @@
-# 0.8.1 (WiP)
+# 0.8.1
 
-* fixed memory usage report (#61)
+* fixed memory usage report (#66)
 
 # 0.8.0
 
