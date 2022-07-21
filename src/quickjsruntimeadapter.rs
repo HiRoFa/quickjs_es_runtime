@@ -312,32 +312,32 @@ impl Debug for MemoryUsage {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str("MemoryUsage:")?;
         f.write_str(format!("\n realm_ct: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n malloc_size: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n malloc_limit: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n memory_used_size: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n malloc_count: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n memory_used_count: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n atom_count: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n atom_size: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n str_count: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n str_size: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n obj_count: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n obj_size: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n prop_count: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n prop_size: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n shape_count: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n shape_size: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n js_func_count: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n js_func_size: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n js_func_code_size: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n js_func_pc2line_count: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n js_func_pc2line_size: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n c_func_count: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n array_count: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n fast_array_count: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n fast_array_elements: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n binary_object_count: {}", self.realm_ct).as_str())?;
-        f.write_str(format!("\n binary_object_size: {}", self.realm_ct).as_str())?;
+        f.write_str(format!("\n malloc_size: {}", self.malloc_size).as_str())?;
+        f.write_str(format!("\n malloc_limit: {}", self.malloc_limit).as_str())?;
+        f.write_str(format!("\n memory_used_size: {}", self.memory_used_size).as_str())?;
+        f.write_str(format!("\n malloc_count: {}", self.malloc_count).as_str())?;
+        f.write_str(format!("\n memory_used_count: {}", self.memory_used_count).as_str())?;
+        f.write_str(format!("\n atom_count: {}", self.atom_count).as_str())?;
+        f.write_str(format!("\n atom_size: {}", self.atom_size).as_str())?;
+        f.write_str(format!("\n str_count: {}", self.str_count).as_str())?;
+        f.write_str(format!("\n str_size: {}", self.str_size).as_str())?;
+        f.write_str(format!("\n obj_count: {}", self.obj_count).as_str())?;
+        f.write_str(format!("\n obj_size: {}", self.obj_size).as_str())?;
+        f.write_str(format!("\n prop_count: {}", self.prop_count).as_str())?;
+        f.write_str(format!("\n prop_size: {}", self.prop_size).as_str())?;
+        f.write_str(format!("\n shape_count: {}", self.shape_count).as_str())?;
+        f.write_str(format!("\n shape_size: {}", self.shape_size).as_str())?;
+        f.write_str(format!("\n js_func_count: {}", self.js_func_count).as_str())?;
+        f.write_str(format!("\n js_func_size: {}", self.js_func_size).as_str())?;
+        f.write_str(format!("\n js_func_code_size: {}", self.js_func_code_size).as_str())?;
+        f.write_str(format!("\n js_func_pc2line_count: {}", self.js_func_pc2line_count).as_str())?;
+        f.write_str(format!("\n js_func_pc2line_size: {}", self.js_func_pc2line_size).as_str())?;
+        f.write_str(format!("\n c_func_count: {}", self.c_func_count).as_str())?;
+        f.write_str(format!("\n array_count: {}", self.array_count).as_str())?;
+        f.write_str(format!("\n fast_array_count: {}", self.fast_array_count).as_str())?;
+        f.write_str(format!("\n fast_array_elements: {}", self.fast_array_elements).as_str())?;
+        f.write_str(format!("\n binary_object_count: {}", self.binary_object_count).as_str())?;
+        f.write_str(format!("\n binary_object_size: {}", self.binary_object_size).as_str())?;
         Ok(())
     }
 }
@@ -352,8 +352,9 @@ impl QuickJsRuntimeAdapter {
 
     /// get memory usage for this runtime
     pub fn memory_usage(&self) -> MemoryUsage {
-        let mu = unsafe { crate::quickjs_utils::get_memory_usage(self.runtime) };
-        MemoryUsage {
+        let mu: q::JSMemoryUsage = unsafe { crate::quickjs_utils::get_memory_usage(self.runtime) };
+
+        let ret = MemoryUsage {
             realm_ct: self.contexts.len(),
             malloc_size: mu.malloc_size,
             malloc_limit: mu.malloc_limit,
@@ -381,7 +382,9 @@ impl QuickJsRuntimeAdapter {
             fast_array_elements: mu.fast_array_elements,
             binary_object_count: mu.binary_object_count,
             binary_object_size: mu.binary_object_size,
-        }
+        };
+
+        ret
     }
 
     pub(crate) fn pre_process(mut script: Script) -> Result<Script, JsError> {
@@ -824,6 +827,7 @@ pub mod tests {
         rt.eval_sync(Script::new("", "globalThis.f = function(){};"))
             .ok()
             .expect("script failed");
+
         rt.js_loop_realm_sync(None, |rt, _realm| {
             let mu = rt.memory_usage();
             println!("mu: {:?}", mu);

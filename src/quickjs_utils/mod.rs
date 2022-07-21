@@ -141,6 +141,9 @@ pub unsafe fn get_memory_usage(runtime: *mut q::JSRuntime) -> q::JSMemoryUsage {
         binary_object_size: 0,
     };
     q::JS_ComputeMemoryUsage(runtime, &mut mu);
+
+
+
     mu
 }
 

@@ -1,4 +1,6 @@
-# 0.9 (WiP)
+# 0.8.1 (WiP)
+
+* fixed memory usage report (#61)
 
 # 0.8.0
 
