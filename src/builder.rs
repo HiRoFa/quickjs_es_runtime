@@ -35,6 +35,7 @@ pub struct QuickJsRuntimeBuilder {
     pub(crate) opt_gc_interval: Option<Duration>,
     pub(crate) runtime_init_hooks: EsRuntimeInitHooks,
     pub(crate) script_pre_processors: Vec<Box<dyn ScriptPreProcessor + Send>>,
+    #[allow(clippy::type_complexity)]
     pub(crate) interrupt_handler: Option<Box<dyn Fn(&QuickJsRuntimeAdapter) -> bool + Send>>,
 }
 

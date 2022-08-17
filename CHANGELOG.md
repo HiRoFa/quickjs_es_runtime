@@ -1,6 +1,6 @@
 # 0.8.2
 
-* reference utils 0.5.3
+* reference utils 0.5.3 (fixes #68)
 
 # 0.8.1
 

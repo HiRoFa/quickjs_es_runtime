@@ -270,6 +270,7 @@ pub struct QuickJsRuntimeAdapter {
     native_module_loaders: Vec<NativeModuleLoaderAdapter>,
     compiled_module_loaders: Vec<CompiledModuleLoaderAdapter>,
     pub(crate) script_pre_processors: Vec<Box<dyn ScriptPreProcessor + Send>>,
+    #[allow(clippy::type_complexity)]
     pub(crate) interrupt_handler: Option<Box<dyn Fn(&QuickJsRuntimeAdapter) -> bool>>,
 }
 
