@@ -1,3 +1,7 @@
+# 0.8.2
+
+* reference utils 0.5.3
+
 # 0.8.1
 
 * fixed memory usage report (#66)

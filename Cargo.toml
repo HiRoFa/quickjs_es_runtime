@@ -1,6 +1,6 @@
 [package]
 name = "quickjs_runtime"
-version = "0.8.1"
+version = "0.8.2"
 authors = ["Andries Hiemstra <info@hirofa.com>"]
 edition = "2018"
 description = "Wrapper API and utils for the QuickJS JavaScript engine with support for Promise, Module, Async/await"
@@ -22,9 +22,9 @@ setimmediate = []
 
 
 [dependencies]
-#hirofa_utils = "0.5"
+hirofa_utils = "0.5.3"
 #hirofa_utils = {path="../utils"}
-hirofa_utils = {git="https://github.com/HiRoFa/utils"}
+#hirofa_utils = {git="https://github.com/HiRoFa/utils"}
 backtrace = "0.3.56"
 libquickjs-sys = "0.10.0"
 lazy_static = "1.4.0"
