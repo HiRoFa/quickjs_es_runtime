@@ -165,7 +165,7 @@ impl QuickjsRuntimeFacadeInner {
 }
 
 /// EsRuntime is the main public struct representing a JavaScript runtime.
-/// You can construct a new EsRuntime by using the [EsRuntimeBuilder] struct
+/// You can construct a new QuickJsRuntime by using the [QuickJsRuntimeBuilder] struct
 /// # Example
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
@@ -452,7 +452,7 @@ impl QuickJsRuntimeFacade {
     }
 
     /// call a function in the engine asynchronously
-    /// N.B. func_name is not a &str because of https://github.com/rust-lang/rust/issues/56238 (i think)
+    /// N.B. func_name is not a &str because of <https://github.com/rust-lang/rust/issues/56238> (i think)
     /// # example
     /// ```rust
     /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;

@@ -1001,10 +1001,6 @@ impl Drop for EsPromiseResolvableHandleInner {
 }
 
 /// used to create a new Function
-/// # Example
-/// ```rust
-///    
-/// ```
 #[allow(clippy::type_complexity)]
 pub struct EsFunction {
     // todo rebuild this to an Option which we'll move into the worker thread on to_js_val
