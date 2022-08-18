@@ -59,7 +59,6 @@ pub mod tests {
         }));
 
         simple_logging::log_to_file("esruntime.log", LevelFilter::max())
-            .ok()
             .expect("could not init logger");
 
         let rt = QuickJsRuntimeBuilder::new()

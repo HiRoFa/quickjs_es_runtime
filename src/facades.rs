@@ -1038,8 +1038,8 @@ pub mod tests {
         ) -> Option<String> {
             if path.eq("notfound.mes") || path.starts_with("greco://") {
                 None
-            } else if path.eq("invalid.mes") {
-                Some(path.to_string())
+            // } else if path.eq("invalid.mes") {
+            //     Some(path.to_string())
             } else {
                 Some(path.to_string())
             }
@@ -1087,11 +1087,8 @@ pub mod tests {
             "stack_test.js",
             "let f = function(a){let f2 = arguments.callee; if (a < 1000) {f2(a + 1);}}; f(1);",
         ));
-        match res {
-            Ok(_) => {
-                panic!("stack should have overflowed");
-            }
-            Err(_) => {}
+        if res.is_ok() {
+            panic!("stack should have overflowed");
         }
     }
 
@@ -1110,7 +1107,6 @@ pub mod tests {
         }));
 
         simple_logging::log_to_file("quickjs_runtime.log", LevelFilter::max())
-            .ok()
             .expect("could not init logger");
 
         QuickJsRuntimeFacade::builder()

@@ -1595,7 +1595,7 @@ pub mod tests {
             .expect("script failed");
 
         let second_prom_res = second_prom.get_promise_result();
-        let res = second_prom_res.await.ok().expect("prom was rejected");
+        let res = second_prom_res.await.expect("prom was rejected");
 
         assert_eq!(res.get_i32(), 321);
 

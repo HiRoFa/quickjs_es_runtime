@@ -247,7 +247,7 @@ pub mod tests {
 
         let res_prom = rt.eval_sync(Script::new("test_mod_nat_async.es", "(import('greco://someMod').then((module) => {return {a: module.a, b: module.b, c: module.c};}));")).ok().unwrap();
         let res = res_prom.get_promise_result_sync();
-        let obj = res.ok().expect("prom failed");
+        let obj = res.expect("prom failed");
         assert!(obj.is_object());
         let map = obj.get_object().ok().expect("esvf to map failed");
         let a = map.get("a").expect("obj did not have a");

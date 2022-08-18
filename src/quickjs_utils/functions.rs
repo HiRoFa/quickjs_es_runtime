@@ -664,7 +664,7 @@ pub mod tests {
     #[test]
     pub fn test_invoke() {
         let rt = init_test_rt();
-        let _io = rt.exe_rt_task_in_event_loop(|q_js_rt| {
+        let _ = rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let obj_ref = q_ctx
                 .eval(Script::new(
