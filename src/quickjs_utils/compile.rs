@@ -372,7 +372,6 @@ pub mod tests {
         }));
 
         simple_logging::log_to_file("quickjs_runtime.log", LevelFilter::max())
-            .ok()
             .expect("could not init logger");
 
         let rt = QuickJsRuntimeBuilder::new()
@@ -392,7 +391,6 @@ pub mod tests {
             let prom_res = block_on(prom_res_fut)
                 .ok()
                 .expect("prom failed")
-                .ok()
                 .expect("prom was rejected");
             assert!(prom_res.is_i32());
             assert_eq!(prom_res.get_i32(), 15);

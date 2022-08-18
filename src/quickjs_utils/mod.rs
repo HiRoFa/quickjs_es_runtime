@@ -169,7 +169,7 @@ pub mod tests {
     #[test]
     fn test_global() {
         let rt = init_test_rt();
-        let _io = rt.exe_rt_task_in_event_loop(|q_js_rt| {
+        let _ = rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
             let ct = get_global_q(q_ctx).get_ref_count();
