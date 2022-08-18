@@ -169,7 +169,6 @@ pub mod tests {
                 q_ctx,
                 "asyncTest",
                 move |q_ctx, _this_ref, _args| {
-                    
                     promises::new_resolving_promise(
                         q_ctx,
                         || {

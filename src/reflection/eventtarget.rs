@@ -575,7 +575,7 @@ pub mod tests {
                 .expect("dispatch failed");
 
             let ct_ref = get_property_q(q_ctx, &global, "ct").ok().unwrap();
-            
+
             to_i32(&ct_ref).ok().unwrap()
         });
         log::info!("ok was {}", ct);
