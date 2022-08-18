@@ -1568,7 +1568,7 @@ pub mod tests {
         pub async fn test_async(esvf: EsValueFacade) -> i32 {
             let prom_res = esvf.get_promise_result().await;
             let res_esvf = prom_res.ok().unwrap();
-            return res_esvf.get_i32();
+            res_esvf.get_i32()
         }
 
         let rt = QuickJsRuntimeBuilder::new().build();
