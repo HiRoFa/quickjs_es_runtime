@@ -153,7 +153,7 @@ pub mod tests {
             "ex.js",
             "console.log('foo');\nconsole.log('bar');let a = __c_v__ * 7;",
         ));
-        let ex = res.err().expect("sciprt should have failed;");
+        let ex = res.expect_err("sciprt should have failed;");
 
         assert_eq!(ex.get_message(), "'__c_v__' is not defined");
     }
@@ -167,7 +167,7 @@ pub mod tests {
             "ex.js",
             "console.log('foo');\nconsole.log('bar');let a = __c_v__ * 7;",
         ));
-        let ex = res.err().expect("sciprt should have failed;");
+        let ex = res.expect_err("sciprt should have failed;");
 
         assert_eq!(ex.get_message(), "'__c_v__' is not defined");
     }

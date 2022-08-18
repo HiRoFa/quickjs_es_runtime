@@ -274,7 +274,7 @@ pub mod tests {
                     ),
                 )
             };
-            func_res.err().expect("func compiled unexpectedly");
+            func_res.expect_err("func compiled unexpectedly");
         })
     }
 
@@ -313,8 +313,7 @@ pub mod tests {
             assert_eq!(1, func2.get_ref_count());
 
             let _run_res2 = run_compiled_function(q_ctx.context, &func2)
-                .err()
-                .expect("run 2 succeeded unexpectedly");
+                .expect_err("run 2 succeeded unexpectedly");
 
             assert_eq!(1, func2.get_ref_count());
         });

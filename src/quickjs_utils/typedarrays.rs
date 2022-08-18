@@ -448,7 +448,7 @@ pub mod tests {
 
                     log::debug!(
                         "0={} 1={}, 2={}",
-                        buf2_reclaimed.get(0).unwrap(),
+                        buf2_reclaimed.first().unwrap(),
                         buf2_reclaimed.get(1).unwrap(),
                         buf2_reclaimed.get(2).unwrap()
                     );

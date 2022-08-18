@@ -914,8 +914,7 @@ pub mod tests {
                     "test_927.es",
                     "console.log('foo');test_927.testMe();",
                 ))
-                .err()
-                .expect("did not get err");
+                .expect_err("did not get err");
 
             format!("{}", err)
         });
