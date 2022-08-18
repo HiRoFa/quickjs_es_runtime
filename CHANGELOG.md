@@ -1,3 +1,7 @@
+# 0.8.3
+
+* reference utils 0.5.4 (by reffing 0.5) (fixes #69)
+
 # 0.8.2
 
 * reference utils 0.5.3 (fixes #68)

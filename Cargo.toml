@@ -22,7 +22,7 @@ setimmediate = []
 
 
 [dependencies]
-hirofa_utils = "0.5.3"
+hirofa_utils = "0.5"
 #hirofa_utils = {path="../utils"}
 #hirofa_utils = {git="https://github.com/HiRoFa/utils"}
 backtrace = "0.3.56"
