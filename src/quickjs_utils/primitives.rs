@@ -138,15 +138,15 @@ pub unsafe fn from_string(context: *mut q::JSContext, s: &str) -> Result<JSValue
 #[cfg(test)]
 pub mod tests {
 
-    use hirofa_utils::js_utils::facades::JsRuntimeFacade;
-    use hirofa_utils::js_utils::{Script};
     use crate::facades::tests::init_test_rt;
+    use hirofa_utils::js_utils::facades::JsRuntimeFacade;
+    use hirofa_utils::js_utils::Script;
 
     #[tokio::test]
     async fn test_emoji() {
         let rt = init_test_rt();
 
-        let res = rt.js_eval( None, Script::new("testEmoji.js", "'hi'")).await;
+        let res = rt.js_eval(None, Script::new("testEmoji.js", "'hi'")).await;
 
         match res {
             Ok(fac) => {
@@ -157,7 +157,7 @@ pub mod tests {
             }
         }
 
-        let res = rt.js_eval( None, Script::new("testEmoji.js", "'👍'")).await;
+        let res = rt.js_eval(None, Script::new("testEmoji.js", "'👍'")).await;
 
         match res {
             Ok(fac) => {
@@ -168,7 +168,9 @@ pub mod tests {
             }
         }
 
-        let res = rt.js_eval( None, Script::new("testEmoji.js", "'pre👍'")).await;
+        let res = rt
+            .js_eval(None, Script::new("testEmoji.js", "'pre👍'"))
+            .await;
 
         match res {
             Ok(fac) => {
@@ -179,7 +181,9 @@ pub mod tests {
             }
         }
 
-        let res = rt.js_eval( None, Script::new("testEmoji.js", "'👍post'")).await;
+        let res = rt
+            .js_eval(None, Script::new("testEmoji.js", "'👍post'"))
+            .await;
 
         match res {
             Ok(fac) => {
@@ -190,7 +194,9 @@ pub mod tests {
             }
         }
 
-        let res = rt.js_eval( None, Script::new("testEmoji.js", "'pre👍post'")).await;
+        let res = rt
+            .js_eval(None, Script::new("testEmoji.js", "'pre👍post'"))
+            .await;
 
         match res {
             Ok(fac) => {
@@ -201,7 +207,12 @@ pub mod tests {
             }
         }
 
-        let res = rt.js_eval( None, Script::new("testEmoji.js", "JSON.stringify({c: '👍'})")).await;
+        let res = rt
+            .js_eval(
+                None,
+                Script::new("testEmoji.js", "JSON.stringify({c: '👍'})"),
+            )
+            .await;
 
         match res {
             Ok(fac) => {
@@ -212,5 +223,4 @@ pub mod tests {
             }
         }
     }
-
 }
