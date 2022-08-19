@@ -169,15 +169,14 @@ pub mod tests {
                 q_ctx,
                 "asyncTest",
                 move |q_ctx, _this_ref, _args| {
-                    let prom = promises::new_resolving_promise(
+                    promises::new_resolving_promise(
                         q_ctx,
                         || {
                             std::thread::sleep(Duration::from_millis(5));
                             Ok(135)
                         },
                         |_q_ctx, res| Ok(primitives::from_i32(res)),
-                    );
-                    prom
+                    )
                 },
                 1,
             )

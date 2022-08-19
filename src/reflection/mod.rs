@@ -1339,8 +1339,7 @@ pub mod tests {
                 .install(q_ctx, true);
             let err = q_ctx
                 .eval(Script::new("test.es", "let t = new Test(); \nt.run();"))
-                .err()
-                .expect("script failed");
+                .expect_err("script failed");
 
             format!("{}", err)
         });

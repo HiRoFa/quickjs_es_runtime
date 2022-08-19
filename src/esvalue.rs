@@ -1568,7 +1568,7 @@ pub mod tests {
         pub async fn test_async(esvf: EsValueFacade) -> i32 {
             let prom_res = esvf.get_promise_result().await;
             let res_esvf = prom_res.ok().unwrap();
-            return res_esvf.get_i32();
+            res_esvf.get_i32()
         }
 
         let rt = QuickJsRuntimeBuilder::new().build();
@@ -1595,7 +1595,7 @@ pub mod tests {
             .expect("script failed");
 
         let second_prom_res = second_prom.get_promise_result();
-        let res = second_prom_res.await.ok().expect("prom was rejected");
+        let res = second_prom_res.await.expect("prom was rejected");
 
         assert_eq!(res.get_i32(), 321);
 

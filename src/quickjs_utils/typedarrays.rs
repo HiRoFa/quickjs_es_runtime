@@ -375,7 +375,7 @@ pub mod tests {
 
         log::debug!("tag res {}", res);
 
-        let _res = rt.js_loop_realm_sync(None, |_rt, realm| {
+        let _ = rt.js_loop_realm_sync(None, |_rt, realm| {
             realm
                 .eval(Script::new(
                     "testu8",
@@ -385,7 +385,7 @@ pub mod tests {
                 .expect("script failed");
         });
 
-        let _blah = rt.js_loop_realm_sync(None, |_rt, realm| {
+        let _ = rt.js_loop_realm_sync(None, |_rt, realm| {
             let buf = vec![1, 2, 3];
 
             let ab_res = new_array_buffer_q(realm, buf);
@@ -448,7 +448,7 @@ pub mod tests {
 
                     log::debug!(
                         "0={} 1={}, 2={}",
-                        buf2_reclaimed.get(0).unwrap(),
+                        buf2_reclaimed.first().unwrap(),
                         buf2_reclaimed.get(1).unwrap(),
                         buf2_reclaimed.get(2).unwrap()
                     );

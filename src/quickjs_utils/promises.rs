@@ -443,7 +443,7 @@ pub mod tests {
             })
         });
         while esvf_res.is_promise() {
-            esvf_res = esvf_res.get_promise_result_sync().ok().expect("failure");
+            esvf_res = esvf_res.get_promise_result_sync().expect("failure");
         }
         assert!(esvf_res.is_object());
         let obj = esvf_res.get_object().ok().expect("esvf to map failed");
