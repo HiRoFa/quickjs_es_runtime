@@ -1038,8 +1038,8 @@ pub mod tests {
         ) -> Option<String> {
             if path.eq("notfound.mes") || path.starts_with("greco://") {
                 None
-            // } else if path.eq("invalid.mes") {
-            //     Some(path.to_string())
+            } else if path.eq("invalid.mes") {
+                 Some(path.to_string())
             } else {
                 Some(path.to_string())
             }
