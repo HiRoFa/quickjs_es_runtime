@@ -1,3 +1,7 @@
+# 0.8.4
+
+* removed some logging
+
 # 0.8.3
 
 * reference utils 0.5.4 (by reffing 0.5) (fixes #69)
