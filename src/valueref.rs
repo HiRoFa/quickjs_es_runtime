@@ -71,12 +71,13 @@ impl Clone for JSValueRef {
 
 impl Drop for JSValueRef {
     fn drop(&mut self) {
-        log::debug!(
-            "dropping OwnedValueRef, before free: {}, ref_ct: {}, tag: {}",
-            self.label,
-            self.get_ref_count(),
-            self.value.tag
-        );
+
+        //log::debug!(
+        //    "dropping OwnedValueRef, before free: {}, ref_ct: {}, tag: {}",
+        //    self.label,
+        //    self.get_ref_count(),
+        //    self.value.tag
+        //);
 
         // All tags < 0 are garbage collected and need to be freed.
         if self.value.tag < 0 {
@@ -97,7 +98,7 @@ impl Drop for JSValueRef {
                 self.decrement_ref_count();
             }
         }
-        log::trace!("dropping OwnedValueRef, after free",);
+        //log::trace!("dropping OwnedValueRef, after free",);
     }
 }
 
