@@ -71,7 +71,6 @@ impl Clone for JSValueRef {
 
 impl Drop for JSValueRef {
     fn drop(&mut self) {
-
         //log::debug!(
         //    "dropping OwnedValueRef, before free: {}, ref_ct: {}, tag: {}",
         //    self.label,
