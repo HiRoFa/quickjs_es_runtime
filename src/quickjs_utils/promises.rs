@@ -255,17 +255,17 @@ unsafe extern "C" fn promise_rejection_tracker(
 
 #[cfg(test)]
 pub mod tests {
+    use crate::builder::QuickJsRuntimeBuilder;
     use crate::esvalue::EsValueFacade;
     use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::promises::{add_promise_reactions_q, is_promise_q, new_promise_q};
     use crate::quickjs_utils::{functions, new_null_ref, primitives};
     use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
+    use futures::executor::block_on;
+    use hirofa_utils::js_utils::facades::values::JsValueFacade;
+    use hirofa_utils::js_utils::facades::JsRuntimeFacade;
     use hirofa_utils::js_utils::Script;
     use std::time::Duration;
-    use futures::executor::block_on;
-    use hirofa_utils::js_utils::facades::JsRuntimeFacade;
-    use hirofa_utils::js_utils::facades::values::JsValueFacade;
-    use crate::builder::QuickJsRuntimeBuilder;
 
     #[test]
     fn test_instance_of_prom() {
@@ -467,31 +467,38 @@ pub mod tests {
 
         let rti = rt.js_get_runtime_facade_inner().upgrade().expect("poof");
 
-        let res = block_on(rt.js_eval(None, Script::new("test_test_to_string_err.js", r#"
+        let res = block_on(rt.js_eval(
+            None,
+            Script::new(
+                "test_test_to_string_err.js",
+                r#"
             (async () => {
                 throw Error("poof");
             })();
-        "#)));
+        "#,
+            ),
+        ));
         match res {
             Ok(val) => {
                 if let JsValueFacade::JsPromise { cached_promise } = val {
-                    let prom_res = block_on(cached_promise.js_get_promise_result(&*rti)).ok().expect("promise timed out");
+                    let prom_res = block_on(cached_promise.js_get_promise_result(&*rti))
+                        .ok()
+                        .expect("promise timed out");
                     match prom_res {
                         Ok(v) => {
                             panic!("promise unexpectedly resolved to val: {:?}", v);
                         }
                         Err(ev) => {
                             println!("prom resolved to error: {:?}", ev);
-
-
-
                         }
                     }
                 } else {
                     panic!("func did not return a promise");
                 }
             }
-            Err(e) => {panic!("scrtip failed {}", e)}
+            Err(e) => {
+                panic!("scrtip failed {}", e)
+            }
         }
     }
 }
