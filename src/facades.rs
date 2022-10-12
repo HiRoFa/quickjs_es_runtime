@@ -867,7 +867,6 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
                 .map(|jsvf| {
                     realm
                         .from_js_value_facade(jsvf)
-                        .ok()
                         .expect("conversion failed")
                 })
                 .collect();
@@ -907,7 +906,6 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
                 .map(|jsvf| {
                     realm
                         .from_js_value_facade(jsvf)
-                        .ok()
                         .expect("conversion failed")
                 })
                 .collect();
@@ -946,7 +944,6 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
                 .map(|jsvf| {
                     realm
                         .from_js_value_facade(jsvf)
-                        .ok()
                         .expect("conversion failed")
                 })
                 .collect();
@@ -1038,8 +1035,6 @@ pub mod tests {
         ) -> Option<String> {
             if path.eq("notfound.mes") || path.starts_with("greco://") {
                 None
-            } else if path.eq("invalid.mes") {
-                Some(path.to_string())
             } else {
                 Some(path.to_string())
             }
@@ -1169,7 +1164,6 @@ pub mod tests {
 
         let res = rt
             .eval_sync(Script::new("test.es", "(2 * 7);"))
-            .ok()
             .expect("script failed");
 
         assert_eq!(res.get_i32(), 14);
@@ -1326,11 +1320,10 @@ pub mod abstraction_tests {
         // add a job for the main realm (None as realm_name)
         rt.js_loop_realm(None, |_rt_adapter, realm_adapter| {
             let script = Script::new("example.js", "7 + 13");
-            let value_adapter = realm_adapter.js_eval(script).ok().expect("script failed");
+            let value_adapter = realm_adapter.js_eval(script).expect("script failed");
             // convert value_adapter to value_facade because value_adapter is not Send
             realm_adapter
                 .to_js_value_facade(&value_adapter)
-                .ok()
                 .expect("conversion failed")
         })
         .await

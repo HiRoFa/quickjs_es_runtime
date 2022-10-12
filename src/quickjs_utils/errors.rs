@@ -183,7 +183,6 @@ pub mod tests {
             func_esvf.invoke_function_sync(vec![12.to_es_value_facade()])?;
             Ok(0.to_es_value_facade())
         })
-        .ok()
         .expect("could not set function");
         let s_res = rt.eval_sync(Script::new(
             "test_ex.es",
@@ -215,7 +214,6 @@ pub mod tests {
                     "test_ex2_pre.es",
                     "console.log('before ex test');",
                 ))
-                .ok()
                 .expect("test_ex2_pre failed");
             {
                 let func_ref1 = q_ctx
@@ -223,7 +221,6 @@ pub mod tests {
                         "test_ex2f1.es",
                         "(function(){\nconsole.log('running f1');});",
                     ))
-                    .ok()
                     .expect("script failed");
                 assert!(functions::is_function_q(q_ctx, &func_ref1));
                 let res = functions::call_function_q(q_ctx, &func_ref1, vec![], None);
@@ -240,7 +237,6 @@ pub mod tests {
                     "test_ex2.es",
                     "(function(){\nconsole.log('running f2');\nthrow Error('poof');\n});",
                 ))
-                .ok()
                 .expect("script failed");
 
             assert!(functions::is_function_q(q_ctx, &func_ref2));

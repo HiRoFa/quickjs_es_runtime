@@ -211,7 +211,6 @@ unsafe extern "C" fn native_module_init(
     module: *mut q::JSModuleDef,
 ) -> c_int {
     let module_name = get_module_name(ctx, module)
-        .ok()
         .expect("could not get name");
     log::trace!("native_module_init: {}", module_name);
 
@@ -824,7 +823,6 @@ pub mod tests {
             .memory_limit(1024 * 1024)
             .build();
         rt.eval_sync(Script::new("", "globalThis.f = function(){};"))
-            .ok()
             .expect("script failed");
 
         rt.js_loop_realm_sync(None, |rt, _realm| {
@@ -876,7 +874,6 @@ pub mod tests {
                             |_rt, realm, _this, _args| realm.js_null_create(),
                             0,
                         )
-                        .ok()
                         .expect("failed to install function");
                     match realm.eval(Script::new("t.js", "1+1")) {
                         Ok(_) => {}
@@ -886,7 +883,6 @@ pub mod tests {
                     }
                     Ok(())
                 })
-                .ok()
                 .expect("init hook addition failed");
             })
         });
@@ -894,7 +890,6 @@ pub mod tests {
         rt.js_loop_realm_void(Some("testrealm1"), |_rt, realm| {
             realm
                 .eval(Script::new("test.js", "console.log(utils.doSomething());"))
-                .ok()
                 .expect("script failed");
         });
     }

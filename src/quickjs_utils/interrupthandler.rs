@@ -89,7 +89,7 @@ pub mod tests {
             }
         }
 
-        rt.create_context("newctx").ok().expect("ctx crea failed");
+        rt.create_context("newctx").expect("ctx crea failed");
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let ctx = q_js_rt.get_context("newctx");
             match ctx.eval(Script::new(

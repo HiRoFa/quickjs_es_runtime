@@ -186,7 +186,6 @@ pub mod tests {
             );
             realm_adapter
                 .js_proxy_install(proxy, true)
-                .ok()
                 .expect("could not install proxy");
         });
 

@@ -361,7 +361,6 @@ fn pipe_promise_resolution_to_sender(
         },
         1,
     )
-    .ok()
     .expect("could not create func");
 
     let catch_func_ref = functions::new_function_q(
@@ -396,7 +395,6 @@ fn pipe_promise_resolution_to_sender(
         },
         1,
     )
-    .ok()
     .expect("could not create func");
 
     promises::add_promise_reactions_q(
@@ -406,7 +404,6 @@ fn pipe_promise_resolution_to_sender(
         Some(catch_func_ref),
         None,
     )
-    .ok()
     .expect("could not create promise reactions");
 }
 
@@ -471,7 +468,7 @@ impl EsValueConvertible for CachedJSValueRef {
             for mut args in batch_args {
                 let mut ref_args = vec![];
                 for arg in args.iter_mut() {
-                    ref_args.push(arg.as_js_value(q_ctx).ok().expect("to_js_value failed"));
+                    ref_args.push(arg.as_js_value(q_ctx).expect("to_js_value failed"));
                 }
 
                 let res = crate::quickjs_utils::functions::call_function_q(
@@ -498,7 +495,7 @@ impl EsValueConvertible for CachedJSValueRef {
             for mut args in batch_args {
                 let mut ref_args = vec![];
                 for arg in args.iter_mut() {
-                    ref_args.push(arg.as_js_value(q_ctx).ok().expect("could not convert arg"));
+                    ref_args.push(arg.as_js_value(q_ctx).expect("could not convert arg"));
                 }
 
                 let res = crate::quickjs_utils::functions::call_function_q(
@@ -563,7 +560,6 @@ impl EsValueConvertible for CachedJSValueRef {
                     Ok(crate::quickjs_utils::new_null_ref())
                 };
                 let t = functions::new_function_q(q_ctx, "", then_fn_raw, 1)
-                    .ok()
                     .expect("could not create function");
                 Some(t)
             } else {
@@ -587,7 +583,6 @@ impl EsValueConvertible for CachedJSValueRef {
                     },
                     1,
                 )
-                .ok()
                 .expect("could not create function");
                 Some(t)
             } else {
@@ -604,7 +599,6 @@ impl EsValueConvertible for CachedJSValueRef {
                     },
                     0,
                 )
-                .ok()
                 .expect("could not create function");
                 Some(t)
             } else {
@@ -612,7 +606,6 @@ impl EsValueConvertible for CachedJSValueRef {
             };
 
             promises::add_promise_reactions_q(q_ctx, &prom_ref, then_ref, catch_ref, finally_ref)
-                .ok()
                 .expect("could not add reactions")
         });
 
@@ -889,7 +882,6 @@ impl EsPromiseResolvableHandle {
 
                         let js_val = value
                             .as_js_value(q_ctx)
-                            .ok()
                             .expect("could not convert to JSValue");
                         let resolve_res = unsafe { p_ref.resolve(q_ctx.context, js_val) };
                         if resolve_res.is_err() {
@@ -931,7 +923,6 @@ impl EsPromiseResolvableHandle {
                         let p_ref = map.get(&id).expect("no such promise");
                         let js_val = value
                             .as_js_value(q_ctx)
-                            .ok()
                             .expect("could not convert to JSValue");
                         let reject_res = unsafe { p_ref.reject(q_ctx.context, js_val) };
                         if reject_res.is_err() {
@@ -1294,14 +1285,12 @@ impl EsValueFacade {
             // Int.
             TAG_INT => {
                 let val: i32 = crate::quickjs_utils::primitives::to_i32(value_ref)
-                    .ok()
                     .expect("could not convert to i32");
                 Ok(val.to_es_value_facade())
             }
             // Bool.
             TAG_BOOL => {
                 let val: bool = crate::quickjs_utils::primitives::to_bool(value_ref)
-                    .ok()
                     .expect("could not convert to bool");
                 Ok(val.to_es_value_facade())
             }
@@ -1313,7 +1302,6 @@ impl EsValueFacade {
             // Float.
             TAG_FLOAT64 => {
                 let val: f64 = crate::quickjs_utils::primitives::to_f64(value_ref)
-                    .ok()
                     .expect("could not convert to f64");
                 Ok(val.to_es_value_facade())
             }
@@ -1518,7 +1506,7 @@ pub mod tests {
 
     async fn test_async_func1(esvf: EsValueFacade) -> i32 {
         let res = esvf.invoke_function(vec![]).await;
-        let esvf = res.ok().expect("func failed");
+        let esvf = res.expect("func failed");
         esvf.get_i32()
     }
 
@@ -1530,7 +1518,6 @@ pub mod tests {
                 "test_async_func.es",
                 "(function someFunc(){return 147;});",
             ))
-            .ok()
             .expect("script failed");
         let fut = block_on(test_async_func1(func_esvf));
         assert_eq!(fut, 147);
@@ -1577,7 +1564,6 @@ pub mod tests {
                 "test_async_prom,es",
                 "(new Promise((resolve, reject) => {setTimeout(() => {resolve(1360)}, 1000);}));",
             ))
-            .ok()
             .expect("script failed");
         let i = block_on(test_async(esvf));
         assert_eq!(i, 1360);
@@ -1591,7 +1577,6 @@ pub mod tests {
                 "(new Promise((resolve) => {resolve(321);}))",
             ))
             .await
-            .ok()
             .expect("script failed");
 
         let second_prom_res = second_prom.get_promise_result();
@@ -1616,12 +1601,10 @@ pub mod tests {
             });
             Ok(prom.to_es_value_facade())
         })
-        .ok()
         .expect("setfunction failed");
 
         let res_prom = rt
             .eval_sync(Script::new("testasync2.es", "(com.my.testasyncfunc(7))"))
-            .ok()
             .expect("script failed");
         let res_i32 = res_prom.get_promise_result_sync().expect("prom failed");
         assert_eq!(res_i32.get_i32(), 21);
@@ -1635,7 +1618,6 @@ pub mod tests {
                 "test_stringify.es",
                 "({a: 1, b: 'abc', c: true, d: {a: 1, b: 2}});",
             ))
-            .ok()
             .expect("script failed");
 
         log::info!("test_stringify: before create map");

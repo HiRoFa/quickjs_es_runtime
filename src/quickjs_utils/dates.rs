@@ -86,11 +86,10 @@ pub mod tests {
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
-            let date_ref = dates::new_date_q(q_ctx).ok().expect("new_date failed");
+            let date_ref = dates::new_date_q(q_ctx).expect("new_date failed");
             assert!(is_date_q(q_ctx, &date_ref));
 
             set_time_q(q_ctx, &date_ref, 2147483648f64)
-                .ok()
                 .expect("could not set time");
             let gt_res = get_time_q(q_ctx, &date_ref);
             match gt_res {
@@ -103,7 +102,6 @@ pub mod tests {
             }
 
             set_time_q(q_ctx, &date_ref, 2f64)
-                .ok()
                 .expect("could not set time");
             let gt_res = get_time_q(q_ctx, &date_ref);
             match gt_res {

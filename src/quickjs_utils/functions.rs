@@ -243,14 +243,13 @@ pub unsafe fn call_to_string(
     } else if obj_ref.is_undefined() {
         Ok("undefined".to_string())
     } else if obj_ref.is_i32() {
-        let i = primitives::to_i32(obj_ref).ok().expect("could not get i32");
+        let i = primitives::to_i32(obj_ref).expect("could not get i32");
         Ok(i.to_string())
     } else if obj_ref.is_f64() {
-        let i = primitives::to_f64(obj_ref).ok().expect("could not get f64");
+        let i = primitives::to_f64(obj_ref).expect("could not get f64");
         Ok(i.to_string())
     } else if obj_ref.is_bool() {
         let i = primitives::to_bool(obj_ref)
-            .ok()
             .expect("could not get bool");
         Ok(i.to_string())
     } else if errors::is_error(context, obj_ref) {
@@ -650,7 +649,6 @@ where
     });
 
     objects::set_property2(context, &func_ref, "_cb_fin_marker_", &class_val_ref, 0)
-        .ok()
         .expect("could not set cb marker");
 
     Ok(func_ref)
@@ -677,7 +675,6 @@ pub mod tests {
                     "test_to_invoke.es",
                     "({func: function(a, b) {return a*b}});",
                 ))
-                .ok()
                 .expect("test_to_invoke.es failed");
 
             let res = invoke_member_function_q(
@@ -686,14 +683,13 @@ pub mod tests {
                 "func",
                 vec![primitives::from_i32(12), primitives::from_i32(14)],
             )
-            .ok()
             .expect("func failed");
 
             q_js_rt.gc();
             log::info!("invoke_res = {}", res.get_tag());
 
             assert!(res.is_i32());
-            assert_eq!(primitives::to_i32(&res).ok().expect("wtf?"), (12 * 14));
+            assert_eq!(primitives::to_i32(&res).expect("wtf?"), (12 * 14));
         });
         rt.gc_sync();
     }
@@ -708,7 +704,6 @@ pub mod tests {
                     "test_ret_refcount.es",
                     "this.test = {q: {}}; let global = this; (function(a, b){global.test.a = a; return {a: 1};});",
                 ))
-                .ok()
                 .expect("aa");
             assert_eq!(func_ref.get_ref_count(), 1);
 
@@ -719,7 +714,6 @@ pub mod tests {
             assert_eq!(1, b.get_ref_count());
 
             let i_res = call_function_q(q_ctx, &func_ref, vec![a.clone(), b.clone()], None)
-                .ok()
                 .expect("a");
             assert!(i_res.is_object());
             assert_eq!(i_res.get_ref_count(), 1);
@@ -727,17 +721,15 @@ pub mod tests {
             assert_eq!(2, a.get_ref_count());
             assert_eq!(1, b.get_ref_count());
 
-            let q_ref = q_ctx.eval(Script::new("test_ret_refcount2.es", "test.q;")).ok().expect("get q failed");
+            let q_ref = q_ctx.eval(Script::new("test_ret_refcount2.es", "test.q;")).expect("get q failed");
             assert_eq!(2, q_ref.get_ref_count());
             let _ = call_function_q(q_ctx, &func_ref, vec![primitives::from_i32(123), q_ref], None)
-                .ok()
                 .expect("b");
-            let q_ref = q_ctx.eval(Script::new("test_ret_refcount2.es", "test.q;")).ok().expect("get q failed");
+            let q_ref = q_ctx.eval(Script::new("test_ret_refcount2.es", "test.q;")).expect("get q failed");
             assert_eq!(2, q_ref.get_ref_count());
             let _ = call_function_q(q_ctx, &func_ref, vec![q_ref, primitives::from_i32(123)], None)
-                .ok()
                 .expect("b");
-            let q_ref = q_ctx.eval(Script::new("test_ret_refcount2.es", "test.q;")).ok().expect("get q failed");
+            let q_ref = q_ctx.eval(Script::new("test_ret_refcount2.es", "test.q;")).expect("get q failed");
             assert_eq!(3, q_ref.get_ref_count());
 
             // cleanup
@@ -844,7 +836,7 @@ pub mod tests {
                 log::error!("could not invoke test_callback_563: {}", err);
                 panic!("could not invoke test_callback_563: {}", err);
             }
-            res.ok().expect("could not invoke test_callback_563");
+            res.expect("could not invoke test_callback_563");
         });
         log::trace!("done with cb");
         rt.gc_sync();
@@ -863,7 +855,6 @@ pub mod tests {
                 "test_callback845.es",
                 "let test_callback_845 = function(cb){let obj = {}; cb(obj);cb(obj);cb(obj);}; test_callback_845;",
             ))
-                .ok()
                 .expect("script failed");
 
             let cb_ref = new_function_q(
@@ -877,7 +868,6 @@ pub mod tests {
                 },
                 3,
             )
-            .ok()
             .expect("could not create function");
             log::debug!("calling js func test_callback_845");
             let res = functions::call_function_q(q_ctx, &func_ref, vec![cb_ref], None);
@@ -912,7 +902,6 @@ pub mod tests {
                     },
                     0,
                 )
-                .ok()
                 .expect("could not install func");
 
             let err = q_ctx
@@ -966,7 +955,6 @@ unsafe extern "C" fn callback_function(
 
     let data_ref = JSValueRef::new(ctx, *func_data, true, true, "callback_function func_data");
     let callback_id = primitives::to_i32(&data_ref)
-        .ok()
         .expect("failed to get callback_id");
 
     trace!("callback_function id = {}", callback_id);
@@ -988,7 +976,6 @@ unsafe extern "C" fn callback_function(
             Err(e) => {
                 let nat_stack = format!("   at native_function [{}]\n{}", name, e.get_stack());
                 let err = errors::new_error(ctx, e.get_name(), e.get_message(), nat_stack.as_str())
-                    .ok()
                     .expect("could not create err");
                 errors::throw(ctx, err)
             }

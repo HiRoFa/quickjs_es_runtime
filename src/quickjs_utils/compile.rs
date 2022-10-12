@@ -206,17 +206,17 @@ pub mod tests {
                     ),
                 )
             };
-            let func = func_res.ok().expect("func compile failed");
+            let func = func_res.expect("func compile failed");
             let bytecode: Vec<u8> = unsafe { to_bytecode(q_ctx.context, &func) };
             drop(func);
             assert!(!bytecode.is_empty());
             let func2_res = unsafe { from_bytecode(q_ctx.context, &bytecode) };
-            let func2 = func2_res.ok().expect("could not read bytecode");
+            let func2 = func2_res.expect("could not read bytecode");
             let run_res = unsafe { run_compiled_function(q_ctx.context, &func2) };
             match run_res {
                 Ok(res) => {
                     let i_res = primitives::to_i32(&res);
-                    let i = i_res.ok().expect("could not convert to i32");
+                    let i = i_res.expect("could not convert to i32");
                     assert_eq!(i, 7 * 5);
                 }
                 Err(e) => {
@@ -238,18 +238,18 @@ pub mod tests {
                     "let a_tb4 = 7; let b_tb4 = 5; a_tb4 * b_tb4;",
                 ),
             );
-            let func = func_res.ok().expect("func compile failed");
+            let func = func_res.expect("func compile failed");
             let bytecode: Vec<u8> = to_bytecode(q_ctx.context, &func);
             drop(func);
             assert!(!bytecode.is_empty());
             let func2_res = from_bytecode(q_ctx.context, &bytecode);
-            let func2 = func2_res.ok().expect("could not read bytecode");
+            let func2 = func2_res.expect("could not read bytecode");
             let run_res = run_compiled_function(q_ctx.context, &func2);
 
             match run_res {
                 Ok(res) => {
                     let i_res = primitives::to_i32(&res);
-                    let i = i_res.ok().expect("could not convert to i32");
+                    let i = i_res.expect("could not convert to i32");
                     assert_eq!(i, 7 * 5);
                 }
                 Err(e) => {
@@ -288,7 +288,7 @@ pub mod tests {
                 q_ctx.context,
                 Script::new("test_func_runfail.es", "let abcdef = 1;"),
             );
-            let func = func_res.ok().expect("func compile failed");
+            let func = func_res.expect("func compile failed");
             assert_eq!(1, func.get_ref_count());
 
             let bytecode: Vec<u8> = to_bytecode(q_ctx.context, &func);
@@ -300,13 +300,12 @@ pub mod tests {
             assert!(!bytecode.is_empty());
 
             let func2_res = from_bytecode(q_ctx.context, &bytecode);
-            let func2 = func2_res.ok().expect("could not read bytecode");
+            let func2 = func2_res.expect("could not read bytecode");
             //should fail the second time you run this because abcdef is already defined
 
             assert_eq!(1, func2.get_ref_count());
 
             let run_res1 = run_compiled_function(q_ctx.context, &func2)
-                .ok()
                 .expect("run 1 failed unexpectedly");
             drop(run_res1);
 
@@ -333,7 +332,6 @@ pub mod tests {
             );
 
             let module = compile_module(realm.context, script)
-                .ok()
                 .expect("compile failed");
 
             Arc::new(to_bytecode(realm.context, &module))
@@ -383,13 +381,12 @@ pub mod tests {
             "import('testcompiledmodule').then((mod) => {return mod.someFunction(3, 5);})",
         );
         let res_fut = rt.js_eval(None, test_script);
-        let res_prom = block_on(res_fut).ok().expect("script failed");
+        let res_prom = block_on(res_fut).expect("script failed");
         let rti_weak = rt.js_get_runtime_facade_inner();
         if let JsValueFacade::JsPromise { cached_promise } = res_prom {
             let rti = rti_weak.upgrade().expect("invalid state");
             let prom_res_fut = cached_promise.js_get_promise_result(&*rti);
             let prom_res = block_on(prom_res_fut)
-                .ok()
                 .expect("prom failed")
                 .expect("prom was rejected");
             assert!(prom_res.is_i32());

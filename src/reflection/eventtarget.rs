@@ -542,7 +542,6 @@ pub mod tests {
                 .name("MyThing")
                 .event_target()
                 .install(q_ctx, true)
-                .ok()
                 .expect("proxy failed");
 
             match q_ctx.eval(Script::new(
@@ -571,7 +570,6 @@ pub mod tests {
             let id = vec[0];
             let evt = create_object_q(q_ctx).ok().unwrap();
             let _ = dispatch_event(q_ctx, &proxy, id, "someEvent", evt)
-                .ok()
                 .expect("dispatch failed");
 
             let ct_ref = get_property_q(q_ctx, &global, "ct").ok().unwrap();
@@ -599,16 +597,13 @@ pub mod tests {
                 .name("MyThing")
                 .event_target()
                 .install(q_ctx, true)
-                .ok()
                 .expect("proxy failed");
 
             q_ctx
                 .eval(Script::new("e.es", "let target = new MyThing();"))
-                .ok()
                 .expect("constr failed");
             let target_ref = q_ctx
                 .eval(Script::new("t.es", "(target);"))
-                .ok()
                 .expect("could not get target");
             assert_eq!(target_ref.get_ref_count(), 2); // one for me one for global
 
@@ -617,7 +612,6 @@ pub mod tests {
                     "r.es",
                     "target.addEventListener('someEvent', (evt) => {console.log('got event');});",
                 ))
-                .ok()
                 .expect("addlistnrfailed");
 
             assert_eq!(target_ref.get_ref_count(), 2); // one for me one for global

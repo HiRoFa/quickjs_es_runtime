@@ -265,7 +265,6 @@ pub mod tests {
                             });\
             ",
             ))
-            .ok()
             .expect("script failed");
         assert!(esvf.is_promise());
         let res = esvf.get_promise_result_sync();
@@ -292,7 +291,6 @@ pub mod tests {
                             });\
             ",
             ))
-            .ok()
             .expect("script failed");
         assert!(esvf.is_promise());
         let res = esvf.get_promise_result_sync();
@@ -307,65 +305,55 @@ pub mod tests {
     fn test_set_timeout() {
         let rt = init_test_rt();
 
-        rt.eval_sync(Script::new("test_set_interval.es", "let t_id1 = setInterval((a, b) => {console.log('setInterval invoked with %s and %s', a, b);}, 500, 123, 456);")).ok().expect("fail a");
-        rt.eval_sync(Script::new("test_set_timeout.es", "let t_id2 = setTimeout((a, b) => {console.log('setTimeout1 invoked with %s and %s', a, b);}, 500, 123, 456);")).ok().expect("fail b");
-        rt.eval_sync(Script::new("test_set_timeout.es", "let t_id3 = setTimeout((a, b) => {console.log('setTimeout2 invoked with %s and %s', a, b);}, 600, 123, 456);")).ok().expect("fail b");
-        rt.eval_sync(Script::new("test_set_timeout.es", "let t_id4 = setTimeout((a, b) => {console.log('setTimeout3 invoked with %s and %s', a, b);}, 900, 123, 456);")).ok().expect("fail b");
+        rt.eval_sync(Script::new("test_set_interval.es", "let t_id1 = setInterval((a, b) => {console.log('setInterval invoked with %s and %s', a, b);}, 500, 123, 456);")).expect("fail a");
+        rt.eval_sync(Script::new("test_set_timeout.es", "let t_id2 = setTimeout((a, b) => {console.log('setTimeout1 invoked with %s and %s', a, b);}, 500, 123, 456);")).expect("fail b");
+        rt.eval_sync(Script::new("test_set_timeout.es", "let t_id3 = setTimeout((a, b) => {console.log('setTimeout2 invoked with %s and %s', a, b);}, 600, 123, 456);")).expect("fail b");
+        rt.eval_sync(Script::new("test_set_timeout.es", "let t_id4 = setTimeout((a, b) => {console.log('setTimeout3 invoked with %s and %s', a, b);}, 900, 123, 456);")).expect("fail b");
         std::thread::sleep(Duration::from_secs(3));
         rt.eval_sync(Script::new(
             "test_clearInterval.es",
             "clearInterval(t_id1);",
         ))
-        .ok()
         .expect("fail c");
         rt.eval_sync(Script::new("test_clearTimeout2.es", "clearTimeout(t_id2);"))
-            .ok()
             .expect("fail d");
 
         rt.eval_sync(Script::new("test_set_timeout2.es", "this.__ti_num__ = 0;"))
-            .ok()
             .expect("fail qewr");
 
         rt.eval_sync(Script::new("test_set_timeout2.es", "this.__it_num__ = 0;"))
-            .ok()
             .expect("fail qewr");
 
         rt.eval_sync(Script::new(
             "test_set_timeout3.es",
             "setTimeout(() => {console.log('seto1');this.__ti_num__++;}, 455);",
         ))
-        .ok()
         .expect("fail a1");
         rt.eval_sync(Script::new(
             "test_set_timeout3.es",
             "setTimeout(() => {console.log('seto2');this.__ti_num__++;}, 366);",
         ))
-        .ok()
         .expect("fail a2");
         rt.eval_sync(Script::new(
             "test_set_timeout3.es",
             "setTimeout(() => {console.log('seto3');this.__ti_num__++;}, 1001);",
         ))
-        .ok()
         .expect("fail a3");
         rt.eval_sync(Script::new(
             "test_set_timeout3.es",
             "setTimeout(() => {console.log('seto4');this.__ti_num__++;}, 2002);",
         ))
-        .ok()
         .expect("fail a4");
 
         rt.eval_sync(Script::new(
             "test_set_interval.es",
             "setInterval(() => {this.__it_num__++;}, 1600);",
         ))
-        .ok()
         .expect("fail a");
         rt.eval_sync(Script::new(
             "test_set_interval.es",
             "setInterval(() => {this.__it_num__++;}, 2500);",
         ))
-        .ok()
         .expect("fail a");
 
         std::thread::sleep(Duration::from_secs(6));

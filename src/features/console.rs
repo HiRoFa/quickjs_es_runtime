@@ -335,7 +335,6 @@ pub mod tests {
             console.log('array:', [1, 2, true, {a: 1}]);\
             console.log({obj: true}, {obj: false});",
         ))
-        .ok()
         .expect("test_console.es failed");
         log::info!("< test_console");
     }

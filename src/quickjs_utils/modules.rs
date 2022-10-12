@@ -203,16 +203,16 @@ unsafe extern "C" fn js_module_loader(
             if let Some(res) = q_js_rt.with_all_module_loaders(|module_loader| {
                 if module_loader.has_module(q_ctx, module_name) {
                     let mod_val_res = module_loader.load_module(q_ctx, module_name);
-                    match mod_val_res {
+                    return match mod_val_res {
                         Ok(mod_val) => {
-                            return Some(mod_val);
+                            Some(mod_val)
                         }
                         Err(e) => {
                             let err =
                                 format!("Module load failed for {} because of: {}", module_name, e);
                             log::error!("{}", err);
                             q_ctx.report_ex(err.as_str());
-                            return Some(std::ptr::null_mut());
+                            Some(std::ptr::null_mut())
                         }
                     };
                 }

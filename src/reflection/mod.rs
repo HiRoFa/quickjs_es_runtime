@@ -706,10 +706,8 @@ unsafe extern "C" fn constructor(
     );
     QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let name_ref = objects::get_property(context, &this_ref, "name")
-            .ok()
             .expect("name get failed");
         let class_name = functions::call_to_string(context, &name_ref)
-            .ok()
             .expect("name.toString failed");
 
         let q_ctx = q_js_rt.get_quickjs_context(context);
@@ -833,7 +831,6 @@ unsafe extern "C" fn proxy_static_get_prop(
         trace!("proxy_static_get_prop: {}", proxy_name);
 
         let prop_name = atoms::to_string2(context, &atom)
-            .ok()
             .expect("could not get name");
         trace!("proxy_static_get_prop: prop: {}", prop_name);
 
@@ -843,7 +840,6 @@ unsafe extern "C" fn proxy_static_get_prop(
                 trace!("found method for {}", prop_name);
 
                 let function_data_ref = from_string(context, prop_name.as_str())
-                    .ok()
                     .expect("could not create function_data_ref");
 
                 let func_ref = functions::new_native_function_data(
@@ -853,11 +849,9 @@ unsafe extern "C" fn proxy_static_get_prop(
                     1,
                     function_data_ref,
                 )
-                .ok()
                 .expect("could not create func");
 
                 objects::set_property(context, &receiver_ref, prop_name.as_str(), &func_ref)
-                    .ok()
                     .expect("set_property 9656738 failed");
 
                 func_ref.clone_value_incr_rc()
@@ -871,11 +865,9 @@ unsafe extern "C" fn proxy_static_get_prop(
                     1,
                     false,
                 )
-                .ok()
                 .expect("could not create func");
 
                 objects::set_property(context, &receiver_ref, prop_name.as_str(), &func_ref)
-                    .ok()
                     .expect("set_property 36099 failed");
 
                 func_ref.clone_value_incr_rc()
@@ -927,7 +919,6 @@ unsafe extern "C" fn proxy_instance_get_prop(
         let q_ctx = q_js_rt.get_quickjs_context(context);
 
         let prop_name = atoms::to_string2(context, &atom)
-            .ok()
             .expect("could not get name");
         trace!("proxy_instance_get_prop: {}", prop_name);
 
@@ -943,7 +934,6 @@ unsafe extern "C" fn proxy_instance_get_prop(
             trace!("found method for {}", prop_name);
 
             let function_data_ref = from_string(context, prop_name.as_str())
-                .ok()
                 .expect("could not create function_data_ref");
 
             let func_ref = functions::new_native_function_data(
@@ -953,11 +943,9 @@ unsafe extern "C" fn proxy_instance_get_prop(
                 1,
                 function_data_ref,
             )
-            .ok()
             .expect("could not create func");
 
             objects::set_property(context, &receiver_ref, prop_name.as_str(), &func_ref)
-                .ok()
                 .expect("set_property 96385 failed"); // todo report ex
 
             func_ref.clone_value_incr_rc()
@@ -966,11 +954,9 @@ unsafe extern "C" fn proxy_instance_get_prop(
 
             let func_ref =
                 functions::new_native_function(context, &prop_name, *native_method, 1, false)
-                    .ok()
                     .expect("could not create func"); // tyodo report ex
 
             objects::set_property(context, &receiver_ref, prop_name.as_str(), &func_ref)
-                .ok()
                 .expect("set_property 49671 failed"); // todo report ex
 
             func_ref.clone_value_incr_rc()
@@ -989,7 +975,6 @@ unsafe extern "C" fn proxy_instance_get_prop(
                     );
                     let err =
                         errors::new_error(context, e.get_name(), msg.as_str(), nat_stack.as_str())
-                            .ok()
                             .expect("create error failed");
                     errors::throw(context, err)
                 }
@@ -1046,7 +1031,6 @@ unsafe extern "C" fn proxy_instance_method(
             "reflection::proxy_instance_method func_data",
         );
         let func_name = primitives::to_string(context, &func_name_ref)
-            .ok()
             .expect("could not to_string func_name_ref");
 
         trace!("proxy_instance_method: {}", func_name);
@@ -1071,7 +1055,6 @@ unsafe extern "C" fn proxy_instance_method(
                     );
                     let err =
                         errors::new_error(context, e.get_name(), msg.as_str(), nat_stack.as_str())
-                            .ok()
                             .expect("create error failed");
                     errors::throw(context, err)
                 }
@@ -1107,7 +1090,6 @@ unsafe extern "C" fn proxy_static_method(
             .ok()
             .unwrap();
         let proxy_name = primitives::to_string(context, &proxy_name_ref)
-            .ok()
             .expect("could not to_string classname");
 
         let args_vec = parse_args(context, argc, argv);
@@ -1120,7 +1102,6 @@ unsafe extern "C" fn proxy_static_method(
             "reflection::proxy_static_method func_data",
         );
         let func_name = primitives::to_string(context, &func_name_ref)
-            .ok()
             .expect("could not to_string func_name_ref");
 
         trace!("proxy_static_method: {}", func_name);
@@ -1140,7 +1121,6 @@ unsafe extern "C" fn proxy_static_method(
                     );
                     let err =
                         errors::new_error(context, e.get_name(), msg.as_str(), nat_stack.as_str())
-                            .ok()
                             .expect("create error failed");
                     errors::throw(context, err)
                 }
@@ -1181,7 +1161,6 @@ unsafe extern "C" fn proxy_static_set_prop(
         let q_ctx = q_js_rt.get_quickjs_context(context);
 
         let prop_name = atoms::to_string2(context, &atom)
-            .ok()
             .expect("could not get name");
         trace!("proxy_static_set_prop: {}", prop_name);
 
@@ -1196,7 +1175,6 @@ unsafe extern "C" fn proxy_static_set_prop(
         trace!("proxy_static_get_prop: {}", proxy_name);
 
         let prop_name = atoms::to_string2(context, &atom)
-            .ok()
             .expect("could not get name");
         trace!("proxy_static_get_prop: prop: {}", prop_name);
 
@@ -1248,7 +1226,6 @@ unsafe extern "C" fn proxy_instance_set_prop(
         let q_ctx = q_js_rt.get_quickjs_context(context);
 
         let prop_name = atoms::to_string2(context, &atom)
-            .ok()
             .expect("could not get name");
         trace!("proxy_instance_set_prop: {}", prop_name);
 
@@ -1317,7 +1294,6 @@ pub mod tests {
                 .install(q_ctx, true);
             q_ctx
                 .eval(Script::new("test.es", "let t = new Test();"))
-                .ok()
                 .expect("script failed");
         });
     }
@@ -1364,7 +1340,6 @@ pub mod tests {
                 .install(q_ctx, true);
             let res = q_ctx
                 .eval(Script::new("test_tostring.es", "new com.company.Test()"))
-                .ok()
                 .expect("script failed");
             assert!(is_proxy_instance_q(q_ctx, &res));
             let info = get_proxy_instance_proxy_and_instance_id_q(q_ctx, &res)
@@ -1374,7 +1349,7 @@ pub mod tests {
             println!("id={}", id);
             assert_eq!(p.get_class_name().as_str(), "com.company.Test");
 
-            let some_obj = create_object_q(q_ctx).ok().expect("could not create obj");
+            let some_obj = create_object_q(q_ctx).expect("could not create obj");
             assert!(some_obj.is_object());
 
             let class_id = PROXY_INSTANCE_CLASS_ID.with(|rc| *rc.borrow());
@@ -1409,10 +1384,8 @@ pub mod tests {
                     "test_tostring.es",
                     "com.company.Test + '-' + new com.company.Test()",
                 ))
-                .ok()
                 .expect("script failed");
             let str = primitives::to_string_q(q_ctx, &res)
-                .ok()
                 .expect("could not tostring");
             assert!(str.starts_with("Proxy::com.company.Test-Proxy::instance("));
             assert!(str.ends_with(")::com.company.Test"));
@@ -1519,7 +1492,6 @@ pub mod tests {
                 "test_proxy.es",
                 "TestClass1.someThing = 1; TestClass1.someThing;",
             ))
-            .ok()
             .expect("script failed");
 
         assert!(i4.is_i32());
@@ -1530,7 +1502,6 @@ pub mod tests {
                 "test_proxy.es",
                 "let tc5 = new TestClass1(); let r5 = tc5.gVar; tc5 = null; r5;",
             ))
-            .ok()
             .expect("script failed");
 
         assert!(i5.is_i32());

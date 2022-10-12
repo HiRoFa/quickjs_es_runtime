@@ -367,7 +367,6 @@ pub mod tests {
                     "testu8",
                     "const arr = new Uint8Array(10); arr;",
                 ))
-                .ok()
                 .expect("script failed");
 
             obj.get_tag()
@@ -381,7 +380,6 @@ pub mod tests {
                     "testu8",
                     "globalThis.testTyped = function(typedArray) {console.log('t=%s len=%s 0=%s 1=%s 2=%s', typedArray.constructor.name, typedArray.length, typedArray[0], typedArray[1], typedArray[2]); typedArray[0] = 34;};",
                 ))
-                .ok()
                 .expect("script failed");
         });
 
@@ -417,16 +415,13 @@ pub mod tests {
 
                     realm
                         .js_function_invoke_by_name(&[], "testTyped", &[arr.clone()])
-                        .ok()
                         .expect("testTyped failed");
 
                     let ab = get_array_buffer_q(realm, &arr)
-                        .ok()
                         .expect("did not get buffer");
 
                     log::trace!("reclaiming");
                     let buf2_reclaimed = detach_array_buffer_buffer_q(realm, &ab)
-                        .ok()
                         .expect("detach failed");
 
                     //unsafe { q::JS_DetachArrayBuffer(realm.context, *arr.borrow_value()) };
@@ -436,7 +431,6 @@ pub mod tests {
                     // this still works but all values should be undefined..
                     realm
                         .js_function_invoke_by_name(&[], "testTyped", &[arr.clone()])
-                        .ok()
                         .expect("script failed");
 
                     log::trace!("ab dropped");

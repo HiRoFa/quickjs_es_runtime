@@ -104,7 +104,6 @@ where
                             Ok(val_ref) => {
                                 prom_ref
                                     .resolve_q(q_ctx, val_ref)
-                                    .ok()
                                     .expect("prom resolution failed");
                             }
                             Err(err) => {
@@ -117,11 +116,9 @@ where
                                         err.get_stack(),
                                     )
                                 }
-                                .ok()
                                 .expect("could not create str");
                                 prom_ref
                                     .reject_q(q_ctx, err_ref)
-                                    .ok()
                                     .expect("prom rejection failed");
                             }
                         }
@@ -130,11 +127,9 @@ where
                         // todo use error:new_error(err)
                         let err_ref =
                             unsafe { errors::new_error(q_ctx.context, "Error", err.as_str(), "") }
-                                .ok()
                                 .expect("could not create str");
                         prom_ref
                             .reject_q(q_ctx, err_ref)
-                            .ok()
                             .expect("prom rejection failed");
                     }
                 }
@@ -229,7 +224,7 @@ pub mod tests {
              q_ctx.eval(Script::new(
                 "test_simple_prom.es",
                 "this.test = function(){return new Promise((resolve, reject) => {resolve('abc');}).then((a) => {return(a.toUpperCase());})}",
-            )).ok().expect("p1");
+            )).expect("p1");
 
             q_js_rt.run_pending_jobs_if_any();
 

@@ -78,8 +78,8 @@ pub unsafe fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Re
 ///     // add some values
 ///     let val0 = primitives::from_i32(12);
 ///     let val1 = primitives::from_i32(17);
-///     arrays::set_element_q(q_ctx, &arr_ref, 0, &val0);
-///     arrays::set_element_q(q_ctx, &arr_ref, 1, &val1);
+///     arrays::set_element_q(q_ctx, &arr_ref, 0, &val0).expect("could not set element");
+///     arrays::set_element_q(q_ctx, &arr_ref, 1, &val1).expect("could not set element");
 ///     // call the function
 ///     let result_ref = functions::invoke_member_function_q(q_ctx, &quickjs_utils::get_global_q(q_ctx), "create_array_func", vec![arr_ref]).ok().expect("could not invoke function");
 ///     let len = primitives::to_i32(&result_ref).ok().unwrap();
@@ -116,8 +116,8 @@ pub unsafe fn create_array(context: *mut q::JSContext) -> Result<JSValueRef, JsE
 ///     // get an Array from script
 ///     let arr_ref = q_ctx.eval(Script::new("set_element_test.es", "([1, 2, 3]);")).ok().expect("script failed");
 ///     // add some values
-///     arrays::set_element_q(q_ctx, &arr_ref, 3, &primitives::from_i32(12));
-///     arrays::set_element_q(q_ctx, &arr_ref, 4, &primitives::from_i32(17));
+///     arrays::set_element_q(q_ctx, &arr_ref, 3, &primitives::from_i32(12)).expect("could not set element");
+///     arrays::set_element_q(q_ctx, &arr_ref, 4, &primitives::from_i32(17)).expect("could not set element");
 ///     // get the length
 ///     let len = arrays::get_length_q(q_ctx, &arr_ref).ok().unwrap();
 ///     assert_eq!(len, 5);

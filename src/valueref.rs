@@ -332,7 +332,6 @@ impl JsValueAdapter for JSValueRef {
     fn js_to_bool(&self) -> bool {
         if self.js_get_type() == JsValueType::Boolean {
             primitives::to_bool(self)
-                .ok()
                 .expect("could not convert bool to bool")
         } else {
             panic!("not a boolean");
@@ -342,7 +341,6 @@ impl JsValueAdapter for JSValueRef {
     fn js_to_i32(&self) -> i32 {
         if self.js_get_type() == JsValueType::I32 {
             primitives::to_i32(self)
-                .ok()
                 .expect("could not convert to i32")
         } else {
             panic!("not an i32");
@@ -352,7 +350,6 @@ impl JsValueAdapter for JSValueRef {
     fn js_to_f64(&self) -> f64 {
         if self.js_get_type() == JsValueType::F64 {
             primitives::to_f64(self)
-                .ok()
                 .expect("could not convert to f64")
         } else {
             panic!("not a f64");
@@ -407,7 +404,7 @@ pub mod tests {
                     log::info!("script ran ok: {:?}", res);
                     assert!(res.js_get_type() == JsValueType::String);
                     assert_eq!(
-                        res.js_to_str().ok().expect("str conv failed"),
+                        res.js_to_str().expect("str conv failed"),
                         "hello world"
                     );
                 }

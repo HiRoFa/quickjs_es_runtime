@@ -17,7 +17,6 @@ pub fn is_promise_q(context: &QuickJsRealmAdapter, obj_ref: &JSValueRef) -> bool
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn is_promise(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
     is_instance_of_by_name(context, obj_ref, "Promise")
-        .ok()
         .expect("could not check instance_of")
 }
 
@@ -329,7 +328,6 @@ pub mod tests {
 
             unsafe {
                 prom.resolve(q_ctx.context, primitives::from_i32(743))
-                    .ok()
                     .expect("resolve failed");
             }
         });
@@ -367,7 +365,6 @@ pub mod tests {
 
             unsafe {
                 prom.reject(q_ctx.context, primitives::from_i32(130))
-                    .ok()
                     .expect("reject failed");
             }
         });
@@ -388,7 +385,6 @@ pub mod tests {
                     "test_promise_reactions.es",
                     "(new Promise(function(resolve, reject) {resolve(364);}));",
                 ))
-                .ok()
                 .expect("script failed");
 
             let then_cb = functions::new_function_q(
@@ -401,7 +397,6 @@ pub mod tests {
                 },
                 1,
             )
-            .ok()
             .expect("could not create cb");
             let finally_cb = functions::new_function_q(
                 q_ctx,
@@ -413,11 +408,9 @@ pub mod tests {
                 },
                 1,
             )
-            .ok()
             .expect("could not create cb");
 
             add_promise_reactions_q(q_ctx, &prom_ref, Some(then_cb), None, Some(finally_cb))
-                .ok()
                 .expect("could not add promise reactions");
         });
         std::thread::sleep(Duration::from_secs(1));
@@ -432,17 +425,16 @@ pub mod tests {
         let rt = init_test_rt();
 
         let mut esvf_res = rt.exe_task_in_event_loop(|| {
-            QuickJsRuntimeAdapter::create_context("test").ok().expect("create ctx failed");
+            QuickJsRuntimeAdapter::create_context("test").expect("create ctx failed");
             QuickJsRuntimeAdapter::do_with(|q_js_rt| {
                 let q_ctx = q_js_rt.get_context("test");
 
                 let script = "(new Promise((resolve, reject) => {resolve({a: 7});}).then((obj) => {return {b: obj.a * 5}}));";
                 let esvf_res = q_ctx
                     .eval(Script::new("test_promise_nested.es", script))
-                    .ok()
                     .expect("script failed");
 
-                EsValueFacade::from_jsval(q_ctx, &esvf_res).ok().expect("poof")
+                EsValueFacade::from_jsval(q_ctx, &esvf_res).expect("poof")
 
             })
         });
@@ -450,7 +442,7 @@ pub mod tests {
             esvf_res = esvf_res.get_promise_result_sync().expect("failure");
         }
         assert!(esvf_res.is_object());
-        let obj = esvf_res.get_object().ok().expect("esvf to map failed");
+        let obj = esvf_res.get_object().expect("esvf to map failed");
         let b = obj.get("b").expect("got no b");
         assert!(b.is_i32());
         let i = b.get_i32();
@@ -481,9 +473,7 @@ pub mod tests {
         match res {
             Ok(val) => {
                 if let JsValueFacade::JsPromise { cached_promise } = val {
-                    let prom_res = block_on(cached_promise.js_get_promise_result(&*rti))
-                        .ok()
-                        .expect("promise timed out");
+                    let prom_res = block_on(cached_promise.js_get_promise_result(&*rti)).expect("promise timed out");
                     match prom_res {
                         Ok(v) => {
                             panic!("promise unexpectedly resolved to val: {:?}", v);
