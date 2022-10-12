@@ -71,6 +71,7 @@
 
 #[macro_use]
 extern crate lazy_static;
+extern crate core;
 
 #[macro_export]
 macro_rules! es_args {

@@ -1,3 +1,7 @@
+# 0.8.5
+
+* better toString for errors
+
 # 0.8.4
 
 * removed some logging

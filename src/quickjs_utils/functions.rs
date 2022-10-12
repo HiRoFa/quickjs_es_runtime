@@ -13,6 +13,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::os::raw::{c_char, c_int, c_void};
 use std::rc::Rc;
+use crate::quickjs_utils::errors::error_to_js_error;
 
 /// parse a function body and its arg_names into a JSValueRef which is a Function
 /// # Example
@@ -252,8 +253,13 @@ pub unsafe fn call_to_string(
             .ok()
             .expect("could not get bool");
         Ok(i.to_string())
+    } else if errors::is_error(context, obj_ref) {
+        let pretty_err = error_to_js_error(context, obj_ref);
+        Ok(format!("{}", pretty_err))
     } else {
         log::trace!("calling JS_ToString on a {}", obj_ref.borrow_value().tag);
+
+        // todo better for Errors (plus stack)
 
         let res = q::JS_ToString(context, *obj_ref.borrow_value());
         let res_ref = JSValueRef::new(context, res, false, true, "call_to_string result");
@@ -1023,4 +1029,6 @@ pub mod tests2 {
             assert_eq!(0, ct2);
         });
     }
+
+
 }
