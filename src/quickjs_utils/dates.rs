@@ -89,8 +89,7 @@ pub mod tests {
             let date_ref = dates::new_date_q(q_ctx).expect("new_date failed");
             assert!(is_date_q(q_ctx, &date_ref));
 
-            set_time_q(q_ctx, &date_ref, 2147483648f64)
-                .expect("could not set time");
+            set_time_q(q_ctx, &date_ref, 2147483648f64).expect("could not set time");
             let gt_res = get_time_q(q_ctx, &date_ref);
             match gt_res {
                 Ok(t) => {
@@ -101,8 +100,7 @@ pub mod tests {
                 }
             }
 
-            set_time_q(q_ctx, &date_ref, 2f64)
-                .expect("could not set time");
+            set_time_q(q_ctx, &date_ref, 2f64).expect("could not set time");
             let gt_res = get_time_q(q_ctx, &date_ref);
             match gt_res {
                 Ok(t) => {

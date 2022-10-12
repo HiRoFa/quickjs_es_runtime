@@ -16,8 +16,7 @@ pub fn is_promise_q(context: &QuickJsRealmAdapter, obj_ref: &JSValueRef) -> bool
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn is_promise(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
-    is_instance_of_by_name(context, obj_ref, "Promise")
-        .expect("could not check instance_of")
+    is_instance_of_by_name(context, obj_ref, "Promise").expect("could not check instance_of")
 }
 
 pub struct PromiseRef {
@@ -473,7 +472,8 @@ pub mod tests {
         match res {
             Ok(val) => {
                 if let JsValueFacade::JsPromise { cached_promise } = val {
-                    let prom_res = block_on(cached_promise.js_get_promise_result(&*rti)).expect("promise timed out");
+                    let prom_res = block_on(cached_promise.js_get_promise_result(&*rti))
+                        .expect("promise timed out");
                     match prom_res {
                         Ok(v) => {
                             panic!("promise unexpectedly resolved to val: {:?}", v);

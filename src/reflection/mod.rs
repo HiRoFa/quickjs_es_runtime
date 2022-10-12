@@ -705,10 +705,9 @@ unsafe extern "C" fn constructor(
         "reflection::constructor this_val",
     );
     QuickJsRuntimeAdapter::do_with(|q_js_rt| {
-        let name_ref = objects::get_property(context, &this_ref, "name")
-            .expect("name get failed");
-        let class_name = functions::call_to_string(context, &name_ref)
-            .expect("name.toString failed");
+        let name_ref = objects::get_property(context, &this_ref, "name").expect("name get failed");
+        let class_name =
+            functions::call_to_string(context, &name_ref).expect("name.toString failed");
 
         let q_ctx = q_js_rt.get_quickjs_context(context);
 
@@ -830,8 +829,7 @@ unsafe extern "C" fn proxy_static_get_prop(
             .unwrap();
         trace!("proxy_static_get_prop: {}", proxy_name);
 
-        let prop_name = atoms::to_string2(context, &atom)
-            .expect("could not get name");
+        let prop_name = atoms::to_string2(context, &atom).expect("could not get name");
         trace!("proxy_static_get_prop: prop: {}", prop_name);
 
         let registry = &*q_ctx.proxy_registry.borrow();
@@ -918,8 +916,7 @@ unsafe extern "C" fn proxy_instance_get_prop(
     QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(context);
 
-        let prop_name = atoms::to_string2(context, &atom)
-            .expect("could not get name");
+        let prop_name = atoms::to_string2(context, &atom).expect("could not get name");
         trace!("proxy_instance_get_prop: {}", prop_name);
 
         let info = get_proxy_instance_info(&obj);
@@ -1089,8 +1086,8 @@ unsafe extern "C" fn proxy_static_method(
         let proxy_name_ref = objects::get_property(context, &this_ref, "name")
             .ok()
             .unwrap();
-        let proxy_name = primitives::to_string(context, &proxy_name_ref)
-            .expect("could not to_string classname");
+        let proxy_name =
+            primitives::to_string(context, &proxy_name_ref).expect("could not to_string classname");
 
         let args_vec = parse_args(context, argc, argv);
 
@@ -1160,8 +1157,7 @@ unsafe extern "C" fn proxy_static_set_prop(
     QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(context);
 
-        let prop_name = atoms::to_string2(context, &atom)
-            .expect("could not get name");
+        let prop_name = atoms::to_string2(context, &atom).expect("could not get name");
         trace!("proxy_static_set_prop: {}", prop_name);
 
         // see if we have a matching gettersetter
@@ -1174,8 +1170,7 @@ unsafe extern "C" fn proxy_static_set_prop(
             .unwrap();
         trace!("proxy_static_get_prop: {}", proxy_name);
 
-        let prop_name = atoms::to_string2(context, &atom)
-            .expect("could not get name");
+        let prop_name = atoms::to_string2(context, &atom).expect("could not get name");
         trace!("proxy_static_get_prop: prop: {}", prop_name);
 
         let registry = &*q_ctx.proxy_registry.borrow();
@@ -1225,8 +1220,7 @@ unsafe extern "C" fn proxy_instance_set_prop(
     QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(context);
 
-        let prop_name = atoms::to_string2(context, &atom)
-            .expect("could not get name");
+        let prop_name = atoms::to_string2(context, &atom).expect("could not get name");
         trace!("proxy_instance_set_prop: {}", prop_name);
 
         let info = get_proxy_instance_info(&obj);
@@ -1385,8 +1379,7 @@ pub mod tests {
                     "com.company.Test + '-' + new com.company.Test()",
                 ))
                 .expect("script failed");
-            let str = primitives::to_string_q(q_ctx, &res)
-                .expect("could not tostring");
+            let str = primitives::to_string_q(q_ctx, &res).expect("could not tostring");
             assert!(str.starts_with("Proxy::com.company.Test-Proxy::instance("));
             assert!(str.ends_with(")::com.company.Test"));
         });

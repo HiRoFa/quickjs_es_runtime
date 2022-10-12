@@ -864,11 +864,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         self.js_loop_realm_sync(realm_name, move |_rt, realm| {
             let args_adapters: Vec<JSValueRef> = args
                 .into_iter()
-                .map(|jsvf| {
-                    realm
-                        .from_js_value_facade(jsvf)
-                        .expect("conversion failed")
-                })
+                .map(|jsvf| realm.from_js_value_facade(jsvf).expect("conversion failed"))
                 .collect();
 
             let namespace = movable_namespace
@@ -903,11 +899,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         self.js_loop_realm(realm_name, move |_rt, realm| {
             let args_adapters: Vec<JSValueRef> = args
                 .into_iter()
-                .map(|jsvf| {
-                    realm
-                        .from_js_value_facade(jsvf)
-                        .expect("conversion failed")
-                })
+                .map(|jsvf| realm.from_js_value_facade(jsvf).expect("conversion failed"))
                 .collect();
 
             let namespace = movable_namespace
@@ -941,11 +933,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         self.js_loop_realm_void(realm_name, move |_rt, realm| {
             let args_adapters: Vec<JSValueRef> = args
                 .into_iter()
-                .map(|jsvf| {
-                    realm
-                        .from_js_value_facade(jsvf)
-                        .expect("conversion failed")
-                })
+                .map(|jsvf| realm.from_js_value_facade(jsvf).expect("conversion failed"))
                 .collect();
 
             let namespace = movable_namespace

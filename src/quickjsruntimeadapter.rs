@@ -210,8 +210,7 @@ unsafe extern "C" fn native_module_init(
     ctx: *mut q::JSContext,
     module: *mut q::JSModuleDef,
 ) -> c_int {
-    let module_name = get_module_name(ctx, module)
-        .expect("could not get name");
+    let module_name = get_module_name(ctx, module).expect("could not get name");
     log::trace!("native_module_init: {}", module_name);
 
     QuickJsRuntimeAdapter::do_with(|q_js_rt| {

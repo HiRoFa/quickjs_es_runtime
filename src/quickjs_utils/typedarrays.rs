@@ -417,12 +417,11 @@ pub mod tests {
                         .js_function_invoke_by_name(&[], "testTyped", &[arr.clone()])
                         .expect("testTyped failed");
 
-                    let ab = get_array_buffer_q(realm, &arr)
-                        .expect("did not get buffer");
+                    let ab = get_array_buffer_q(realm, &arr).expect("did not get buffer");
 
                     log::trace!("reclaiming");
-                    let buf2_reclaimed = detach_array_buffer_buffer_q(realm, &ab)
-                        .expect("detach failed");
+                    let buf2_reclaimed =
+                        detach_array_buffer_buffer_q(realm, &ab).expect("detach failed");
 
                     //unsafe { q::JS_DetachArrayBuffer(realm.context, *arr.borrow_value()) };
 

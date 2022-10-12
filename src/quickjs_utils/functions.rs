@@ -249,8 +249,7 @@ pub unsafe fn call_to_string(
         let i = primitives::to_f64(obj_ref).expect("could not get f64");
         Ok(i.to_string())
     } else if obj_ref.is_bool() {
-        let i = primitives::to_bool(obj_ref)
-            .expect("could not get bool");
+        let i = primitives::to_bool(obj_ref).expect("could not get bool");
         Ok(i.to_string())
     } else if errors::is_error(context, obj_ref) {
         let pretty_err = error_to_js_error(context, obj_ref);
@@ -954,8 +953,7 @@ unsafe extern "C" fn callback_function(
     // todo run multiple times and check refcount not growing for data, this and args
 
     let data_ref = JSValueRef::new(ctx, *func_data, true, true, "callback_function func_data");
-    let callback_id = primitives::to_i32(&data_ref)
-        .expect("failed to get callback_id");
+    let callback_id = primitives::to_i32(&data_ref).expect("failed to get callback_id");
 
     trace!("callback_function id = {}", callback_id);
 

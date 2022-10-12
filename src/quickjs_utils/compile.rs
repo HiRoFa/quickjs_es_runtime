@@ -305,8 +305,8 @@ pub mod tests {
 
             assert_eq!(1, func2.get_ref_count());
 
-            let run_res1 = run_compiled_function(q_ctx.context, &func2)
-                .expect("run 1 failed unexpectedly");
+            let run_res1 =
+                run_compiled_function(q_ctx.context, &func2).expect("run 1 failed unexpectedly");
             drop(run_res1);
 
             assert_eq!(1, func2.get_ref_count());
@@ -331,8 +331,7 @@ pub mod tests {
                 "export function someFunction(a, b){return a*b;};",
             );
 
-            let module = compile_module(realm.context, script)
-                .expect("compile failed");
+            let module = compile_module(realm.context, script).expect("compile failed");
 
             Arc::new(to_bytecode(realm.context, &module))
         })

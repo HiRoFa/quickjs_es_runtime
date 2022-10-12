@@ -569,8 +569,7 @@ pub mod tests {
             let vec = &mut *instance_ids.lock().unwrap();
             let id = vec[0];
             let evt = create_object_q(q_ctx).ok().unwrap();
-            let _ = dispatch_event(q_ctx, &proxy, id, "someEvent", evt)
-                .expect("dispatch failed");
+            let _ = dispatch_event(q_ctx, &proxy, id, "someEvent", evt).expect("dispatch failed");
 
             let ct_ref = get_property_q(q_ctx, &global, "ct").ok().unwrap();
 

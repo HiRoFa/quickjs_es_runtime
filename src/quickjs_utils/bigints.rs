@@ -86,18 +86,15 @@ pub mod tests {
             let bi_ref =
                 new_bigint_str_q(q_ctx, "345346345645234564536345345345345456534783448567")
                     .expect("could not create bigint from str");
-            let to_str = bigints::to_string_q(q_ctx, &bi_ref)
-                .expect("could not tostring bigint");
+            let to_str = bigints::to_string_q(q_ctx, &bi_ref).expect("could not tostring bigint");
             assert_eq!(to_str, "345346345645234564536345345345345456534783448567");
             let bi_ref = bigints::new_bigint_i64_q(q_ctx, 659863456456)
                 .expect("could not create bigint from u64");
-            let to_str = bigints::to_string_q(q_ctx, &bi_ref)
-                .expect("could not tostring bigint");
+            let to_str = bigints::to_string_q(q_ctx, &bi_ref).expect("could not tostring bigint");
             assert_eq!(to_str, "659863456456");
             let bi_ref = bigints::new_bigint_i64_q(q_ctx, 659863456457)
                 .expect("could not create bigint from u64");
-            let to_str = bigints::to_string_q(q_ctx, &bi_ref)
-                .expect("could not tostring bigint");
+            let to_str = bigints::to_string_q(q_ctx, &bi_ref).expect("could not tostring bigint");
             assert_eq!(to_str, "659863456457");
         });
     }
