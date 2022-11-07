@@ -1,3 +1,7 @@
+# 0.8.6
+
+* turned obj is proxy code around to prevent errors filling the log
+
 # 0.8.5
 
 * better toString for errors

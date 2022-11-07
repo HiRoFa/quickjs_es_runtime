@@ -570,6 +570,16 @@ pub unsafe fn is_proxy_instance(ctx: *mut q::JSContext, obj: &JSValueRef) -> boo
     if !obj.is_object() {
         false
     } else {
+
+        // workaround for instanceof not yet working
+        let prop_res = get_property(ctx, obj, "__proxy__");
+        if let Ok(prop) = prop_res {
+            if prop.is_bool() && prop.js_to_bool() {
+                return true;
+            }
+        }
+
+
         let class_id = PROXY_INSTANCE_CLASS_ID.with(|rc| *rc.borrow());
         let proxy_class_proto: q::JSValue = q::JS_GetClassProto(ctx, class_id);
         //let proto_ref: JSValueRef = JSValueRef::new(ctx, proxy_class_proto, false, false, "proxy_class_proto");
@@ -586,15 +596,7 @@ pub unsafe fn is_proxy_instance(ctx: *mut q::JSContext, obj: &JSValueRef) -> boo
             }
         }
 
-        // workaround
-        if res == -1 {
-            let prop_res = get_property(ctx, obj, "__proxy__");
-            if let Ok(prop) = prop_res {
-                if prop.is_bool() && prop.js_to_bool() {
-                    return true;
-                }
-            }
-        }
+
 
         res > 0
     }
