@@ -649,7 +649,7 @@ pub(crate) fn new_instance3(
         context_id: q_ctx.id.clone(),
     });
 
-    let ibp: &mut ProxyInstanceInfo = &mut *bx;
+    let ibp: &mut ProxyInstanceInfo = &mut bx;
     let info_ptr = ibp as *mut _ as *mut c_void;
 
     mappings.insert(instance_id, bx);

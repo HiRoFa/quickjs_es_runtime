@@ -639,7 +639,7 @@ where
         let ids = &mut *rc.borrow_mut();
         let mut bx = Box::new(callback_id as i32);
 
-        let ibp: &mut i32 = &mut *bx;
+        let ibp: &mut i32 = &mut bx;
         let info_ptr = ibp as *mut _ as *mut c_void;
 
         q::JS_SetOpaque(*class_val_ref.borrow_value(), info_ptr);

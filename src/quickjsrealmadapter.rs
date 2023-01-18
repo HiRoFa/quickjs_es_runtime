@@ -85,7 +85,7 @@ impl QuickJsRealmAdapter {
 
         let mut bx = Box::new(id.clone());
 
-        let ibp: &mut String = &mut *bx;
+        let ibp: &mut String = &mut bx;
         let info_ptr = ibp as *mut _ as *mut c_void;
 
         ID_REGISTRY.with(|rc| {

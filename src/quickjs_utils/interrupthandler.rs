@@ -19,11 +19,7 @@ pub(crate) fn init(q_js_rt: &QuickJsRuntimeAdapter) {
 unsafe extern "C" fn interrupt_handler(_rt: *mut q::JSRuntime, _opaque: *mut c_void) -> c_int {
     QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let handler = q_js_rt.interrupt_handler.as_ref().unwrap();
-        if handler(q_js_rt) {
-            1
-        } else {
-            0 // do not interrupt, return 1 to interrupt
-        }
+        i32::from(handler(q_js_rt))
     })
 }
 
