@@ -1,42 +1,50 @@
-# 0.8.6
+# 0.8
+
+## 0.8.7 (WiP)
+
+* removed win-api and once_cell from tokio features
+
+## 0.8.6
 
 * turned obj is proxy code around to prevent errors filling the log
 
-# 0.8.5
+## 0.8.5
 
 * better toString for errors
 
-# 0.8.4
+## 0.8.4
 
 * removed some logging
 
-# 0.8.3
+## 0.8.3
 
 * reference utils 0.5.4 (by reffing 0.5) (fixes #69)
 
-# 0.8.2
+## 0.8.2
 
 * reference utils 0.5.3 (fixes #68)
 
-# 0.8.1
+## 0.8.1
 
 * fixed memory usage report (#66)
 
-# 0.8.0
+## 0.8.0
 
 * impld realm init hook
 * proxy info functions (see if obj is an instance of a proxy class)
 
-# 0.7.2 
+# 0.7
+
+## 0.7.2 
 
 * fix for #62 (nested callback creation/drop fails)
 
-# 0.7.1 
+## 0.7.1 
 
 * fn to calc memory usage
 * implemented static event handlers for proxies
 
-# 0.7.0
+## 0.7.0
 
 * implemented js_proxy_new_instance_with_id from utils which allows you to create an instance of a proxy with a predefined id
 * implemented set_prop / has_prop functions in proxies
@@ -48,7 +56,9 @@
 * callback functions add name to stacktrace on error
 * implemented typedarrays (Uint8 only for now)
 
-# 0.6.0
+# 0.6
+
+## 0.6.0
 
 * updated quickjs to 2021-03-27
 * reverted back to EsRuntime having an Arc<EsRuntimeInner> (helps me with my abstraction project)
@@ -57,12 +67,14 @@
 * removed all panics when async promise resolution fails because of the realm being invalid
 * implemented a lot of js_utils abstractions, please note that js_utils::JsValueFacade will someday deprecate quickjs_runtime::EsValueFacade
 
-# 0.5.1
+# 0.5
+
+## 0.5.1
 
 * removed redundant prinltn (thanks SreeniIO!)
 * added testcase for abstractions, and fixed some typedefs
 
-# 0.5.0
+## 0.5.0
 
 * replaced EsScript with js_utils::Script
 * replaced ScriptPreProcessor with js_utils::ScriptPreProcessor
@@ -71,7 +83,9 @@
 * changes to function definitions
 * fixed interrupt handler 
 
-# 0.4.2
+# 0.4
+
+## 0.4.2
 
 * moved reflection code to reflection/mod.rs (should not affect api)
 * toPrimitive for Proxy classes (do stuff like console.log('got: ' + MyProxyInstanceOrClass))
@@ -80,7 +94,7 @@
 * added get_name(index) fn to JSPropertyEnumRef
 * added interrupt_handler
 
-# 0.4.1 
+## 0.4.1 
 
 * altered tokio dep, full is now optional (prevents valgrind errors)
 * altered utils dep to 0.1
@@ -88,7 +102,7 @@
 * scriptpreproc returns Result instead of just script
 * q_js_rt.load_module_script_opt now returns Script instead of String
 
-# 0.4.0
+## 0.4.0
 
 * use EventLoop from hirofa_utils, cleaner code, much less Mutexes
 * Renamed a lot of public methods
@@ -105,7 +119,9 @@
 * added EsFunction struct to create functions as EsValueFacade
 * is/get_error for EsValueFacade used for when promise or async function is rejected with Error obj
 
-# 0.2.3 
+# 0.2
+
+## 0.2.3 
 
 * added a runtime_init_hook(hook) method to the EsRuntimeBuilder so we can add vars to the runtime when the builder is built
 * added EsPromise::new_async which can be used to instantiate a Promise with an async resolver
@@ -115,23 +131,25 @@
 * Proxy supports multiple finalizers
 * Proxy as EventTarget first working code. needs to mature, but the goal for now is minimal support for dispatching events from rust to JavaScript 
 
-# 0.2.2
+## 0.2.2
 
 * added _void variants for adding jobs to the event queue, this prevents Futures being dropped before being resolved resulting in errors in the logs
 * setTimeout / setInterval now correctly run pending jobs (fixes resolving promises with timeout and such)
 * removed logging from console.rs so we can set custom loglevel to that package
 * fixed deadlocks in esvalue promise resolution
 
-# 0.2.1
+## 0.2.1
 
 * altered esruntimebuilder to accept Box<M>
 
-# 0.2.0
+## 0.2.0
 
 * rebuilt the module loading system
 * use Waker in Futures
 
-# 0.1.1
+# 0.1
+
+## 0.1.1
 
 * more precise timing for setTimeout and setInterval
 * quickjs_utils::maps utils for handling [Map](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map) instances from rust
@@ -155,6 +173,6 @@
 * added NativeModuleLoader to QuickJSRuntime to enable implementors to load native modules on-demand
 * altered reflection to enable creation of JSValueRef without making it available in global scope (.install(ctx, false))
 
-# 0.1.0
+## 0.1.0
 
 Initial release
