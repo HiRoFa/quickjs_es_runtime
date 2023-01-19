@@ -16,7 +16,7 @@ jobs:
     - name: Prepare
       run: |
         sudo apt update
-        sudo apt install gcc-7 ccache llvm autoconf2.13 automake clang python -y
+        sudo apt install ccache llvm autoconf2.13 automake clang -y
     - name: Cache cargo registry
       uses: actions/cache@v2
       with:
