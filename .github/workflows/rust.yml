@@ -51,7 +51,7 @@ jobs:
     - name: Prepare
       run: |
         sudo apt update
-        sudo apt install ccache llvm autoconf2.13 automake python valgrind -y
+        sudo apt install ccache llvm autoconf2.13 automake clang valgrind -y
     - name: Cache cargo registry
       uses: actions/cache@v2
       with:
