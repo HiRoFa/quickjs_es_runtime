@@ -849,7 +849,7 @@ impl EsPromiseResolvableHandle {
         C: FnOnce(&mut EsPromiseResolvableHandleInner) -> R,
     {
         let mut lck = self.inner.lock("with_inner").unwrap();
-        consumer(&mut *lck)
+        consumer(&mut lck)
     }
 
     pub fn resolve(&self, value: EsValueFacade) {
