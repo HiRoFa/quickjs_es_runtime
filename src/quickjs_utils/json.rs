@@ -121,14 +121,14 @@ pub unsafe fn stringify(
 
 #[cfg(test)]
 pub mod tests {
-    use std::collections::HashMap;
-    use hirofa_utils::js_utils::adapters::JsRealmAdapter;
-    use hirofa_utils::js_utils::facades::JsRuntimeFacade;
-    use hirofa_utils::js_utils::facades::values::JsValueFacade;
-    use hirofa_utils::js_utils::Script;
     use crate::facades::tests::init_test_rt;
-    use crate::quickjs_utils::{get_global_q, json, objects, primitives};
     use crate::quickjs_utils::json::parse_q;
+    use crate::quickjs_utils::{get_global_q, json, objects, primitives};
+    use hirofa_utils::js_utils::adapters::JsRealmAdapter;
+    use hirofa_utils::js_utils::facades::values::JsValueFacade;
+    use hirofa_utils::js_utils::facades::JsRuntimeFacade;
+    use hirofa_utils::js_utils::Script;
+    use std::collections::HashMap;
 
     #[test]
     fn test_json() {
@@ -165,9 +165,6 @@ pub mod tests {
                     .unwrap()
             );
         });
-
-
-
     }
 
     #[tokio::test]
@@ -175,36 +172,54 @@ pub mod tests {
         let rt = init_test_rt();
 
         // init my javascript function
-        rt.js_eval(None, Script::new("myFunc.js", r#"
+        rt.js_eval(
+            None,
+            Script::new(
+                "myFunc.js",
+                r#"
                 function myFunction(argObj) {
                     console.log("I got an %s", typeof argObj);
                     console.log("It looks like this %s", argObj);
                     return "hello " + argObj["key"];
                 }
-            "#)).await.ok().expect("myFunc failed to parse");
+            "#,
+            ),
+        )
+        .await
+        .ok()
+        .expect("myFunc failed to parse");
 
         // parse my obj to json
         let mut my_json_deserable_object = HashMap::new();
         my_json_deserable_object.insert("key", "value");
-        let json = serde_json::to_string(&my_json_deserable_object).ok().expect("serializing failed");
+        let json = serde_json::to_string(&my_json_deserable_object)
+            .ok()
+            .expect("serializing failed");
 
-        let func_res = rt.js_loop_realm(None, move |_rt, realm| {
-            // this runs in the worker thread for the EventLoop so json String needs to be moved here
-            // now we parse the json to a JsValueRef
-            let js_obj = parse_q(realm, json.as_str()).ok().expect("parsing json failed");
-            // then we can invoke the function with that js_obj as input
-            // get the global obj as function container
-            let global = get_global_q(realm);
-            // invoke the function
-            let func_res = crate::quickjs_utils::functions::invoke_member_function_q(realm, &global, "myFunction", vec![js_obj]);
-            //return the value out of the worker thread as JsValueFacade
-            realm.to_js_value_facade(&func_res.ok().expect("func failed"))
-
-        }).await;
+        let func_res = rt
+            .js_loop_realm(None, move |_rt, realm| {
+                // this runs in the worker thread for the EventLoop so json String needs to be moved here
+                // now we parse the json to a JsValueRef
+                let js_obj = parse_q(realm, json.as_str())
+                    .ok()
+                    .expect("parsing json failed");
+                // then we can invoke the function with that js_obj as input
+                // get the global obj as function container
+                let global = get_global_q(realm);
+                // invoke the function
+                let func_res = crate::quickjs_utils::functions::invoke_member_function_q(
+                    realm,
+                    &global,
+                    "myFunction",
+                    vec![js_obj],
+                );
+                //return the value out of the worker thread as JsValueFacade
+                realm.to_js_value_facade(&func_res.ok().expect("func failed"))
+            })
+            .await;
 
         let jsv = func_res.ok().expect("got err");
         assert_eq!(jsv.stringify(), "String: hello value");
-
     }
 
     #[tokio::test]
@@ -212,25 +227,37 @@ pub mod tests {
         let rt = init_test_rt();
 
         // init my javascript function
-        rt.js_eval(None, Script::new("myFunc.js", r#"
+        rt.js_eval(
+            None,
+            Script::new(
+                "myFunc.js",
+                r#"
                 function myFunction(argObj) {
                     console.log("I got an %s", typeof argObj);
                     console.log("It looks like this %s", argObj);
                     return "hello " + argObj["key"];
                 }
-            "#)).await.ok().expect("myFunc failed to parse");
+            "#,
+            ),
+        )
+        .await
+        .ok()
+        .expect("myFunc failed to parse");
 
         // parse my obj to json
         let mut my_json_deserable_object = HashMap::new();
         my_json_deserable_object.insert("key", "value");
-        let json = serde_json::to_string(&my_json_deserable_object).ok().expect("serializing failed");
+        let json = serde_json::to_string(&my_json_deserable_object)
+            .ok()
+            .expect("serializing failed");
 
-        let json_js_value_facade = JsValueFacade::JsonStr {json};
+        let json_js_value_facade = JsValueFacade::JsonStr { json };
 
-        let func_res = rt.js_function_invoke(None, &[], "myFunction", vec![json_js_value_facade]).await;
+        let func_res = rt
+            .js_function_invoke(None, &[], "myFunction", vec![json_js_value_facade])
+            .await;
 
         let jsv = func_res.ok().expect("got err");
         assert_eq!(jsv.stringify(), "String: hello value");
-
     }
 }

@@ -1298,12 +1298,12 @@ pub mod tests {
 #[cfg(test)]
 pub mod abstraction_tests {
     use crate::builder::QuickJsRuntimeBuilder;
+    use crate::facades::tests::init_test_rt;
     use futures::executor::block_on;
     use hirofa_utils::js_utils::adapters::JsRealmAdapter;
     use hirofa_utils::js_utils::facades::values::JsValueFacade;
     use hirofa_utils::js_utils::facades::JsRuntimeFacade;
     use hirofa_utils::js_utils::Script;
-    use crate::facades::tests::init_test_rt;
 
     async fn example<T: JsRuntimeFacade>(rt: &T) -> JsValueFacade {
         // add a job for the main realm (None as realm_name)
@@ -1332,7 +1332,6 @@ pub mod abstraction_tests {
 
     #[tokio::test]
     async fn test_serde() {
-
         let json = r#"
             {
                 "a": 1,
@@ -1345,7 +1344,7 @@ pub mod abstraction_tests {
         "#;
 
         let value = serde_json::from_str::<serde_json::Value>(&json).expect("json fail");
-        let input: JsValueFacade = JsValueFacade::SerdeValue {value};
+        let input: JsValueFacade = JsValueFacade::SerdeValue { value };
         let rt = init_test_rt();
 
         let _ = rt.js_eval(None,Script::new("t.js", r#"
@@ -1354,10 +1353,12 @@ pub mod abstraction_tests {
             }
         "#)).await.expect("script failed");
 
-        let res = rt.js_function_invoke(None, &[], "testSerde", vec![input]).await.expect("func failed");
+        let res = rt
+            .js_function_invoke(None, &[], "testSerde", vec![input])
+            .await
+            .expect("func failed");
 
         assert!(res.is_string());
         assert_eq!(res.get_str(), "1trueq123.3");
-
     }
 }
