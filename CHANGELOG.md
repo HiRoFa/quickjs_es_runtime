@@ -3,6 +3,7 @@
 ## 0.8.7 (WiP)
 
 * removed win-api and once_cell from tokio features
+* serde support in utils
 
 ## 0.8.6
 
