@@ -1303,6 +1303,7 @@ pub mod abstraction_tests {
     use hirofa_utils::js_utils::facades::values::JsValueFacade;
     use hirofa_utils::js_utils::facades::JsRuntimeFacade;
     use hirofa_utils::js_utils::Script;
+    use crate::facades::tests::init_test_rt;
 
     async fn example<T: JsRuntimeFacade>(rt: &T) -> JsValueFacade {
         // add a job for the main realm (None as realm_name)
@@ -1327,5 +1328,36 @@ pub mod abstraction_tests {
         } else {
             panic!("not an i32");
         }
+    }
+
+    #[tokio::test]
+    async fn test_serde() {
+
+        let json = r#"
+            {
+                "a": 1,
+                "b": true,
+                "c": {
+                    "d": "q",
+                    "e": [1, 2, 3.3]
+                }
+            }
+        "#;
+
+        let value = serde_json::from_str::<serde_json::Value>(&json).expect("json fail");
+        let input: JsValueFacade = JsValueFacade::SerdeValue {value};
+        let rt = init_test_rt();
+
+        let _ = rt.js_eval(None,Script::new("t.js", r#"
+            function testSerde(input) {
+                return "" + input.a + input.b + input.c.d + input.c.e[0] + input.c.e[1] + input.c.e[2];
+            }
+        "#)).await.expect("script failed");
+
+        let res = rt.js_function_invoke(None, &[], "testSerde", vec![input]).await.expect("func failed");
+
+        assert!(res.is_string());
+        assert_eq!(res.get_str(), "1trueq123.3");
+
     }
 }
