@@ -1302,8 +1302,10 @@ pub mod abstraction_tests {
     use futures::executor::block_on;
     use hirofa_utils::js_utils::adapters::JsRealmAdapter;
     use hirofa_utils::js_utils::facades::values::JsValueFacade;
-    use hirofa_utils::js_utils::facades::JsRuntimeFacade;
+    use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
     use hirofa_utils::js_utils::Script;
+    use serde::Serialize;
+    use serde::Deserialize;
 
     async fn example<T: JsRuntimeFacade>(rt: &T) -> JsValueFacade {
         // add a job for the main realm (None as realm_name)
@@ -1360,5 +1362,116 @@ pub mod abstraction_tests {
 
         assert!(res.is_string());
         assert_eq!(res.get_str(), "1trueq123.3");
+    }
+
+    #[derive(Serialize)]
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct User {
+        name: String,
+        last_name: String,
+    }
+
+    #[tokio::test]
+    async fn serde_tests_serialize() {
+        let rtb: QuickJsRuntimeBuilder = QuickJsRuntimeBuilder::new();
+        let rt = rtb.js_build();
+
+        // init my function
+        rt.js_eval(
+            None,
+            Script::new(
+                "test.js",
+                r#"
+                function myTest(user) {
+                    return {
+                        name: "proc_" + user.name,
+                        lastName: "proc_" + user.lastName
+                    }
+                }
+                "#,
+            ),
+        )
+            .await.expect("script failed");
+
+        // create a user obj
+        let test_user_input = User {
+            last_name: "Anderson".to_string(),
+            name: "Mister".to_string(),
+        };
+
+        let args = vec![JsValueFacade::from_serializable(&test_user_input).expect("could not serialize to JsValueFacade")];
+
+        let res: JsValueFacade = rt
+            .js_function_invoke(None, &[], "myTest", args)
+            .await
+            .expect("func failed");
+        let rti = rt.js_get_runtime_facade_inner().upgrade().unwrap();
+
+        let json_result = res
+            .to_json_string(&*rti)
+            .await
+            .expect("could not serialize to json");
+
+        assert_eq!(
+            json_result.as_str(),
+            r#"{"name":"proc_Mister","lastName":"proc_Anderson"}"#
+        );
+
+        // serialize back to user
+        let user_output: User = serde_json::from_str(json_result.as_str()).unwrap();
+        assert_eq!(user_output.name.as_str(), "proc_Mister");
+        assert_eq!(user_output.last_name.as_str(), "proc_Anderson");
+    }
+
+    #[tokio::test]
+    async fn serde_tests_value() {
+        let rtb: QuickJsRuntimeBuilder = QuickJsRuntimeBuilder::new();
+        let rt = rtb.js_build();
+
+        // init my function
+        rt.js_eval(
+            None,
+            Script::new(
+                "test.js",
+                r#"
+                function myTest(user) {
+                    return {
+                        name: "proc_" + user.name,
+                        lastName: "proc_" + user.lastName
+                    }
+                }
+                "#,
+            ),
+        )
+            .await.expect("script failed");
+
+        // create a user obj
+        let test_user_input = User {
+            last_name: "Anderson".to_string(),
+            name: "Mister".to_string(),
+        };
+
+        let input_value: serde_json::Value = serde_json::to_value(test_user_input).expect("could not to_value");
+        let args = vec![JsValueFacade::SerdeValue {value: input_value}];
+
+        let res: JsValueFacade = rt
+            .js_function_invoke(None, &[], "myTest", args)
+            .await
+            .expect("func failed");
+        let rti = rt.js_get_runtime_facade_inner().upgrade().unwrap();
+
+        // as value
+        let value_result: serde_json::Value = res
+            .to_serde_value(&*rti)
+            .await
+            .expect("could not serialize to json");
+
+        assert!(value_result.is_object());
+
+        // serialize back to user
+        let user_output: User = serde_json::from_value(value_result).unwrap();
+        assert_eq!(user_output.name.as_str(), "proc_Mister");
+        assert_eq!(user_output.last_name.as_str(), "proc_Anderson");
     }
 }
