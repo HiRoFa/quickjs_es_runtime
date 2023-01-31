@@ -1304,8 +1304,8 @@ pub mod abstraction_tests {
     use hirofa_utils::js_utils::facades::values::JsValueFacade;
     use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
     use hirofa_utils::js_utils::Script;
-    use serde::Serialize;
     use serde::Deserialize;
+    use serde::Serialize;
 
     async fn example<T: JsRuntimeFacade>(rt: &T) -> JsValueFacade {
         // add a job for the main realm (None as realm_name)
@@ -1364,8 +1364,7 @@ pub mod abstraction_tests {
         assert_eq!(res.get_str(), "1trueq123.3");
     }
 
-    #[derive(Serialize)]
-    #[derive(Deserialize)]
+    #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct User {
         name: String,
@@ -1392,7 +1391,8 @@ pub mod abstraction_tests {
                 "#,
             ),
         )
-            .await.expect("script failed");
+        .await
+        .expect("script failed");
 
         // create a user obj
         let test_user_input = User {
@@ -1400,7 +1400,8 @@ pub mod abstraction_tests {
             name: "Mister".to_string(),
         };
 
-        let args = vec![JsValueFacade::from_serializable(&test_user_input).expect("could not serialize to JsValueFacade")];
+        let args = vec![JsValueFacade::from_serializable(&test_user_input)
+            .expect("could not serialize to JsValueFacade")];
 
         let res: JsValueFacade = rt
             .js_function_invoke(None, &[], "myTest", args)
@@ -1444,7 +1445,8 @@ pub mod abstraction_tests {
                 "#,
             ),
         )
-            .await.expect("script failed");
+        .await
+        .expect("script failed");
 
         // create a user obj
         let test_user_input = User {
@@ -1452,8 +1454,9 @@ pub mod abstraction_tests {
             name: "Mister".to_string(),
         };
 
-        let input_value: serde_json::Value = serde_json::to_value(test_user_input).expect("could not to_value");
-        let args = vec![JsValueFacade::SerdeValue {value: input_value}];
+        let input_value: serde_json::Value =
+            serde_json::to_value(test_user_input).expect("could not to_value");
+        let args = vec![JsValueFacade::SerdeValue { value: input_value }];
 
         let res: JsValueFacade = rt
             .js_function_invoke(None, &[], "myTest", args)
