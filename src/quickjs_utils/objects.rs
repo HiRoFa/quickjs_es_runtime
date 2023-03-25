@@ -52,8 +52,7 @@ pub unsafe fn get_namespace(
             } else {
                 log::trace!("objects::get_namespace -> is null -> err");
                 return Err(JsError::new_string(format!(
-                    "could not find namespace part: {}",
-                    p_name
+                    "could not find namespace part: {p_name}"
                 )));
             }
         } else {
@@ -363,7 +362,7 @@ pub unsafe fn get_property(
         prop_val,
         false,
         true,
-        format!("object::get_property result: {}", prop_name).as_str(),
+        format!("object::get_property result: {prop_name}").as_str(),
     );
 
     Ok(prop_ref)

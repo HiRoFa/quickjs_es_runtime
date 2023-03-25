@@ -716,7 +716,7 @@ impl EsValueConvertible for i32 {
     }
 
     fn stringify(&self) -> Result<String, JsError> {
-        Ok(format!("{}", self))
+        Ok(format!("{self}"))
     }
 }
 
@@ -738,7 +738,7 @@ impl EsValueConvertible for bool {
     }
 
     fn stringify(&self) -> Result<String, JsError> {
-        Ok(format!("{}", self))
+        Ok(format!("{self}"))
     }
 }
 
@@ -759,7 +759,7 @@ impl EsValueConvertible for f64 {
     }
 
     fn stringify(&self) -> Result<String, JsError> {
-        Ok(format!("{}", self))
+        Ok(format!("{self}"))
     }
 }
 
@@ -1180,7 +1180,7 @@ impl EsPromise {
 
         let handle = ret.get_handle();
 
-        let _ = QuickJsRuntimeFacade::add_helper_task_async(async move {
+        let _ignore_res = QuickJsRuntimeFacade::add_helper_task_async(async move {
             let val = resolver.await;
             match val {
                 Ok(v) => {
@@ -1312,8 +1312,7 @@ impl EsValueFacade {
             // BigIn
             TAG_BIG_INT => Ok(CachedJSValueRef::new(q_ctx, value_ref).to_es_value_facade()),
             x => Err(JsError::new_string(format!(
-                "Unhandled JS_TAG value: {}",
-                x
+                "Unhandled JS_TAG value: {x}"
             ))),
         }
     }

@@ -1079,8 +1079,7 @@ pub mod tests {
         panic::set_hook(Box::new(|panic_info| {
             let backtrace = Backtrace::new();
             println!(
-                "thread panic occurred: {}\nbacktrace: {:?}",
-                panic_info, backtrace
+                "thread panic occurred: {panic_info}\nbacktrace: {backtrace:?}"
             );
             log::error!(
                 "thread panic occurred: {}\nbacktrace: {:?}",
@@ -1345,7 +1344,7 @@ pub mod abstraction_tests {
             }
         "#;
 
-        let value = serde_json::from_str::<serde_json::Value>(&json).expect("json fail");
+        let value = serde_json::from_str::<serde_json::Value>(json).expect("json fail");
         let input: JsValueFacade = JsValueFacade::SerdeValue { value };
         let rt = init_test_rt();
 

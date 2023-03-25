@@ -358,8 +358,7 @@ pub mod tests {
         panic::set_hook(Box::new(|panic_info| {
             let backtrace = Backtrace::new();
             println!(
-                "thread panic occurred: {}\nbacktrace: {:?}",
-                panic_info, backtrace
+                "thread panic occurred: {panic_info}\nbacktrace: {backtrace:?}"
             );
             log::error!(
                 "thread panic occurred: {}\nbacktrace: {:?}",

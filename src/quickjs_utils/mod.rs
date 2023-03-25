@@ -101,8 +101,7 @@ pub unsafe fn get_constructor(
 
     if constructor_ref.is_null_or_undefined() {
         Err(JsError::new_string(format!(
-            "not found: {}",
-            constructor_name
+            "not found: {constructor_name}"
         )))
     } else {
         Ok(constructor_ref)
@@ -169,7 +168,7 @@ pub mod tests {
     #[test]
     fn test_global() {
         let rt = init_test_rt();
-        let _ = rt.exe_rt_task_in_event_loop(|q_js_rt| {
+        rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
 
             let ct = get_global_q(q_ctx).get_ref_count();

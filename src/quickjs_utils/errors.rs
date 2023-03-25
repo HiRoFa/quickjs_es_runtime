@@ -84,7 +84,7 @@ pub unsafe fn new_error(
         obj,
         false,
         true,
-        format!("new_error {}", name).as_str(),
+        format!("new_error {name}").as_str(),
     );
     objects::set_property(
         context,

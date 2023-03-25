@@ -224,8 +224,7 @@ unsafe extern "C" fn native_module_init(
                         Err(e) => {
                             q_ctx.report_ex(
                                 format!(
-                                    "Failed to init native module: {} caused by {}",
-                                    module_name, e
+                                    "Failed to init native module: {module_name} caused by {e}"
                                 )
                                 .as_str(),
                             );
@@ -781,8 +780,7 @@ pub(crate) fn make_cstring(value: &str) -> Result<CString, JsError> {
     match res {
         Ok(val) => Ok(val),
         Err(_) => Err(JsError::new_string(format!(
-            "could not create cstring from {}",
-            value
+            "could not create cstring from {value}"
         ))),
     }
 }
@@ -826,7 +824,7 @@ pub mod tests {
 
         rt.js_loop_realm_sync(None, |rt, _realm| {
             let mu = rt.memory_usage();
-            println!("mu: {:?}", mu);
+            println!("mu: {mu:?}");
         });
     }
 

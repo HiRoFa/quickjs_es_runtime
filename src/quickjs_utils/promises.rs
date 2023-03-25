@@ -479,7 +479,7 @@ pub mod tests {
                             panic!("promise unexpectedly resolved to val: {:?}", v);
                         }
                         Err(ev) => {
-                            println!("prom resolved to error: {:?}", ev);
+                            println!("prom resolved to error: {ev:?}");
                         }
                     }
                 } else {

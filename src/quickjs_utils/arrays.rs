@@ -196,7 +196,7 @@ pub unsafe fn get_element(
         value_raw,
         false,
         true,
-        format!("get_element[{}]", index).as_str(),
+        format!("get_element[{index}]").as_str(),
     );
     if ret.is_exception() {
         return Err(JsError::new_str("Could not build array"));

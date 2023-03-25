@@ -69,7 +69,7 @@ pub unsafe fn to_str(context: *mut q::JSContext, atom: &q::JSAtom) -> Result<&st
     let c_str = CStr::from_ptr(c_string);
     c_str
         .to_str()
-        .map_err(|e| JsError::new_string(format!("{}", e)))
+        .map_err(|e| JsError::new_string(format!("{e}")))
 }
 
 pub fn from_string_q(q_ctx: &QuickJsRealmAdapter, string: &str) -> Result<JSAtomRef, JsError> {

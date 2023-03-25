@@ -412,13 +412,13 @@ impl Proxy {
         self = self.method("Symbol.toPrimitive", move |q_ctx, id, _args| {
             let prim = primitives::from_string_q(
                 q_ctx,
-                format!("Proxy::instance({})::{}", id, prim_cn).as_str(),
+                format!("Proxy::instance({id})::{prim_cn}").as_str(),
             )?;
             Ok(prim)
         });
         let prim_cn = self.get_class_name();
         self = self.static_method("Symbol.toPrimitive", move |q_ctx, _args| {
-            let prim = primitives::from_string_q(q_ctx, format!("Proxy::{}", prim_cn).as_str())?;
+            let prim = primitives::from_string_q(q_ctx, format!("Proxy::{prim_cn}").as_str())?;
             Ok(prim)
         });
 
@@ -623,19 +623,17 @@ pub(crate) fn new_instance3(
         class_val,
         false,
         true,
-        format!("reflection::Proxy; cn={}", class_name).as_str(),
+        format!("reflection::Proxy; cn={class_name}").as_str(),
     );
 
     if class_val_ref.is_exception() {
         return if let Some(e) = q_ctx.get_exception_ctx() {
             Err(JsError::new_string(format!(
-                "could not create class:{} due to: {}",
-                class_name, e
+                "could not create class:{class_name} due to: {e}"
             )))
         } else {
             Err(JsError::new_string(format!(
-                "could not create class:{}",
-                class_name
+                "could not create class:{class_name}"
             )))
         };
     }
@@ -726,15 +724,14 @@ unsafe extern "C" fn constructor(
                             Ok(instance_ref) => instance_ref.clone_value_incr_rc(),
                             Err(e) => q_ctx.report_ex(
                                 format!(
-                                    "could not create proxy instance for {} due to {}",
-                                    class_name, e
+                                    "could not create proxy instance for {class_name} due to {e}"
                                 )
                                 .as_str(),
                             ),
                         }
                     }
                     Err(es_err) => q_ctx.report_ex(
-                        format!("constructor for {} failed with {}", class_name, es_err).as_str(),
+                        format!("constructor for {class_name} failed with {es_err}").as_str(),
                     ),
                 }
             } else {
@@ -874,7 +871,7 @@ unsafe extern "C" fn proxy_static_get_prop(
                 match res {
                     Ok(g_val) => g_val.clone_value_incr_rc(),
                     Err(e) => {
-                        let es = format!("proxy_static_get_prop failed: {}", e);
+                        let es = format!("proxy_static_get_prop failed: {e}");
                         q_ctx.report_ex(es.as_str())
                     }
                 }
@@ -1181,7 +1178,7 @@ unsafe extern "C" fn proxy_static_set_prop(
                     Ok(_) => 0,
                     Err(e) => {
                         // fail, todo do i need ex?
-                        let err = format!("proxy_instance_set_prop failed: {}", e);
+                        let err = format!("proxy_instance_set_prop failed: {e}");
                         log::error!("{}", err);
                         //let _ = q_ctx.report_ex(err.as_str());
                         -1
@@ -1238,7 +1235,7 @@ unsafe extern "C" fn proxy_instance_set_prop(
                 Ok(_) => 0,
                 Err(e) => {
                     // fail, todo do i need ex?
-                    let err = format!("proxy_instance_set_prop failed: {}", e);
+                    let err = format!("proxy_instance_set_prop failed: {e}");
                     log::error!("{}", err);
                     //let _ = q_ctx.report_ex(err.as_str());
                     -1
@@ -1309,7 +1306,7 @@ pub mod tests {
                 .eval(Script::new("test.es", "let t = new Test(); \nt.run();"))
                 .expect_err("script failed");
 
-            format!("{}", err)
+            format!("{err}")
         });
 
         assert!(err.contains("test.es:2"));
@@ -1338,7 +1335,7 @@ pub mod tests {
                 .expect("could not get info");
             let id = info.1;
             let p = info.0;
-            println!("id={}", id);
+            println!("id={id}");
             assert_eq!(p.get_class_name().as_str(), "com.company.Test");
 
             let some_obj = create_object_q(q_ctx).expect("could not create obj");
@@ -1351,9 +1348,9 @@ pub mod tests {
             let res = unsafe {
                 q::JS_IsInstanceOf(q_ctx.context, *some_obj.borrow_value(), proxy_class_proto) != 0
             };
-            println!("res = {}", res);
+            println!("res = {res}");
             let res2 = is_proxy_instance_q(q_ctx, &some_obj);
-            println!("res2 = {}", res2);
+            println!("res2 = {res2}");
             assert!(!res2);
         });
     }

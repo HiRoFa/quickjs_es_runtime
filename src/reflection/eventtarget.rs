@@ -304,7 +304,7 @@ unsafe extern "C" fn ext_add_event_listener(
     });
     match res {
         Ok(_) => quickjs_utils::new_null(),
-        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{}", e).as_str()),
+        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{e}").as_str()),
     }
 }
 
@@ -340,7 +340,7 @@ unsafe extern "C" fn ext_remove_event_listener(
     });
     match res {
         Ok(_) => quickjs_utils::new_null(),
-        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{}", e).as_str()),
+        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{e}").as_str()),
     }
 }
 
@@ -377,7 +377,7 @@ unsafe extern "C" fn ext_dispatch_event(
             let b_ref = from_bool(res);
             b_ref.clone_value_incr_rc()
         }
-        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{}", e).as_str()),
+        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{e}").as_str()),
     }
 }
 
@@ -433,7 +433,7 @@ unsafe extern "C" fn ext_add_static_event_listener(
     });
     match res {
         Ok(_) => quickjs_utils::new_null(),
-        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{}", e).as_str()),
+        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{e}").as_str()),
     }
 }
 
@@ -468,7 +468,7 @@ unsafe extern "C" fn ext_remove_static_event_listener(
     });
     match res {
         Ok(_) => quickjs_utils::new_null(),
-        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{}", e).as_str()),
+        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{e}").as_str()),
     }
 }
 
@@ -504,7 +504,7 @@ unsafe extern "C" fn ext_dispatch_static_event(
             let b_ref = from_bool(res);
             b_ref.clone_value_incr_rc()
         }
-        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{}", e).as_str()),
+        Err(e) => QuickJsRealmAdapter::report_ex_ctx(ctx, format!("{e}").as_str()),
     }
 }
 

@@ -810,9 +810,9 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         map.insert(promise_ref)
     }
 
-    fn js_promise_cache_consume(&self, id: usize) -> Box<dyn JsPromiseAdapter<Self>> {
+    fn js_promise_cache_consume(&self, id: usize) -> Option<Box<dyn JsPromiseAdapter<Self>>> {
         let map = &mut *self.promise_cache.borrow_mut();
-        map.remove(&id)
+        map.remove_opt(&id)
     }
 
     fn js_cache_add(&self, object: &JSValueRef) -> i32 {

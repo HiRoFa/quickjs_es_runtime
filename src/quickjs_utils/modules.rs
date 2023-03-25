@@ -180,7 +180,7 @@ unsafe extern "C" fn js_module_normalize(
         }) {
             res
         } else {
-            q_ctx.report_ex(format!("Module {} was not found", name_str).as_str());
+            q_ctx.report_ex(format!("Module {name_str} was not found").as_str());
             ptr::null_mut()
         }
     })
@@ -207,7 +207,7 @@ unsafe extern "C" fn js_module_loader(
                         Ok(mod_val) => Some(mod_val),
                         Err(e) => {
                             let err =
-                                format!("Module load failed for {} because of: {}", module_name, e);
+                                format!("Module load failed for {module_name} because of: {e}");
                             log::error!("{}", err);
                             q_ctx.report_ex(err.as_str());
                             Some(std::ptr::null_mut())

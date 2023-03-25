@@ -1,3 +1,9 @@
+# 0.9
+
+# 0.9.0
+
+* when dropping a Realm dangling Promises will log an error instead of panicking
+
 # 0.8
 
 ## 0.8.7

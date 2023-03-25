@@ -107,7 +107,7 @@ unsafe fn parse_field_value(ctx: *mut q::JSContext, field: &str, value: &JSValue
                 if let Ok(ct) = ct_res {
                     // and if so, make i_val longer
                     while i_val.len() < ct {
-                        i_val = format!("0{}", i_val);
+                        i_val = format!("0{i_val}");
                     }
                 }
             }
@@ -162,9 +162,9 @@ unsafe fn stringify_log_obj(ctx: *mut q::JSContext, arg: &JSValueRef) -> String 
     match stringify(ctx, arg, None) {
         Ok(r) => match primitives::to_string(ctx, &r) {
             Ok(s) => s,
-            Err(e) => format!("Error: {}", e),
+            Err(e) => format!("Error: {e}"),
         },
-        Err(e) => format!("Error: {}", e),
+        Err(e) => format!("Error: {e}"),
     }
 }
 

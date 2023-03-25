@@ -367,7 +367,7 @@ impl JsValueAdapter for JSValueRef {
             }
             JsValueType::Error => {
                 let js_error = unsafe { errors::error_to_js_error(self.context, self) };
-                Ok(format!("{}", js_error))
+                Ok(format!("{js_error}"))
             }
             _ => unsafe { functions::call_to_string(self.context, self) },
         }

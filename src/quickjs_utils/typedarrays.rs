@@ -347,8 +347,7 @@ pub mod tests {
         std::panic::set_hook(Box::new(|panic_info| {
             let backtrace = backtrace::Backtrace::new();
             println!(
-                "thread panic occurred: {}\nbacktrace: {:?}",
-                panic_info, backtrace
+                "thread panic occurred: {panic_info}\nbacktrace: {backtrace:?}"
             );
             log::error!(
                 "thread panic occurred: {}\nbacktrace: {:?}",
@@ -374,7 +373,7 @@ pub mod tests {
 
         log::debug!("tag res {}", res);
 
-        let _ = rt.js_loop_realm_sync(None, |_rt, realm| {
+        rt.js_loop_realm_sync(None, |_rt, realm| {
             realm
                 .eval(Script::new(
                     "testu8",
@@ -383,7 +382,7 @@ pub mod tests {
                 .expect("script failed");
         });
 
-        let _ = rt.js_loop_realm_sync(None, |_rt, realm| {
+        rt.js_loop_realm_sync(None, |_rt, realm| {
             let buf = vec![1, 2, 3];
 
             let ab_res = new_array_buffer_q(realm, buf);

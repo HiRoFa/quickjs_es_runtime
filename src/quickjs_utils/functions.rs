@@ -55,11 +55,10 @@ pub unsafe fn parse_function(
     let as_pfx = if async_fn { "async " } else { "" };
     let args_str = arg_names.join(", ");
     let src = format!(
-        "({}function {}({}) {{\n{}\n}});",
-        as_pfx, name, args_str, body
+        "({as_pfx}function {name}({args_str}) {{\n{body}\n}});"
     );
 
-    let file_name = format!("compile_func_{}.es", name);
+    let file_name = format!("compile_func_{name}.es");
 
     let ret = QuickJsRealmAdapter::eval_ctx(context, Script::new(&file_name, &src), None)?;
 
@@ -205,7 +204,7 @@ pub unsafe fn invoke_member_function(
         res_val,
         false,
         true,
-        format!("functions::invoke_member_function res: {}", function_name).as_str(),
+        format!("functions::invoke_member_function res: {function_name}").as_str(),
     );
 
     if res_ref.is_exception() {
@@ -253,7 +252,7 @@ pub unsafe fn call_to_string(
         Ok(i.to_string())
     } else if errors::is_error(context, obj_ref) {
         let pretty_err = error_to_js_error(context, obj_ref);
-        Ok(format!("{}", pretty_err))
+        Ok(format!("{pretty_err}"))
     } else {
         log::trace!("calling JS_ToString on a {}", obj_ref.borrow_value().tag);
 
@@ -418,7 +417,7 @@ pub unsafe fn new_native_function(
         func_val,
         false,
         true,
-        format!("functions::new_native_function {}", name).as_str(),
+        format!("functions::new_native_function {name}").as_str(),
     );
 
     log::trace!("functions::new_native_function / 4");
@@ -467,7 +466,7 @@ pub unsafe fn new_native_function_data(
         func_val,
         false,
         true,
-        format!("functions::new_native_function_data {}", name).as_str(),
+        format!("functions::new_native_function_data {name}").as_str(),
     );
 
     if !func_ref.is_object() {
@@ -667,7 +666,7 @@ pub mod tests {
     #[test]
     pub fn test_invoke() {
         let rt = init_test_rt();
-        let _ = rt.exe_rt_task_in_event_loop(|q_js_rt| {
+        rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
             let obj_ref = q_ctx
                 .eval(Script::new(
@@ -910,7 +909,7 @@ pub mod tests {
                 ))
                 .expect_err("did not get err");
 
-            format!("{}", err)
+            format!("{err}")
         });
 
         assert!(err.contains("[testMe]"));
