@@ -346,9 +346,7 @@ pub mod tests {
     fn test_typed() {
         std::panic::set_hook(Box::new(|panic_info| {
             let backtrace = backtrace::Backtrace::new();
-            println!(
-                "thread panic occurred: {panic_info}\nbacktrace: {backtrace:?}"
-            );
+            println!("thread panic occurred: {panic_info}\nbacktrace: {backtrace:?}");
             log::error!(
                 "thread panic occurred: {}\nbacktrace: {:?}",
                 panic_info,

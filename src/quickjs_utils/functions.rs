@@ -54,9 +54,7 @@ pub unsafe fn parse_function(
 
     let as_pfx = if async_fn { "async " } else { "" };
     let args_str = arg_names.join(", ");
-    let src = format!(
-        "({as_pfx}function {name}({args_str}) {{\n{body}\n}});"
-    );
+    let src = format!("({as_pfx}function {name}({args_str}) {{\n{body}\n}});");
 
     let file_name = format!("compile_func_{name}.es");
 
