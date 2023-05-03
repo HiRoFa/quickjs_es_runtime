@@ -1,6 +1,8 @@
 // store in thread_local
 
-use crate::facades::{QuickJsRuntimeFacade, QuickjsRuntimeFacadeInner};
+use crate::facades::QuickjsRuntimeFacadeInner;
+use crate::jsutils::modules::{CompiledModuleLoader, NativeModuleLoader, ScriptModuleLoader};
+use crate::jsutils::{JsError, Script, ScriptPreProcessor};
 use crate::quickjs_utils::compile::from_bytecode;
 use crate::quickjs_utils::modules::{
     add_module_export, compile_module, get_module_def, get_module_name, new_module,
@@ -8,13 +10,6 @@ use crate::quickjs_utils::modules::{
 };
 use crate::quickjs_utils::{gc, interrupthandler, modules, promises};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-use hirofa_utils::js_utils::adapters::JsRuntimeAdapter;
-use hirofa_utils::js_utils::modules::{
-    CompiledModuleLoader, NativeModuleLoader, ScriptModuleLoader,
-};
-use hirofa_utils::js_utils::JsError;
-use hirofa_utils::js_utils::Script;
-use hirofa_utils::js_utils::ScriptPreProcessor;
 use libquickjs_sys as q;
 use serde::Serialize;
 use std::cell::RefCell;
@@ -56,21 +51,21 @@ pub trait ModuleLoader {
 // these are the external (util) loaders (todo move these to esruntime?)
 
 pub struct CompiledModuleLoaderAdapter {
-    inner: Box<dyn CompiledModuleLoader<QuickJsRealmAdapter>>,
+    inner: Box<dyn CompiledModuleLoader>,
 }
 
 impl CompiledModuleLoaderAdapter {
-    pub fn new(loader: Box<dyn CompiledModuleLoader<QuickJsRealmAdapter>>) -> Self {
+    pub fn new(loader: Box<dyn CompiledModuleLoader>) -> Self {
         Self { inner: loader }
     }
 }
 
 pub struct ScriptModuleLoaderAdapter {
-    inner: Box<dyn ScriptModuleLoader<QuickJsRealmAdapter>>,
+    inner: Box<dyn ScriptModuleLoader>,
 }
 
 impl ScriptModuleLoaderAdapter {
-    pub fn new(loader: Box<dyn ScriptModuleLoader<QuickJsRealmAdapter>>) -> Self {
+    pub fn new(loader: Box<dyn ScriptModuleLoader>) -> Self {
         Self { inner: loader }
     }
 }
@@ -149,11 +144,11 @@ impl ModuleLoader for ScriptModuleLoaderAdapter {
 }
 
 pub struct NativeModuleLoaderAdapter {
-    inner: Box<dyn NativeModuleLoader<QuickJsRealmAdapter>>,
+    inner: Box<dyn NativeModuleLoader>,
 }
 
 impl NativeModuleLoaderAdapter {
-    pub fn new(loader: Box<dyn NativeModuleLoader<QuickJsRealmAdapter>>) -> Self {
+    pub fn new(loader: Box<dyn NativeModuleLoader>) -> Self {
         Self { inner: loader }
     }
 }
@@ -690,7 +685,7 @@ impl QuickJsRuntimeAdapter {
 
     /// this method tries to load a module script using the runtimes script_module loaders
     pub fn load_module_script_opt(&self, ref_path: &str, path: &str) -> Option<Script> {
-        let realm = self.js_get_main_realm();
+        let realm = self.get_main_realm();
         for loader in &self.script_module_loaders {
             let i = &loader.inner;
             if let Some(normalized) = i.normalize_path(realm, ref_path, path) {
@@ -717,15 +712,12 @@ impl Drop for QuickJsRuntimeAdapter {
     }
 }
 
-impl JsRuntimeAdapter for QuickJsRuntimeAdapter {
-    type JsRealmAdapterType = QuickJsRealmAdapter;
-    type JsRuntimeFacadeType = QuickJsRuntimeFacade;
-
-    fn js_load_module_script(&self, ref_path: &str, path: &str) -> Option<Script> {
+impl QuickJsRuntimeAdapter {
+    pub fn load_module_script(&self, ref_path: &str, path: &str) -> Option<Script> {
         self.load_module_script_opt(ref_path, path)
     }
 
-    fn js_create_realm(&self, _id: &str) -> Result<&Self::JsRealmAdapterType, JsError> {
+    pub fn js_create_realm(&self, _id: &str) -> Result<&QuickJsRealmAdapter, JsError> {
         todo!()
         /*
                 if self.js_get_realm(id).is_some() {
@@ -747,14 +739,14 @@ impl JsRuntimeAdapter for QuickJsRuntimeAdapter {
         */
     }
 
-    fn js_remove_realm(&self, _id: &str) {
+    pub fn remove_realm(&self, _id: &str) {
         todo!();
         //if !id.eq("__main__") {
         //            let _ = self.contexts.remove(id);
         //        }
     }
 
-    fn js_get_realm(&self, id: &str) -> Option<&Self::JsRealmAdapterType> {
+    pub fn get_realm(&self, id: &str) -> Option<&QuickJsRealmAdapter> {
         if self.has_context(id) {
             Some(self.get_context(id))
         } else {
@@ -762,11 +754,11 @@ impl JsRuntimeAdapter for QuickJsRuntimeAdapter {
         }
     }
 
-    fn js_get_main_realm(&self) -> &Self::JsRealmAdapterType {
+    pub fn get_main_realm(&self) -> &QuickJsRealmAdapter {
         self.get_main_context()
     }
 
-    fn js_add_realm_init_hook<H>(&self, hook: H) -> Result<(), JsError>
+    pub fn add_realm_init_hook<H>(&self, hook: H) -> Result<(), JsError>
     where
         H: Fn(&Self, &QuickJsRealmAdapter) -> Result<(), JsError> + 'static,
     {
@@ -789,16 +781,15 @@ pub(crate) fn make_cstring(value: &str) -> Result<CString, JsError> {
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
     use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-    use crate::quickjsruntimeadapter::{QuickJsRuntimeAdapter, ScriptModuleLoader};
-
-    use hirofa_utils::js_utils::adapters::{JsRealmAdapter, JsRuntimeAdapter};
-    use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
-    use hirofa_utils::js_utils::Script;
+    use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 
     use std::panic;
 
+    use crate::jsutils::modules::ScriptModuleLoader;
+    use crate::jsutils::Script;
+
     struct FooScriptModuleLoader {}
-    impl ScriptModuleLoader<QuickJsRealmAdapter> for FooScriptModuleLoader {
+    impl ScriptModuleLoader for FooScriptModuleLoader {
         fn normalize_path(
             &self,
             _realm: &QuickJsRealmAdapter,
@@ -819,10 +810,10 @@ pub mod tests {
         let rt = QuickJsRuntimeBuilder::new()
             .memory_limit(1024 * 1024)
             .build();
-        rt.eval_sync(Script::new("", "globalThis.f = function(){};"))
+        rt.eval_sync(None, Script::new("", "globalThis.f = function(){};"))
             .expect("script failed");
 
-        rt.js_loop_realm_sync(None, |rt, _realm| {
+        rt.loop_realm_sync(None, |rt, _realm| {
             let mu = rt.memory_usage();
             println!("mu: {mu:?}");
         });
@@ -863,12 +854,12 @@ pub mod tests {
 
         rt.exe_task_in_event_loop(|| {
             QuickJsRuntimeAdapter::do_with(|rt| {
-                rt.js_add_realm_init_hook(|_rt, realm| {
+                rt.add_realm_init_hook(|_rt, realm| {
                     realm
-                        .js_install_function(
+                        .install_function(
                             &["utils"],
                             "doSomething",
-                            |_rt, realm, _this, _args| realm.js_null_create(),
+                            |_rt, realm, _this, _args| realm.create_null(),
                             0,
                         )
                         .expect("failed to install function");
@@ -884,7 +875,7 @@ pub mod tests {
             })
         });
 
-        rt.js_loop_realm_void(Some("testrealm1"), |_rt, realm| {
+        rt.loop_realm_void(Some("testrealm1"), |_rt, realm| {
             realm
                 .eval(Script::new("test.js", "console.log(utils.doSomething());"))
                 .expect("script failed");

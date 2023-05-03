@@ -1,13 +1,13 @@
 //! utils to create and invoke functions
 
+use crate::jsutils::JsError;
+use crate::jsutils::Script;
 use crate::quickjs_utils::errors::error_to_js_error;
 use crate::quickjs_utils::{atoms, errors, objects, parse_args, primitives};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::{make_cstring, QuickJsRuntimeAdapter};
-use crate::valueref::JSValueRef;
+use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use hirofa_utils::auto_id_map::AutoIdMap;
-use hirofa_utils::js_utils::JsError;
-use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
 use log::trace;
 use std::cell::RefCell;
@@ -48,7 +48,7 @@ pub unsafe fn parse_function(
     name: &str,
     body: &str,
     arg_names: Vec<&str>,
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     // todo validate argNames
     // todo validate body
 
@@ -68,21 +68,21 @@ pub unsafe fn parse_function(
 /// call a function
 pub fn call_function_q_ref_args(
     q_ctx: &QuickJsRealmAdapter,
-    function_ref: &JSValueRef,
-    arguments: &[&JSValueRef],
-    this_ref_opt: Option<&JSValueRef>,
-) -> Result<JSValueRef, JsError> {
+    function_ref: &QuickJsValueAdapter,
+    arguments: &[&QuickJsValueAdapter],
+    this_ref_opt: Option<&QuickJsValueAdapter>,
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { call_function_ref_args(q_ctx.context, function_ref, arguments, this_ref_opt) }
 }
 
 /// call a function
 pub fn call_function_q(
     q_ctx: &QuickJsRealmAdapter,
-    function_ref: &JSValueRef,
-    arguments: Vec<JSValueRef>,
-    this_ref_opt: Option<&JSValueRef>,
-) -> Result<JSValueRef, JsError> {
-    let r: Vec<&JSValueRef> = arguments.iter().collect();
+    function_ref: &QuickJsValueAdapter,
+    arguments: &[QuickJsValueAdapter],
+    this_ref_opt: Option<&QuickJsValueAdapter>,
+) -> Result<QuickJsValueAdapter, JsError> {
+    let r: Vec<&QuickJsValueAdapter> = arguments.iter().collect();
     unsafe { call_function_ref_args(q_ctx.context, function_ref, &r, this_ref_opt) }
 }
 
@@ -91,11 +91,11 @@ pub fn call_function_q(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn call_function(
     context: *mut q::JSContext,
-    function_ref: &JSValueRef,
-    arguments: Vec<JSValueRef>,
-    this_ref_opt: Option<&JSValueRef>,
-) -> Result<JSValueRef, JsError> {
-    let r: Vec<&JSValueRef> = arguments.iter().collect();
+    function_ref: &QuickJsValueAdapter,
+    arguments: &[QuickJsValueAdapter],
+    this_ref_opt: Option<&QuickJsValueAdapter>,
+) -> Result<QuickJsValueAdapter, JsError> {
+    let r: Vec<&QuickJsValueAdapter> = arguments.iter().collect();
     call_function_ref_args(context, function_ref, &r, this_ref_opt)
 }
 
@@ -104,10 +104,10 @@ pub unsafe fn call_function(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn call_function_ref_args(
     context: *mut q::JSContext,
-    function_ref: &JSValueRef,
-    arguments: &[&JSValueRef],
-    this_ref_opt: Option<&JSValueRef>,
-) -> Result<JSValueRef, JsError> {
+    function_ref: &QuickJsValueAdapter,
+    arguments: &[&QuickJsValueAdapter],
+    this_ref_opt: Option<&QuickJsValueAdapter>,
+) -> Result<QuickJsValueAdapter, JsError> {
     log::trace!("functions::call_function()");
 
     debug_assert!(is_function(context, function_ref));
@@ -133,7 +133,7 @@ pub unsafe fn call_function_ref_args(
         qargs.as_mut_ptr(),
     );
 
-    let res_ref = JSValueRef::new(context, res, false, true, "call_function result");
+    let res_ref = QuickJsValueAdapter::new(context, res, false, true, "call_function result");
 
     if res_ref.is_exception() {
         if let Some(ex) = QuickJsRealmAdapter::get_exception(context) {
@@ -160,10 +160,10 @@ pub fn JS_Invoke(
 
 pub fn invoke_member_function_q(
     q_ctx: &QuickJsRealmAdapter,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
     function_name: &str,
-    arguments: Vec<JSValueRef>,
-) -> Result<JSValueRef, JsError> {
+    arguments: &[QuickJsValueAdapter],
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { invoke_member_function(q_ctx.context, obj_ref, function_name, arguments) }
 }
 
@@ -172,10 +172,10 @@ pub fn invoke_member_function_q(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn invoke_member_function(
     context: *mut q::JSContext,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
     function_name: &str,
-    arguments: Vec<JSValueRef>,
-) -> Result<JSValueRef, JsError> {
+    arguments: &[QuickJsValueAdapter],
+) -> Result<QuickJsValueAdapter, JsError> {
     //let member = get_property(context, obj_ref, function_name)?;
     //call_function(context, &member, arguments, Some(obj_ref))
 
@@ -197,7 +197,7 @@ pub unsafe fn invoke_member_function(
         qargs.as_mut_ptr(),
     );
 
-    let res_ref = JSValueRef::new(
+    let res_ref = QuickJsValueAdapter::new(
         context,
         res_val,
         false,
@@ -221,7 +221,7 @@ pub unsafe fn invoke_member_function(
 /// call an objects to_String method or convert a value to string
 pub fn call_to_string_q(
     q_ctx: &QuickJsRealmAdapter,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
 ) -> Result<String, JsError> {
     unsafe { call_to_string(q_ctx.context, obj_ref) }
 }
@@ -231,7 +231,7 @@ pub fn call_to_string_q(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn call_to_string(
     context: *mut q::JSContext,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
 ) -> Result<String, JsError> {
     if obj_ref.is_string() {
         crate::quickjs_utils::primitives::to_string(context, obj_ref)
@@ -257,7 +257,7 @@ pub unsafe fn call_to_string(
         // todo better for Errors (plus stack)
 
         let res = q::JS_ToString(context, *obj_ref.borrow_value());
-        let res_ref = JSValueRef::new(context, res, false, true, "call_to_string result");
+        let res_ref = QuickJsValueAdapter::new(context, res, false, true, "call_to_string result");
 
         log::trace!("called JS_ToString got a {}", res_ref.borrow_value().tag);
 
@@ -269,7 +269,7 @@ pub unsafe fn call_to_string(
 }
 
 /// see if an Object is an instance of Function
-pub fn is_function_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &JSValueRef) -> bool {
+pub fn is_function_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &QuickJsValueAdapter) -> bool {
     unsafe { is_function(q_ctx.context, obj_ref) }
 }
 
@@ -277,7 +277,7 @@ pub fn is_function_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &JSValueRef) -> bool 
 /// see if an Object is an instance of Function
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn is_function(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
+pub unsafe fn is_function(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter) -> bool {
     if obj_ref.is_object() {
         let res = q::JS_IsFunction(context, *obj_ref.borrow_value());
         res != 0
@@ -287,14 +287,14 @@ pub unsafe fn is_function(context: *mut q::JSContext, obj_ref: &JSValueRef) -> b
 }
 
 /// see if an Object is an instance of Function and is a constructor (can be instantiated with new keyword)
-pub fn is_constructor_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &JSValueRef) -> bool {
+pub fn is_constructor_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &QuickJsValueAdapter) -> bool {
     unsafe { is_constructor(q_ctx.context, obj_ref) }
 }
 
 /// see if an Object is an instance of Function and is a constructor (can be instantiated with new keyword)
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn is_constructor(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
+pub unsafe fn is_constructor(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter) -> bool {
     if obj_ref.is_object() {
         let res = q::JS_IsConstructor(context, *obj_ref.borrow_value());
         res != 0
@@ -306,9 +306,9 @@ pub unsafe fn is_constructor(context: *mut q::JSContext, obj_ref: &JSValueRef) -
 /// call a constructor (instantiate an Object)
 pub fn call_constructor_q(
     q_ctx: &QuickJsRealmAdapter,
-    constructor_ref: &JSValueRef,
-    arguments: &[JSValueRef],
-) -> Result<JSValueRef, JsError> {
+    constructor_ref: &QuickJsValueAdapter,
+    arguments: &[QuickJsValueAdapter],
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { call_constructor(q_ctx.context, constructor_ref, arguments) }
 }
 
@@ -317,9 +317,9 @@ pub fn call_constructor_q(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn call_constructor(
     context: *mut q::JSContext,
-    constructor_ref: &JSValueRef,
-    arguments: &[JSValueRef],
-) -> Result<JSValueRef, JsError> {
+    constructor_ref: &QuickJsValueAdapter,
+    arguments: &[QuickJsValueAdapter],
+) -> Result<QuickJsValueAdapter, JsError> {
     //extern "C" {
     //     pub fn JS_CallConstructor(
     //         ctx: *mut JSContext,
@@ -342,7 +342,7 @@ pub unsafe fn call_constructor(
         arg_count,
         qargs.as_mut_ptr(),
     );
-    let res_ref = JSValueRef::new(
+    let res_ref = QuickJsValueAdapter::new(
         context,
         ret_val,
         false,
@@ -370,7 +370,7 @@ pub fn new_native_function_q(
     func: q::JSCFunction,
     arg_count: i32,
     is_constructor: bool,
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { new_native_function(q_ctx.context, name, func, arg_count, is_constructor) }
 }
 
@@ -383,7 +383,7 @@ pub unsafe fn new_native_function(
     func: q::JSCFunction,
     arg_count: i32,
     is_constructor: bool,
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     log::trace!("functions::new_native_function / 0 : {}", name);
 
     let cname = make_cstring(name)?;
@@ -410,7 +410,7 @@ pub unsafe fn new_native_function(
 
     log::trace!("functions::new_native_function / 3");
 
-    let func_ref = JSValueRef::new(
+    let func_ref = QuickJsValueAdapter::new(
         context,
         func_val,
         false,
@@ -433,8 +433,8 @@ pub fn new_native_function_data_q(
     func: q::JSCFunctionData,
     name: &str,
     arg_count: i32,
-    data: JSValueRef,
-) -> Result<JSValueRef, JsError> {
+    data: QuickJsValueAdapter,
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { new_native_function_data(q_ctx.context, func, name, arg_count, data) }
 }
 
@@ -446,8 +446,8 @@ pub unsafe fn new_native_function_data(
     func: q::JSCFunctionData,
     name: &str,
     arg_count: i32,
-    mut data: JSValueRef,
-) -> Result<JSValueRef, JsError> {
+    mut data: QuickJsValueAdapter,
+) -> Result<QuickJsValueAdapter, JsError> {
     let magic = 1;
     let data_len = 1;
 
@@ -459,7 +459,7 @@ pub unsafe fn new_native_function_data(
         data_len,
         data.borrow_value_mut(),
     );
-    let func_ref = JSValueRef::new(
+    let func_ref = QuickJsValueAdapter::new(
         context,
         func_val,
         false,
@@ -478,8 +478,12 @@ pub unsafe fn new_native_function_data(
 
 static CNAME: &str = "CallbackClass\0";
 
-type Callback =
-    dyn Fn(*mut q::JSContext, &JSValueRef, &[JSValueRef]) -> Result<JSValueRef, JsError> + 'static;
+type Callback = dyn Fn(
+        *mut q::JSContext,
+        &QuickJsValueAdapter,
+        &[QuickJsValueAdapter],
+    ) -> Result<QuickJsValueAdapter, JsError>
+    + 'static;
 
 thread_local! {
     static INSTANCE_ID_MAPPINGS: RefCell<HashMap<usize, Box<(usize, String)>>> = RefCell::new(HashMap::new());
@@ -542,11 +546,11 @@ pub(crate) fn init_statics() {
 /// # Example
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+/// use quickjs_runtime::jsutils::Script;
 /// use quickjs_runtime::quickjs_utils::functions::new_function_q;
 /// use quickjs_runtime::quickjs_utils::primitives::from_i32;
 /// use quickjs_runtime::quickjs_utils::get_global_q;
 /// use quickjs_runtime::quickjs_utils::objects::set_property_q;
-/// use hirofa_utils::js_utils::Script;
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
@@ -554,27 +558,33 @@ pub(crate) fn init_statics() {
 ///     let func_obj = new_function_q(q_ctx, "myFunc7654", |_q_ctx, _this, _args|{Ok(from_i32(1253))}, 0).ok().unwrap();
 ///     // store as a global member so script can call it
 ///     let global = get_global_q(q_ctx);
-///     set_property_q(q_ctx, &global, "myFunc7654", &func_obj);
+///     set_property_q(q_ctx, &global, "myFunc7654", &func_obj).expect("set prop failed
+/// ");
 /// });
-/// rt.eval_sync(Script::new("new_function_q.es", "let a = myFunc7654(); if (a !== 1253) {throw Error('a was not 1253')}")).ok().expect("script failed");
+/// rt.eval_sync(None, Script::new("new_function_q.es", "let a = myFunc7654(); if (a !== 1253) {throw Error('a was not 1253')}")).ok().expect("script failed");
 /// ```
 pub fn new_function_q<F>(
     q_ctx: &QuickJsRealmAdapter,
     name: &str,
     func: F,
     arg_count: u32,
-) -> Result<JSValueRef, JsError>
+) -> Result<QuickJsValueAdapter, JsError>
 where
-    F: Fn(&QuickJsRealmAdapter, &JSValueRef, &[JSValueRef]) -> Result<JSValueRef, JsError>
+    F: Fn(
+            &QuickJsRealmAdapter,
+            &QuickJsValueAdapter,
+            &[QuickJsValueAdapter],
+        ) -> Result<QuickJsValueAdapter, JsError>
         + 'static,
 {
-    let func_raw = move |ctx: *mut q::JSContext, this: &JSValueRef, args: &[JSValueRef]| {
-        log::trace!("new_function_q outer");
-        QuickJsRuntimeAdapter::do_with(|q_js_rt| {
-            log::trace!("new_function_q inner");
-            func(unsafe { q_js_rt.get_quickjs_context(ctx) }, this, args)
-        })
-    };
+    let func_raw =
+        move |ctx: *mut q::JSContext, this: &QuickJsValueAdapter, args: &[QuickJsValueAdapter]| {
+            log::trace!("new_function_q outer");
+            QuickJsRuntimeAdapter::do_with(|q_js_rt| {
+                log::trace!("new_function_q inner");
+                func(unsafe { q_js_rt.get_quickjs_context(ctx) }, this, args)
+            })
+        };
 
     unsafe { new_function(q_ctx.context, name, func_raw, arg_count) }
 }
@@ -587,9 +597,14 @@ pub unsafe fn new_function<F>(
     name: &str,
     func: F,
     arg_count: u32,
-) -> Result<JSValueRef, JsError>
+) -> Result<QuickJsValueAdapter, JsError>
 where
-    F: Fn(*mut q::JSContext, &JSValueRef, &[JSValueRef]) -> Result<JSValueRef, JsError> + 'static,
+    F: Fn(
+            *mut q::JSContext,
+            &QuickJsValueAdapter,
+            &[QuickJsValueAdapter],
+        ) -> Result<QuickJsValueAdapter, JsError>
+        + 'static,
 {
     // put func in map, retrieve on call.. delete on destroy
     // create a new class_def for callbacks, with a finalize
@@ -616,7 +631,7 @@ where
 
     let class_val: q::JSValue = q::JS_NewObjectClass(context, callback_class_id as i32);
 
-    let class_val_ref = JSValueRef::new(
+    let class_val_ref = QuickJsValueAdapter::new(
         context,
         class_val,
         false,
@@ -657,8 +672,8 @@ pub mod tests {
         call_function_q, call_to_string_q, invoke_member_function_q, new_function_q,
     };
     use crate::quickjs_utils::{functions, objects, primitives};
-    use hirofa_utils::js_utils::adapters::JsRealmAdapter;
-    use hirofa_utils::js_utils::{JsError, Script};
+
+    use crate::jsutils::{JsError, Script};
     use std::time::Duration;
 
     #[test]
@@ -677,7 +692,7 @@ pub mod tests {
                 q_ctx,
                 &obj_ref,
                 "func",
-                vec![primitives::from_i32(12), primitives::from_i32(14)],
+                &[primitives::from_i32(12), primitives::from_i32(14)],
             )
             .expect("func failed");
 
@@ -709,7 +724,7 @@ pub mod tests {
             assert_eq!(1, a.get_ref_count());
             assert_eq!(1, b.get_ref_count());
 
-            let i_res = call_function_q(q_ctx, &func_ref, vec![a.clone(), b.clone()], None)
+            let i_res = call_function_q(q_ctx, &func_ref, &[a.clone(), b.clone()], None)
                 .expect("a");
             assert!(i_res.is_object());
             assert_eq!(i_res.get_ref_count(), 1);
@@ -719,11 +734,11 @@ pub mod tests {
 
             let q_ref = q_ctx.eval(Script::new("test_ret_refcount2.es", "test.q;")).expect("get q failed");
             assert_eq!(2, q_ref.get_ref_count());
-            let _ = call_function_q(q_ctx, &func_ref, vec![primitives::from_i32(123), q_ref], None)
+            let _ = call_function_q(q_ctx, &func_ref, &[primitives::from_i32(123), q_ref], None)
                 .expect("b");
             let q_ref = q_ctx.eval(Script::new("test_ret_refcount2.es", "test.q;")).expect("get q failed");
             assert_eq!(2, q_ref.get_ref_count());
-            let _ = call_function_q(q_ctx, &func_ref, vec![q_ref, primitives::from_i32(123)], None)
+            let _ = call_function_q(q_ctx, &func_ref, &[q_ref, primitives::from_i32(123)], None)
                 .expect("b");
             let q_ref = q_ctx.eval(Script::new("test_ret_refcount2.es", "test.q;")).expect("get q failed");
             assert_eq!(3, q_ref.get_ref_count());
@@ -776,7 +791,7 @@ pub mod tests {
             let res = call_function_q(
                 q_ctx,
                 &func_ref,
-                vec![primitives::from_i32(8), primitives::from_i32(6)],
+                &[primitives::from_i32(8), primitives::from_i32(6)],
                 None,
             );
             if res.is_err() {
@@ -799,7 +814,7 @@ pub mod tests {
     fn test_callback() {
         let rt = init_test_rt();
 
-        rt.eval_sync(Script::new("test_callback1.es", "let test_callback_563 = function(cb){console.log('before invoke cb');let result = cb(1, true, 'foobar');console.log('after invoke cb. got:' + result);};")).ok().expect("script failed");
+        rt.eval_sync(None, Script::new("test_callback1.es", "let test_callback_563 = function(cb){console.log('before invoke cb');let result = cb(1, true, 'foobar');console.log('after invoke cb. got:' + result);};")).ok().expect("script failed");
 
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_context();
@@ -826,7 +841,7 @@ pub mod tests {
 
             assert_eq!(2, func_ref.get_ref_count());
 
-            let res = call_function_q(q_ctx, &func_ref, vec![cb_ref], None);
+            let res = call_function_q(q_ctx, &func_ref, &[cb_ref], None);
             if res.is_err() {
                 let err = res.err().unwrap();
                 log::error!("could not invoke test_callback_563: {}", err);
@@ -866,7 +881,7 @@ pub mod tests {
             )
             .expect("could not create function");
             log::debug!("calling js func test_callback_845");
-            let res = functions::call_function_q(q_ctx, &func_ref, vec![cb_ref], None);
+            let res = functions::call_function_q(q_ctx, &func_ref, &[cb_ref], None);
             if res.is_err() {
                 let e = format!("test_callback_845 failed: {}", res.err().unwrap());
                 log::error!("{}", e);
@@ -889,7 +904,7 @@ pub mod tests {
             let q_ctx = q_js_rt.get_main_context();
 
             q_ctx
-                .js_install_function(
+                .install_function(
                     &["test_927"],
                     "testMe",
                     |_rt, _q_ctx, _this_ref, _args| {
@@ -949,7 +964,8 @@ unsafe extern "C" fn callback_function(
 
     // todo run multiple times and check refcount not growing for data, this and args
 
-    let data_ref = JSValueRef::new(ctx, *func_data, true, true, "callback_function func_data");
+    let data_ref =
+        QuickJsValueAdapter::new(ctx, *func_data, true, true, "callback_function func_data");
     let callback_id = primitives::to_i32(&data_ref).expect("failed to get callback_id");
 
     trace!("callback_function id = {}", callback_id);
@@ -961,9 +977,10 @@ unsafe extern "C" fn callback_function(
     if let Some((name, callback)) = cb_opt {
         let args_vec = parse_args(ctx, argc, argv);
 
-        let this_ref = JSValueRef::new(ctx, this_val, true, true, "callback_function this_val");
+        let this_ref =
+            QuickJsValueAdapter::new(ctx, this_val, true, true, "callback_function this_val");
 
-        let callback_res: Result<JSValueRef, JsError> =
+        let callback_res: Result<QuickJsValueAdapter, JsError> =
             callback(ctx, &this_ref, args_vec.as_slice());
 
         match callback_res {

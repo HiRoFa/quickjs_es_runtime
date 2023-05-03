@@ -3,13 +3,9 @@
 use crate::facades::QuickJsRuntimeFacade;
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
-use hirofa_utils::js_utils::adapters::JsRuntimeAdapter;
-use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
-use hirofa_utils::js_utils::modules::{
-    CompiledModuleLoader, NativeModuleLoader, ScriptModuleLoader,
-};
-use hirofa_utils::js_utils::JsError;
-use hirofa_utils::js_utils::ScriptPreProcessor;
+
+use crate::jsutils::modules::{CompiledModuleLoader, NativeModuleLoader, ScriptModuleLoader};
+use crate::jsutils::{JsError, ScriptPreProcessor};
 use std::time::Duration;
 
 pub type EsRuntimeInitHooks =
@@ -25,10 +21,9 @@ pub type EsRuntimeInitHooks =
 /// .build();
 /// ```
 pub struct QuickJsRuntimeBuilder {
-    pub(crate) script_module_loaders: Vec<Box<dyn ScriptModuleLoader<QuickJsRealmAdapter> + Send>>,
-    pub(crate) native_module_loaders: Vec<Box<dyn NativeModuleLoader<QuickJsRealmAdapter> + Send>>,
-    pub(crate) compiled_module_loaders:
-        Vec<Box<dyn CompiledModuleLoader<QuickJsRealmAdapter> + Send>>,
+    pub(crate) script_module_loaders: Vec<Box<dyn ScriptModuleLoader + Send>>,
+    pub(crate) native_module_loaders: Vec<Box<dyn NativeModuleLoader + Send>>,
+    pub(crate) compiled_module_loaders: Vec<Box<dyn CompiledModuleLoader + Send>>,
     pub(crate) opt_memory_limit_bytes: Option<u64>,
     pub(crate) opt_gc_threshold: Option<u64>,
     pub(crate) opt_max_stack_size: Option<u64>,
@@ -64,12 +59,12 @@ impl QuickJsRuntimeBuilder {
     /// add a script loaders which will be used to load modules when they are imported from script
     /// # Example
     /// ```rust
-    /// use hirofa_utils::js_utils::Script;
     /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+    /// use quickjs_runtime::jsutils::modules::ScriptModuleLoader;
     /// use quickjs_runtime::quickjsrealmadapter::QuickJsRealmAdapter;
-    /// use hirofa_utils::js_utils::modules::ScriptModuleLoader;
+    /// use quickjs_runtime::jsutils::Script;
     /// struct MyModuleLoader {}
-    /// impl ScriptModuleLoader<QuickJsRealmAdapter> for MyModuleLoader {
+    /// impl ScriptModuleLoader for MyModuleLoader {
     ///     fn normalize_path(&self, realm: &QuickJsRealmAdapter ,ref_path: &str,path: &str) -> Option<String> {
     ///         Some(path.to_string())
     ///     }
@@ -82,9 +77,9 @@ impl QuickJsRuntimeBuilder {
     /// let rt = QuickJsRuntimeBuilder::new()
     ///     .script_module_loader(Box::new(MyModuleLoader{}))
     ///     .build();
-    /// rt.eval_module_sync(Script::new("test_module.es", "import {foo} from 'some_module.mes';\nconsole.log('foo = %s', foo);")).ok().unwrap();
+    /// rt.eval_module_sync(None, Script::new("test_module.es", "import {foo} from 'some_module.mes';\nconsole.log('foo = %s', foo);")).ok().unwrap();
     /// ```
-    pub fn script_module_loader<M: ScriptModuleLoader<QuickJsRealmAdapter> + Send + 'static>(
+    pub fn script_module_loader<M: ScriptModuleLoader + Send + 'static>(
         mut self,
         loader: Box<M>,
     ) -> Self {
@@ -113,16 +108,16 @@ impl QuickJsRuntimeBuilder {
     /// # Example
     /// ```rust
     /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-    /// use quickjs_runtime::valueref::JSValueRef;
+    /// use quickjs_runtime::jsutils::modules::NativeModuleLoader;
+    /// use quickjs_runtime::jsutils::Script;
+    /// use quickjs_runtime::quickjsvalueadapter::QuickJsValueAdapter;
     /// use quickjs_runtime::quickjsrealmadapter::QuickJsRealmAdapter;
     /// use quickjs_runtime::quickjs_utils::functions;
     /// use quickjs_runtime::quickjs_utils::primitives::{from_bool, from_i32};
     /// use quickjs_runtime::reflection::Proxy;
-    /// use hirofa_utils::js_utils::Script;
-    /// use hirofa_utils::js_utils::modules::NativeModuleLoader;
     ///
     /// struct MyModuleLoader{}
-    /// impl NativeModuleLoader<QuickJsRealmAdapter> for MyModuleLoader {
+    /// impl NativeModuleLoader for MyModuleLoader {
     ///     fn has_module(&self, _q_ctx: &QuickJsRealmAdapter,module_name: &str) -> bool {
     ///         module_name.eq("my_module")
     ///     }
@@ -131,7 +126,7 @@ impl QuickJsRuntimeBuilder {
     ///         vec!["someVal", "someFunc", "SomeClass"]
     ///     }
     ///
-    ///     fn get_module_exports(&self, q_ctx: &QuickJsRealmAdapter, _module_name: &str) -> Vec<(&str, JSValueRef)> {
+    ///     fn get_module_exports(&self, q_ctx: &QuickJsRealmAdapter, _module_name: &str) -> Vec<(&str, QuickJsValueAdapter)> {
     ///         
     ///         let js_val = from_i32(1470);
     ///         let js_func = functions::new_function_q(
@@ -142,7 +137,7 @@ impl QuickJsRuntimeBuilder {
     ///             .ok().unwrap();
     ///         let js_class = Proxy::new()
     ///             .name("SomeClass")
-    ///             .static_method("doIt", |_q_ctx, _args|{
+    ///             .static_method("doIt", |_rt, _q_ctx, _args|{
     ///                 return Ok(from_i32(185));
     ///             })
     ///             .install(q_ctx, false)
@@ -156,9 +151,9 @@ impl QuickJsRuntimeBuilder {
     /// .native_module_loader(Box::new(MyModuleLoader{}))
     /// .build();
     ///
-    /// rt.eval_module_sync(Script::new("test_native_mod.es", "import {someVal, someFunc, SomeClass} from 'my_module';\nlet i = (someVal + someFunc() + SomeClass.doIt());\nif (i !== 2087){throw Error('i was not 2087');}")).ok().expect("script failed");
+    /// rt.eval_module_sync(None, Script::new("test_native_mod.es", "import {someVal, someFunc, SomeClass} from 'my_module';\nlet i = (someVal + someFunc() + SomeClass.doIt());\nif (i !== 2087){throw Error('i was not 2087');}")).ok().expect("script failed");
     /// ```
-    pub fn native_module_loader<M: NativeModuleLoader<QuickJsRealmAdapter> + Send + 'static>(
+    pub fn native_module_loader<M: NativeModuleLoader + Send + 'static>(
         mut self,
         loader: Box<M>,
     ) -> Self {
@@ -206,14 +201,12 @@ impl Default for QuickJsRuntimeBuilder {
     }
 }
 
-impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
-    type JsRuntimeFacadeType = QuickJsRuntimeFacade;
-
-    fn js_build(self) -> QuickJsRuntimeFacade {
+impl QuickJsRuntimeBuilder {
+    pub fn js_build(self) -> QuickJsRuntimeFacade {
         self.build()
     }
 
-    fn js_runtime_init_hook<
+    pub fn js_runtime_init_hook<
         H: FnOnce(&QuickJsRuntimeFacade) -> Result<(), JsError> + Send + 'static,
     >(
         mut self,
@@ -223,7 +216,7 @@ impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
         self
     }
 
-    fn js_realm_adapter_init_hook<
+    pub fn js_realm_adapter_init_hook<
         H: Fn(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> Result<(), JsError> + Send + 'static,
     >(
         self,
@@ -235,7 +228,7 @@ impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
         })
     }
 
-    fn js_runtime_adapter_init_hook<
+    pub fn js_runtime_adapter_init_hook<
         H: FnOnce(&QuickJsRuntimeAdapter) -> Result<(), JsError> + Send + 'static,
     >(
         self,
@@ -249,7 +242,7 @@ impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
         })
     }
 
-    fn js_script_pre_processor<S: ScriptPreProcessor + Send + 'static>(
+    pub fn js_script_pre_processor<S: ScriptPreProcessor + Send + 'static>(
         mut self,
         preprocessor: S,
     ) -> Self {
@@ -257,7 +250,7 @@ impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
         self
     }
 
-    fn js_script_module_loader<S: ScriptModuleLoader<QuickJsRealmAdapter> + Send + 'static>(
+    pub fn js_script_module_loader<S: ScriptModuleLoader + Send + 'static>(
         mut self,
         module_loader: S,
     ) -> Self {
@@ -265,24 +258,21 @@ impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
         self
     }
 
-    fn js_compiled_module_loader<
-        S: CompiledModuleLoader<<<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType>
-        + Send
-        + 'static
-    >(
+    pub fn js_compiled_module_loader<S: CompiledModuleLoader + Send + 'static>(
         mut self,
         module_loader: S,
-    ) -> Self{
+    ) -> Self {
         self.compiled_module_loaders.push(Box::new(module_loader));
         self
     }
 
-    fn js_native_module_loader<
-        S: NativeModuleLoader<<<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType>
-        + Send
-        + 'static,
-    >(mut self, module_loader: S) -> Self where
-    Self: Sized{
+    pub fn js_native_module_loader<S: NativeModuleLoader + Send + 'static>(
+        mut self,
+        module_loader: S,
+    ) -> Self
+    where
+        Self: Sized,
+    {
         self.native_module_loaders.push(Box::new(module_loader));
         self
     }
@@ -291,14 +281,14 @@ impl JsRuntimeBuilder for QuickJsRuntimeBuilder {
 #[cfg(test)]
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
+    use crate::jsutils::modules::ScriptModuleLoader;
+    use crate::jsutils::Script;
     use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-    use hirofa_utils::js_utils::modules::ScriptModuleLoader;
-    use hirofa_utils::js_utils::Script;
 
     #[test]
     fn test_module_loader() {
         struct MyModuleLoader {}
-        impl ScriptModuleLoader<QuickJsRealmAdapter> for MyModuleLoader {
+        impl ScriptModuleLoader for MyModuleLoader {
             fn normalize_path(
                 &self,
                 _realm: &QuickJsRealmAdapter,
@@ -316,10 +306,13 @@ pub mod tests {
         let rt = QuickJsRuntimeBuilder::new()
             .script_module_loader(Box::new(MyModuleLoader {}))
             .build();
-        match rt.eval_module_sync(Script::new(
-            "test_module.es",
-            "import {foo} from 'some_module.mes';\nconsole.log('foo = %s', foo);",
-        )) {
+        match rt.eval_module_sync(
+            None,
+            Script::new(
+                "test_module.es",
+                "import {foo} from 'some_module.mes';\nconsole.log('foo = %s', foo);",
+            ),
+        ) {
             Ok(_) => {}
             Err(e) => panic!("script failed {}", e),
         }

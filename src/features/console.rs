@@ -26,32 +26,30 @@
 //! # Example
 //! ```rust
 //! use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-//! use hirofa_utils::js_utils::Script;
 //! use log::LevelFilter;
+//! use quickjs_runtime::jsutils::Script;
 //! simple_logging::log_to_file("console_test.log", LevelFilter::max())
 //!             .ok()
 //!             .expect("could not init logger");
 //! let rt = QuickJsRuntimeBuilder::new().build();
-//! rt.eval_sync(Script::new(
+//! rt.eval_sync(None, Script::new(
 //! "console.es",
 //! "console.log('the %s %s %s jumped over %i fences with a accuracy of %.2f', 'quick', 'brown', 'fox', 32, 0.512);"
-//! ));
+//! )).expect("script failed");
 //! ```
 //!
 //! which will result in a log entry like
 //! ```[00:00:00.012] (7f44e7d24700) INFO   the quick brown fox jumped over 32 fences with a accuracy of 0.51```
 
+use crate::jsutils::{JsError, JsValueType};
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions::call_to_string;
 use crate::quickjs_utils::json::stringify;
 use crate::quickjs_utils::{functions, json, parse_args, primitives};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
+use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use crate::reflection::Proxy;
-use crate::valueref::JSValueRef;
-use hirofa_utils::js_utils::adapters::JsValueAdapter;
-use hirofa_utils::js_utils::facades::JsValueType;
-use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 use log::LevelFilter;
 use std::str::FromStr;
@@ -75,7 +73,11 @@ pub(crate) fn init_ctx(q_ctx: &QuickJsRealmAdapter) -> Result<(), JsError> {
 }
 
 #[allow(clippy::or_fun_call)]
-unsafe fn parse_field_value(ctx: *mut q::JSContext, field: &str, value: &JSValueRef) -> String {
+unsafe fn parse_field_value(
+    ctx: *mut q::JSContext,
+    field: &str,
+    value: &QuickJsValueAdapter,
+) -> String {
     // format ints
     // only support ,2 / .3 to declare the number of digits to display, e.g. $.3i turns 3 to 003
 
@@ -158,7 +160,7 @@ unsafe fn parse_field_value(ctx: *mut q::JSContext, field: &str, value: &JSValue
     call_to_string(ctx, value).unwrap_or(String::new())
 }
 
-unsafe fn stringify_log_obj(ctx: *mut q::JSContext, arg: &JSValueRef) -> String {
+unsafe fn stringify_log_obj(ctx: *mut q::JSContext, arg: &QuickJsValueAdapter) -> String {
     match stringify(ctx, arg, None) {
         Ok(r) => match primitives::to_string(ctx, &r) {
             Ok(s) => s,
@@ -169,7 +171,7 @@ unsafe fn stringify_log_obj(ctx: *mut q::JSContext, arg: &JSValueRef) -> String 
 }
 
 #[allow(clippy::or_fun_call)]
-unsafe fn parse_line(ctx: *mut q::JSContext, args: Vec<JSValueRef>) -> String {
+unsafe fn parse_line(ctx: *mut q::JSContext, args: Vec<QuickJsValueAdapter>) -> String {
     let mut output = String::new();
 
     output.push_str("JS_REALM:[");
@@ -318,7 +320,7 @@ unsafe extern "C" fn console_error(
 #[cfg(test)]
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
-    use hirofa_utils::js_utils::Script;
+    use crate::jsutils::Script;
     //use log::LevelFilter;
 
     #[test]
@@ -326,15 +328,18 @@ pub mod tests {
         //simple_logging::log_to_stderr(LevelFilter::Info);
         log::info!("> test_console");
         let rt = QuickJsRuntimeBuilder::new().build();
-        rt.eval_sync(Script::new(
-            "test_console.es",
-            "console.log('one %s', 'two', 3);\
+        rt.eval_sync(
+            None,
+            Script::new(
+                "test_console.es",
+                "console.log('one %s', 'two', 3);\
             console.log('two %s %s', 'two', 3);\
             console.log('date:', new Date());\
             console.log('err:', new Error('testpoof'));\
             console.log('array:', [1, 2, true, {a: 1}]);\
             console.log({obj: true}, {obj: false});",
-        ))
+            ),
+        )
         .expect("test_console.es failed");
         log::info!("< test_console");
     }

@@ -1,36 +1,39 @@
+use crate::jsutils::JsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::functions;
 use crate::quickjs_utils::objects::is_instance_of_by_name;
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
-use crate::valueref::JSValueRef;
-use hirofa_utils::js_utils::adapters::JsPromiseAdapter;
-use hirofa_utils::js_utils::JsError;
+use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use libquickjs_sys as q;
 
-pub fn is_promise_q(context: &QuickJsRealmAdapter, obj_ref: &JSValueRef) -> bool {
+pub fn is_promise_q(context: &QuickJsRealmAdapter, obj_ref: &QuickJsValueAdapter) -> bool {
     unsafe { is_promise(context.context, obj_ref) }
 }
 
 #[allow(dead_code)]
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn is_promise(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
+pub unsafe fn is_promise(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter) -> bool {
     is_instance_of_by_name(context, obj_ref, "Promise").expect("could not check instance_of")
 }
 
-pub struct PromiseRef {
-    promise_obj_ref: JSValueRef,
-    reject_function_obj_ref: JSValueRef,
-    resolve_function_obj_ref: JSValueRef,
+pub struct QuickJsPromiseAdapter {
+    promise_obj_ref: QuickJsValueAdapter,
+    reject_function_obj_ref: QuickJsValueAdapter,
+    resolve_function_obj_ref: QuickJsValueAdapter,
 }
 #[allow(dead_code)]
-impl PromiseRef {
-    pub fn get_promise_obj_ref(&self) -> JSValueRef {
+impl QuickJsPromiseAdapter {
+    pub fn get_promise_obj_ref(&self) -> QuickJsValueAdapter {
         self.promise_obj_ref.clone()
     }
 
-    pub fn resolve_q(&self, q_ctx: &QuickJsRealmAdapter, value: JSValueRef) -> Result<(), JsError> {
+    pub fn resolve_q(
+        &self,
+        q_ctx: &QuickJsRealmAdapter,
+        value: QuickJsValueAdapter,
+    ) -> Result<(), JsError> {
         unsafe { self.resolve(q_ctx.context, value) }
     }
     /// # Safety
@@ -38,18 +41,22 @@ impl PromiseRef {
     pub unsafe fn resolve(
         &self,
         context: *mut q::JSContext,
-        value: JSValueRef,
+        value: QuickJsValueAdapter,
     ) -> Result<(), JsError> {
         log::trace!("PromiseRef.resolve()");
         crate::quickjs_utils::functions::call_function(
             context,
             &self.resolve_function_obj_ref,
-            vec![value],
+            &[value],
             None,
         )?;
         Ok(())
     }
-    pub fn reject_q(&self, q_ctx: &QuickJsRealmAdapter, value: JSValueRef) -> Result<(), JsError> {
+    pub fn reject_q(
+        &self,
+        q_ctx: &QuickJsRealmAdapter,
+        value: QuickJsValueAdapter,
+    ) -> Result<(), JsError> {
         unsafe { self.reject(q_ctx.context, value) }
     }
     /// # Safety
@@ -57,20 +64,20 @@ impl PromiseRef {
     pub unsafe fn reject(
         &self,
         context: *mut q::JSContext,
-        value: JSValueRef,
+        value: QuickJsValueAdapter,
     ) -> Result<(), JsError> {
         log::trace!("PromiseRef.reject()");
         crate::quickjs_utils::functions::call_function(
             context,
             &self.reject_function_obj_ref,
-            vec![value],
+            &[value],
             None,
         )?;
         Ok(())
     }
 }
 
-impl Clone for PromiseRef {
+impl Clone for QuickJsPromiseAdapter {
     fn clone(&self) -> Self {
         Self {
             promise_obj_ref: self.promise_obj_ref.clone(),
@@ -80,29 +87,29 @@ impl Clone for PromiseRef {
     }
 }
 
-impl JsPromiseAdapter<QuickJsRealmAdapter> for PromiseRef {
-    fn js_promise_resolve(
+impl QuickJsPromiseAdapter {
+    pub fn js_promise_resolve(
         &self,
         context: &QuickJsRealmAdapter,
-        resolution: &JSValueRef,
+        resolution: &QuickJsValueAdapter,
     ) -> Result<(), JsError> {
         self.resolve_q(context, resolution.clone())
     }
 
-    fn js_promise_reject(
+    pub fn js_promise_reject(
         &self,
         context: &QuickJsRealmAdapter,
-        rejection: &JSValueRef,
+        rejection: &QuickJsValueAdapter,
     ) -> Result<(), JsError> {
         self.reject_q(context, rejection.clone())
     }
 
-    fn js_promise_get_value(&self, _realm: &QuickJsRealmAdapter) -> JSValueRef {
+    pub fn js_promise_get_value(&self, _realm: &QuickJsRealmAdapter) -> QuickJsValueAdapter {
         self.promise_obj_ref.clone()
     }
 }
 
-pub fn new_promise_q(q_ctx: &QuickJsRealmAdapter) -> Result<PromiseRef, JsError> {
+pub fn new_promise_q(q_ctx: &QuickJsRealmAdapter) -> Result<QuickJsPromiseAdapter, JsError> {
     unsafe { new_promise(q_ctx.context) }
 }
 
@@ -110,7 +117,7 @@ pub fn new_promise_q(q_ctx: &QuickJsRealmAdapter) -> Result<PromiseRef, JsError>
 /// you can use this to respond asynchronously to method calls from JavaScript by returning a Promise
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn new_promise(context: *mut q::JSContext) -> Result<PromiseRef, JsError> {
+pub unsafe fn new_promise(context: *mut q::JSContext) -> Result<QuickJsPromiseAdapter, JsError> {
     log::trace!("promises::new_promise()");
 
     let mut promise_resolution_functions = [quickjs_utils::new_null(), quickjs_utils::new_null()];
@@ -120,14 +127,14 @@ pub unsafe fn new_promise(context: *mut q::JSContext) -> Result<PromiseRef, JsEr
     let resolve_func_val = *promise_resolution_functions.get(0).unwrap();
     let reject_func_val = *promise_resolution_functions.get(1).unwrap();
 
-    let resolve_function_obj_ref = JSValueRef::new(
+    let resolve_function_obj_ref = QuickJsValueAdapter::new(
         context,
         resolve_func_val,
         false,
         true,
         "promises::new_promise resolve_func_val",
     );
-    let reject_function_obj_ref = JSValueRef::new(
+    let reject_function_obj_ref = QuickJsValueAdapter::new(
         context,
         reject_func_val,
         false,
@@ -137,7 +144,7 @@ pub unsafe fn new_promise(context: *mut q::JSContext) -> Result<PromiseRef, JsEr
     debug_assert!(functions::is_function(context, &resolve_function_obj_ref));
     debug_assert!(functions::is_function(context, &reject_function_obj_ref));
 
-    let promise_obj_ref = JSValueRef::new(
+    let promise_obj_ref = QuickJsValueAdapter::new(
         context,
         prom_val,
         false,
@@ -149,7 +156,7 @@ pub unsafe fn new_promise(context: *mut q::JSContext) -> Result<PromiseRef, JsEr
     debug_assert_eq!(reject_function_obj_ref.get_ref_count(), 1);
     debug_assert_eq!(promise_obj_ref.get_ref_count(), 3);
 
-    Ok(PromiseRef {
+    Ok(QuickJsPromiseAdapter {
         promise_obj_ref,
         reject_function_obj_ref,
         resolve_function_obj_ref,
@@ -166,10 +173,10 @@ pub(crate) fn init_promise_rejection_tracker(q_js_rt: &QuickJsRuntimeAdapter) {
 
 pub fn add_promise_reactions_q(
     context: &QuickJsRealmAdapter,
-    promise_obj_ref: &JSValueRef,
-    then_func_obj_ref_opt: Option<JSValueRef>,
-    catch_func_obj_ref_opt: Option<JSValueRef>,
-    finally_func_obj_ref_opt: Option<JSValueRef>,
+    promise_obj_ref: &QuickJsValueAdapter,
+    then_func_obj_ref_opt: Option<QuickJsValueAdapter>,
+    catch_func_obj_ref_opt: Option<QuickJsValueAdapter>,
+    finally_func_obj_ref_opt: Option<QuickJsValueAdapter>,
 ) -> Result<(), JsError> {
     unsafe {
         add_promise_reactions(
@@ -187,27 +194,22 @@ pub fn add_promise_reactions_q(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn add_promise_reactions(
     context: *mut q::JSContext,
-    promise_obj_ref: &JSValueRef,
-    then_func_obj_ref_opt: Option<JSValueRef>,
-    catch_func_obj_ref_opt: Option<JSValueRef>,
-    finally_func_obj_ref_opt: Option<JSValueRef>,
+    promise_obj_ref: &QuickJsValueAdapter,
+    then_func_obj_ref_opt: Option<QuickJsValueAdapter>,
+    catch_func_obj_ref_opt: Option<QuickJsValueAdapter>,
+    finally_func_obj_ref_opt: Option<QuickJsValueAdapter>,
 ) -> Result<(), JsError> {
     debug_assert!(is_promise(context, promise_obj_ref));
 
     if let Some(then_func_obj_ref) = then_func_obj_ref_opt {
-        functions::invoke_member_function(
-            context,
-            promise_obj_ref,
-            "then",
-            vec![then_func_obj_ref],
-        )?;
+        functions::invoke_member_function(context, promise_obj_ref, "then", &[then_func_obj_ref])?;
     }
     if let Some(catch_func_obj_ref) = catch_func_obj_ref_opt {
         functions::invoke_member_function(
             context,
             promise_obj_ref,
             "catch",
-            vec![catch_func_obj_ref],
+            &[catch_func_obj_ref],
         )?;
     }
     if let Some(finally_func_obj_ref) = finally_func_obj_ref_opt {
@@ -215,7 +217,7 @@ pub unsafe fn add_promise_reactions(
             context,
             promise_obj_ref,
             "finally",
-            vec![finally_func_obj_ref],
+            &[finally_func_obj_ref],
         )?;
     }
 
@@ -232,7 +234,7 @@ unsafe extern "C" fn promise_rejection_tracker(
     if is_handled == 0 {
         log::error!("unhandled promise rejection detected");
 
-        let reason_ref = JSValueRef::new(
+        let reason_ref = QuickJsValueAdapter::new(
             ctx,
             reason,
             false,
@@ -254,15 +256,13 @@ unsafe extern "C" fn promise_rejection_tracker(
 #[cfg(test)]
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
-    use crate::esvalue::EsValueFacade;
     use crate::facades::tests::init_test_rt;
+    use crate::jsutils::Script;
     use crate::quickjs_utils::promises::{add_promise_reactions_q, is_promise_q, new_promise_q};
     use crate::quickjs_utils::{functions, new_null_ref, primitives};
     use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
+    use crate::values::JsValueFacade;
     use futures::executor::block_on;
-    use hirofa_utils::js_utils::facades::values::JsValueFacade;
-    use hirofa_utils::js_utils::facades::JsRuntimeFacade;
-    use hirofa_utils::js_utils::Script;
     use std::time::Duration;
 
     #[test]
@@ -315,12 +315,8 @@ pub mod tests {
 
             let prom = new_promise_q(q_ctx).ok().unwrap();
 
-            let res = functions::call_function_q(
-                q_ctx,
-                &func_ref,
-                vec![prom.get_promise_obj_ref()],
-                None,
-            );
+            let res =
+                functions::call_function_q(q_ctx, &func_ref, &[prom.get_promise_obj_ref()], None);
             if res.is_err() {
                 panic!("func call failed: {}", res.err().unwrap());
             }
@@ -352,12 +348,8 @@ pub mod tests {
 
             let prom = new_promise_q(q_ctx).ok().unwrap();
 
-            let res = functions::call_function_q(
-                q_ctx,
-                &func_ref,
-                vec![prom.get_promise_obj_ref()],
-                None,
-            );
+            let res =
+                functions::call_function_q(q_ctx, &func_ref, &[prom.get_promise_obj_ref()], None);
             if res.is_err() {
                 panic!("func call failed: {}", res.err().unwrap());
             }
@@ -423,7 +415,7 @@ pub mod tests {
 
         let rt = init_test_rt();
 
-        let mut esvf_res = rt.exe_task_in_event_loop(|| {
+        let mut jsvf_res = rt.exe_task_in_event_loop(|| {
             QuickJsRuntimeAdapter::create_context("test").expect("create ctx failed");
             QuickJsRuntimeAdapter::do_with(|q_js_rt| {
                 let q_ctx = q_js_rt.get_context("test");
@@ -433,19 +425,35 @@ pub mod tests {
                     .eval(Script::new("test_promise_nested.es", script))
                     .expect("script failed");
 
-                EsValueFacade::from_jsval(q_ctx, &esvf_res).expect("poof")
+                q_ctx.to_js_value_facade(&esvf_res).expect("poof")
 
             })
         });
-        while esvf_res.is_promise() {
-            esvf_res = esvf_res.get_promise_result_sync().expect("failure");
+
+        while jsvf_res.is_js_promise() {
+            match jsvf_res {
+                JsValueFacade::JsPromise { cached_promise } => {
+                    jsvf_res = cached_promise
+                        .js_get_promise_result_sync()
+                        .expect("prom timed out")
+                        .expect("prom was rejected");
+                }
+                _ => {}
+            }
         }
-        assert!(esvf_res.is_object());
-        let obj = esvf_res.get_object().expect("esvf to map failed");
-        let b = obj.get("b").expect("got no b");
-        assert!(b.is_i32());
-        let i = b.get_i32();
-        assert_eq!(i, 5 * 7);
+
+        assert!(jsvf_res.is_js_object());
+
+        match jsvf_res {
+            JsValueFacade::JsObject { cached_object } => {
+                let obj = cached_object.get_object_sync().expect("esvf to map failed");
+                let b = obj.get("b").expect("got no b");
+                assert!(b.is_i32());
+                let i = b.get_i32();
+                assert_eq!(i, 5 * 7);
+            }
+            _ => {}
+        }
 
         rt.exe_task_in_event_loop(|| {
             QuickJsRuntimeAdapter::remove_context("test");
@@ -456,9 +464,7 @@ pub mod tests {
     fn test_to_string_err() {
         let rt = QuickJsRuntimeBuilder::new().build();
 
-        let rti = rt.js_get_runtime_facade_inner().upgrade().expect("poof");
-
-        let res = block_on(rt.js_eval(
+        let res = block_on(rt.eval(
             None,
             Script::new(
                 "test_test_to_string_err.js",
@@ -472,7 +478,7 @@ pub mod tests {
         match res {
             Ok(val) => {
                 if let JsValueFacade::JsPromise { cached_promise } = val {
-                    let prom_res = block_on(cached_promise.js_get_promise_result(&*rti))
+                    let prom_res = block_on(cached_promise.js_get_promise_result())
                         .expect("promise timed out");
                     match prom_res {
                         Ok(v) => {

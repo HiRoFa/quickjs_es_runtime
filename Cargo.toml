@@ -1,9 +1,9 @@
 [package]
 name = "quickjs_runtime"
-version = "0.9.0"
+version = "0.10.0"
 authors = ["Andries Hiemstra <info@hirofa.com>"]
 edition = "2018"
-description = "Wrapper API and utils for the QuickJS JavaScript engine with support for Promise, Module, Async/await"
+description = "Wrapper API and utils for the QuickJS JavaScript engine with support for Promise, Modules, Async/await"
 homepage = "https://github.com/HiRoFa/quickjs_es_runtime"
 keywords = ["quickjs", "javascript", "runtime", "async", "engine"]
 repository = "https://github.com/HiRoFa/quickjs_es_runtime"
@@ -21,22 +21,23 @@ setinterval = []
 setimmediate = []
 
 [dependencies]
-hirofa_utils = "0.6"
+#hirofa_utils = "0.6"
 #hirofa_utils = {path="../utils"}
 #hirofa_utils = {git="https://github.com/SreeniIO/utils.git"}
-#hirofa_utils = {git="https://github.com/HiRoFa/utils"}
-backtrace = "0.3.56"
+hirofa_utils = {git="https://github.com/HiRoFa/utils"}
+backtrace = "0.3.67"
 libquickjs-sys = "0.10.0"
 lazy_static = "1.4.0"
 log = "0.4"
 simple-logging = "2.0"
-num_cpus = "1.13"
-rand = "0.7"
-thread-id = "3.3"
+num_cpus = "1.15"
+rand = "0.8"
+thread-id = "4"
 futures = "0.3"
 tokio = {version = "1.4", features = ["rt-multi-thread", "rt", "bytes", "fs", "io-std", "io-util", "libc", "macros", "memchr", "tracing", "time", "tokio-macros", "test-util", "sync", "parking_lot", "mio", "net", "num_cpus"]}
 serde_json = "1.0"
 serde = {version="1.0", features=["derive"]}
+string_cache = "0.8"
 
 [dev-dependencies]
 #green_copper_runtime =  { git = 'https://github.com/HiRoFa/GreenCopperRuntime', branch="main", features = ["console"]}

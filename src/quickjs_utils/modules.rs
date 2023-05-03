@@ -1,13 +1,13 @@
 //! utils for working with ES6 Modules
 
+use crate::jsutils::{JsError, Script};
 use crate::quickjs_utils::atoms;
 use crate::quickjs_utils::atoms::JSAtomRef;
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
-use crate::valueref::JSValueRef;
+use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use core::ptr;
-use hirofa_utils::js_utils::JsError;
-use hirofa_utils::js_utils::Script;
+
 use libquickjs_sys as q;
 use std::ffi::{CStr, CString};
 
@@ -17,7 +17,7 @@ use std::ffi::{CStr, CString};
 pub unsafe fn compile_module(
     context: *mut q::JSContext,
     script: Script,
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     let code = script.get_code();
     let code_c = CString::new(code).ok().unwrap();
     let filename_c = CString::new(script.get_path()).ok().unwrap();
@@ -31,7 +31,7 @@ pub unsafe fn compile_module(
     );
 
     // check for error
-    let ret = JSValueRef::new(
+    let ret = QuickJsValueAdapter::new(
         context,
         value_raw,
         false,
@@ -56,7 +56,7 @@ pub unsafe fn compile_module(
 }
 
 // get the ModuleDef obj from a JSValue, this is used for module loading
-pub fn get_module_def(value: &JSValueRef) -> *mut q::JSModuleDef {
+pub fn get_module_def(value: &QuickJsValueAdapter) -> *mut q::JSModuleDef {
     assert!(value.is_module());
     unsafe { value.borrow_value().u.ptr as *mut q::JSModuleDef }
 }
@@ -99,7 +99,7 @@ pub unsafe fn set_module_export(
     ctx: *mut q::JSContext,
     module: *mut q::JSModuleDef,
     export_name: &str,
-    js_val: JSValueRef,
+    js_val: QuickJsValueAdapter,
 ) -> Result<(), JsError> {
     let name_cstr = CString::new(export_name).map_err(|_e| JsError::new_str("CString failed"))?;
     let res = q::JS_SetModuleExport(
@@ -227,14 +227,15 @@ unsafe extern "C" fn js_module_loader(
 #[cfg(test)]
 pub mod tests {
     use crate::facades::tests::init_test_rt;
+    use crate::jsutils::Script;
     use crate::quickjs_utils::modules::detect_module;
-    use hirofa_utils::js_utils::Script;
+    use crate::values::JsValueFacade;
     use std::time::Duration;
 
     #[test]
     fn test_native_modules() {
         let rt = init_test_rt();
-        let mres = rt.eval_module_sync(Script::new(
+        let mres = rt.eval_module_sync(None, Script::new(
             "test.mes",
             "import {a, b, c} from 'greco://testmodule1';\nconsole.log('testmodule1.a = %s, testmodule1.b = %s, testmodule1.c = %s', a, b, c);",
         ));
@@ -243,15 +244,29 @@ pub mod tests {
             Err(e) => panic!("test_native_modules failed: {}", e),
         }
 
-        let res_prom = rt.eval_sync(Script::new("test_mod_nat_async.es", "(import('greco://someMod').then((module) => {return {a: module.a, b: module.b, c: module.c};}));")).ok().unwrap();
-        let res = res_prom.get_promise_result_sync();
-        let obj = res.expect("prom failed");
-        assert!(obj.is_object());
-        let map = obj.get_object().ok().expect("esvf to map failed");
-        let a = map.get("a").expect("obj did not have a");
-        assert_eq!(a.get_i32(), 1234);
-        let b = map.get("b").expect("obj did not have b");
-        assert_eq!(b.get_i32(), 64834);
+        let res_prom = rt.eval_sync(None, Script::new("test_mod_nat_async.es", "(import('greco://someMod').then((module) => {return {a: module.a, b: module.b, c: module.c};}));")).ok().unwrap();
+        assert!(res_prom.is_js_promise());
+
+        match res_prom {
+            JsValueFacade::JsPromise { cached_promise } => {
+                let res = cached_promise
+                    .js_get_promise_result_sync()
+                    .expect("prom timed out");
+                let obj = res.expect("prom failed");
+                assert!(obj.is_js_object());
+                match obj {
+                    JsValueFacade::JsObject { cached_object } => {
+                        let map = cached_object.get_object_sync().expect("esvf to map failed");
+                        let a = map.get("a").expect("obj did not have a");
+                        assert_eq!(a.get_i32(), 1234);
+                        let b = map.get("b").expect("obj did not have b");
+                        assert_eq!(b.get_i32(), 64834);
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
     }
 
     #[test]

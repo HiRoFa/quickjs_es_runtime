@@ -1,8 +1,8 @@
+use crate::jsutils::JsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, get_global, objects, parse_args, primitives};
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use hirofa_utils::eventloop::EventLoop;
-use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 use std::time::Duration;
 
@@ -10,10 +10,10 @@ use std::time::Duration;
 /// # Example
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-/// use hirofa_utils::js_utils::Script;
+/// use quickjs_runtime::jsutils::Script;
 /// use std::time::Duration;
 /// let rt = QuickJsRuntimeBuilder::new().build();
-/// rt.eval(Script::new("test_timeout.es", "setTimeout(() => {console.log('timed logging')}, 1000);"));
+/// rt.eval_sync(None, Script::new("test_timeout.es", "setTimeout(() => {console.log('timed logging')}, 1000);")).expect("script failed");
 /// std::thread::sleep(Duration::from_secs(2));
 /// ```
 pub fn init(q_js_rt: &QuickJsRuntimeAdapter) -> Result<(), JsError> {
@@ -69,7 +69,7 @@ unsafe extern "C" fn set_timeout(
 ) -> q::JSValue {
     log::trace!("> set_timeout");
 
-    let mut args = parse_args(context, argc, argv);
+    let args = parse_args(context, argc, argv);
 
     QuickJsRuntimeAdapter::do_with(move |q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(context);
@@ -77,7 +77,7 @@ unsafe extern "C" fn set_timeout(
             return q_ctx.report_ex("setTimeout requires at least one argument");
         }
         if !functions::is_function(context, &args[0]) {
-            return q_ctx.report_ex("setTimeout requires a functions as first arg");
+            return q_ctx.report_ex("setTimeout requires a function as first arg");
         }
 
         if args.len() >= 2 && !args[1].is_i32() && !args[1].is_f64() {
@@ -85,11 +85,11 @@ unsafe extern "C" fn set_timeout(
         }
 
         let delay_ms = if args.len() >= 2 {
-            let delay_ref = args.remove(1);
+            let delay_ref = &args[1];
             if delay_ref.is_i32() {
-                primitives::to_i32(&delay_ref).ok().unwrap() as u64
+                primitives::to_i32(delay_ref).ok().unwrap() as u64
             } else {
-                primitives::to_f64(&delay_ref).ok().unwrap() as u64
+                primitives::to_f64(delay_ref).ok().unwrap() as u64
             }
         } else {
             0
@@ -100,10 +100,9 @@ unsafe extern "C" fn set_timeout(
         let id = EventLoop::add_timeout(
             move || {
                 QuickJsRuntimeAdapter::do_with(|q_js_rt| {
-                    let mut args = args.clone();
-                    let func = args.remove(0);
+                    let func = &args[0];
                     if let Some(q_ctx) = q_js_rt.opt_context(q_ctx_id.as_str()) {
-                        match functions::call_function_q(q_ctx, &func, args, None) {
+                        match functions::call_function_q(q_ctx, func, &args[2..], None) {
                             Ok(_) => {}
                             Err(e) => {
                                 log::error!("setTimeout func failed: {}", e);
@@ -131,7 +130,7 @@ unsafe extern "C" fn set_interval(
 ) -> q::JSValue {
     log::trace!("> set_interval");
 
-    let mut args = parse_args(context, argc, argv);
+    let args = parse_args(context, argc, argv);
 
     QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(context);
@@ -147,11 +146,11 @@ unsafe extern "C" fn set_interval(
         }
 
         let delay_ms = if args.len() >= 2 {
-            let delay_ref = args.remove(1);
+            let delay_ref = &args[1];
             if delay_ref.is_i32() {
-                primitives::to_i32(&delay_ref).ok().unwrap() as u64
+                primitives::to_i32(delay_ref).ok().unwrap() as u64
             } else {
-                primitives::to_f64(&delay_ref).ok().unwrap() as u64
+                primitives::to_f64(delay_ref).ok().unwrap() as u64
             }
         } else {
             0
@@ -163,11 +162,9 @@ unsafe extern "C" fn set_interval(
             move || {
                 QuickJsRuntimeAdapter::do_with(|q_js_rt| {
                     if let Some(q_ctx) = q_js_rt.opt_context(q_ctx_id.as_str()) {
-                        let mut args = args.clone();
+                        let func = &args[0];
 
-                        let func = args.remove(0);
-
-                        match functions::call_function_q(q_ctx, &func, args, None) {
+                        match functions::call_function_q(q_ctx, func, &args[2..], None) {
                             Ok(_) => {}
                             Err(e) => {
                                 log::error!("setInterval func failed: {}", e);
@@ -243,19 +240,22 @@ unsafe extern "C" fn clear_timeout(
 #[cfg(test)]
 pub mod tests {
     use crate::facades::tests::init_test_rt;
+    use crate::jsutils::Script;
     use crate::quickjs_utils::get_global_q;
     use crate::quickjs_utils::objects::get_property_q;
     use crate::quickjs_utils::primitives::to_i32;
-    use hirofa_utils::js_utils::Script;
+    use crate::values::JsValueFacade;
     use std::time::Duration;
 
     #[test]
     fn test_set_timeout_prom_res() {
         let rt = init_test_rt();
         let esvf = rt
-            .eval_sync(Script::new(
-                "test_set_timeout_prom_res.es",
-                "new Promise((resolve, reject) => {\
+            .eval_sync(
+                None,
+                Script::new(
+                    "test_set_timeout_prom_res.es",
+                    "new Promise((resolve, reject) => {\
                                 setTimeout(() => {resolve(123);}, 1000);\
                             }).then((res) => {\
                                 console.log(\"got %s\", res);\
@@ -264,10 +264,18 @@ pub mod tests {
                                 throw Error(\"\" + ex);\
                             });\
             ",
-            ))
+                ),
+            )
             .expect("script failed");
-        assert!(esvf.is_promise());
-        let res = esvf.get_promise_result_sync();
+        assert!(esvf.is_js_promise());
+
+        let res = match esvf {
+            JsValueFacade::JsPromise { cached_promise } => cached_promise
+                .js_get_promise_result_sync()
+                .expect("timed out"),
+            _ => Err(JsValueFacade::new_str("poof")),
+        };
+
         assert!(res.is_ok());
         let res_str_esvf = res.ok().unwrap();
         let res_str = res_str_esvf.get_str();
@@ -279,9 +287,11 @@ pub mod tests {
     fn test_set_timeout_prom_res_nested() {
         let rt = init_test_rt();
         let esvf = rt
-            .eval_sync(Script::new(
-                "test_set_timeout_prom_res_nested.es",
-                "new Promise((resolve, reject) => {\
+            .eval_sync(
+                None,
+                Script::new(
+                    "test_set_timeout_prom_res_nested.es",
+                    "new Promise((resolve, reject) => {\
                                 setTimeout(() => {setTimeout(() => {resolve(123);}, 1000);}, 1000);\
                             }).then((res) => {\
                                 console.log(\"got %s\", res);\
@@ -290,14 +300,24 @@ pub mod tests {
                                 throw Error(\"\" + ex);\
                             });\
             ",
-            ))
+                ),
+            )
             .expect("script failed");
-        assert!(esvf.is_promise());
-        let res = esvf.get_promise_result_sync();
-        assert!(res.is_ok());
-        let res_str_esvf = res.ok().unwrap();
-        let res_str = res_str_esvf.get_str();
-        assert_eq!(res_str, "123abc");
+        assert!(esvf.is_js_promise());
+
+        match esvf {
+            JsValueFacade::JsPromise { cached_promise } => {
+                let res = cached_promise
+                    .js_get_promise_result_sync()
+                    .expect("timed out");
+                assert!(res.is_ok());
+                let res_str_esvf = res.ok().unwrap();
+                let res_str = res_str_esvf.get_str();
+                assert_eq!(res_str, "123abc");
+            }
+            _ => {}
+        }
+
         log::info!("done");
     }
 
@@ -305,55 +325,82 @@ pub mod tests {
     fn test_set_timeout() {
         let rt = init_test_rt();
 
-        rt.eval_sync(Script::new("test_set_interval.es", "let t_id1 = setInterval((a, b) => {console.log('setInterval invoked with %s and %s', a, b);}, 500, 123, 456);")).expect("fail a");
-        rt.eval_sync(Script::new("test_set_timeout.es", "let t_id2 = setTimeout((a, b) => {console.log('setTimeout1 invoked with %s and %s', a, b);}, 500, 123, 456);")).expect("fail b");
-        rt.eval_sync(Script::new("test_set_timeout.es", "let t_id3 = setTimeout((a, b) => {console.log('setTimeout2 invoked with %s and %s', a, b);}, 600, 123, 456);")).expect("fail b");
-        rt.eval_sync(Script::new("test_set_timeout.es", "let t_id4 = setTimeout((a, b) => {console.log('setTimeout3 invoked with %s and %s', a, b);}, 900, 123, 456);")).expect("fail b");
+        rt.eval_sync(None, Script::new("test_set_interval.es", "let t_id1 = setInterval((a, b) => {console.log('setInterval invoked with %s and %s', a, b);}, 500, 123, 456);")).expect("fail a");
+        rt.eval_sync(None, Script::new("test_set_timeout.es", "let t_id2 = setTimeout((a, b) => {console.log('setTimeout1 invoked with %s and %s', a, b);}, 500, 123, 456);")).expect("fail b");
+        rt.eval_sync(None, Script::new("test_set_timeout.es", "let t_id3 = setTimeout((a, b) => {console.log('setTimeout2 invoked with %s and %s', a, b);}, 600, 123, 456);")).expect("fail b");
+        rt.eval_sync(None, Script::new("test_set_timeout.es", "let t_id4 = setTimeout((a, b) => {console.log('setTimeout3 invoked with %s and %s', a, b);}, 900, 123, 456);")).expect("fail b");
         std::thread::sleep(Duration::from_secs(3));
-        rt.eval_sync(Script::new(
-            "test_clearInterval.es",
-            "clearInterval(t_id1);",
-        ))
+        rt.eval_sync(
+            None,
+            Script::new("test_clearInterval.es", "clearInterval(t_id1);"),
+        )
         .expect("fail c");
-        rt.eval_sync(Script::new("test_clearTimeout2.es", "clearTimeout(t_id2);"))
-            .expect("fail d");
+        rt.eval_sync(
+            None,
+            Script::new("test_clearTimeout2.es", "clearTimeout(t_id2);"),
+        )
+        .expect("fail d");
 
-        rt.eval_sync(Script::new("test_set_timeout2.es", "this.__ti_num__ = 0;"))
-            .expect("fail qewr");
+        rt.eval_sync(
+            None,
+            Script::new("test_set_timeout2.es", "this.__ti_num__ = 0;"),
+        )
+        .expect("fail qewr");
 
-        rt.eval_sync(Script::new("test_set_timeout2.es", "this.__it_num__ = 0;"))
-            .expect("fail qewr");
+        rt.eval_sync(
+            None,
+            Script::new("test_set_timeout2.es", "this.__it_num__ = 0;"),
+        )
+        .expect("fail qewr");
 
-        rt.eval_sync(Script::new(
-            "test_set_timeout3.es",
-            "setTimeout(() => {console.log('seto1');this.__ti_num__++;}, 455);",
-        ))
+        rt.eval_sync(
+            None,
+            Script::new(
+                "test_set_timeout3.es",
+                "setTimeout(() => {console.log('seto1');this.__ti_num__++;}, 455);",
+            ),
+        )
         .expect("fail a1");
-        rt.eval_sync(Script::new(
-            "test_set_timeout3.es",
-            "setTimeout(() => {console.log('seto2');this.__ti_num__++;}, 366);",
-        ))
+        rt.eval_sync(
+            None,
+            Script::new(
+                "test_set_timeout3.es",
+                "setTimeout(() => {console.log('seto2');this.__ti_num__++;}, 366);",
+            ),
+        )
         .expect("fail a2");
-        rt.eval_sync(Script::new(
-            "test_set_timeout3.es",
-            "setTimeout(() => {console.log('seto3');this.__ti_num__++;}, 1001);",
-        ))
+        rt.eval_sync(
+            None,
+            Script::new(
+                "test_set_timeout3.es",
+                "setTimeout(() => {console.log('seto3');this.__ti_num__++;}, 1001);",
+            ),
+        )
         .expect("fail a3");
-        rt.eval_sync(Script::new(
-            "test_set_timeout3.es",
-            "setTimeout(() => {console.log('seto4');this.__ti_num__++;}, 2002);",
-        ))
+        rt.eval_sync(
+            None,
+            Script::new(
+                "test_set_timeout3.es",
+                "setTimeout(() => {console.log('seto4');this.__ti_num__++;}, 2002);",
+            ),
+        )
         .expect("fail a4");
 
-        rt.eval_sync(Script::new(
-            "test_set_interval.es",
-            "setInterval(() => {this.__it_num__++;}, 1600);",
-        ))
+        rt.eval_sync(
+            None,
+            Script::new(
+                "test_set_interval.es",
+                "setInterval(() => {this.__it_num__++;}, 1600);",
+            ),
+        )
         .expect("fail a");
-        rt.eval_sync(Script::new(
-            "test_set_interval.es",
-            "setInterval(() => {this.__it_num__++;}, 2500);",
-        ))
+        rt.eval_sync(
+            None,
+            Script::new(
+                "test_set_interval.es",
+                "setInterval(() => {this.__it_num__++;}, 2500);",
+            ),
+        )
         .expect("fail a");
 
         std::thread::sleep(Duration::from_secs(6));

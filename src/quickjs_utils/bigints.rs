@@ -1,20 +1,26 @@
+use crate::jsutils::JsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, primitives};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-use crate::valueref::JSValueRef;
-use hirofa_utils::js_utils::JsError;
+use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use libquickjs_sys as q;
 
-pub fn new_bigint_i64_q(context: &QuickJsRealmAdapter, int: i64) -> Result<JSValueRef, JsError> {
+pub fn new_bigint_i64_q(
+    context: &QuickJsRealmAdapter,
+    int: i64,
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { new_bigint_i64(context.context, int) }
 }
 
 #[allow(dead_code)]
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn new_bigint_i64(context: *mut q::JSContext, int: i64) -> Result<JSValueRef, JsError> {
+pub unsafe fn new_bigint_i64(
+    context: *mut q::JSContext,
+    int: i64,
+) -> Result<QuickJsValueAdapter, JsError> {
     let res_val = q::JS_NewBigInt64(context, int);
-    let ret = JSValueRef::new(context, res_val, false, true, "new_bigint_i64");
+    let ret = QuickJsValueAdapter::new(context, res_val, false, true, "new_bigint_i64");
     assert_eq!(ret.get_ref_count(), 1);
     Ok(ret)
 }
@@ -22,9 +28,12 @@ pub unsafe fn new_bigint_i64(context: *mut q::JSContext, int: i64) -> Result<JSV
 #[allow(dead_code)]
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn new_bigint_u64(context: *mut q::JSContext, int: u64) -> Result<JSValueRef, JsError> {
+pub unsafe fn new_bigint_u64(
+    context: *mut q::JSContext,
+    int: u64,
+) -> Result<QuickJsValueAdapter, JsError> {
     let res_val = q::JS_NewBigUint64(context, int);
-    let ret = JSValueRef::new(context, res_val, false, true, "new_bigint_u64");
+    let ret = QuickJsValueAdapter::new(context, res_val, false, true, "new_bigint_u64");
     assert_eq!(ret.get_ref_count(), 1);
     Ok(ret)
 }
@@ -32,7 +41,7 @@ pub unsafe fn new_bigint_u64(context: *mut q::JSContext, int: u64) -> Result<JSV
 pub fn new_bigint_str_q(
     context: &QuickJsRealmAdapter,
     input_str: &str,
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { new_bigint_str(context.context, input_str) }
 }
 
@@ -42,11 +51,10 @@ pub fn new_bigint_str_q(
 pub unsafe fn new_bigint_str(
     context: *mut q::JSContext,
     input_str: &str,
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     let global_ref = quickjs_utils::get_global(context);
     let str_ref = primitives::from_string(context, input_str)?;
-    let bigint_ref =
-        functions::invoke_member_function(context, &global_ref, "BigInt", vec![str_ref])?;
+    let bigint_ref = functions::invoke_member_function(context, &global_ref, "BigInt", &[str_ref])?;
     let ret = bigint_ref;
     assert_eq!(ret.get_ref_count(), 1);
     Ok(ret)
@@ -54,7 +62,7 @@ pub unsafe fn new_bigint_str(
 
 pub fn to_string_q(
     context: &QuickJsRealmAdapter,
-    big_int_ref: &JSValueRef,
+    big_int_ref: &QuickJsValueAdapter,
 ) -> Result<String, JsError> {
     unsafe { to_string(context.context, big_int_ref) }
 }
@@ -64,7 +72,7 @@ pub fn to_string_q(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn to_string(
     context: *mut q::JSContext,
-    big_int_ref: &JSValueRef,
+    big_int_ref: &QuickJsValueAdapter,
 ) -> Result<String, JsError> {
     if !big_int_ref.is_big_int() {
         return Err(JsError::new_str("big_int_ref was not a big_int"));

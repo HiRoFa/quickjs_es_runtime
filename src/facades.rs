@@ -1,21 +1,17 @@
 //! contains the QuickJsRuntimeFacade
 
 use crate::builder::QuickJsRuntimeBuilder;
-use crate::esvalue::EsValueFacade;
+use crate::jsutils::{JsError, Script};
 use crate::quickjs_utils::{functions, objects};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::{
     CompiledModuleLoaderAdapter, MemoryUsage, NativeModuleLoaderAdapter, QuickJsRuntimeAdapter,
     ScriptModuleLoaderAdapter, QJS_RT,
 };
+use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use crate::reflection;
-use crate::valueref::JSValueRef;
+use crate::values::JsValueFacade;
 use hirofa_utils::eventloop::EventLoop;
-use hirofa_utils::js_utils::adapters::{JsRealmAdapter, JsRuntimeAdapter};
-use hirofa_utils::js_utils::facades::values::JsValueFacade;
-use hirofa_utils::js_utils::facades::{JsRuntimeFacade, JsRuntimeFacadeInner};
-use hirofa_utils::js_utils::JsError;
-use hirofa_utils::js_utils::Script;
 use hirofa_utils::task_manager::TaskManager;
 use libquickjs_sys as q;
 use std::future::Future;
@@ -41,29 +37,59 @@ pub struct QuickjsRuntimeFacadeInner {
     event_loop: EventLoop,
 }
 
-impl JsRuntimeFacadeInner for QuickjsRuntimeFacadeInner {
-    type JsRuntimeFacadeType = QuickJsRuntimeFacade;
-
-    fn js_exe_rt_task_in_event_loop<
-        R: Send + 'static,
-        J: FnOnce(&<<Self as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) -> R + Send + 'static,
-    >(&self, task: J) -> R{
-        self.exe_rt_task_in_event_loop(task)
-    }
-
-    fn js_add_rt_task_to_event_loop<
-        R: Send + 'static,
-        J: FnOnce(&<<Self as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) -> R + Send + 'static,
-    >(&self, task: J) -> Pin<Box<dyn Future<Output=R> + Send>>{
-        Box::pin(self.add_rt_task_to_event_loop(task))
-    }
-
-    fn js_add_rt_task_to_event_loop_void<J: FnOnce(&<<Self as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) + Send + 'static>(&self, task: J){
-        self.add_rt_task_to_event_loop_void(task)
-    }
-}
-
 impl QuickjsRuntimeFacadeInner {
+    /// this is how you add a closure to the worker thread which has an instance of the QuickJsRuntime
+    /// this will run and return synchronously
+    /// # example
+    /// ```rust
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+    /// use quickjs_runtime::jsutils::Script;
+    /// use quickjs_runtime::quickjs_utils::primitives;
+    /// let rt = QuickJsRuntimeBuilder::new().build();
+    /// let res = rt.exe_rt_task_in_event_loop(|q_js_rt| {
+    ///     let q_ctx = q_js_rt.get_main_context();
+    ///     // here you are in the worker thread and you can use the quickjs_utils
+    ///     let val_ref = q_ctx.eval(Script::new("test.es", "(11 * 6);")).ok().expect("script failed");
+    ///     primitives::to_i32(&val_ref).ok().expect("could not get i32")
+    /// });
+    /// assert_eq!(res, 66);
+    /// ```
+    pub fn exe_rt_task_in_event_loop<C, R>(&self, consumer: C) -> R
+    where
+        C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        self.exe_task_in_event_loop(|| QuickJsRuntimeAdapter::do_with(consumer))
+    }
+
+    /// this is how you add a closure to the worker thread which has an instance of the QuickJsRuntime
+    /// this will run asynchronously
+    /// # example
+    /// ```rust
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+    /// let rt = QuickJsRuntimeBuilder::new().build();
+    /// rt.add_rt_task_to_event_loop(|q_js_rt| {
+    ///     // here you are in the worker thread and you can use the quickjs_utils
+    ///     q_js_rt.gc();
+    /// });
+    /// ```
+    pub fn add_rt_task_to_event_loop<C, R: Send + 'static>(
+        &self,
+        consumer: C,
+    ) -> impl Future<Output = R>
+    where
+        C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static,
+    {
+        self.add_task_to_event_loop(|| QuickJsRuntimeAdapter::do_with(consumer))
+    }
+
+    pub fn add_rt_task_to_event_loop_void<C>(&self, consumer: C)
+    where
+        C: FnOnce(&QuickJsRuntimeAdapter) + Send + 'static,
+    {
+        self.add_task_to_event_loop_void(|| QuickJsRuntimeAdapter::do_with(consumer))
+    }
+
     /// this can be used to run a function in the event_queue thread for the QuickJSRuntime
     /// without borrowing the q_js_rt
     pub fn add_task_to_event_loop_void<C>(&self, task: C)
@@ -108,41 +134,6 @@ impl QuickjsRuntimeFacadeInner {
             });
             res
         })
-    }
-
-    /// this is how you add a closure to the worker thread which has an instance of the QuickJsRuntime
-    /// this will run asynchronously
-    /// # example
-    /// ```rust
-    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-    /// let rt = QuickJsRuntimeBuilder::new().build();
-    /// rt.add_rt_task_to_event_loop(|q_js_rt| {
-    ///     // here you are in the worker thread and you can use the quickjs_utils
-    ///     q_js_rt.gc();
-    /// });
-    /// ```
-    pub fn add_rt_task_to_event_loop<C, R: Send + 'static>(
-        &self,
-        consumer: C,
-    ) -> impl Future<Output = R>
-    where
-        C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static,
-    {
-        self.add_task_to_event_loop(|| QuickJsRuntimeAdapter::do_with(consumer))
-    }
-
-    pub fn add_rt_task_to_event_loop_void<C>(&self, consumer: C)
-    where
-        C: FnOnce(&QuickJsRuntimeAdapter) + Send + 'static,
-    {
-        self.add_task_to_event_loop_void(|| QuickJsRuntimeAdapter::do_with(consumer))
-    }
-
-    pub fn exe_rt_task_in_event_loop<C, R: Send + 'static>(&self, consumer: C) -> R
-    where
-        C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static,
-    {
-        self.exe_task_in_event_loop(|| QuickJsRuntimeAdapter::do_with(consumer))
     }
 
     /// used to add tasks from the worker threads which require run_pending_jobs_if_any to run after it
@@ -369,40 +360,6 @@ impl QuickJsRuntimeFacade {
         QuickJsRuntimeBuilder::new()
     }
 
-    /// Evaluate a script asynchronously
-    pub async fn eval(&self, script: Script) -> Result<EsValueFacade, JsError> {
-        self.add_rt_task_to_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
-            let res = q_ctx.eval(script);
-            match res {
-                Ok(js) => EsValueFacade::from_jsval(q_ctx, &js),
-                Err(e) => Err(e),
-            }
-        })
-        .await
-    }
-
-    /// Evaluate a script and return the result synchronously
-    /// # example
-    /// ```rust
-    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-    /// use hirofa_utils::js_utils::Script;
-    /// let rt = QuickJsRuntimeBuilder::new().build();
-    /// let script = Script::new("my_file.es", "(9 * 3);");
-    /// let res = rt.eval_sync(script).ok().expect("script failed");
-    /// assert_eq!(res.get_i32(), 27);
-    /// ```
-    pub fn eval_sync(&self, script: Script) -> Result<EsValueFacade, JsError> {
-        self.exe_rt_task_in_event_loop(move |q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
-            let res = q_ctx.eval(script);
-            match res {
-                Ok(val_ref) => EsValueFacade::from_jsval(q_ctx, &val_ref),
-                Err(e) => Err(e),
-            }
-        })
-    }
-
     /// run the garbage collector asynchronously
     pub async fn gc(&self) {
         self.add_rt_task_to_event_loop(|q_js_rt| q_js_rt.gc()).await
@@ -413,147 +370,12 @@ impl QuickJsRuntimeFacade {
         self.exe_rt_task_in_event_loop(|q_js_rt| q_js_rt.gc())
     }
 
-    /// call a function in the engine and await the result
-    /// # example
-    /// ```rust
-    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-    /// use quickjs_runtime::es_args;
-    /// use quickjs_runtime::esvalue::EsValueConvertible;
-    /// use quickjs_runtime::esvalue::EsValueFacade;
-    /// use hirofa_utils::js_utils::Script;
-    /// let rt = QuickJsRuntimeBuilder::new().build();
-    /// let script = Script::new("my_file.es", "this.com = {my: {methodA: function(a, b, someStr, someBool){return a*b;}}};");
-    /// rt.eval_sync(script).ok().expect("script failed");
-    /// let res = rt.call_function_sync(vec!["com", "my"], "methodA", vec![7i32.to_es_value_facade(), 5i32.to_es_value_facade(), "abc".to_string().to_es_value_facade(), true.to_es_value_facade()]).ok().expect("func failed");
-    /// assert_eq!(res.get_i32(), 35);
-    /// ```
-    pub fn call_function_sync(
-        &self,
-        namespace: Vec<&'static str>,
-        func_name: &str,
-        mut arguments: Vec<EsValueFacade>,
-    ) -> Result<EsValueFacade, JsError> {
-        let func_name_string = func_name.to_string();
-
-        self.exe_rt_task_in_event_loop(move |q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
-
-            let mut q_args = vec![];
-            for arg in &mut arguments {
-                q_args.push(arg.as_js_value(q_ctx)?);
-            }
-
-            let res = q_ctx.call_function(namespace, func_name_string.as_str(), q_args);
-            match res {
-                Ok(val_ref) => EsValueFacade::from_jsval(q_ctx, &val_ref),
-                Err(e) => Err(e),
-            }
-        })
-    }
-
-    /// call a function in the engine asynchronously
-    /// N.B. func_name is not a &str because of <https://github.com/rust-lang/rust/issues/56238> (i think)
-    /// # example
-    /// ```rust
-    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-    /// use quickjs_runtime::esvalue::EsValueConvertible;
-    /// use hirofa_utils::js_utils::Script;
-    /// let rt = QuickJsRuntimeBuilder::new().build();
-    /// let script = Script::new("my_file.es", "this.com = {my: {methodA: function(a, b){return a*b;}}};");
-    /// rt.eval_sync(script).ok().expect("script failed");
-    /// rt.call_function(vec!["com", "my"], "methodA".to_string(), vec![7.to_es_value_facade(), 5.to_es_value_facade()]);
-    /// ```
-    pub async fn call_function(
-        &self,
-        namespace: Vec<&'static str>,
-        func_name: String,
-        mut arguments: Vec<EsValueFacade>,
-    ) -> Result<EsValueFacade, JsError> {
-        let func_name_string = func_name.to_string();
-
-        self.add_rt_task_to_event_loop(move |q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
-            let mut q_args = vec![];
-            for arg in &mut arguments {
-                match arg.as_js_value(q_ctx) {
-                    Ok(js_arg) => q_args.push(js_arg),
-                    Err(err) => log::error!(
-                        "error occurred in async esruntime::call_function closure: {}",
-                        err
-                    ),
-                }
-            }
-
-            let res = q_ctx.call_function(namespace, func_name_string.as_str(), q_args);
-            match res {
-                Ok(js_ref) => EsValueFacade::from_jsval(q_ctx, &js_ref),
-                Err(e) => Err(e),
-            }
-        })
-        .await
-    }
-
-    /// evaluate a module, you need if you want to compile a script that contains static imports
-    /// e.g.
-    /// ```javascript
-    /// import {util} from 'file.mes';
-    /// console.log(util(1, 2, 3));
-    /// ```
-    /// please note that the module is cached under the absolute path you passed in the Script object
-    /// and thus you should take care to make the path unique (hence the absolute_ name)
-    /// also to use this you need to build the EsRuntime with a module loader closure
-    /// # example
-    /// ```rust
-    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-    /// use hirofa_utils::js_utils::Script;
-    /// use quickjs_runtime::esvalue::EsValueConvertible;
-    /// use hirofa_utils::js_utils::modules::ScriptModuleLoader;
-    /// use quickjs_runtime::quickjsrealmadapter::QuickJsRealmAdapter;
-    /// struct TestModuleLoader {}
-    /// impl ScriptModuleLoader<QuickJsRealmAdapter> for TestModuleLoader {
-    ///     fn normalize_path(&self, _realm: &QuickJsRealmAdapter, ref_path: &str,path: &str) -> Option<String> {
-    ///         Some(path.to_string())
-    ///     }
-    ///
-    ///     fn load_module(&self, _realm: &QuickJsRealmAdapter, absolute_path: &str) -> String {
-    ///         "export const util = function(a, b, c){return a+b+c;};".to_string()
-    ///     }
-    /// }
-    /// let rt = QuickJsRuntimeBuilder::new().script_module_loader(Box::new(TestModuleLoader{})).build();
-    /// let script = Script::new("/opt/files/my_module.mes", "import {util} from 'other_module.mes';\n
-    /// console.log(util(1, 2, 3));");
-    /// rt.eval_module(script);
-    /// ```
-    pub async fn eval_module(&self, script: Script) {
-        self.add_rt_task_to_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
-            let res = q_ctx.eval_module(script);
-            match res {
-                Ok(_) => {}
-                Err(e) => log::error!("error in async eval {}", e),
-            }
-        })
-        .await
-    }
-
-    /// evaluate a module and return result synchronously
-    pub fn eval_module_sync(&self, script: Script) -> Result<EsValueFacade, JsError> {
-        self.exe_rt_task_in_event_loop(move |q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
-            let res = q_ctx.eval_module(script);
-            match res {
-                Ok(val_ref) => EsValueFacade::from_jsval(q_ctx, &val_ref),
-                Err(e) => Err(e),
-            }
-        })
-    }
-
     /// this is how you add a closure to the worker thread which has an instance of the QuickJsRuntime
     /// this will run and return synchronously
     /// # example
     /// ```rust
     /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-    /// use hirofa_utils::js_utils::Script;
+    /// use quickjs_runtime::jsutils::Script;
     /// use quickjs_runtime::quickjs_utils::primitives;
     /// let rt = QuickJsRuntimeBuilder::new().build();
     /// let res = rt.exe_rt_task_in_event_loop(|q_js_rt| {
@@ -576,60 +398,71 @@ impl QuickJsRuntimeFacade {
     /// # Example
     /// ```rust
     /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-    /// use hirofa_utils::js_utils::Script;
     /// use quickjs_runtime::quickjs_utils::primitives;
-    /// use quickjs_runtime::esvalue::{EsValueFacade, EsValueConvertible};
+    /// use quickjs_runtime::jsutils::Script;
+    /// use quickjs_runtime::values::{JsValueConvertable, JsValueFacade};
+    ///  
     /// let rt = QuickJsRuntimeBuilder::new().build();
-    /// rt.set_function(vec!["com", "mycompany", "util"], "methodA", |q_ctx, args: Vec<EsValueFacade>|{
+    ///
+    /// rt.set_function(&["com", "mycompany", "util"], "methodA", |q_ctx, args: Vec<JsValueFacade>|{
     ///     let a = args[0].get_i32();
     ///     let b = args[1].get_i32();
-    ///     Ok((a * b).to_es_value_facade())
-    /// });
-    /// let res = rt.eval_sync(Script::new("test.es", "let a = com.mycompany.util.methodA(13, 17); a * 2;")).ok().expect("script failed");
+    ///     Ok((a * b).to_js_value_facade())
+    /// }).expect("set func failed");
+    ///
+    /// let res = rt.eval_sync(None, Script::new("test.es", "let a = com.mycompany.util.methodA(13, 17); a * 2;")).ok().expect("script failed");
+    ///
     /// assert_eq!(res.get_i32(), (13*17*2));
     /// ```
     pub fn set_function<F>(
         &self,
-        namespace: Vec<&'static str>,
+        namespace: &[&str],
         name: &str,
         function: F,
     ) -> Result<(), JsError>
     where
-        F: Fn(&QuickJsRealmAdapter, Vec<EsValueFacade>) -> Result<EsValueFacade, JsError>
+        F: Fn(&QuickJsRealmAdapter, Vec<JsValueFacade>) -> Result<JsValueFacade, JsError>
             + Send
             + 'static,
     {
         let name = name.to_string();
+
+        let namespace = namespace
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<String>>();
+
         self.exe_rt_task_in_event_loop(move |q_js_rt| {
             let func_rc = Rc::new(function);
             let name = name.to_string();
 
-            q_js_rt.add_context_init_hook(move |_q_js_rt, q_ctx| {
-                let ns = objects::get_namespace_q(q_ctx, namespace.clone(), true)?;
+            q_js_rt.add_context_init_hook(move |_q_js_rt, realm| {
+                let namespace_slice = namespace.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
+                let ns = objects::get_namespace_q(realm, &namespace_slice, true)?;
 
                 let func_rc = func_rc.clone();
 
                 let func = functions::new_function_q(
-                    q_ctx,
+                    realm,
                     name.as_str(),
-                    move |q_ctx, _this_ref, args| {
+                    move |realm, _this_ref, args| {
                         let mut args_facades = vec![];
 
                         for arg_ref in args {
-                            args_facades.push(EsValueFacade::from_jsval(q_ctx, arg_ref)?);
+                            args_facades.push(realm.to_js_value_facade(arg_ref)?);
                         }
 
-                        let res = func_rc(q_ctx, args_facades);
+                        let res = func_rc(realm, args_facades);
 
                         match res {
-                            Ok(mut val_esvf) => val_esvf.as_js_value(q_ctx),
+                            Ok(val_jsvf) => realm.from_js_value_facade(val_jsvf),
                             Err(e) => Err(e),
                         }
                     },
                     1,
                 )?;
 
-                objects::set_property2_q(q_ctx, &ns, name.as_str(), &func, 0)?;
+                objects::set_property2_q(realm, &ns, name.as_str(), &func, 0)?;
 
                 Ok(())
             })
@@ -657,7 +490,7 @@ impl QuickJsRuntimeFacade {
     /// # Example
     /// ```
     /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-    /// use hirofa_utils::js_utils::Script;
+    /// use quickjs_runtime::jsutils::Script;
     /// let rt = QuickJsRuntimeBuilder::new().build();
     /// rt.create_context("my_context");
     /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
@@ -690,13 +523,13 @@ fn loop_realm_func<
 ) -> R {
     let res = QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         if let Some(realm_str) = realm_name.as_ref() {
-            if let Some(realm) = q_js_rt.js_get_realm(realm_str) {
+            if let Some(realm) = q_js_rt.get_realm(realm_str) {
                 (Some(consumer(q_js_rt, realm)), None)
             } else {
                 (None, Some(consumer))
             }
         } else {
-            (Some(consumer(q_js_rt, q_js_rt.js_get_main_realm())), None)
+            (Some(consumer(q_js_rt, q_js_rt.get_main_realm())), None)
         }
     });
 
@@ -714,7 +547,7 @@ fn loop_realm_func<
 
         QuickJsRuntimeAdapter::do_with(|q_js_rt| {
             let realm = q_js_rt
-                .js_get_realm(realm_str.as_str())
+                .get_realm(realm_str.as_str())
                 .expect("invalid state");
             let hooks = &*q_js_rt.context_init_hooks.borrow();
             for hook in hooks {
@@ -729,48 +562,45 @@ fn loop_realm_func<
     }
 }
 
-impl JsRuntimeFacade for QuickJsRuntimeFacade {
-    type JsRuntimeAdapterType = QuickJsRuntimeAdapter;
-    type JsRuntimeFacadeInnerType = QuickjsRuntimeFacadeInner;
-
-    fn js_get_runtime_facade_inner(&self) -> Weak<QuickjsRuntimeFacadeInner> {
+impl QuickJsRuntimeFacade {
+    pub fn get_runtime_facade_inner(&self) -> Weak<QuickjsRuntimeFacadeInner> {
         Arc::downgrade(&self.inner)
     }
 
-    fn js_realm_create(&self, name: &str) -> Result<(), JsError> {
+    pub fn create_realm(&self, name: &str) -> Result<(), JsError> {
         let name = name.to_string();
         self.inner
             .event_loop
             .exe(move || QuickJsRuntimeAdapter::create_context(name.as_str()))
     }
 
-    fn js_realm_destroy(&self, name: &str) -> Result<(), JsError> {
+    pub fn destroy_realm(&self, name: &str) -> Result<(), JsError> {
         let name = name.to_string();
         self.exe_task_in_event_loop(move || {
             QuickJsRuntimeAdapter::do_with_mut(|rt| {
-                if rt.js_get_realm(name.as_str()).is_some() {
-                    rt.js_remove_realm(name.as_str());
+                if rt.get_realm(name.as_str()).is_some() {
+                    rt.remove_realm(name.as_str());
                 }
                 Ok(())
             })
         })
     }
 
-    fn js_realm_has(&self, name: &str) -> Result<bool, JsError> {
+    pub fn has_realm(&self, name: &str) -> Result<bool, JsError> {
         let name = name.to_string();
-        self.exe_rt_task_in_event_loop(move |rt| Ok(rt.js_get_realm(name.as_str()).is_some()))
+        self.exe_rt_task_in_event_loop(move |rt| Ok(rt.get_realm(name.as_str()).is_some()))
     }
 
-    fn js_loop_sync<R: Send + 'static, C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static>(
+    pub fn loop_sync<R: Send + 'static, C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static>(
         &self,
         consumer: C,
     ) -> R {
         self.exe_rt_task_in_event_loop(consumer)
     }
 
-    fn js_loop_sync_mut<
+    pub fn loop_sync_mut<
         R: Send + 'static,
-        C: FnOnce(&mut Self::JsRuntimeAdapterType) -> R + Send + 'static,
+        C: FnOnce(&mut QuickJsRuntimeAdapter) -> R + Send + 'static,
     >(
         &self,
         consumer: C,
@@ -778,18 +608,18 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         self.exe_task_in_event_loop(|| QuickJsRuntimeAdapter::do_with_mut(consumer))
     }
 
-    fn js_loop<R: Send + 'static, C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static>(
+    pub fn js_loop<R: Send + 'static, C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static>(
         &self,
         consumer: C,
     ) -> Pin<Box<dyn Future<Output = R> + Send>> {
         Box::pin(self.add_rt_task_to_event_loop(consumer))
     }
 
-    fn js_loop_void<C: FnOnce(&QuickJsRuntimeAdapter) + Send + 'static>(&self, consumer: C) {
+    pub fn loop_void<C: FnOnce(&QuickJsRuntimeAdapter) + Send + 'static>(&self, consumer: C) {
         self.add_rt_task_to_event_loop_void(consumer)
     }
 
-    fn js_loop_realm_sync<
+    pub fn loop_realm_sync<
         R: Send + 'static,
         C: FnOnce(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> R + Send + 'static,
     >(
@@ -801,7 +631,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         self.exe_task_in_event_loop(|| loop_realm_func(realm_name, consumer))
     }
 
-    fn js_loop_realm<
+    pub fn loop_realm<
         R: Send + 'static,
         C: FnOnce(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> R + Send + 'static,
     >(
@@ -813,7 +643,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         Box::pin(self.add_task_to_event_loop(|| loop_realm_func(realm_name, consumer)))
     }
 
-    fn js_loop_realm_void<
+    pub fn loop_realm_void<
         C: FnOnce(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) + Send + 'static,
     >(
         &self,
@@ -824,14 +654,15 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         self.add_task_to_event_loop_void(|| loop_realm_func(realm_name, consumer));
     }
 
+    /// Evaluate a script asynchronously
     #[allow(clippy::type_complexity)]
-    fn js_eval(
+    pub fn eval(
         &self,
         realm_name: Option<&str>,
         script: Script,
     ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>>>> {
-        self.js_loop_realm(realm_name, |_rt, realm| {
-            let res = realm.js_eval(script);
+        self.loop_realm(realm_name, |_rt, realm| {
+            let res = realm.eval(script);
             match res {
                 Ok(jsvr) => realm.to_js_value_facade(&jsvr),
                 Err(e) => Err(e),
@@ -839,19 +670,132 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         })
     }
 
-    fn js_eval_module(
+    /// Evaluate a script and return the result synchronously
+    /// # example
+    /// ```rust
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+    /// use quickjs_runtime::jsutils::Script;
+    /// let rt = QuickJsRuntimeBuilder::new().build();
+    /// let script = Script::new("my_file.es", "(9 * 3);");
+    /// let res = rt.eval_sync(None, script).ok().expect("script failed");
+    /// assert_eq!(res.get_i32(), 27);
+    /// ```
+    #[allow(clippy::type_complexity)]
+    pub fn eval_sync(
         &self,
         realm_name: Option<&str>,
         script: Script,
-    ) -> Pin<Box<dyn Future<Output = Result<(), JsError>>>> {
-        self.js_loop_realm(realm_name, |_rt, realm| {
-            let res = realm.js_eval_module(script);
-            res.map(|_| ())
+    ) -> Result<JsValueFacade, JsError> {
+        self.loop_realm_sync(realm_name, |_rt, realm| {
+            let res = realm.eval(script);
+            match res {
+                Ok(jsvr) => realm.to_js_value_facade(&jsvr),
+                Err(e) => Err(e),
+            }
         })
     }
 
+    /// evaluate a module, you need this if you want to compile a script that contains static imports
+    /// e.g.
+    /// ```javascript
+    /// import {util} from 'file.js';
+    /// console.log(util(1, 2, 3));
+    /// ```
+    /// please note that the module is cached under the absolute path you passed in the Script object
+    /// and thus you should take care to make the path unique (hence the absolute_ name)
+    /// also to use this you need to build the QuickJsRuntimeFacade with a module loader
+    /// # example
+    /// ```rust
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+    /// use quickjs_runtime::jsutils::modules::ScriptModuleLoader;
+    /// use quickjs_runtime::jsutils::Script;
+    /// use quickjs_runtime::quickjsrealmadapter::QuickJsRealmAdapter;
+    /// struct TestModuleLoader {}
+    /// impl ScriptModuleLoader for TestModuleLoader {
+    ///     fn normalize_path(&self, _realm: &QuickJsRealmAdapter, ref_path: &str,path: &str) -> Option<String> {
+    ///         Some(path.to_string())
+    ///     }
+    ///
+    ///     fn load_module(&self, _realm: &QuickJsRealmAdapter, absolute_path: &str) -> String {
+    ///         "export const util = function(a, b, c){return a+b+c;};".to_string()
+    ///     }
+    /// }
+    /// let rt = QuickJsRuntimeBuilder::new().script_module_loader(Box::new(TestModuleLoader{})).build();
+    /// let script = Script::new("/opt/files/my_module.js", r#"
+    ///     import {util} from 'other_module.js';\n
+    ///     console.log(util(1, 2, 3));
+    /// "#);
+    /// // in real life you would .await this
+    /// let _res = rt.eval_module_sync(None, script);
+    /// ```
+    pub fn eval_module(
+        &self,
+        realm_name: Option<&str>,
+        script: Script,
+    ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>>>> {
+        self.loop_realm(realm_name, |_rt, realm| {
+            let res = realm.eval_module(script)?;
+            realm.to_js_value_facade(&res)
+        })
+    }
+
+    /// evaluate a module synchronously, you need this if you want to compile a script that contains static imports
+    /// e.g.
+    /// ```javascript
+    /// import {util} from 'file.js';
+    /// console.log(util(1, 2, 3));
+    /// ```
+    /// please note that the module is cached under the absolute path you passed in the Script object
+    /// and thus you should take care to make the path unique (hence the absolute_ name)
+    /// also to use this you need to build the QuickJsRuntimeFacade with a module loader
+    /// # example
+    /// ```rust
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+    /// use quickjs_runtime::jsutils::modules::ScriptModuleLoader;
+    /// use quickjs_runtime::jsutils::Script;
+    /// use quickjs_runtime::quickjsrealmadapter::QuickJsRealmAdapter;
+    /// struct TestModuleLoader {}
+    /// impl ScriptModuleLoader for TestModuleLoader {
+    ///     fn normalize_path(&self, _realm: &QuickJsRealmAdapter, ref_path: &str,path: &str) -> Option<String> {
+    ///         Some(path.to_string())
+    ///     }
+    ///
+    ///     fn load_module(&self, _realm: &QuickJsRealmAdapter, absolute_path: &str) -> String {
+    ///         "export const util = function(a, b, c){return a+b+c;};".to_string()
+    ///     }
+    /// }
+    /// let rt = QuickJsRuntimeBuilder::new().script_module_loader(Box::new(TestModuleLoader{})).build();
+    /// let script = Script::new("/opt/files/my_module.js", r#"
+    ///     import {util} from 'other_module.js';\n
+    ///     console.log(util(1, 2, 3));
+    /// "#);
+    /// let _res = rt.eval_module_sync(None, script);
+    /// ```
+    pub fn eval_module_sync(
+        &self,
+        realm_name: Option<&str>,
+        script: Script,
+    ) -> Result<JsValueFacade, JsError> {
+        self.loop_realm_sync(realm_name, |_rt, realm| {
+            let res = realm.eval_module(script)?;
+            realm.to_js_value_facade(&res)
+        })
+    }
+
+    /// invoke a function in the engine and get the result synchronously
+    /// # example
+    /// ```rust
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+    /// use quickjs_runtime::jsutils::Script;
+    /// use quickjs_runtime::values::JsValueConvertable;
+    /// let rt = QuickJsRuntimeBuilder::new().build();
+    /// let script = Script::new("my_file.es", "this.com = {my: {methodA: function(a, b, someStr, someBool){return a*b;}}};");
+    /// rt.eval_sync(None, script).ok().expect("script failed");
+    /// let res = rt.invoke_function_sync(None, &["com", "my"], "methodA", vec![7i32.to_js_value_facade(), 5i32.to_js_value_facade(), "abc".to_js_value_facade(), true.to_js_value_facade()]).ok().expect("func failed");
+    /// assert_eq!(res.get_i32(), 35);
+    /// ```
     #[warn(clippy::type_complexity)]
-    fn js_function_invoke_sync(
+    pub fn invoke_function_sync(
         &self,
         realm_name: Option<&str>,
         namespace: &[&str],
@@ -861,8 +805,8 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         let movable_namespace: Vec<String> = namespace.iter().map(|s| s.to_string()).collect();
         let movable_method_name = method_name.to_string();
 
-        self.js_loop_realm_sync(realm_name, move |_rt, realm| {
-            let args_adapters: Vec<JSValueRef> = args
+        self.loop_realm_sync(realm_name, move |_rt, realm| {
+            let args_adapters: Vec<QuickJsValueAdapter> = args
                 .into_iter()
                 .map(|jsvf| realm.from_js_value_facade(jsvf).expect("conversion failed"))
                 .collect();
@@ -872,7 +816,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
                 .map(|s| s.as_str())
                 .collect::<Vec<&str>>();
 
-            let res = realm.js_function_invoke_by_name(
+            let res = realm.invoke_function_by_name(
                 namespace.as_slice(),
                 movable_method_name.as_str(),
                 args_adapters.as_slice(),
@@ -885,8 +829,20 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         })
     }
 
+    /// invoke a function in the engine asynchronously
+    /// N.B. func_name is not a &str because of <https://github.com/rust-lang/rust/issues/56238> (i think)
+    /// # example
+    /// ```rust
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+    /// use quickjs_runtime::jsutils::Script;
+    /// use quickjs_runtime::values::JsValueConvertable;
+    /// let rt = QuickJsRuntimeBuilder::new().build();
+    /// let script = Script::new("my_file.es", "this.com = {my: {methodA: function(a, b){return a*b;}}};");
+    /// rt.eval_sync(None, script).ok().expect("script failed");
+    /// rt.invoke_function(None, &["com", "my"], "methodA", vec![7.to_js_value_facade(), 5.to_js_value_facade()]);
+    /// ```
     #[allow(clippy::type_complexity)]
-    fn js_function_invoke(
+    pub fn invoke_function(
         &self,
         realm_name: Option<&str>,
         namespace: &[&str],
@@ -896,8 +852,8 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         let movable_namespace: Vec<String> = namespace.iter().map(|s| s.to_string()).collect();
         let movable_method_name = method_name.to_string();
 
-        self.js_loop_realm(realm_name, move |_rt, realm| {
-            let args_adapters: Vec<JSValueRef> = args
+        self.loop_realm(realm_name, move |_rt, realm| {
+            let args_adapters: Vec<QuickJsValueAdapter> = args
                 .into_iter()
                 .map(|jsvf| realm.from_js_value_facade(jsvf).expect("conversion failed"))
                 .collect();
@@ -907,7 +863,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
                 .map(|s| s.as_str())
                 .collect::<Vec<&str>>();
 
-            let res = realm.js_function_invoke_by_name(
+            let res = realm.invoke_function_by_name(
                 namespace.as_slice(),
                 movable_method_name.as_str(),
                 args_adapters.as_slice(),
@@ -920,7 +876,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         })
     }
 
-    fn js_function_invoke_void(
+    pub fn invoke_function_void(
         &self,
         realm_name: Option<&str>,
         namespace: &[&str],
@@ -930,8 +886,8 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
         let movable_namespace: Vec<String> = namespace.iter().map(|s| s.to_string()).collect();
         let movable_method_name = method_name.to_string();
 
-        self.js_loop_realm_void(realm_name, move |_rt, realm| {
-            let args_adapters: Vec<JSValueRef> = args
+        self.loop_realm_void(realm_name, move |_rt, realm| {
+            let args_adapters: Vec<QuickJsValueAdapter> = args
                 .into_iter()
                 .map(|jsvf| realm.from_js_value_facade(jsvf).expect("conversion failed"))
                 .collect();
@@ -942,7 +898,7 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
                 .collect::<Vec<&str>>();
 
             let res = realm
-                .js_function_invoke_by_name(
+                .invoke_function_by_name(
                     namespace.as_slice(),
                     movable_method_name.as_str(),
                     args_adapters.as_slice(),
@@ -970,16 +926,16 @@ impl JsRuntimeFacade for QuickJsRuntimeFacade {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esvalue::{EsValueConvertible, EsValueFacade};
     use crate::facades::QuickJsRuntimeFacade;
+    use crate::jsutils::modules::{NativeModuleLoader, ScriptModuleLoader};
+    use crate::jsutils::JsError;
+    use crate::jsutils::Script;
     use crate::quickjs_utils::{primitives, promises};
     use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-    use crate::valueref::JSValueRef;
+    use crate::quickjsvalueadapter::QuickJsValueAdapter;
+    use crate::values::{JsValueConvertable, JsValueFacade};
     use backtrace::Backtrace;
     use futures::executor::block_on;
-    use hirofa_utils::js_utils::modules::{NativeModuleLoader, ScriptModuleLoader};
-    use hirofa_utils::js_utils::JsError;
-    use hirofa_utils::js_utils::Script;
     use log::debug;
     use log::LevelFilter;
     use std::panic;
@@ -988,7 +944,7 @@ pub mod tests {
     struct TestNativeModuleLoader {}
     struct TestScriptModuleLoader {}
 
-    impl NativeModuleLoader<QuickJsRealmAdapter> for TestNativeModuleLoader {
+    impl NativeModuleLoader for TestNativeModuleLoader {
         fn has_module(&self, _q_ctx: &QuickJsRealmAdapter, module_name: &str) -> bool {
             module_name.starts_with("greco://")
         }
@@ -1005,7 +961,7 @@ pub mod tests {
             &self,
             _q_ctx: &QuickJsRealmAdapter,
             _module_name: &str,
-        ) -> Vec<(&str, JSValueRef)> {
+        ) -> Vec<(&str, QuickJsValueAdapter)> {
             vec![
                 ("a", primitives::from_i32(1234)),
                 ("b", primitives::from_i32(64834)),
@@ -1014,7 +970,7 @@ pub mod tests {
         }
     }
 
-    impl ScriptModuleLoader<QuickJsRealmAdapter> for TestScriptModuleLoader {
+    impl ScriptModuleLoader for TestScriptModuleLoader {
         fn normalize_path(
             &self,
             _realm: &QuickJsRealmAdapter,
@@ -1054,10 +1010,13 @@ pub mod tests {
     pub fn test_stack_size() {
         let rt = init_test_rt();
         // 120 is ok, 200 fails
-        let res = rt.eval_sync(Script::new(
-            "stack_test.js",
-            "let f = function(a){let f2 = arguments.callee; if (a < 120) {f2(a + 1);}}; f(1);",
-        ));
+        let res = rt.eval_sync(
+            None,
+            Script::new(
+                "stack_test.js",
+                "let f = function(a){let f2 = arguments.callee; if (a < 120) {f2(a + 1);}}; f(1);",
+            ),
+        );
         match res {
             Ok(_) => {}
             Err(e) => {
@@ -1066,10 +1025,13 @@ pub mod tests {
             }
         }
 
-        let res = rt.eval_sync(Script::new(
-            "stack_test.js",
-            "let f = function(a){let f2 = arguments.callee; if (a < 1000) {f2(a + 1);}}; f(1);",
-        ));
+        let res = rt.eval_sync(
+            None,
+            Script::new(
+                "stack_test.js",
+                "let f = function(a){let f2 = arguments.callee; if (a < 1000) {f2(a + 1);}}; f(1);",
+            ),
+        );
         if res.is_ok() {
             panic!("stack should have overflowed");
         }
@@ -1100,7 +1062,7 @@ pub mod tests {
     #[test]
     fn test_func() {
         let rt = init_test_rt();
-        let res = rt.set_function(vec!["nl", "my", "utils"], "methodA", |_q_ctx, args| {
+        let res = rt.set_function(&["nl", "my", "utils"], "methodA", |_q_ctx, args| {
             if args.len() != 2 || !args.get(0).unwrap().is_i32() || !args.get(1).unwrap().is_i32() {
                 Err(JsError::new_str(
                     "i'd really like 2 args of the int32 kind please",
@@ -1108,7 +1070,7 @@ pub mod tests {
             } else {
                 let a = args.get(0).unwrap().get_i32();
                 let b = args.get(1).unwrap().get_i32();
-                Ok((a * b).to_es_value_facade())
+                Ok((a * b).to_js_value_facade())
             }
         });
 
@@ -1119,10 +1081,10 @@ pub mod tests {
             }
         }
 
-        let res = rt.eval_sync(Script::new(
-            "test_func.es",
-            "(nl.my.utils.methodA(13, 56));",
-        ));
+        let res = rt.eval_sync(
+            None,
+            Script::new("test_func.es", "(nl.my.utils.methodA(13, 56));"),
+        );
 
         match res {
             Ok(val) => {
@@ -1138,7 +1100,7 @@ pub mod tests {
     #[test]
     fn test_eval_sync() {
         let rt = init_test_rt();
-        let res = rt.eval_sync(Script::new("test.es", "console.log('foo bar');"));
+        let res = rt.eval_sync(None, Script::new("test.es", "console.log('foo bar');"));
 
         match res {
             Ok(_) => {}
@@ -1148,7 +1110,7 @@ pub mod tests {
         }
 
         let res = rt
-            .eval_sync(Script::new("test.es", "(2 * 7);"))
+            .eval_sync(None, Script::new("test.es", "(2 * 7);"))
             .expect("script failed");
 
         assert_eq!(res.get_i32(), 14);
@@ -1192,21 +1154,28 @@ pub mod tests {
     fn test_eval_await() {
         let rt = init_test_rt();
 
-        let res = rt.eval_sync(Script::new(
+        let res = rt.eval_sync(None, Script::new(
             "test_async.es",
             "{let f = async function(){let p = new Promise((resolve, reject) => {resolve(12345);}); const p2 = await p; return p2}; f()};",
         ));
 
         match res {
             Ok(esvf) => {
-                assert!(esvf.is_promise());
-                let p_res = esvf.get_promise_result_sync();
-                if p_res.is_err() {
-                    panic!("{:?}", p_res.err().unwrap());
+                assert!(esvf.is_js_promise());
+                match esvf {
+                    JsValueFacade::JsPromise { cached_promise } => {
+                        let p_res = cached_promise
+                            .js_get_promise_result_sync()
+                            .expect("promise timed out");
+                        if p_res.is_err() {
+                            panic!("{:?}", p_res.err().unwrap());
+                        }
+                        let res = p_res.ok().unwrap();
+                        assert!(res.is_i32());
+                        assert_eq!(res.get_i32(), 12345);
+                    }
+                    _ => {}
                 }
-                let res = p_res.ok().unwrap();
-                assert!(res.is_i32());
-                assert_eq!(res.get_i32(), 12345);
             }
             Err(e) => {
                 panic!("eval failed: {}", e);
@@ -1218,7 +1187,7 @@ pub mod tests {
     fn test_promise() {
         let rt = init_test_rt();
 
-        let res = rt.eval_sync(Script::new(
+        let res = rt.eval_sync(None, Script::new(
             "testp2.es",
             "let test_promise_P = (new Promise(function(res, rej) {console.log('before res');res(123);console.log('after res');}).then(function (a) {console.log('prom ressed to ' + a);}).catch(function(x) {console.log('p.ca ex=' + x);}))",
         ));
@@ -1236,10 +1205,13 @@ pub mod tests {
 
         let rt = init_test_rt();
         debug!("test static import");
-        let res: Result<EsValueFacade, JsError> = rt.eval_module_sync(Script::new(
-            "test.es",
-            "import {foo} from 'test_module.mes';\n console.log('static imp foo = ' + foo);",
-        ));
+        let res: Result<JsValueFacade, JsError> = rt.eval_module_sync(
+            None,
+            Script::new(
+                "test.es",
+                "import {foo} from 'test_module.mes';\n console.log('static imp foo = ' + foo);",
+            ),
+        );
 
         match res {
             Ok(_) => {
@@ -1251,7 +1223,7 @@ pub mod tests {
         }
 
         debug!("test dynamic import");
-        let res: Result<EsValueFacade, JsError> = rt.eval_sync(Script::new(
+        let res: Result<JsValueFacade, JsError> = rt.eval_sync(None, Script::new(
             "test_dyn.es",
             "console.log('about to load dynamic module');let dyn_p = import('test_module.mes');dyn_p.then(function (some) {console.log('after dyn');console.log('after dyn ' + typeof some);console.log('mltpl 5, 7 = ' + some.mltpl(5, 7));});dyn_p.catch(function (x) {console.log('imp.cat x=' + x);});console.log('dyn done');",
         ));
@@ -1272,7 +1244,9 @@ pub mod tests {
     async fn test_async1() -> i32 {
         let rt = init_test_rt();
 
-        let a = rt.eval(Script::new("test_async.es", "122 + 1;")).await;
+        let a = rt
+            .eval(None, Script::new("test_async.es", "122 + 1;"))
+            .await;
         match a {
             Ok(a) => a.get_i32(),
             Err(e) => panic!("script failed: {}", e),
@@ -1285,30 +1259,24 @@ pub mod tests {
         let res = block_on(fut);
         assert_eq!(res, 123);
     }
-
-    #[test]
-    fn test_macro() {
-        let _args = es_args!(1, 2i32, true, "sdf".to_string());
-    }
 }
 
 #[cfg(test)]
 pub mod abstraction_tests {
     use crate::builder::QuickJsRuntimeBuilder;
     use crate::facades::tests::init_test_rt;
+    use crate::facades::QuickJsRuntimeFacade;
+    use crate::jsutils::Script;
+    use crate::values::JsValueFacade;
     use futures::executor::block_on;
-    use hirofa_utils::js_utils::adapters::JsRealmAdapter;
-    use hirofa_utils::js_utils::facades::values::JsValueFacade;
-    use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
-    use hirofa_utils::js_utils::Script;
     use serde::Deserialize;
     use serde::Serialize;
 
-    async fn example<T: JsRuntimeFacade>(rt: &T) -> JsValueFacade {
+    async fn example(rt: &QuickJsRuntimeFacade) -> JsValueFacade {
         // add a job for the main realm (None as realm_name)
-        rt.js_loop_realm(None, |_rt_adapter, realm_adapter| {
+        rt.loop_realm(None, |_rt_adapter, realm_adapter| {
             let script = Script::new("example.js", "7 + 13");
-            let value_adapter = realm_adapter.js_eval(script).expect("script failed");
+            let value_adapter = realm_adapter.eval(script).expect("script failed");
             // convert value_adapter to value_facade because value_adapter is not Send
             realm_adapter
                 .to_js_value_facade(&value_adapter)
@@ -1346,14 +1314,14 @@ pub mod abstraction_tests {
         let input: JsValueFacade = JsValueFacade::SerdeValue { value };
         let rt = init_test_rt();
 
-        let _ = rt.js_eval(None,Script::new("t.js", r#"
+        let _ = rt.eval(None, Script::new("t.js", r#"
             function testSerde(input) {
                 return "" + input.a + input.b + input.c.d + input.c.e[0] + input.c.e[1] + input.c.e[2];
             }
         "#)).await.expect("script failed");
 
         let res = rt
-            .js_function_invoke(None, &[], "testSerde", vec![input])
+            .invoke_function(None, &[], "testSerde", vec![input])
             .await
             .expect("func failed");
 
@@ -1374,7 +1342,7 @@ pub mod abstraction_tests {
         let rt = rtb.js_build();
 
         // init my function
-        rt.js_eval(
+        rt.eval(
             None,
             Script::new(
                 "test.js",
@@ -1401,13 +1369,12 @@ pub mod abstraction_tests {
             .expect("could not serialize to JsValueFacade")];
 
         let res: JsValueFacade = rt
-            .js_function_invoke(None, &[], "myTest", args)
+            .invoke_function(None, &[], "myTest", args)
             .await
             .expect("func failed");
-        let rti = rt.js_get_runtime_facade_inner().upgrade().unwrap();
 
         let json_result = res
-            .to_json_string(&*rti)
+            .to_json_string()
             .await
             .expect("could not serialize to json");
 
@@ -1428,7 +1395,7 @@ pub mod abstraction_tests {
         let rt = rtb.js_build();
 
         // init my function
-        rt.js_eval(
+        rt.eval(
             None,
             Script::new(
                 "test.js",
@@ -1456,14 +1423,13 @@ pub mod abstraction_tests {
         let args = vec![JsValueFacade::SerdeValue { value: input_value }];
 
         let res: JsValueFacade = rt
-            .js_function_invoke(None, &[], "myTest", args)
+            .invoke_function(None, &[], "myTest", args)
             .await
             .expect("func failed");
-        let rti = rt.js_get_runtime_facade_inner().upgrade().unwrap();
 
         // as value
         let value_result: serde_json::Value = res
-            .to_serde_value(&*rti)
+            .to_serde_value()
             .await
             .expect("could not serialize to json");
 

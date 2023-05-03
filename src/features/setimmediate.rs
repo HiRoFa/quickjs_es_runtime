@@ -1,18 +1,18 @@
 use crate::facades::QuickJsRuntimeFacade;
+use crate::jsutils::JsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, get_global_q, objects, parse_args};
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
-use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 
 /// provides the setImmediate methods for the runtime
 /// # Example
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-/// use hirofa_utils::js_utils::Script;
+/// use quickjs_runtime::jsutils::Script;
 /// use std::time::Duration;
 /// let rt = QuickJsRuntimeBuilder::new().build();
-/// rt.eval(Script::new("test_immediate.es", "setImmediate(() => {console.log('immediate logging')});"));
+/// rt.eval_sync(None, Script::new("test_immediate.es", "setImmediate(() => {console.log('immediate logging')});")).expect("script failed");
 /// std::thread::sleep(Duration::from_secs(1));
 /// ```
 
@@ -39,7 +39,7 @@ unsafe extern "C" fn set_immediate(
 ) -> q::JSValue {
     log::trace!("> set_immediate");
 
-    let mut args = parse_args(context, argc, argv);
+    let args = parse_args(context, argc, argv);
 
     QuickJsRuntimeAdapter::do_with(move |q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(context);
@@ -51,9 +51,9 @@ unsafe extern "C" fn set_immediate(
         }
 
         QuickJsRuntimeFacade::add_local_task_to_event_loop(move |_q_js_rt| {
-            let func = args.remove(0);
+            let func = &args[0];
 
-            match functions::call_function(context, &func, args, None) {
+            match functions::call_function(context, &func, &args[1..], None) {
                 Ok(_) => {}
                 Err(e) => {
                     log::error!("setImmediate failed: {}", e);

@@ -1,13 +1,13 @@
+use crate::jsutils::JsError;
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-use crate::valueref::JSValueRef;
-use hirofa_utils::js_utils::JsError;
+use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use libquickjs_sys as q;
 
 /// Check whether an object is an array
 /// # Example
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-/// use hirofa_utils::js_utils::Script;
+/// use quickjs_runtime::jsutils::Script;
 /// use quickjs_runtime::quickjs_utils::arrays;
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
@@ -18,13 +18,13 @@ use libquickjs_sys as q;
 ///     assert!(is_array);
 /// });
 /// ```
-pub fn is_array_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &JSValueRef) -> bool {
+pub fn is_array_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &QuickJsValueAdapter) -> bool {
     unsafe { is_array(q_ctx.context, obj_ref) }
 }
 
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn is_array(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
+pub unsafe fn is_array(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter) -> bool {
     let r = obj_ref.borrow_value();
     let val = q::JS_IsArray(context, *r);
     val > 0
@@ -34,7 +34,7 @@ pub unsafe fn is_array(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool
 /// # Example
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-/// use hirofa_utils::js_utils::Script;
+/// use quickjs_runtime::jsutils::Script;
 /// use quickjs_runtime::quickjs_utils::arrays;
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
@@ -45,14 +45,20 @@ pub unsafe fn is_array(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool
 ///     assert_eq!(len, 3);
 /// });
 /// ```
-pub fn get_length_q(q_ctx: &QuickJsRealmAdapter, arr_ref: &JSValueRef) -> Result<u32, JsError> {
+pub fn get_length_q(
+    q_ctx: &QuickJsRealmAdapter,
+    arr_ref: &QuickJsValueAdapter,
+) -> Result<u32, JsError> {
     unsafe { get_length(q_ctx.context, arr_ref) }
 }
 
 /// Get the length of an Array
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Result<u32, JsError> {
+pub unsafe fn get_length(
+    context: *mut q::JSContext,
+    arr_ref: &QuickJsValueAdapter,
+) -> Result<u32, JsError> {
     let len_ref = crate::quickjs_utils::objects::get_property(context, arr_ref, "length")?;
 
     let len = crate::quickjs_utils::primitives::to_i32(&len_ref)?;
@@ -64,7 +70,7 @@ pub unsafe fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Re
 /// # Example
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-/// use hirofa_utils::js_utils::Script;
+/// use quickjs_runtime::jsutils::Script;
 /// use quickjs_runtime::quickjs_utils::{arrays, primitives, functions};
 /// use quickjs_runtime::quickjs_utils;
 ///
@@ -81,21 +87,21 @@ pub unsafe fn get_length(context: *mut q::JSContext, arr_ref: &JSValueRef) -> Re
 ///     arrays::set_element_q(q_ctx, &arr_ref, 0, &val0).expect("could not set element");
 ///     arrays::set_element_q(q_ctx, &arr_ref, 1, &val1).expect("could not set element");
 ///     // call the function
-///     let result_ref = functions::invoke_member_function_q(q_ctx, &quickjs_utils::get_global_q(q_ctx), "create_array_func", vec![arr_ref]).ok().expect("could not invoke function");
+///     let result_ref = functions::invoke_member_function_q(q_ctx, &quickjs_utils::get_global_q(q_ctx), "create_array_func", &[arr_ref]).ok().expect("could not invoke function");
 ///     let len = primitives::to_i32(&result_ref).ok().unwrap();
 ///     assert_eq!(len, 2);
 /// });
 /// ```
 
-pub fn create_array_q(q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
+pub fn create_array_q(q_ctx: &QuickJsRealmAdapter) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { create_array(q_ctx.context) }
 }
 
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn create_array(context: *mut q::JSContext) -> Result<JSValueRef, JsError> {
+pub unsafe fn create_array(context: *mut q::JSContext) -> Result<QuickJsValueAdapter, JsError> {
     let arr = q::JS_NewArray(context);
-    let arr_ref = JSValueRef::new(context, arr, false, true, "create_array");
+    let arr_ref = QuickJsValueAdapter::new(context, arr, false, true, "create_array");
     if arr_ref.is_exception() {
         return Err(JsError::new_str("Could not create array in runtime"));
     }
@@ -106,7 +112,7 @@ pub unsafe fn create_array(context: *mut q::JSContext) -> Result<JSValueRef, JsE
 /// # Example
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-/// use hirofa_utils::js_utils::Script;
+/// use quickjs_runtime::jsutils::Script;
 /// use quickjs_runtime::quickjs_utils::{arrays, primitives};
 /// use quickjs_runtime::quickjs_utils;
 ///
@@ -125,9 +131,9 @@ pub unsafe fn create_array(context: *mut q::JSContext) -> Result<JSValueRef, JsE
 /// ```
 pub fn set_element_q(
     q_ctx: &QuickJsRealmAdapter,
-    array_ref: &JSValueRef,
+    array_ref: &QuickJsValueAdapter,
     index: u32,
-    entry_value_ref: &JSValueRef,
+    entry_value_ref: &QuickJsValueAdapter,
 ) -> Result<(), JsError> {
     unsafe { set_element(q_ctx.context, array_ref, index, entry_value_ref) }
 }
@@ -136,9 +142,9 @@ pub fn set_element_q(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn set_element(
     context: *mut q::JSContext,
-    array_ref: &JSValueRef,
+    array_ref: &QuickJsValueAdapter,
     index: u32,
-    entry_value_ref: &JSValueRef,
+    entry_value_ref: &QuickJsValueAdapter,
 ) -> Result<(), JsError> {
     let entry_value_ref = entry_value_ref;
 
@@ -159,7 +165,7 @@ pub unsafe fn set_element(
 /// # Example
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-/// use hirofa_utils::js_utils::Script;
+/// use quickjs_runtime::jsutils::Script;
 /// use quickjs_runtime::quickjs_utils::{arrays, primitives};
 /// use quickjs_runtime::quickjs_utils;
 ///
@@ -177,9 +183,9 @@ pub unsafe fn set_element(
 /// ```
 pub fn get_element_q(
     q_ctx: &QuickJsRealmAdapter,
-    array_ref: &JSValueRef,
+    array_ref: &QuickJsValueAdapter,
     index: u32,
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { get_element(q_ctx.context, array_ref, index) }
 }
 
@@ -187,11 +193,11 @@ pub fn get_element_q(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn get_element(
     context: *mut q::JSContext,
-    array_ref: &JSValueRef,
+    array_ref: &QuickJsValueAdapter,
     index: u32,
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     let value_raw = q::JS_GetPropertyUint32(context, *array_ref.borrow_value(), index);
-    let ret = JSValueRef::new(
+    let ret = QuickJsValueAdapter::new(
         context,
         value_raw,
         false,

@@ -130,7 +130,7 @@ use crate::builder::QuickJsRuntimeBuilder;
         // invoke a JS method from rust
 
         let meth_res = rt
-            .js_function_invoke(None, &["Math"], "round", vec![12.321.to_js_value_facade()])
+            .invoke_function(None, &["Math"], "round", vec![12.321.to_js_value_facade()])
             .await?;
         log::info!("Math.round(12.321) = {}", meth_res.get_i32());
 
@@ -142,7 +142,7 @@ use crate::builder::QuickJsRuntimeBuilder;
             log::info!("rust cb was called with a:{} and b:{}", a, b);
             Ok(JsValueFacade::Null)
         });
-        rt.js_function_invoke(
+        rt.invoke_function(
             None,
             &[],
             "setTimeout",

@@ -7,24 +7,33 @@ use crate::quickjs_utils::typedarrays::{
 };
 use crate::quickjs_utils::{arrays, errors, functions, get_global_q, json, new_null_ref, objects};
 use crate::quickjsruntimeadapter::{make_cstring, QuickJsRuntimeAdapter};
+use crate::quickjsvalueadapter::{QuickJsValueAdapter, TAG_EXCEPTION};
 use crate::reflection::eventtarget::dispatch_event;
 use crate::reflection::eventtarget::dispatch_static_event;
 use crate::reflection::{new_instance, new_instance3, Proxy};
-use crate::valueref::{JSValueRef, TAG_EXCEPTION};
 use hirofa_utils::auto_id_map::AutoIdMap;
-use hirofa_utils::js_utils::adapters::proxies::{
-    JsProxy, JsProxyInstanceId, JsProxyMember, JsProxyStaticMember,
+
+use crate::jsutils::jsproxies::{JsProxy, JsProxyInstanceId};
+use crate::jsutils::{JsError, JsValueType, Script};
+use crate::quickjs_utils::promises::QuickJsPromiseAdapter;
+use crate::values::{
+    CachedJsArrayRef, CachedJsFunctionRef, CachedJsObjectRef, CachedJsPromiseRef, JsValueFacade,
+    TypedArrayType,
 };
-use hirofa_utils::js_utils::adapters::{JsPromiseAdapter, JsRealmAdapter, JsValueAdapter};
-use hirofa_utils::js_utils::JsError;
-use hirofa_utils::js_utils::Script;
 use libquickjs_sys as q;
+use serde_json::Value;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::CString;
+use std::future::Future;
+use std::i32;
 use std::os::raw::c_void;
 use std::rc::Rc;
 use std::sync::{Arc, Weak};
+
+use crate::jsutils::promises::new_resolving_promise;
+use crate::jsutils::promises::new_resolving_promise_async;
+use string_cache::DefaultAtom;
 
 type ProxyEventListenerMaps = HashMap<
     String, /*proxy_class_name*/
@@ -32,7 +41,10 @@ type ProxyEventListenerMaps = HashMap<
         usize, /*proxy_instance_id*/
         HashMap<
             String, /*event_id*/
-            HashMap<JSValueRef /*listener_func*/, JSValueRef /*options_obj*/>,
+            HashMap<
+                QuickJsValueAdapter, /*listener_func*/
+                QuickJsValueAdapter, /*options_obj*/
+            >,
         >,
     >,
 >;
@@ -41,13 +53,16 @@ type ProxyStaticEventListenerMaps = HashMap<
     String, /*proxy_class_name*/
     HashMap<
         String, /*event_id*/
-        HashMap<JSValueRef /*listener_func*/, JSValueRef /*options_obj*/>,
+        HashMap<
+            QuickJsValueAdapter, /*listener_func*/
+            QuickJsValueAdapter, /*options_obj*/
+        >,
     >,
 >;
 
 pub struct QuickJsRealmAdapter {
-    object_cache: RefCell<AutoIdMap<JSValueRef>>,
-    promise_cache: RefCell<AutoIdMap<Box<dyn JsPromiseAdapter<Self>>>>,
+    object_cache: RefCell<AutoIdMap<QuickJsValueAdapter>>,
+    promise_cache: RefCell<AutoIdMap<QuickJsPromiseAdapter>>,
     pub(crate) proxy_registry: RefCell<HashMap<String, Rc<Proxy>>>, // todo is this Rc needed or can we just borrow the Proxy when needed?
     pub(crate) proxy_event_listeners: RefCell<ProxyEventListenerMaps>,
     pub(crate) proxy_static_event_listeners: RefCell<ProxyStaticEventListenerMaps>,
@@ -117,23 +132,27 @@ impl QuickJsRealmAdapter {
         let info: &mut String = &mut *(info_ptr as *mut String);
         info
     }
-    /// call a function by namespace and name
-    pub fn call_function(
+    /// invoke a function by namespace and name
+    pub fn invoke_function_by_name(
         &self,
-        namespace: Vec<&str>,
+        namespace: &[&str],
         func_name: &str,
-        arguments: Vec<JSValueRef>,
-    ) -> Result<JSValueRef, JsError> {
+        arguments: &[QuickJsValueAdapter],
+    ) -> Result<QuickJsValueAdapter, JsError> {
         let namespace_ref = unsafe { objects::get_namespace(self.context, namespace, false) }?;
         functions::invoke_member_function_q(self, &namespace_ref, func_name, arguments)
     }
     /// evaluate a script
 
-    pub fn eval(&self, script: Script) -> Result<JSValueRef, JsError> {
+    pub fn eval(&self, script: Script) -> Result<QuickJsValueAdapter, JsError> {
         unsafe { Self::eval_ctx(self.context, script, None) }
     }
 
-    pub fn eval_this(&self, script: Script, this: JSValueRef) -> Result<JSValueRef, JsError> {
+    pub fn eval_this(
+        &self,
+        script: Script,
+        this: QuickJsValueAdapter,
+    ) -> Result<QuickJsValueAdapter, JsError> {
         unsafe { Self::eval_ctx(self.context, script, Some(this)) }
     }
 
@@ -142,8 +161,8 @@ impl QuickJsRealmAdapter {
     pub unsafe fn eval_ctx(
         context: *mut q::JSContext,
         mut script: Script,
-        this_opt: Option<JSValueRef>,
-    ) -> Result<JSValueRef, JsError> {
+        this_opt: Option<QuickJsValueAdapter>,
+    ) -> Result<QuickJsValueAdapter, JsError> {
         log::debug!("q_js_rt.eval file {}", script.get_path());
 
         script = QuickJsRuntimeAdapter::pre_process(script)?;
@@ -172,7 +191,7 @@ impl QuickJsRealmAdapter {
         log::trace!("after eval, checking error");
 
         // check for error
-        let ret = JSValueRef::new(
+        let ret = QuickJsValueAdapter::new(
             context,
             value_raw,
             false,
@@ -193,7 +212,7 @@ impl QuickJsRealmAdapter {
     }
 
     /// evaluate a Module
-    pub fn eval_module(&self, script: Script) -> Result<JSValueRef, JsError> {
+    pub fn eval_module(&self, script: Script) -> Result<QuickJsValueAdapter, JsError> {
         unsafe { Self::eval_module_ctx(self.context, script) }
     }
 
@@ -202,7 +221,7 @@ impl QuickJsRealmAdapter {
     pub unsafe fn eval_module_ctx(
         context: *mut q::JSContext,
         mut script: Script,
-    ) -> Result<JSValueRef, JsError> {
+    ) -> Result<QuickJsValueAdapter, JsError> {
         log::debug!("q_js_rt.eval_module file {}", script.get_path());
 
         script = QuickJsRuntimeAdapter::pre_process(script)?;
@@ -218,7 +237,7 @@ impl QuickJsRealmAdapter {
             q::JS_EVAL_TYPE_MODULE as i32,
         );
 
-        let ret = JSValueRef::new(
+        let ret = QuickJsValueAdapter::new(
             context,
             value_raw,
             false,
@@ -272,7 +291,7 @@ impl QuickJsRealmAdapter {
         errors::get_exception(context)
     }
 
-    pub fn cache_object(&self, obj: JSValueRef) -> i32 {
+    pub fn cache_object(&self, obj: QuickJsValueAdapter) -> i32 {
         let cache_map = &mut *self.object_cache.borrow_mut();
         let id = cache_map.insert(obj) as i32;
         log::trace!("cache_object: id={}, thread={}", id, thread_id::get());
@@ -291,7 +310,7 @@ impl QuickJsRealmAdapter {
         }
     }
 
-    pub fn consume_cached_obj(&self, id: i32) -> JSValueRef {
+    pub fn consume_cached_obj(&self, id: i32) -> QuickJsValueAdapter {
         log::trace!("consume_cached_obj: id={}, thread={}", id, thread_id::get());
         let cache_map = &mut *self.object_cache.borrow_mut();
         cache_map.remove(&(id as usize))
@@ -299,7 +318,7 @@ impl QuickJsRealmAdapter {
 
     pub fn with_cached_obj<C, R>(&self, id: i32, consumer: C) -> R
     where
-        C: FnOnce(JSValueRef) -> R,
+        C: FnOnce(QuickJsValueAdapter) -> R,
     {
         log::trace!("with_cached_obj: id={}, thread={}", id, thread_id::get());
         let clone_ref = {
@@ -346,101 +365,37 @@ impl Drop for QuickJsRealmAdapter {
     }
 }
 
-impl JsRealmAdapter for QuickJsRealmAdapter {
-    type JsRuntimeAdapterType = QuickJsRuntimeAdapter;
-    type JsValueAdapterType = JSValueRef;
-
-    fn js_get_realm_id(&self) -> &str {
+impl QuickJsRealmAdapter {
+    pub fn get_realm_id(&self) -> &str {
         self.id.as_str()
     }
 
-    fn js_get_runtime_facade_inner(&self) -> Weak<QuickjsRuntimeFacadeInner> {
+    pub fn get_runtime_facade_inner(&self) -> Weak<QuickjsRuntimeFacadeInner> {
         QuickJsRuntimeAdapter::do_with(|rt| {
             Arc::downgrade(&rt.get_rti_ref().expect("Runtime was dropped"))
         })
     }
 
-    fn js_get_script_or_module_name(&self) -> Result<String, JsError> {
+    pub fn get_script_or_module_name(&self) -> Result<String, JsError> {
         crate::quickjs_utils::get_script_or_module_name_q(self)
     }
 
-    fn js_eval(&self, script: Script) -> Result<JSValueRef, JsError> {
-        self.eval(script)
-    }
-
-    fn js_proxy_install(
+    pub fn install_proxy(
         &self,
-        mut proxy: JsProxy<QuickJsRealmAdapter>,
+        proxy: JsProxy,
         add_global_var: bool,
-    ) -> Result<JSValueRef, JsError> {
+    ) -> Result<QuickJsValueAdapter, JsError> {
         // create qjs proxy from proxy
-        let mut q_proxy = Proxy::new();
-        q_proxy = q_proxy.name(proxy.name);
-        q_proxy = q_proxy.namespace(proxy.namespace.to_vec());
-        if proxy.event_target {
-            q_proxy = q_proxy.event_target();
-        }
-        if proxy.static_event_target {
-            q_proxy = q_proxy.static_event_target();
-        }
 
-        // todo revamp qjs proxy to have rt as first arg in methods/getter/setters etc
-        if let Some(constructor) = proxy.constructor.take() {
-            q_proxy = q_proxy.constructor(move |realm, id, args| {
-                QuickJsRuntimeAdapter::do_with(|rt| constructor(rt, realm, id, args.as_slice()))
-            });
-        }
-        if let Some(finalizer) = proxy.finalizer.take() {
-            q_proxy = q_proxy.finalizer(move |realm, id| {
-                QuickJsRuntimeAdapter::do_with(|rt| finalizer(rt, realm, id))
-            });
-        }
-        for member in proxy.members {
-            match member.1 {
-                JsProxyMember::Method { method } => {
-                    q_proxy = q_proxy.method(member.0, move |realm, id, args| {
-                        //
-                        QuickJsRuntimeAdapter::do_with(|rt| method(rt, realm, *id, args.as_slice()))
-                    })
-                }
-                JsProxyMember::GetterSetter { get, set } => {
-                    q_proxy = q_proxy.getter_setter(
-                        member.0,
-                        move |realm, id| QuickJsRuntimeAdapter::do_with(|rt| get(rt, realm, *id)),
-                        move |realm, id, val| {
-                            QuickJsRuntimeAdapter::do_with(|rt| set(rt, realm, *id, &val))
-                        },
-                    );
-                }
-            }
-        }
-        for static_member in proxy.static_members {
-            match static_member.1 {
-                JsProxyStaticMember::StaticMethod { method } => {
-                    q_proxy = q_proxy.static_method(static_member.0, move |realm, args| {
-                        //
-                        QuickJsRuntimeAdapter::do_with(|rt| method(rt, realm, args.as_slice()))
-                    })
-                }
-                JsProxyStaticMember::StaticGetterSetter { get, set } => {
-                    q_proxy = q_proxy.static_getter_setter(
-                        static_member.0,
-                        move |realm| QuickJsRuntimeAdapter::do_with(|rt| get(rt, realm)),
-                        move |realm, val| QuickJsRuntimeAdapter::do_with(|rt| set(rt, realm, &val)),
-                    );
-                }
-            }
-        }
-
-        q_proxy.install(self, add_global_var)
+        proxy.install(self, add_global_var)
     }
 
-    fn js_proxy_instantiate_with_id(
+    pub fn instantiate_proxy_with_id(
         &self,
         namespace: &[&str],
         class_name: &str,
         instance_id: usize,
-    ) -> Result<Self::JsValueAdapterType, JsError> {
+    ) -> Result<QuickJsValueAdapter, JsError> {
         // todo store proxies with slice/name as key?
         let cn = if namespace.is_empty() {
             class_name.to_string()
@@ -454,12 +409,12 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         new_instance3(proxy, instance_id, self)
     }
 
-    fn js_proxy_instantiate(
+    pub fn instantiate_proxy(
         &self,
         namespace: &[&str],
         class_name: &str,
-        arguments: &[JSValueRef],
-    ) -> Result<(JsProxyInstanceId, JSValueRef), JsError> {
+        arguments: &[QuickJsValueAdapter],
+    ) -> Result<(JsProxyInstanceId, QuickJsValueAdapter), JsError> {
         // todo store proxies with slice/name as key?
         let cn = if namespace.is_empty() {
             class_name.to_string()
@@ -474,19 +429,19 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
 
         if let Some(constructor) = &proxy.constructor {
             // call constructor myself
-            constructor(self, instance_info.0, arguments.to_vec())?;
+            QuickJsRuntimeAdapter::do_with(|rt| constructor(rt, self, instance_info.0, arguments))?
         }
 
         Ok(instance_info)
     }
 
-    fn js_proxy_dispatch_event(
+    pub fn dispatch_proxy_event(
         &self,
         namespace: &[&str],
         class_name: &str,
         proxy_instance_id: &usize,
         event_id: &str,
-        event_obj: &JSValueRef,
+        event_obj: &QuickJsValueAdapter,
     ) -> Result<bool, JsError> {
         // todo store proxies with slice/name as key?
         let cn = if namespace.is_empty() {
@@ -501,12 +456,12 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         dispatch_event(self, proxy, *proxy_instance_id, event_id, event_obj.clone())
     }
 
-    fn js_proxy_dispatch_static_event(
+    pub fn dispatch_static_proxy_event(
         &self,
         namespace: &[&str],
         class_name: &str,
         event_id: &str,
-        event_obj: &Self::JsValueAdapterType,
+        event_obj: &QuickJsValueAdapter,
     ) -> Result<bool, JsError> {
         // todo store proxies with slice/name as key?
         let cn = if namespace.is_empty() {
@@ -526,20 +481,20 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         )
     }
 
-    fn js_install_function(
+    pub fn install_function(
         &self,
         namespace: &[&str],
         name: &str,
         js_function: fn(
             &QuickJsRuntimeAdapter,
             &Self,
-            &JSValueRef,
-            &[JSValueRef],
-        ) -> Result<JSValueRef, JsError>,
+            &QuickJsValueAdapter,
+            &[QuickJsValueAdapter],
+        ) -> Result<QuickJsValueAdapter, JsError>,
         arg_count: u32,
     ) -> Result<(), JsError> {
         // todo namespace as slice?
-        let ns = self.js_get_namespace(namespace)?;
+        let ns = self.get_namespace(namespace)?;
 
         let func = functions::new_function_q(
             self,
@@ -549,17 +504,17 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
             },
             arg_count,
         )?;
-        self.js_object_set_property(&ns, name, &func)?;
+        self.set_object_property(&ns, name, &func)?;
         Ok(())
     }
 
-    fn js_install_closure<
+    pub fn install_closure<
         F: Fn(
                 &QuickJsRuntimeAdapter,
                 &Self,
-                &JSValueRef,
-                &[JSValueRef],
-            ) -> Result<JSValueRef, JsError>
+                &QuickJsValueAdapter,
+                &[QuickJsValueAdapter],
+            ) -> Result<QuickJsValueAdapter, JsError>
             + 'static,
     >(
         &self,
@@ -569,7 +524,7 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         arg_count: u32,
     ) -> Result<(), JsError> {
         // todo namespace as slice?
-        let ns = self.js_get_namespace(namespace)?;
+        let ns = self.get_namespace(namespace)?;
 
         let func = functions::new_function_q(
             self,
@@ -579,115 +534,134 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
             },
             arg_count,
         )?;
-        self.js_object_set_property(&ns, name, &func)?;
+        self.set_object_property(&ns, name, &func)?;
         Ok(())
     }
 
-    fn js_eval_module(&self, script: Script) -> Result<JSValueRef, JsError> {
-        self.eval_module(script)
-    }
-
-    fn js_get_global(&self) -> Result<Self::JsValueAdapterType, JsError> {
+    pub fn get_global(&self) -> Result<QuickJsValueAdapter, JsError> {
         Ok(get_global_q(self))
     }
 
-    fn js_get_namespace(&self, namespace: &[&str]) -> Result<JSValueRef, JsError> {
-        let namespace_vec = namespace.to_vec();
-        objects::get_namespace_q(self, namespace_vec, true)
+    pub fn get_namespace(&self, namespace: &[&str]) -> Result<QuickJsValueAdapter, JsError> {
+        objects::get_namespace_q(self, namespace, true)
     }
 
-    fn js_function_invoke_by_name(
+    pub fn invoke_function_on_object_by_name(
         &self,
-        namespace: &[&str],
+        this_obj: &QuickJsValueAdapter,
         method_name: &str,
-        args: &[JSValueRef],
-    ) -> Result<JSValueRef, JsError> {
-        // todo see if we want to alter call_function
-        let ns_vec = namespace.to_vec();
-        let args_vec = args.to_vec();
-
-        self.call_function(ns_vec, method_name, args_vec)
+        args: &[QuickJsValueAdapter],
+    ) -> Result<QuickJsValueAdapter, JsError> {
+        functions::invoke_member_function_q(self, this_obj, method_name, args)
     }
 
-    fn js_function_invoke_member_by_name(
+    pub fn invoke_function(
         &self,
-        this_obj: &JSValueRef,
-        method_name: &str,
-        args: &[JSValueRef],
-    ) -> Result<JSValueRef, JsError> {
-        let args_vec = args.to_vec();
-        functions::invoke_member_function_q(self, this_obj, method_name, args_vec)
-    }
-
-    fn js_function_invoke(
-        &self,
-        this_obj: Option<&JSValueRef>,
-        function_obj: &JSValueRef,
-        args: &[&JSValueRef],
-    ) -> Result<JSValueRef, JsError> {
+        this_obj: Option<&QuickJsValueAdapter>,
+        function_obj: &QuickJsValueAdapter,
+        args: &[&QuickJsValueAdapter],
+    ) -> Result<QuickJsValueAdapter, JsError> {
         functions::call_function_q_ref_args(self, function_obj, args, this_obj)
     }
 
-    fn js_function_create<
-        F: Fn(&Self, &JSValueRef, &[JSValueRef]) -> Result<JSValueRef, JsError> + 'static,
+    pub fn create_function<
+        F: Fn(
+                &Self,
+                &QuickJsValueAdapter,
+                &[QuickJsValueAdapter],
+            ) -> Result<QuickJsValueAdapter, JsError>
+            + 'static,
     >(
         &self,
         name: &str,
         js_function: F,
         arg_count: u32,
-    ) -> Result<JSValueRef, JsError> {
+    ) -> Result<QuickJsValueAdapter, JsError> {
         functions::new_function_q(self, name, js_function, arg_count)
     }
 
-    fn js_error_create(
+    pub fn create_function_async<R, F>(
+        &self,
+        name: &str,
+        js_function: F,
+        arg_count: u32,
+    ) -> Result<QuickJsValueAdapter, JsError>
+    where
+        Self: Sized + 'static,
+        R: Future<Output = Result<JsValueFacade, JsError>> + Send + 'static,
+        F: Fn(JsValueFacade, Vec<JsValueFacade>) -> R + 'static,
+    {
+        //
+        self.create_function(
+            name,
+            move |realm, this, args| {
+                let this_fac = realm.to_js_value_facade(this)?;
+                let mut args_fac = vec![];
+                for arg in args {
+                    args_fac.push(realm.to_js_value_facade(arg)?);
+                }
+                let fut = js_function(this_fac, args_fac);
+                realm.create_resolving_promise_async(async move { fut.await }, |realm, pres| {
+                    //
+                    realm.from_js_value_facade(pres)
+                })
+            },
+            arg_count,
+        )
+    }
+
+    pub fn create_error(
         &self,
         name: &str,
         message: &str,
         stack: &str,
-    ) -> Result<Self::JsValueAdapterType, JsError> {
+    ) -> Result<QuickJsValueAdapter, JsError> {
         unsafe { errors::new_error(self.context, name, message, stack) }
     }
 
-    fn js_object_delete_property(
+    pub fn delete_object_property(
         &self,
-        object: &JSValueRef,
+        object: &QuickJsValueAdapter,
         property_name: &str,
     ) -> Result<(), JsError> {
         // todo impl a real delete_prop
         objects::set_property_q(self, object, property_name, &new_null_ref())
     }
 
-    fn js_object_set_property(
+    pub fn set_object_property(
         &self,
-        object: &JSValueRef,
+        object: &QuickJsValueAdapter,
         property_name: &str,
-        property: &JSValueRef,
+        property: &QuickJsValueAdapter,
     ) -> Result<(), JsError> {
         objects::set_property_q(self, object, property_name, property)
     }
 
-    fn js_object_get_property(
+    pub fn get_object_property(
         &self,
-        object: &JSValueRef,
+        object: &QuickJsValueAdapter,
         property_name: &str,
-    ) -> Result<JSValueRef, JsError> {
+    ) -> Result<QuickJsValueAdapter, JsError> {
         objects::get_property_q(self, object, property_name)
     }
 
-    fn js_object_create(&self) -> Result<JSValueRef, JsError> {
+    pub fn create_object(&self) -> Result<QuickJsValueAdapter, JsError> {
         objects::create_object_q(self)
     }
 
-    fn js_object_construct(
+    pub fn construct_object(
         &self,
-        constructor: &JSValueRef,
-        args: &[&JSValueRef],
-    ) -> Result<JSValueRef, JsError> {
+        constructor: &QuickJsValueAdapter,
+        args: &[&QuickJsValueAdapter],
+    ) -> Result<QuickJsValueAdapter, JsError> {
         // todo alter constructor method to accept slice
         unsafe { construct_object(self.context, constructor, args) }
     }
 
-    fn js_object_get_properties(&self, object: &JSValueRef) -> Result<Vec<String>, JsError> {
+    pub fn get_object_properties(
+        &self,
+        object: &QuickJsValueAdapter,
+    ) -> Result<Vec<String>, JsError> {
         let props = objects::get_own_property_names_q(self, object)?;
         let mut ret = vec![];
         for x in 0..props.len() {
@@ -697,48 +671,60 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         Ok(ret)
     }
 
-    fn js_object_traverse<F, R>(&self, object: &JSValueRef, visitor: F) -> Result<Vec<R>, JsError>
+    pub fn traverse_object<F, R>(
+        &self,
+        object: &QuickJsValueAdapter,
+        visitor: F,
+    ) -> Result<Vec<R>, JsError>
     where
-        F: Fn(&str, &JSValueRef) -> Result<R, JsError>,
+        F: Fn(&str, &QuickJsValueAdapter) -> Result<R, JsError>,
     {
         objects::traverse_properties_q(self, object, visitor)
     }
 
-    fn js_object_traverse_mut<F>(
+    pub fn traverse_object_mut<F>(
         &self,
-        object: &Self::JsValueAdapterType,
+        object: &QuickJsValueAdapter,
         visitor: F,
     ) -> Result<(), JsError>
     where
-        F: FnMut(&str, &Self::JsValueAdapterType) -> Result<(), JsError>,
+        F: FnMut(&str, &QuickJsValueAdapter) -> Result<(), JsError>,
     {
         objects::traverse_properties_q_mut(self, object, visitor)
     }
 
-    fn js_array_get_element(&self, array: &JSValueRef, index: u32) -> Result<JSValueRef, JsError> {
+    pub fn get_array_element(
+        &self,
+        array: &QuickJsValueAdapter,
+        index: u32,
+    ) -> Result<QuickJsValueAdapter, JsError> {
         arrays::get_element_q(self, array, index)
     }
 
-    fn js_array_set_element(
+    pub fn set_array_element(
         &self,
-        array: &JSValueRef,
+        array: &QuickJsValueAdapter,
         index: u32,
-        element: &JSValueRef,
+        element: &QuickJsValueAdapter,
     ) -> Result<(), JsError> {
         arrays::set_element_q(self, array, index, element)
     }
 
-    fn js_array_get_length(&self, array: &JSValueRef) -> Result<u32, JsError> {
+    pub fn get_array_length(&self, array: &QuickJsValueAdapter) -> Result<u32, JsError> {
         arrays::get_length_q(self, array)
     }
 
-    fn js_array_create(&self) -> Result<JSValueRef, JsError> {
+    pub fn create_array(&self) -> Result<QuickJsValueAdapter, JsError> {
         arrays::create_array_q(self)
     }
 
-    fn js_array_traverse<F, R>(&self, array: &JSValueRef, visitor: F) -> Result<Vec<R>, JsError>
+    pub fn traverse_array<F, R>(
+        &self,
+        array: &QuickJsValueAdapter,
+        visitor: F,
+    ) -> Result<Vec<R>, JsError>
     where
-        F: Fn(u32, &JSValueRef) -> Result<R, JsError>,
+        F: Fn(u32, &QuickJsValueAdapter) -> Result<R, JsError>,
     {
         // todo impl real traverse methods
         let mut ret = vec![];
@@ -749,13 +735,13 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         Ok(ret)
     }
 
-    fn js_array_traverse_mut<F>(
+    pub fn traverse_array_mut<F>(
         &self,
-        array: &Self::JsValueAdapterType,
+        array: &QuickJsValueAdapter,
         mut visitor: F,
     ) -> Result<(), JsError>
     where
-        F: FnMut(u32, &Self::JsValueAdapterType) -> Result<(), JsError>,
+        F: FnMut(u32, &QuickJsValueAdapter) -> Result<(), JsError>,
     {
         // todo impl real traverse methods
         for x in 0..arrays::get_length_q(self, array)? {
@@ -765,87 +751,85 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         Ok(())
     }
 
-    fn js_null_create(&self) -> Result<JSValueRef, JsError> {
+    pub fn create_null(&self) -> Result<QuickJsValueAdapter, JsError> {
         Ok(crate::quickjs_utils::new_null_ref())
     }
 
-    fn js_undefined_create(&self) -> Result<JSValueRef, JsError> {
+    pub fn create_undefined(&self) -> Result<QuickJsValueAdapter, JsError> {
         Ok(crate::quickjs_utils::new_undefined_ref())
     }
 
-    fn js_i32_create(&self, val: i32) -> Result<JSValueRef, JsError> {
+    pub fn create_i32(&self, val: i32) -> Result<QuickJsValueAdapter, JsError> {
         Ok(from_i32(val))
     }
 
-    fn js_string_create(&self, val: &str) -> Result<JSValueRef, JsError> {
+    pub fn create_string(&self, val: &str) -> Result<QuickJsValueAdapter, JsError> {
         from_string_q(self, val)
     }
 
-    fn js_boolean_create(&self, val: bool) -> Result<JSValueRef, JsError> {
+    pub fn create_boolean(&self, val: bool) -> Result<QuickJsValueAdapter, JsError> {
         Ok(from_bool(val))
     }
 
-    fn js_f64_create(&self, val: f64) -> Result<JSValueRef, JsError> {
+    pub fn create_f64(&self, val: f64) -> Result<QuickJsValueAdapter, JsError> {
         Ok(from_f64(val))
     }
 
-    fn js_promise_create(&self) -> Result<Box<dyn JsPromiseAdapter<Self>>, JsError> {
-        Ok(Box::new(crate::quickjs_utils::promises::new_promise_q(
-            self,
-        )?))
+    pub fn create_promise(&self) -> Result<QuickJsPromiseAdapter, JsError> {
+        crate::quickjs_utils::promises::new_promise_q(self)
     }
 
-    fn js_promise_add_reactions(
+    pub fn add_promise_reactions(
         &self,
-        promise: &Self::JsValueAdapterType,
-        then: Option<Self::JsValueAdapterType>,
-        catch: Option<Self::JsValueAdapterType>,
-        finally: Option<Self::JsValueAdapterType>,
+        promise: &QuickJsValueAdapter,
+        then: Option<QuickJsValueAdapter>,
+        catch: Option<QuickJsValueAdapter>,
+        finally: Option<QuickJsValueAdapter>,
     ) -> Result<(), JsError> {
         crate::quickjs_utils::promises::add_promise_reactions_q(self, promise, then, catch, finally)
     }
 
-    fn js_promise_cache_add(&self, promise_ref: Box<dyn JsPromiseAdapter<Self>>) -> usize {
+    pub fn cache_promise(&self, promise_ref: QuickJsPromiseAdapter) -> usize {
         let map = &mut *self.promise_cache.borrow_mut();
         map.insert(promise_ref)
     }
 
-    fn js_promise_cache_consume(&self, id: usize) -> Option<Box<dyn JsPromiseAdapter<Self>>> {
+    pub fn consume_cached_promise(&self, id: usize) -> Option<QuickJsPromiseAdapter> {
         let map = &mut *self.promise_cache.borrow_mut();
         map.remove_opt(&id)
     }
 
-    fn js_cache_add(&self, object: &JSValueRef) -> i32 {
-        self.cache_object(object.clone())
-    }
-
-    fn js_cache_dispose(&self, id: i32) {
+    pub fn dispose_cached_object(&self, id: i32) {
         let _ = self.consume_cached_obj(id);
     }
 
-    fn js_cache_with<C, R>(&self, id: i32, consumer: C) -> R
+    pub fn with_cached_object<C, R>(&self, id: i32, consumer: C) -> R
     where
-        C: FnOnce(&JSValueRef) -> R,
+        C: FnOnce(&QuickJsValueAdapter) -> R,
     {
         self.with_cached_obj(id, |obj| consumer(&obj))
     }
 
-    fn js_cache_consume(&self, id: i32) -> JSValueRef {
+    pub fn consume_cached_object(&self, id: i32) -> QuickJsValueAdapter {
         self.consume_cached_obj(id)
     }
 
-    fn js_instance_of(&self, object: &JSValueRef, constructor: &JSValueRef) -> bool {
+    pub fn is_instance_of(
+        &self,
+        object: &QuickJsValueAdapter,
+        constructor: &QuickJsValueAdapter,
+    ) -> bool {
         objects::is_instance_of_q(self, object, constructor)
     }
 
-    fn js_json_stringify(
+    pub fn json_stringify(
         &self,
-        object: &JSValueRef,
+        object: &QuickJsValueAdapter,
         opt_space: Option<&str>,
     ) -> Result<String, JsError> {
         let opt_space_jsvr = match opt_space {
             None => None,
-            Some(s) => Some(self.js_string_create(s)?),
+            Some(s) => Some(self.create_string(s)?),
         };
         let res = json::stringify_q(self, object, opt_space_jsvr);
         match res {
@@ -854,43 +838,40 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
         }
     }
 
-    fn js_json_parse(&self, json_string: &str) -> Result<JSValueRef, JsError> {
+    pub fn json_parse(&self, json_string: &str) -> Result<QuickJsValueAdapter, JsError> {
         json::parse_q(self, json_string)
     }
 
-    fn js_typed_array_uint8_create(
+    pub fn create_typed_array_uint8(
         &self,
         buffer: Vec<u8>,
-    ) -> Result<Self::JsValueAdapterType, JsError> {
+    ) -> Result<QuickJsValueAdapter, JsError> {
         new_uint8_array_q(self, buffer)
     }
 
-    fn js_typed_array_uint8_create_copy(
+    pub fn create_typed_array_uint8_copy(
         &self,
         buffer: &[u8],
-    ) -> Result<Self::JsValueAdapterType, JsError> {
+    ) -> Result<QuickJsValueAdapter, JsError> {
         new_uint8_array_copy_q(self, buffer)
     }
 
-    fn js_typed_array_detach_buffer(
+    pub fn detach_typed_array_buffer(
         &self,
-        array: &Self::JsValueAdapterType,
+        array: &QuickJsValueAdapter,
     ) -> Result<Vec<u8>, JsError> {
         let abuf = get_array_buffer_q(self, array)?;
         detach_array_buffer_buffer_q(self, &abuf)
     }
 
-    fn js_typed_array_copy_buffer(
-        &self,
-        array: &Self::JsValueAdapterType,
-    ) -> Result<Vec<u8>, JsError> {
+    pub fn copy_typed_array_buffer(&self, array: &QuickJsValueAdapter) -> Result<Vec<u8>, JsError> {
         let abuf = get_array_buffer_q(self, array)?;
         get_array_buffer_buffer_copy_q(self, &abuf)
     }
 
-    fn js_proxy_instance_get_info(
+    pub fn get_proxy_instance_info(
         &self,
-        obj: &Self::JsValueAdapterType,
+        obj: &QuickJsValueAdapter,
     ) -> Result<(String, JsProxyInstanceId), JsError>
     where
         Self: Sized,
@@ -903,16 +884,305 @@ impl JsRealmAdapter for QuickJsRealmAdapter {
             Err(JsError::new_str("not a proxy instance"))
         }
     }
+
+    pub fn to_js_value_facade(
+        &self,
+        js_value: &QuickJsValueAdapter,
+    ) -> Result<JsValueFacade, JsError>
+    where
+        Self: Sized + 'static,
+    {
+        let res: JsValueFacade = match js_value.js_get_type() {
+            JsValueType::I32 => JsValueFacade::I32 {
+                val: js_value.js_to_i32(),
+            },
+            JsValueType::F64 => JsValueFacade::F64 {
+                val: js_value.js_to_f64(),
+            },
+            JsValueType::String => JsValueFacade::String {
+                val: DefaultAtom::from(js_value.js_to_string()?),
+            },
+            JsValueType::Boolean => JsValueFacade::Boolean {
+                val: js_value.js_to_bool(),
+            },
+            JsValueType::Object => {
+                if js_value.js_is_typed_array() {
+                    // todo TypedArray as JsValueType?
+                    // passing a typedarray out of the worker thread is sketchy because you either copy the buffer like we do here, or you detach the buffer effectively destroying the jsvalue
+                    // you should be better of optimizing this in native methods
+                    JsValueFacade::TypedArray {
+                        buffer: self.copy_typed_array_buffer(&js_value)?,
+                        array_type: TypedArrayType::Uint8,
+                    }
+                } else {
+                    JsValueFacade::JsObject {
+                        cached_object: CachedJsObjectRef::new(self, js_value.clone()),
+                    }
+                }
+            }
+            JsValueType::Function => JsValueFacade::JsFunction {
+                cached_function: CachedJsFunctionRef {
+                    cached_object: CachedJsObjectRef::new(self, js_value.clone()),
+                },
+            },
+            JsValueType::BigInt => {
+                todo!();
+            }
+            JsValueType::Promise => JsValueFacade::JsPromise {
+                cached_promise: CachedJsPromiseRef {
+                    cached_object: CachedJsObjectRef::new(self, js_value.clone()),
+                },
+            },
+            JsValueType::Date => {
+                todo!();
+            }
+            JsValueType::Null => JsValueFacade::Null,
+            JsValueType::Undefined => JsValueFacade::Undefined,
+
+            JsValueType::Array => JsValueFacade::JsArray {
+                cached_array: CachedJsArrayRef {
+                    cached_object: CachedJsObjectRef::new(self, js_value.clone()),
+                },
+            },
+            JsValueType::Error => {
+                let name = self.get_object_property(js_value, "name")?.js_to_string()?;
+                let message = self
+                    .get_object_property(js_value, "message")?
+                    .js_to_string()?;
+                let stack = self
+                    .get_object_property(js_value, "stack")?
+                    .js_to_string()?;
+                JsValueFacade::JsError {
+                    val: JsError::new(name, message, stack),
+                }
+            }
+        };
+        Ok(res)
+    }
+
+    /// convert a JSValueFacade into a JSValueAdapter
+    /// you need this to move values into the worker thread from a different thread (JSValueAdapter cannot leave the worker thread)
+    #[allow(clippy::wrong_self_convention)]
+    pub fn from_js_value_facade(
+        &self,
+        value_facade: JsValueFacade,
+    ) -> Result<QuickJsValueAdapter, JsError>
+    where
+        Self: Sized + 'static,
+    {
+        match value_facade {
+            JsValueFacade::I32 { val } => self.create_i32(val),
+            JsValueFacade::F64 { val } => self.create_f64(val),
+            JsValueFacade::String { val } => self.create_string(&val),
+            JsValueFacade::Boolean { val } => self.create_boolean(val),
+            JsValueFacade::JsObject { cached_object } => {
+                // todo check realm (else copy? or error?)
+                self.with_cached_object(cached_object.id, |obj| Ok(obj.clone()))
+            }
+            JsValueFacade::JsPromise { cached_promise } => {
+                // todo check realm (else copy? or error?)
+                self.with_cached_object(cached_promise.cached_object.id, |obj| Ok(obj.clone()))
+            }
+            JsValueFacade::JsArray { cached_array } => {
+                // todo check realm (else copy? or error?)
+                self.with_cached_object(cached_array.cached_object.id, |obj| Ok(obj.clone()))
+            }
+            JsValueFacade::JsFunction { cached_function } => {
+                // todo check realm (else copy? or error?)
+                self.with_cached_object(cached_function.cached_object.id, |obj| Ok(obj.clone()))
+            }
+            JsValueFacade::Object { val } => {
+                let obj = self.create_object()?;
+                for entry in val {
+                    let prop = self.from_js_value_facade(entry.1)?;
+                    self.set_object_property(&obj, entry.0.as_str(), &prop)?;
+                }
+                Ok(obj)
+            }
+            JsValueFacade::Array { val } => {
+                let obj = self.create_array()?;
+                for (x, entry) in val.into_iter().enumerate() {
+                    let prop = self.from_js_value_facade(entry)?;
+                    self.set_array_element(&obj, x as u32, &prop)?;
+                }
+                Ok(obj)
+            }
+            JsValueFacade::Promise { producer } => {
+                let producer = &mut *producer.lock().unwrap();
+                if producer.is_some() {
+                    self.create_resolving_promise_async(producer.take().unwrap(), |realm, jsvf| {
+                        realm.from_js_value_facade(jsvf)
+                    })
+                } else {
+                    self.create_null()
+                }
+            }
+            JsValueFacade::Function {
+                name,
+                arg_count,
+                func,
+            } => {
+                //
+
+                self.create_function(
+                    name.as_str(),
+                    move |realm, _this, args| {
+                        let mut esvf_args = vec![];
+                        for arg in args {
+                            esvf_args.push(realm.to_js_value_facade(arg)?);
+                        }
+                        let esvf_res: Result<JsValueFacade, JsError> = func(esvf_args.as_slice());
+
+                        match esvf_res {
+                            //
+                            Ok(jsvf) => realm.from_js_value_facade(jsvf),
+                            Err(err) => Err(err),
+                        }
+                    },
+                    arg_count,
+                )
+            }
+            JsValueFacade::Null => self.create_null(),
+            JsValueFacade::Undefined => self.create_undefined(),
+            JsValueFacade::JsError { val } => {
+                self.create_error(val.get_name(), val.get_message(), val.get_stack())
+            }
+            JsValueFacade::ProxyInstance {
+                instance_id,
+                namespace,
+                class_name,
+            } => self.instantiate_proxy_with_id(namespace, class_name, instance_id),
+            JsValueFacade::TypedArray { buffer, array_type } => match array_type {
+                TypedArrayType::Uint8 => self.create_typed_array_uint8(buffer),
+            },
+            JsValueFacade::JsonStr { json } => self.json_parse(json.as_str()),
+            JsValueFacade::SerdeValue { value } => self.serde_value_to_value_adapter(value),
+        }
+    }
+
+    pub fn value_adapter_to_serde_value(
+        &self,
+        value_adapter: &QuickJsValueAdapter,
+    ) -> Result<serde_json::Value, JsError> {
+        match value_adapter.js_get_type() {
+            JsValueType::I32 => Ok(Value::from(value_adapter.js_to_i32())),
+            JsValueType::F64 => Ok(Value::from(value_adapter.js_to_f64())),
+            JsValueType::String => Ok(Value::from(value_adapter.js_to_string()?)),
+            JsValueType::Boolean => Ok(Value::from(value_adapter.js_to_bool())),
+            JsValueType::Object => {
+                let mut map: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+                self.traverse_object_mut(value_adapter, |k, v| {
+                    map.insert(k.to_string(), self.value_adapter_to_serde_value(v)?);
+                    Ok(())
+                })?;
+                let obj_val = serde_json::Value::Object(map);
+                Ok(obj_val)
+            }
+            JsValueType::Array => {
+                let mut arr: Vec<serde_json::Value> = vec![];
+                self.traverse_array_mut(value_adapter, |_i, v| {
+                    arr.push(self.value_adapter_to_serde_value(v)?);
+                    Ok(())
+                })?;
+                let arr_val = serde_json::Value::Array(arr);
+                Ok(arr_val)
+            }
+            JsValueType::Null => Ok(serde_json::Value::Null),
+            JsValueType::Undefined => Ok(serde_json::Value::Null),
+            JsValueType::Function => Ok(serde_json::Value::Null),
+            JsValueType::BigInt => Ok(serde_json::Value::Null),
+            JsValueType::Promise => Ok(serde_json::Value::Null),
+            JsValueType::Date => Ok(serde_json::Value::Null),
+            JsValueType::Error => Ok(serde_json::Value::Null),
+        }
+    }
+
+    pub fn serde_value_to_value_adapter(
+        &self,
+        value: Value,
+    ) -> Result<QuickJsValueAdapter, JsError> {
+        match value {
+            Value::Null => self.create_null(),
+            Value::Bool(b) => self.create_boolean(b),
+            Value::Number(n) => {
+                if n.is_i64() {
+                    let i = n.as_i64().unwrap();
+                    if i <= i32::MAX as i64 {
+                        self.create_i32(i as i32)
+                    } else {
+                        self.create_f64(i as f64)
+                    }
+                } else if n.is_u64() {
+                    let i = n.as_u64().unwrap();
+                    if i <= i32::MAX as u64 {
+                        self.create_i32(i as i32)
+                    } else {
+                        self.create_f64(i as f64)
+                    }
+                } else {
+                    // f64
+                    let i = n.as_f64().unwrap();
+                    self.create_f64(i)
+                }
+            }
+            Value::String(s) => self.create_string(s.as_str()),
+            Value::Array(a) => {
+                let arr = self.create_array()?;
+                for (x, aval) in (0_u32..).zip(a.into_iter()) {
+                    let entry = self.serde_value_to_value_adapter(aval)?;
+                    self.set_array_element(&arr, x, &entry)?;
+                }
+                Ok(arr)
+            }
+            Value::Object(o) => {
+                let obj = self.create_object()?;
+                for oval in o {
+                    let entry = self.serde_value_to_value_adapter(oval.1)?;
+                    self.set_object_property(&obj, oval.0.as_str(), &entry)?;
+                }
+                Ok(obj)
+            }
+        }
+    }
+    /// create a new Promise with a Future which will run async and then resolve or reject the promise
+    /// the mapper is used to convert the result of the future into a JSValueAdapter
+    pub fn create_resolving_promise_async<P, R: Send + 'static, M>(
+        &self,
+        producer: P,
+        mapper: M,
+    ) -> Result<QuickJsValueAdapter, JsError>
+    where
+        P: Future<Output = Result<R, JsError>> + Send + 'static,
+        M: FnOnce(&QuickJsRealmAdapter, R) -> Result<QuickJsValueAdapter, JsError> + Send + 'static,
+        Self: Sized + 'static,
+    {
+        new_resolving_promise_async(self, producer, mapper)
+    }
+    /// create a new Promise with a FnOnce producer which will run async and then resolve or reject the promise
+    /// the mapper is used to convert the result of the future into a JSValueAdapter
+    ///
+    pub fn create_resolving_promise<P, R: Send + 'static, M>(
+        &self,
+        producer: P,
+        mapper: M,
+    ) -> Result<QuickJsValueAdapter, JsError>
+    where
+        P: FnOnce() -> Result<R, JsError> + Send + 'static,
+        M: FnOnce(&QuickJsRealmAdapter, R) -> Result<QuickJsValueAdapter, JsError> + Send + 'static,
+        Self: Sized + 'static,
+    {
+        new_resolving_promise(self, producer, mapper)
+    }
 }
 
 #[cfg(test)]
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
     use crate::facades::tests::init_test_rt;
+    use crate::jsutils::Script;
     use crate::quickjs_utils;
     use crate::quickjs_utils::primitives::to_i32;
     use crate::quickjs_utils::{functions, get_global_q, objects};
-    use hirofa_utils::js_utils::Script;
 
     #[test]
     fn test_eval() {

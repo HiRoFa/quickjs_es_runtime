@@ -2,16 +2,15 @@
 //!
 //!
 //!
+use crate::jsutils::JsError;
 use crate::quickjs_utils::get_constructor;
 use crate::quickjs_utils::objects::{
     construct_object, get_property, get_prototype_of, is_instance_of, is_instance_of_by_name,
     set_property2,
 };
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-use crate::valueref::JSValueRef;
+use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use hirofa_utils::auto_id_map::AutoIdMap;
-use hirofa_utils::js_utils::adapters::JsValueAdapter;
-use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 use std::cell::RefCell;
 
@@ -62,7 +61,7 @@ thread_local! {
 pub fn new_array_buffer_q(
     q_ctx: &QuickJsRealmAdapter,
     buf: Vec<u8>,
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { new_array_buffer(q_ctx.context, buf) }
 }
 
@@ -73,7 +72,7 @@ pub fn new_array_buffer_q(
 pub unsafe fn new_array_buffer(
     ctx: *mut q::JSContext,
     buf: Vec<u8>,
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     #[cfg(target_pointer_width = "64")]
     let length = buf.len() as u64;
     #[cfg(target_pointer_width = "32")]
@@ -99,7 +98,8 @@ pub unsafe fn new_array_buffer(
         opaque as _,
         is_shared as _,
     );
-    let obj_ref = JSValueRef::new(ctx, raw, false, true, "typedarrays::new_array_buffer_q");
+    let obj_ref =
+        QuickJsValueAdapter::new(ctx, raw, false, true, "typedarrays::new_array_buffer_q");
     if obj_ref.is_exception() {
         return Err(JsError::new_str("Could not create array buffer"));
     }
@@ -109,25 +109,25 @@ pub unsafe fn new_array_buffer(
     Ok(obj_ref)
 }
 
-pub fn is_array_buffer_q(q_ctx: &QuickJsRealmAdapter, buf: &JSValueRef) -> bool {
+pub fn is_array_buffer_q(q_ctx: &QuickJsRealmAdapter, buf: &QuickJsValueAdapter) -> bool {
     unsafe { is_array_buffer(q_ctx.context, buf) }
 }
 
 /// check if a ref is an ArrayBuffer
 /// # Safety
 /// please ensure that the relevant QuickjsRealmAdapter is not dropped while using this function or a result of this function
-pub unsafe fn is_array_buffer(ctx: *mut q::JSContext, buf: &JSValueRef) -> bool {
+pub unsafe fn is_array_buffer(ctx: *mut q::JSContext, buf: &QuickJsValueAdapter) -> bool {
     buf.is_object() && is_instance_of_by_name(ctx, buf, "ArrayBuffer").unwrap_or(false)
 }
 
-pub fn is_typed_array_q(q_ctx: &QuickJsRealmAdapter, arr: &JSValueRef) -> bool {
+pub fn is_typed_array_q(q_ctx: &QuickJsRealmAdapter, arr: &QuickJsValueAdapter) -> bool {
     unsafe { is_typed_array(q_ctx.context, arr) }
 }
 
 /// check if a ref is a TypedArray
 /// # Safety
 /// please ensure that the relevant QuickjsRealmAdapter is not dropped while using this function or a result of this function
-pub unsafe fn is_typed_array(ctx: *mut q::JSContext, arr: &JSValueRef) -> bool {
+pub unsafe fn is_typed_array(ctx: *mut q::JSContext, arr: &QuickJsValueAdapter) -> bool {
     if arr.is_object() {
         match get_constructor(ctx, "Uint16Array") {
             Ok(u_int_some_array) => match get_prototype_of(ctx, &u_int_some_array) {
@@ -145,7 +145,7 @@ pub unsafe fn is_typed_array(ctx: *mut q::JSContext, arr: &JSValueRef) -> bool {
 pub fn new_array_buffer_copy_q(
     q_ctx: &QuickJsRealmAdapter,
     buf: &[u8],
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { new_array_buffer_copy(q_ctx.context, buf) }
 }
 
@@ -155,14 +155,14 @@ pub fn new_array_buffer_copy_q(
 pub unsafe fn new_array_buffer_copy(
     ctx: *mut q::JSContext,
     buf: &[u8],
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     #[cfg(target_pointer_width = "64")]
     let length = buf.len() as u64;
     #[cfg(target_pointer_width = "32")]
     let length = buf.len() as u32;
 
     let raw = q::JS_NewArrayBufferCopy(ctx, buf.as_ptr(), length);
-    let obj_ref = JSValueRef::new(
+    let obj_ref = QuickJsValueAdapter::new(
         ctx,
         raw,
         false,
@@ -178,7 +178,7 @@ pub unsafe fn new_array_buffer_copy(
 /// detach the array buffer and return it, after this the TypedArray is no longer usable in JS (or at least all items will return undefined)
 pub fn detach_array_buffer_buffer_q(
     q_ctx: &QuickJsRealmAdapter,
-    array_buffer: &JSValueRef,
+    array_buffer: &QuickJsValueAdapter,
 ) -> Result<Vec<u8>, JsError> {
     unsafe { detach_array_buffer_buffer(q_ctx.context, array_buffer) }
 }
@@ -188,7 +188,7 @@ pub fn detach_array_buffer_buffer_q(
 /// please ensure that the relevant QuickjsRealmAdapter is not dropped while using this function or a result of this function
 pub unsafe fn detach_array_buffer_buffer(
     ctx: *mut q::JSContext,
-    array_buffer: &JSValueRef,
+    array_buffer: &QuickJsValueAdapter,
 ) -> Result<Vec<u8>, JsError> {
     debug_assert!(is_array_buffer(ctx, array_buffer));
 
@@ -227,7 +227,7 @@ pub unsafe fn detach_array_buffer_buffer(
 /// the operation is just more expensive because the Vec is cloned
 pub fn get_array_buffer_buffer_copy_q(
     q_ctx: &QuickJsRealmAdapter,
-    array_buffer: &JSValueRef,
+    array_buffer: &QuickJsValueAdapter,
 ) -> Result<Vec<u8>, JsError> {
     unsafe { get_array_buffer_buffer_copy(q_ctx.context, array_buffer) }
 }
@@ -239,7 +239,7 @@ pub fn get_array_buffer_buffer_copy_q(
 /// please ensure that the relevant QuickjsRealmAdapter is not dropped while using this function or a result of this function
 pub unsafe fn get_array_buffer_buffer_copy(
     ctx: *mut q::JSContext,
-    array_buffer: &JSValueRef,
+    array_buffer: &QuickJsValueAdapter,
 ) -> Result<Vec<u8>, JsError> {
     debug_assert!(is_array_buffer(ctx, array_buffer));
 
@@ -258,8 +258,8 @@ pub unsafe fn get_array_buffer_buffer_copy(
 /// get the underlying ArrayBuffer of a TypedArray
 pub fn get_array_buffer_q(
     q_ctx: &QuickJsRealmAdapter,
-    typed_array: &JSValueRef,
-) -> Result<JSValueRef, JsError> {
+    typed_array: &QuickJsValueAdapter,
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { get_array_buffer(q_ctx.context, typed_array) }
 }
 
@@ -268,8 +268,8 @@ pub fn get_array_buffer_q(
 /// please ensure that the relevant QuickjsRealmAdapter is not dropped while using this function or a result of this function
 pub unsafe fn get_array_buffer(
     ctx: *mut q::JSContext,
-    typed_array: &JSValueRef,
-) -> Result<JSValueRef, JsError> {
+    typed_array: &QuickJsValueAdapter,
+) -> Result<QuickJsValueAdapter, JsError> {
     debug_assert!(is_typed_array(ctx, typed_array));
     // this is probably needed later for different typed arrays
     //let raw = q::JS_GetTypedArrayBuffer()
@@ -280,14 +280,20 @@ pub unsafe fn get_array_buffer(
 }
 
 /// create a new TypedArray with a buffer, the buffer is consumed and can be reclaimed later by calling detach_array_buffer_buffer_q
-pub fn new_uint8_array_q(q_ctx: &QuickJsRealmAdapter, buf: Vec<u8>) -> Result<JSValueRef, JsError> {
+pub fn new_uint8_array_q(
+    q_ctx: &QuickJsRealmAdapter,
+    buf: Vec<u8>,
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { new_uint8_array(q_ctx.context, buf) }
 }
 
 /// create a new TypedArray with a buffer, the buffer is consumed and can be reclaimed later by calling detach_array_buffer_buffer_q
 /// # Safety
 /// please ensure that the relevant QuickjsRealmAdapter is not dropped while using this function or a result of this function
-pub unsafe fn new_uint8_array(ctx: *mut q::JSContext, buf: Vec<u8>) -> Result<JSValueRef, JsError> {
+pub unsafe fn new_uint8_array(
+    ctx: *mut q::JSContext,
+    buf: Vec<u8>,
+) -> Result<QuickJsValueAdapter, JsError> {
     let array_buffer = new_array_buffer(ctx, buf)?;
     let constructor = get_constructor(ctx, "Uint8Array")?;
     construct_object(ctx, &constructor, &[&array_buffer])
@@ -297,7 +303,7 @@ pub unsafe fn new_uint8_array(ctx: *mut q::JSContext, buf: Vec<u8>) -> Result<JS
 pub fn new_uint8_array_copy_q(
     q_ctx: &QuickJsRealmAdapter,
     buf: &[u8],
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { new_uint8_array_copy(q_ctx.context, buf) }
 }
 
@@ -307,7 +313,7 @@ pub fn new_uint8_array_copy_q(
 pub unsafe fn new_uint8_array_copy(
     ctx: *mut q::JSContext,
     buf: &[u8],
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     let array_buffer = new_array_buffer_copy(ctx, buf)?;
     let constructor = get_constructor(ctx, "Uint8Array")?;
     construct_object(ctx, &constructor, &[&array_buffer])
@@ -334,13 +340,11 @@ unsafe extern "C" fn free_func(
 #[cfg(test)]
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
+    use crate::jsutils::Script;
     use crate::quickjs_utils::typedarrays::{
         detach_array_buffer_buffer_q, get_array_buffer_q, is_array_buffer_q, is_typed_array_q,
         new_array_buffer_q, new_uint8_array_q,
     };
-    use hirofa_utils::js_utils::adapters::JsRealmAdapter;
-    use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
-    use hirofa_utils::js_utils::Script;
 
     #[test]
     fn test_typed() {
@@ -358,7 +362,7 @@ pub mod tests {
 
         let rt = QuickJsRuntimeBuilder::new().js_build();
 
-        let res = rt.js_loop_realm_sync(None, |_rt, realm| {
+        let res = rt.loop_realm_sync(None, |_rt, realm| {
             let obj = realm
                 .eval(Script::new(
                     "testu8",
@@ -371,7 +375,7 @@ pub mod tests {
 
         log::debug!("tag res {}", res);
 
-        rt.js_loop_realm_sync(None, |_rt, realm| {
+        rt.loop_realm_sync(None, |_rt, realm| {
             realm
                 .eval(Script::new(
                     "testu8",
@@ -380,7 +384,7 @@ pub mod tests {
                 .expect("script failed");
         });
 
-        rt.js_loop_realm_sync(None, |_rt, realm| {
+        rt.loop_realm_sync(None, |_rt, realm| {
             let buf = vec![1, 2, 3];
 
             let ab_res = new_array_buffer_q(realm, buf);
@@ -411,7 +415,7 @@ pub mod tests {
                     assert!(is_typed_array_q(realm, &arr));
 
                     realm
-                        .js_function_invoke_by_name(&[], "testTyped", &[arr.clone()])
+                        .invoke_function_by_name(&[], "testTyped", &[arr.clone()])
                         .expect("testTyped failed");
 
                     let ab = get_array_buffer_q(realm, &arr).expect("did not get buffer");
@@ -426,7 +430,7 @@ pub mod tests {
 
                     // this still works but all values should be undefined..
                     realm
-                        .js_function_invoke_by_name(&[], "testTyped", &[arr.clone()])
+                        .invoke_function_by_name(&[], "testTyped", &[arr.clone()])
                         .expect("script failed");
 
                     log::trace!("ab dropped");

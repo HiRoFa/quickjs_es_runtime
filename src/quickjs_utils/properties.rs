@@ -1,6 +1,6 @@
 use crate::quickjs_utils::atoms;
 use crate::quickjs_utils::atoms::JSAtomRef;
-use hirofa_utils::js_utils::JsError;
+use crate::jsutils::JsError;
 use libquickjs_sys as q;
 use std::os::raw::c_int;
 

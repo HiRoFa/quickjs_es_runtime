@@ -1,9 +1,9 @@
 //! serialize and stringify JavaScript objects
 
+use crate::jsutils::JsError;
 use crate::quickjs_utils;
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-use crate::valueref::JSValueRef;
-use hirofa_utils::js_utils::JsError;
+use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use libquickjs_sys as q;
 use std::ffi::CString;
 
@@ -30,14 +30,17 @@ use std::ffi::CString;
 /// });
 /// rt.gc_sync();
 /// ```
-pub fn parse_q(q_ctx: &QuickJsRealmAdapter, input: &str) -> Result<JSValueRef, JsError> {
+pub fn parse_q(q_ctx: &QuickJsRealmAdapter, input: &str) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { parse(q_ctx.context, input) }
 }
 
 /// Parse a JSON string into an Object
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRef, JsError> {
+pub unsafe fn parse(
+    context: *mut q::JSContext,
+    input: &str,
+) -> Result<QuickJsValueAdapter, JsError> {
     let s = CString::new(input).ok().unwrap();
     let f_n = CString::new("JSON.parse").ok().unwrap();
 
@@ -45,7 +48,7 @@ pub unsafe fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRe
 
     let val = q::JS_ParseJSON(context, s.as_ptr(), len as _, f_n.as_ptr());
 
-    let ret = JSValueRef::new(context, val, false, true, "json::parse result");
+    let ret = QuickJsValueAdapter::new(context, val, false, true, "json::parse result");
 
     if ret.is_exception() {
         if let Some(ex) = QuickJsRealmAdapter::get_exception(context) {
@@ -75,9 +78,9 @@ pub unsafe fn parse(context: *mut q::JSContext, input: &str) -> Result<JSValueRe
 /// ```
 pub fn stringify_q(
     q_ctx: &QuickJsRealmAdapter,
-    input: &JSValueRef,
-    opt_space: Option<JSValueRef>,
-) -> Result<JSValueRef, JsError> {
+    input: &QuickJsValueAdapter,
+    opt_space: Option<QuickJsValueAdapter>,
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { stringify(q_ctx.context, input, opt_space) }
 }
 
@@ -85,9 +88,9 @@ pub fn stringify_q(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn stringify(
     context: *mut q::JSContext,
-    input: &JSValueRef,
-    opt_space: Option<JSValueRef>,
-) -> Result<JSValueRef, JsError> {
+    input: &QuickJsValueAdapter,
+    opt_space: Option<QuickJsValueAdapter>,
+) -> Result<QuickJsValueAdapter, JsError> {
     //pub fn JS_JSONStringify(
     //         ctx: *mut JSContext,
     //         obj: JSValue,
@@ -106,7 +109,7 @@ pub unsafe fn stringify(
         quickjs_utils::new_null(),
         *space_ref.borrow_value(),
     );
-    let ret = JSValueRef::new(context, val, false, true, "json::stringify result");
+    let ret = QuickJsValueAdapter::new(context, val, false, true, "json::stringify result");
 
     if ret.is_exception() {
         if let Some(ex) = QuickJsRealmAdapter::get_exception(context) {
@@ -122,12 +125,10 @@ pub unsafe fn stringify(
 #[cfg(test)]
 pub mod tests {
     use crate::facades::tests::init_test_rt;
+    use crate::jsutils::Script;
     use crate::quickjs_utils::json::parse_q;
     use crate::quickjs_utils::{get_global_q, json, objects, primitives};
-    use hirofa_utils::js_utils::adapters::JsRealmAdapter;
-    use hirofa_utils::js_utils::facades::values::JsValueFacade;
-    use hirofa_utils::js_utils::facades::JsRuntimeFacade;
-    use hirofa_utils::js_utils::Script;
+    use crate::values::JsValueFacade;
     use std::collections::HashMap;
 
     #[test]
@@ -172,7 +173,7 @@ pub mod tests {
         let rt = init_test_rt();
 
         // init my javascript function
-        rt.js_eval(
+        rt.eval(
             None,
             Script::new(
                 "myFunc.js",
@@ -197,7 +198,7 @@ pub mod tests {
             .expect("serializing failed");
 
         let func_res = rt
-            .js_loop_realm(None, move |_rt, realm| {
+            .loop_realm(None, move |_rt, realm| {
                 // this runs in the worker thread for the EventLoop so json String needs to be moved here
                 // now we parse the json to a JsValueRef
                 let js_obj = parse_q(realm, json.as_str())
@@ -211,7 +212,7 @@ pub mod tests {
                     realm,
                     &global,
                     "myFunction",
-                    vec![js_obj],
+                    &[js_obj],
                 );
                 //return the value out of the worker thread as JsValueFacade
                 realm.to_js_value_facade(&func_res.ok().expect("func failed"))
@@ -227,7 +228,7 @@ pub mod tests {
         let rt = init_test_rt();
 
         // init my javascript function
-        rt.js_eval(
+        rt.eval(
             None,
             Script::new(
                 "myFunc.js",
@@ -254,7 +255,7 @@ pub mod tests {
         let json_js_value_facade = JsValueFacade::JsonStr { json };
 
         let func_res = rt
-            .js_function_invoke(None, &[], "myFunction", vec![json_js_value_facade])
+            .invoke_function(None, &[], "myFunction", vec![json_js_value_facade])
             .await;
 
         let jsv = func_res.ok().expect("got err");

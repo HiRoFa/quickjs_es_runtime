@@ -1,11 +1,11 @@
+use crate::jsutils::JsError;
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-use crate::valueref::JSValueRef;
+use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use core::ptr;
-use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 use std::os::raw::c_char;
 
-pub fn to_bool(value_ref: &JSValueRef) -> Result<bool, JsError> {
+pub fn to_bool(value_ref: &QuickJsValueAdapter) -> Result<bool, JsError> {
     if value_ref.is_bool() {
         let r = value_ref.borrow_value();
         let raw = unsafe { r.u.int32 };
@@ -16,12 +16,12 @@ pub fn to_bool(value_ref: &JSValueRef) -> Result<bool, JsError> {
     }
 }
 
-pub fn from_bool(b: bool) -> JSValueRef {
+pub fn from_bool(b: bool) -> QuickJsValueAdapter {
     let raw = unsafe { q::JS_NewBool(ptr::null_mut(), b) };
-    JSValueRef::new_no_context(raw, "primitives::from_bool")
+    QuickJsValueAdapter::new_no_context(raw, "primitives::from_bool")
 }
 
-pub fn to_f64(value_ref: &JSValueRef) -> Result<f64, JsError> {
+pub fn to_f64(value_ref: &QuickJsValueAdapter) -> Result<f64, JsError> {
     if value_ref.is_f64() {
         let r = value_ref.borrow_value();
         let val = unsafe { r.u.float64 };
@@ -31,12 +31,12 @@ pub fn to_f64(value_ref: &JSValueRef) -> Result<f64, JsError> {
     }
 }
 
-pub fn from_f64(f: f64) -> JSValueRef {
+pub fn from_f64(f: f64) -> QuickJsValueAdapter {
     let raw = unsafe { q::JS_NewFloat64(ptr::null_mut(), f) };
-    JSValueRef::new_no_context(raw, "primitives::from_f64")
+    QuickJsValueAdapter::new_no_context(raw, "primitives::from_f64")
 }
 
-pub fn to_i32(value_ref: &JSValueRef) -> Result<i32, JsError> {
+pub fn to_i32(value_ref: &QuickJsValueAdapter) -> Result<i32, JsError> {
     if value_ref.is_i32() {
         let r = value_ref.borrow_value();
         let val: i32 = unsafe { r.u.int32 };
@@ -46,19 +46,22 @@ pub fn to_i32(value_ref: &JSValueRef) -> Result<i32, JsError> {
     }
 }
 
-pub fn from_i32(i: i32) -> JSValueRef {
+pub fn from_i32(i: i32) -> QuickJsValueAdapter {
     let raw = unsafe { q::JS_NewInt32(ptr::null_mut(), i) };
-    JSValueRef::new_no_context(raw, "primitives::from_i32")
+    QuickJsValueAdapter::new_no_context(raw, "primitives::from_i32")
 }
 
-pub fn to_string_q(q_ctx: &QuickJsRealmAdapter, value_ref: &JSValueRef) -> Result<String, JsError> {
+pub fn to_string_q(
+    q_ctx: &QuickJsRealmAdapter,
+    value_ref: &QuickJsValueAdapter,
+) -> Result<String, JsError> {
     unsafe { to_string(q_ctx.context, value_ref) }
 }
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn to_string(
     context: *mut q::JSContext,
-    value_ref: &JSValueRef,
+    value_ref: &QuickJsValueAdapter,
 ) -> Result<String, JsError> {
     log::trace!("primitives::to_string on {}", value_ref.borrow_value().tag);
 
@@ -90,7 +93,10 @@ pub unsafe fn to_string(
 
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn to_str(context: *mut q::JSContext, value_ref: &JSValueRef) -> Result<&str, JsError> {
+pub unsafe fn to_str(
+    context: *mut q::JSContext,
+    value_ref: &QuickJsValueAdapter,
+) -> Result<&str, JsError> {
     log::trace!("primitives::to_str on {}", value_ref.borrow_value().tag);
 
     assert!(value_ref.is_string());
@@ -120,14 +126,17 @@ pub unsafe fn to_str(context: *mut q::JSContext, value_ref: &JSValueRef) -> Resu
     //Ok(s.as_ref())
 }
 
-pub fn from_string_q(q_ctx: &QuickJsRealmAdapter, s: &str) -> Result<JSValueRef, JsError> {
+pub fn from_string_q(q_ctx: &QuickJsRealmAdapter, s: &str) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { from_string(q_ctx.context, s) }
 }
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn from_string(context: *mut q::JSContext, s: &str) -> Result<JSValueRef, JsError> {
+pub unsafe fn from_string(
+    context: *mut q::JSContext,
+    s: &str,
+) -> Result<QuickJsValueAdapter, JsError> {
     let qval = q::JS_NewStringLen(context, s.as_ptr() as *const c_char, s.len() as _);
-    let ret = JSValueRef::new(context, qval, false, true, "primitives::from_string qval");
+    let ret = QuickJsValueAdapter::new(context, qval, false, true, "primitives::from_string qval");
     if ret.is_exception() {
         return Err(JsError::new_str("Could not create string in runtime"));
     }
@@ -139,14 +148,13 @@ pub unsafe fn from_string(context: *mut q::JSContext, s: &str) -> Result<JSValue
 pub mod tests {
 
     use crate::facades::tests::init_test_rt;
-    use hirofa_utils::js_utils::facades::JsRuntimeFacade;
-    use hirofa_utils::js_utils::Script;
+    use crate::jsutils::Script;
 
     #[tokio::test]
     async fn test_emoji() {
         let rt = init_test_rt();
 
-        let res = rt.js_eval(None, Script::new("testEmoji.js", "'hi'")).await;
+        let res = rt.eval(None, Script::new("testEmoji.js", "'hi'")).await;
 
         match res {
             Ok(fac) => {
@@ -157,7 +165,7 @@ pub mod tests {
             }
         }
 
-        let res = rt.js_eval(None, Script::new("testEmoji.js", "'👍'")).await;
+        let res = rt.eval(None, Script::new("testEmoji.js", "'👍'")).await;
 
         match res {
             Ok(fac) => {
@@ -168,9 +176,7 @@ pub mod tests {
             }
         }
 
-        let res = rt
-            .js_eval(None, Script::new("testEmoji.js", "'pre👍'"))
-            .await;
+        let res = rt.eval(None, Script::new("testEmoji.js", "'pre👍'")).await;
 
         match res {
             Ok(fac) => {
@@ -181,9 +187,7 @@ pub mod tests {
             }
         }
 
-        let res = rt
-            .js_eval(None, Script::new("testEmoji.js", "'👍post'"))
-            .await;
+        let res = rt.eval(None, Script::new("testEmoji.js", "'👍post'")).await;
 
         match res {
             Ok(fac) => {
@@ -195,7 +199,7 @@ pub mod tests {
         }
 
         let res = rt
-            .js_eval(None, Script::new("testEmoji.js", "'pre👍post'"))
+            .eval(None, Script::new("testEmoji.js", "'pre👍post'"))
             .await;
 
         match res {
@@ -208,7 +212,7 @@ pub mod tests {
         }
 
         let res = rt
-            .js_eval(
+            .eval(
                 None,
                 Script::new("testEmoji.js", "JSON.stringify({c: '👍'})"),
             )

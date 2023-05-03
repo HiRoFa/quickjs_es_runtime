@@ -1,25 +1,22 @@
 //! JSValueRef is a wrapper for quickjs's JSValue. it provides automatic reference counting making it safer to use  
 
+use crate::jsutils::{JsError, JsValueType};
 use crate::quickjs_utils::typedarrays::is_typed_array;
 use crate::quickjs_utils::{arrays, errors, functions, primitives, promises};
-use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use crate::reflection::is_proxy_instance;
-use hirofa_utils::js_utils::adapters::JsValueAdapter;
-use hirofa_utils::js_utils::facades::JsValueType;
-use hirofa_utils::js_utils::JsError;
 use libquickjs_sys as q;
 use std::hash::{Hash, Hasher};
 use std::ptr::null_mut;
 
 #[allow(clippy::upper_case_acronyms)]
-pub struct JSValueRef {
+pub struct QuickJsValueAdapter {
     pub(crate) context: *mut q::JSContext,
     value: q::JSValue,
     ref_ct_decr_on_drop: bool,
     label: String,
 }
 
-impl Hash for JSValueRef {
+impl Hash for QuickJsValueAdapter {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let self_u = self.value.u;
         if self.is_i32() || self.is_bool() {
@@ -32,7 +29,7 @@ impl Hash for JSValueRef {
     }
 }
 
-impl PartialEq for JSValueRef {
+impl PartialEq for QuickJsValueAdapter {
     fn eq(&self, other: &Self) -> bool {
         if self.get_tag() != other.get_tag() {
             false
@@ -48,16 +45,16 @@ impl PartialEq for JSValueRef {
     }
 }
 
-impl Eq for JSValueRef {}
+impl Eq for QuickJsValueAdapter {}
 
-impl JSValueRef {
+impl QuickJsValueAdapter {
     #[allow(dead_code)]
     pub(crate) fn label(&mut self, label: &str) {
         self.label = label.to_string()
     }
 }
 
-impl Clone for JSValueRef {
+impl Clone for QuickJsValueAdapter {
     fn clone(&self) -> Self {
         Self::new(
             self.context,
@@ -69,7 +66,7 @@ impl Clone for JSValueRef {
     }
 }
 
-impl Drop for JSValueRef {
+impl Drop for QuickJsValueAdapter {
     fn drop(&mut self) {
         //log::debug!(
         //    "dropping OwnedValueRef, before free: {}, ref_ct: {}, tag: {}",
@@ -101,7 +98,7 @@ impl Drop for JSValueRef {
     }
 }
 
-impl std::fmt::Debug for JSValueRef {
+impl std::fmt::Debug for QuickJsValueAdapter {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.value.tag {
             TAG_EXCEPTION => write!(f, "Exception(?)"),
@@ -118,7 +115,7 @@ impl std::fmt::Debug for JSValueRef {
     }
 }
 
-impl JSValueRef {
+impl QuickJsValueAdapter {
     pub(crate) fn increment_ref_count(&self) {
         if self.get_tag() < 0 {
             unsafe { libquickjs_sys::JS_DupValue(self.context, *self.borrow_value()) }
@@ -267,10 +264,21 @@ pub(crate) const TAG_UNDEFINED: i64 = 3;
 pub(crate) const TAG_EXCEPTION: i64 = 6;
 pub(crate) const TAG_FLOAT64: i64 = 7;
 
-impl JsValueAdapter for JSValueRef {
-    type JsRuntimeAdapterType = QuickJsRuntimeAdapter;
+impl QuickJsValueAdapter {
+    pub fn is_function(&self) -> bool {
+        self.is_object() && self.js_get_type() == JsValueType::Function
+    }
+    pub fn is_array(&self) -> bool {
+        self.is_object() && self.js_get_type() == JsValueType::Array
+    }
+    pub fn is_error(&self) -> bool {
+        self.is_object() && self.js_get_type() == JsValueType::Error
+    }
+    pub fn is_promise(&self) -> bool {
+        self.is_object() && self.js_get_type() == JsValueType::Promise
+    }
 
-    fn js_get_type(&self) -> JsValueType {
+    pub fn js_get_type(&self) -> JsValueType {
         match self.get_tag() {
             TAG_EXCEPTION => JsValueType::Error,
             TAG_NULL => JsValueType::Null,
@@ -298,15 +306,15 @@ impl JsValueAdapter for JSValueRef {
         }
     }
 
-    fn js_is_typed_array(&self) -> bool {
-        unsafe { is_typed_array(self.context, self) }
+    pub fn js_is_typed_array(&self) -> bool {
+        self.is_object() && unsafe { is_typed_array(self.context, self) }
     }
 
-    fn js_is_proxy_instance(&self) -> bool {
-        unsafe { is_proxy_instance(self.context, self) }
+    pub fn js_is_proxy_instance(&self) -> bool {
+        self.is_object() && unsafe { is_proxy_instance(self.context, self) }
     }
 
-    fn js_type_of(&self) -> &'static str {
+    pub fn js_type_of(&self) -> &'static str {
         match self.get_tag() {
             TAG_BIG_INT => "bigint",
             TAG_STRING => "string",
@@ -329,7 +337,7 @@ impl JsValueAdapter for JSValueRef {
         }
     }
 
-    fn js_to_bool(&self) -> bool {
+    pub fn js_to_bool(&self) -> bool {
         if self.js_get_type() == JsValueType::Boolean {
             primitives::to_bool(self).expect("could not convert bool to bool")
         } else {
@@ -337,7 +345,7 @@ impl JsValueAdapter for JSValueRef {
         }
     }
 
-    fn js_to_i32(&self) -> i32 {
+    pub fn js_to_i32(&self) -> i32 {
         if self.js_get_type() == JsValueType::I32 {
             primitives::to_i32(self).expect("could not convert to i32")
         } else {
@@ -345,7 +353,7 @@ impl JsValueAdapter for JSValueRef {
         }
     }
 
-    fn js_to_f64(&self) -> f64 {
+    pub fn js_to_f64(&self) -> f64 {
         if self.js_get_type() == JsValueType::F64 {
             primitives::to_f64(self).expect("could not convert to f64")
         } else {
@@ -353,7 +361,7 @@ impl JsValueAdapter for JSValueRef {
         }
     }
 
-    fn js_to_string(&self) -> Result<String, JsError> {
+    pub fn js_to_string(&self) -> Result<String, JsError> {
         match self.js_get_type() {
             JsValueType::I32 => Ok(self.js_to_i32().to_string()),
             JsValueType::F64 => Ok(self.js_to_f64().to_string()),
@@ -373,7 +381,7 @@ impl JsValueAdapter for JSValueRef {
         }
     }
 
-    fn js_to_str(&self) -> Result<&str, JsError> {
+    pub fn js_to_str(&self) -> Result<&str, JsError> {
         if self.js_get_type() == JsValueType::String {
             unsafe { primitives::to_str(self.context, self) }
         } else {
@@ -385,9 +393,7 @@ impl JsValueAdapter for JSValueRef {
 #[cfg(test)]
 pub mod tests {
     use crate::facades::tests::init_test_rt;
-    use hirofa_utils::js_utils::adapters::JsValueAdapter;
-    use hirofa_utils::js_utils::facades::JsValueType;
-    use hirofa_utils::js_utils::Script;
+    use crate::jsutils::{JsValueType, Script};
 
     #[test]
     fn test_to_str() {

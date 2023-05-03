@@ -1,7 +1,7 @@
 //! contains engine features like console, setTimeout, setInterval and setImmediate
 
 use crate::facades::QuickJsRuntimeFacade;
-use hirofa_utils::js_utils::JsError;
+use crate::jsutils::JsError;
 #[cfg(feature = "console")]
 pub mod console;
 #[cfg(any(feature = "settimeout", feature = "setinterval"))]

@@ -1,9 +1,9 @@
 //! utils for getting and reporting exceptions
 
+use crate::jsutils::JsError;
 use crate::quickjs_utils::{objects, primitives};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-use crate::valueref::{JSValueRef, TAG_EXCEPTION};
-use hirofa_utils::js_utils::JsError;
+use crate::quickjsvalueadapter::{QuickJsValueAdapter, TAG_EXCEPTION};
 use libquickjs_sys as q;
 
 /// Get the last exception from the runtime, and if present, convert it to an JsError.
@@ -12,7 +12,7 @@ use libquickjs_sys as q;
 pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<JsError> {
     let exception_val = q::JS_GetException(context);
     let exception_ref =
-        JSValueRef::new(context, exception_val, false, true, "errors::get_exception");
+        QuickJsValueAdapter::new(context, exception_val, false, true, "errors::get_exception");
 
     if exception_ref.is_null() {
         None
@@ -31,7 +31,10 @@ pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<JsError> {
 /// convert an instance of Error to JsError
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn error_to_js_error(context: *mut q::JSContext, exception_ref: &JSValueRef) -> JsError {
+pub unsafe fn error_to_js_error(
+    context: *mut q::JSContext,
+    exception_ref: &QuickJsValueAdapter,
+) -> JsError {
     let name_ref = objects::get_property(context, exception_ref, "name")
         .ok()
         .unwrap();
@@ -77,9 +80,9 @@ pub unsafe fn new_error(
     name: &str,
     message: &str,
     stack: &str,
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     let obj = q::JS_NewError(context);
-    let obj_ref = JSValueRef::new(
+    let obj_ref = QuickJsValueAdapter::new(
         context,
         obj,
         false,
@@ -108,14 +111,14 @@ pub unsafe fn new_error(
 }
 
 /// See if a JSValueRef is an Error object
-pub fn is_error_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &JSValueRef) -> bool {
+pub fn is_error_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &QuickJsValueAdapter) -> bool {
     unsafe { is_error(q_ctx.context, obj_ref) }
 }
 
 /// See if a JSValueRef is an Error object
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn is_error(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
+pub unsafe fn is_error(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter) -> bool {
     if obj_ref.is_object() {
         let res = q::JS_IsError(context, *obj_ref.borrow_value());
         res != 0
@@ -127,7 +130,7 @@ pub unsafe fn is_error(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool
 /// Throw an error and get an Exception JSValue to return from native methods
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn throw(context: *mut q::JSContext, error: JSValueRef) -> q::JSValue {
+pub unsafe fn throw(context: *mut q::JSContext, error: QuickJsValueAdapter) -> q::JSValue {
     assert!(is_error(context, &error));
     q::JS_Throw(context, error.clone_value_incr_rc());
     q::JSValue {
@@ -138,10 +141,10 @@ pub unsafe fn throw(context: *mut q::JSContext, error: JSValueRef) -> q::JSValue
 
 #[cfg(test)]
 pub mod tests {
-    use crate::esvalue::EsValueConvertible;
     use crate::facades::tests::init_test_rt;
+    use crate::jsutils::{JsError, Script};
     use crate::quickjs_utils::functions;
-    use hirofa_utils::js_utils::Script;
+    use crate::values::{JsValueConvertable, JsValueFacade};
     use std::time::Duration;
 
     #[test]
@@ -149,10 +152,13 @@ pub mod tests {
         // check if stacktrace is preserved when invoking native methods
 
         let rt = init_test_rt();
-        let res = rt.eval_sync(Script::new(
-            "ex.js",
-            "console.log('foo');\nconsole.log('bar');let a = __c_v__ * 7;",
-        ));
+        let res = rt.eval_sync(
+            None,
+            Script::new(
+                "ex.js",
+                "console.log('foo');\nconsole.log('bar');let a = __c_v__ * 7;",
+            ),
+        );
         let ex = res.expect_err("sciprt should have failed;");
 
         assert_eq!(ex.get_message(), "'__c_v__' is not defined");
@@ -163,10 +169,13 @@ pub mod tests {
         // check if stacktrace is preserved when invoking native methods
 
         let rt = init_test_rt();
-        let res = rt.eval_sync(Script::new(
-            "ex.js",
-            "console.log('foo');\nconsole.log('bar');let a = __c_v__ * 7;",
-        ));
+        let res = rt.eval_sync(
+            None,
+            Script::new(
+                "ex.js",
+                "console.log('foo');\nconsole.log('bar');let a = __c_v__ * 7;",
+            ),
+        );
         let ex = res.expect_err("sciprt should have failed;");
 
         assert_eq!(ex.get_message(), "'__c_v__' is not defined");
@@ -177,22 +186,30 @@ pub mod tests {
         // check if stacktrace is preserved when invoking native methods
 
         let rt = init_test_rt();
-        rt.set_function(vec![], "test_consume", |_q_ctx, args| {
+        rt.set_function(&[], "test_consume", move |_realm, args| {
             // args[0] is a function i'll want to call
-            let func_esvf = &args[0];
-            func_esvf.invoke_function_sync(vec![12.to_es_value_facade()])?;
-            Ok(0.to_es_value_facade())
+            let func_jsvf = &args[0];
+            match func_jsvf {
+                JsValueFacade::JsFunction { cached_function } => {
+                    let _ = cached_function.js_invoke_function_sync(vec![12.to_js_value_facade()]);
+                    Ok(0.to_js_value_facade())
+                }
+                _ => Err(JsError::new_str("poof")),
+            }
         })
         .expect("could not set function");
-        let s_res = rt.eval_sync(Script::new(
-            "test_ex.es",
-            "let consumer = function() {\n
+        let s_res = rt.eval_sync(
+            None,
+            Script::new(
+                "test_ex.es",
+                "let consumer = function() {\n
         console.log('consuming');\n
         throw Error('oh dear stuff failed at line 3 in consumer');\n
         };\n
         console.log('calling consume from line 5');test_consume(consumer);\n
         console.log('should never reach line 7')",
-        ));
+            ),
+        );
         if s_res.is_err() {
             let e = format!("script failed: {}", s_res.err().unwrap());
             log::error!("{}", e);
@@ -223,7 +240,7 @@ pub mod tests {
                     ))
                     .expect("script failed");
                 assert!(functions::is_function_q(q_ctx, &func_ref1));
-                let res = functions::call_function_q(q_ctx, &func_ref1, vec![], None);
+                let res = functions::call_function_q(q_ctx, &func_ref1, &[], None);
                 match res {
                     Ok(_) => {}
                     Err(e) => {
@@ -240,7 +257,7 @@ pub mod tests {
                 .expect("script failed");
 
             assert!(functions::is_function_q(q_ctx, &func_ref2));
-            let res = functions::call_function_q(q_ctx, &func_ref2, vec![], None);
+            let res = functions::call_function_q(q_ctx, &func_ref2, &[], None);
             match res {
                 Ok(_) => {}
                 Err(e) => {

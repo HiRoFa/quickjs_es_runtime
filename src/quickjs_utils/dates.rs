@@ -1,42 +1,42 @@
 //! Utils for working with Date objects
 
+use crate::jsutils::JsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, objects, primitives};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-use crate::valueref::JSValueRef;
-use hirofa_utils::js_utils::JsError;
+use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use libquickjs_sys as q;
 
 /// create a new instance of a Date object
-pub fn new_date_q(context: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
+pub fn new_date_q(context: &QuickJsRealmAdapter) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { new_date(context.context) }
 }
 
 /// create a new instance of a Date object
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn new_date(context: *mut q::JSContext) -> Result<JSValueRef, JsError> {
+pub unsafe fn new_date(context: *mut q::JSContext) -> Result<QuickJsValueAdapter, JsError> {
     let constructor = quickjs_utils::get_constructor(context, "Date")?;
     let date_ref = functions::call_constructor(context, &constructor, &[])?;
     Ok(date_ref)
 }
 
 /// check if a JSValueRef is an instance of Date
-pub fn is_date_q(context: &QuickJsRealmAdapter, obj_ref: &JSValueRef) -> bool {
+pub fn is_date_q(context: &QuickJsRealmAdapter, obj_ref: &QuickJsValueAdapter) -> bool {
     unsafe { is_date(context.context, obj_ref) }
 }
 
 /// check if a JSValueRef is an instance of Date
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn is_date(context: *mut q::JSContext, obj_ref: &JSValueRef) -> bool {
+pub unsafe fn is_date(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter) -> bool {
     objects::is_instance_of_by_name(context, obj_ref, "Date").unwrap_or(false)
 }
 
 /// set the timestamp for a Date object
 pub fn set_time_q(
     context: &QuickJsRealmAdapter,
-    date_ref: &JSValueRef,
+    date_ref: &QuickJsValueAdapter,
     timestamp: f64,
 ) -> Result<(), JsError> {
     unsafe { set_time(context.context, date_ref, timestamp) }
@@ -47,26 +47,32 @@ pub fn set_time_q(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn set_time(
     context: *mut q::JSContext,
-    date_ref: &JSValueRef,
+    date_ref: &QuickJsValueAdapter,
     timestamp: f64,
 ) -> Result<(), JsError> {
     functions::invoke_member_function(
         context,
         date_ref,
         "setTime",
-        vec![primitives::from_f64(timestamp)],
+        &[primitives::from_f64(timestamp)],
     )?;
     Ok(())
 }
 /// get the timestamp from a Date object
-pub fn get_time_q(context: &QuickJsRealmAdapter, date_ref: &JSValueRef) -> Result<f64, JsError> {
+pub fn get_time_q(
+    context: &QuickJsRealmAdapter,
+    date_ref: &QuickJsValueAdapter,
+) -> Result<f64, JsError> {
     unsafe { get_time(context.context, date_ref) }
 }
 /// get the timestamp from a Date object
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn get_time(context: *mut q::JSContext, date_ref: &JSValueRef) -> Result<f64, JsError> {
-    let time_ref = functions::invoke_member_function(context, date_ref, "getTime", vec![])?;
+pub unsafe fn get_time(
+    context: *mut q::JSContext,
+    date_ref: &QuickJsValueAdapter,
+) -> Result<f64, JsError> {
+    let time_ref = functions::invoke_member_function(context, date_ref, "getTime", &[])?;
     if time_ref.is_f64() {
         primitives::to_f64(&time_ref)
     } else {

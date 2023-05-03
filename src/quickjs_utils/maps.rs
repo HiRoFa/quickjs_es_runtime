@@ -1,11 +1,11 @@
 //! Map utils, these methods can be used to manage Map objects from rust
 //! see [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map) for more on Maps
 
+use crate::jsutils::JsError;
 use crate::quickjs_utils::objects::{construct_object, is_instance_of_by_name};
 use crate::quickjs_utils::{arrays, functions, get_constructor, iterators, objects, primitives};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-use crate::valueref::JSValueRef;
-use hirofa_utils::js_utils::JsError;
+use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use libquickjs_sys as q;
 
 /// create new instance of Map
@@ -13,35 +13,35 @@ use libquickjs_sys as q;
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::new_map_q;
-/// use quickjs_runtime::valueref::JSValueRef;
+/// use quickjs_runtime::quickjsvalueadapter::QuickJsValueAdapter;
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
-///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
+///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 /// });
 /// ```
-pub fn new_map_q(q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
+pub fn new_map_q(q_ctx: &QuickJsRealmAdapter) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { new_map(q_ctx.context) }
 }
 
 /// create new instance of Map
 /// # Safety
 /// please ensure the passed JSContext is still valid
-pub unsafe fn new_map(ctx: *mut q::JSContext) -> Result<JSValueRef, JsError> {
+pub unsafe fn new_map(ctx: *mut q::JSContext) -> Result<QuickJsValueAdapter, JsError> {
     let map_constructor = get_constructor(ctx, "Map")?;
     construct_object(ctx, &map_constructor, &[])
 }
 
 /// see if a JSValueRef is an instance of Map
-pub fn is_map_q(q_ctx: &QuickJsRealmAdapter, obj: &JSValueRef) -> Result<bool, JsError> {
+pub fn is_map_q(q_ctx: &QuickJsRealmAdapter, obj: &QuickJsValueAdapter) -> Result<bool, JsError> {
     unsafe { is_map(q_ctx.context, obj) }
 }
 
 /// see if a JSValueRef is an instance of Map
 /// # Safety
 /// please ensure the passed JSContext is still valid
-pub unsafe fn is_map(ctx: *mut q::JSContext, obj: &JSValueRef) -> Result<bool, JsError> {
+pub unsafe fn is_map(ctx: *mut q::JSContext, obj: &QuickJsValueAdapter) -> Result<bool, JsError> {
     is_instance_of_by_name(ctx, obj, "Map")
 }
 
@@ -50,13 +50,13 @@ pub unsafe fn is_map(ctx: *mut q::JSContext, obj: &JSValueRef) -> Result<bool, J
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q};
-/// use quickjs_runtime::valueref::JSValueRef;
+/// use quickjs_runtime::quickjsvalueadapter::QuickJsValueAdapter;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
-///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
+///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
 ///    set_q(q_ctx, &my_map, key, value).ok().unwrap();
@@ -64,10 +64,10 @@ pub unsafe fn is_map(ctx: *mut q::JSContext, obj: &JSValueRef) -> Result<bool, J
 /// ```
 pub fn set_q(
     q_ctx: &QuickJsRealmAdapter,
-    map: &JSValueRef,
-    key: JSValueRef,
-    val: JSValueRef,
-) -> Result<JSValueRef, JsError> {
+    map: &QuickJsValueAdapter,
+    key: QuickJsValueAdapter,
+    val: QuickJsValueAdapter,
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { set(q_ctx.context, map, key, val) }
 }
 
@@ -76,11 +76,11 @@ pub fn set_q(
 /// please ensure the passed JSContext is still valid
 pub unsafe fn set(
     ctx: *mut q::JSContext,
-    map: &JSValueRef,
-    key: JSValueRef,
-    val: JSValueRef,
-) -> Result<JSValueRef, JsError> {
-    functions::invoke_member_function(ctx, map, "set", vec![key, val])
+    map: &QuickJsValueAdapter,
+    key: QuickJsValueAdapter,
+    val: QuickJsValueAdapter,
+) -> Result<QuickJsValueAdapter, JsError> {
+    functions::invoke_member_function(ctx, map, "set", &[key, val])
 }
 
 /// get a value from a map by key
@@ -88,13 +88,13 @@ pub unsafe fn set(
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, get_q, set_q};
-/// use quickjs_runtime::valueref::JSValueRef;
+/// use quickjs_runtime::quickjsvalueadapter::QuickJsValueAdapter;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
-///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
+///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
 ///    set_q(q_ctx, &my_map, key.clone(), value).ok().unwrap();
@@ -104,9 +104,9 @@ pub unsafe fn set(
 /// ```
 pub fn get_q(
     q_ctx: &QuickJsRealmAdapter,
-    map: &JSValueRef,
-    key: JSValueRef,
-) -> Result<JSValueRef, JsError> {
+    map: &QuickJsValueAdapter,
+    key: QuickJsValueAdapter,
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { get(q_ctx.context, map, key) }
 }
 
@@ -115,10 +115,10 @@ pub fn get_q(
 /// please ensure the passed JSContext is still valid
 pub unsafe fn get(
     ctx: *mut q::JSContext,
-    map: &JSValueRef,
-    key: JSValueRef,
-) -> Result<JSValueRef, JsError> {
-    functions::invoke_member_function(ctx, map, "get", vec![key])
+    map: &QuickJsValueAdapter,
+    key: QuickJsValueAdapter,
+) -> Result<QuickJsValueAdapter, JsError> {
+    functions::invoke_member_function(ctx, map, "get", &[key])
 }
 
 /// delete a value from a map by key
@@ -126,13 +126,13 @@ pub unsafe fn get(
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, delete_q};
-/// use quickjs_runtime::valueref::JSValueRef;
+/// use quickjs_runtime::quickjsvalueadapter::QuickJsValueAdapter;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
-///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
+///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
 ///    set_q(q_ctx, &my_map, key.clone(), value).ok().unwrap();
@@ -141,8 +141,8 @@ pub unsafe fn get(
 /// ```
 pub fn delete_q(
     q_ctx: &QuickJsRealmAdapter,
-    map: &JSValueRef,
-    key: JSValueRef,
+    map: &QuickJsValueAdapter,
+    key: QuickJsValueAdapter,
 ) -> Result<bool, JsError> {
     unsafe { delete(q_ctx.context, map, key) }
 }
@@ -152,10 +152,10 @@ pub fn delete_q(
 /// please ensure the passed JSContext is still valid
 pub unsafe fn delete(
     ctx: *mut q::JSContext,
-    map: &JSValueRef,
-    key: JSValueRef,
+    map: &QuickJsValueAdapter,
+    key: QuickJsValueAdapter,
 ) -> Result<bool, JsError> {
-    let res = functions::invoke_member_function(ctx, map, "delete", vec![key])?;
+    let res = functions::invoke_member_function(ctx, map, "delete", &[key])?;
     primitives::to_bool(&res)
 }
 
@@ -164,13 +164,13 @@ pub unsafe fn delete(
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, has_q};
-/// use quickjs_runtime::valueref::JSValueRef;
+/// use quickjs_runtime::quickjsvalueadapter::QuickJsValueAdapter;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
-///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
+///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
 ///    set_q(q_ctx, &my_map, key.clone(), value).ok().unwrap();
@@ -180,8 +180,8 @@ pub unsafe fn delete(
 /// ```
 pub fn has_q(
     q_ctx: &QuickJsRealmAdapter,
-    map: &JSValueRef,
-    key: JSValueRef,
+    map: &QuickJsValueAdapter,
+    key: QuickJsValueAdapter,
 ) -> Result<bool, JsError> {
     unsafe { has(q_ctx.context, map, key) }
 }
@@ -191,10 +191,10 @@ pub fn has_q(
 /// please ensure the passed JSContext is still valid
 pub unsafe fn has(
     ctx: *mut q::JSContext,
-    map: &JSValueRef,
-    key: JSValueRef,
+    map: &QuickJsValueAdapter,
+    key: QuickJsValueAdapter,
 ) -> Result<bool, JsError> {
-    let res = functions::invoke_member_function(ctx, map, "has", vec![key])?;
+    let res = functions::invoke_member_function(ctx, map, "has", &[key])?;
     primitives::to_bool(&res)
 }
 
@@ -203,13 +203,13 @@ pub unsafe fn has(
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, size_q};
-/// use quickjs_runtime::valueref::JSValueRef;
+/// use quickjs_runtime::quickjsvalueadapter::QuickJsValueAdapter;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
-///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
+///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
 ///    set_q(q_ctx, &my_map, key.clone(), value).ok().unwrap();
@@ -217,14 +217,14 @@ pub unsafe fn has(
 ///    assert_eq!(i_size, 1);
 /// });
 /// ```
-pub fn size_q(q_ctx: &QuickJsRealmAdapter, map: &JSValueRef) -> Result<i32, JsError> {
+pub fn size_q(q_ctx: &QuickJsRealmAdapter, map: &QuickJsValueAdapter) -> Result<i32, JsError> {
     unsafe { size(q_ctx.context, map) }
 }
 
 /// get the number of entries in a map
 /// # Safety
 /// please ensure the passed JSContext is still valid
-pub unsafe fn size(ctx: *mut q::JSContext, map: &JSValueRef) -> Result<i32, JsError> {
+pub unsafe fn size(ctx: *mut q::JSContext, map: &QuickJsValueAdapter) -> Result<i32, JsError> {
     let res = objects::get_property(ctx, map, "size")?;
     primitives::to_i32(&res)
 }
@@ -234,13 +234,13 @@ pub unsafe fn size(ctx: *mut q::JSContext, map: &JSValueRef) -> Result<i32, JsEr
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, clear_q, size_q};
-/// use quickjs_runtime::valueref::JSValueRef;
+/// use quickjs_runtime::quickjsvalueadapter::QuickJsValueAdapter;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
-///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
+///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
 ///    set_q(q_ctx, &my_map, key.clone(), value).ok().unwrap();
@@ -249,15 +249,15 @@ pub unsafe fn size(ctx: *mut q::JSContext, map: &JSValueRef) -> Result<i32, JsEr
 ///    assert_eq!(i_size, 0);
 /// });
 /// ```
-pub fn clear_q(q_ctx: &QuickJsRealmAdapter, map: &JSValueRef) -> Result<(), JsError> {
+pub fn clear_q(q_ctx: &QuickJsRealmAdapter, map: &QuickJsValueAdapter) -> Result<(), JsError> {
     unsafe { clear(q_ctx.context, map) }
 }
 
 /// remove all entries from a map
 /// # Safety
 /// please ensure the passed JSContext is still valid
-pub unsafe fn clear(ctx: *mut q::JSContext, map: &JSValueRef) -> Result<(), JsError> {
-    let _ = functions::invoke_member_function(ctx, map, "clear", vec![])?;
+pub unsafe fn clear(ctx: *mut q::JSContext, map: &QuickJsValueAdapter) -> Result<(), JsError> {
+    let _ = functions::invoke_member_function(ctx, map, "clear", &[])?;
     Ok(())
 }
 
@@ -266,13 +266,13 @@ pub unsafe fn clear(ctx: *mut q::JSContext, map: &JSValueRef) -> Result<(), JsEr
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, keys_q};
-/// use quickjs_runtime::valueref::JSValueRef;
+/// use quickjs_runtime::quickjsvalueadapter::QuickJsValueAdapter;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
-///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
+///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
 ///    set_q(q_ctx, &my_map, key, value).ok().unwrap();
@@ -280,9 +280,9 @@ pub unsafe fn clear(ctx: *mut q::JSContext, map: &JSValueRef) -> Result<(), JsEr
 ///    assert_eq!(mapped_keys.len(), 1);
 /// });
 /// ```
-pub fn keys_q<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
+pub fn keys_q<C: Fn(QuickJsValueAdapter) -> Result<R, JsError>, R>(
     q_ctx: &QuickJsRealmAdapter,
-    map: &JSValueRef,
+    map: &QuickJsValueAdapter,
     consumer_producer: C,
 ) -> Result<Vec<R>, JsError> {
     unsafe { keys(q_ctx.context, map, consumer_producer) }
@@ -291,12 +291,12 @@ pub fn keys_q<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
 /// iterate over all keys of a map
 /// # Safety
 /// please ensure the passed JSContext is still valid
-pub unsafe fn keys<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
+pub unsafe fn keys<C: Fn(QuickJsValueAdapter) -> Result<R, JsError>, R>(
     ctx: *mut q::JSContext,
-    map: &JSValueRef,
+    map: &QuickJsValueAdapter,
     consumer_producer: C,
 ) -> Result<Vec<R>, JsError> {
-    let iter_ref = functions::invoke_member_function(ctx, map, "keys", vec![])?;
+    let iter_ref = functions::invoke_member_function(ctx, map, "keys", &[])?;
 
     iterators::iterate(ctx, &iter_ref, consumer_producer)
 }
@@ -306,13 +306,13 @@ pub unsafe fn keys<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, values_q};
-/// use quickjs_runtime::valueref::JSValueRef;
+/// use quickjs_runtime::quickjsvalueadapter::QuickJsValueAdapter;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
-///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
+///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
 ///    set_q(q_ctx, &my_map, key, value).ok().unwrap();
@@ -320,9 +320,9 @@ pub unsafe fn keys<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
 ///    assert_eq!(mapped_values.len(), 1);
 /// });
 /// ```
-pub fn values_q<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
+pub fn values_q<C: Fn(QuickJsValueAdapter) -> Result<R, JsError>, R>(
     q_ctx: &QuickJsRealmAdapter,
-    map: &JSValueRef,
+    map: &QuickJsValueAdapter,
     consumer_producer: C,
 ) -> Result<Vec<R>, JsError> {
     unsafe { values(q_ctx.context, map, consumer_producer) }
@@ -331,12 +331,12 @@ pub fn values_q<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
 /// iterate over all values of a map
 /// # Safety
 /// please ensure the passed JSContext is still valid
-pub unsafe fn values<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
+pub unsafe fn values<C: Fn(QuickJsValueAdapter) -> Result<R, JsError>, R>(
     ctx: *mut q::JSContext,
-    map: &JSValueRef,
+    map: &QuickJsValueAdapter,
     consumer_producer: C,
 ) -> Result<Vec<R>, JsError> {
-    let iter_ref = functions::invoke_member_function(ctx, map, "values", vec![])?;
+    let iter_ref = functions::invoke_member_function(ctx, map, "values", &[])?;
 
     iterators::iterate(ctx, &iter_ref, consumer_producer)
 }
@@ -346,13 +346,13 @@ pub unsafe fn values<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 /// use quickjs_runtime::quickjs_utils::maps::{new_map_q, set_q, entries_q};
-/// use quickjs_runtime::valueref::JSValueRef;
+/// use quickjs_runtime::quickjsvalueadapter::QuickJsValueAdapter;
 /// use quickjs_runtime::quickjs_utils::primitives;
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///    let q_ctx = q_js_rt.get_main_context();
-///    let my_map: JSValueRef = new_map_q(q_ctx).ok().unwrap();
+///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
 ///    set_q(q_ctx, &my_map, key, value).ok().unwrap();
@@ -360,9 +360,9 @@ pub unsafe fn values<C: Fn(JSValueRef) -> Result<R, JsError>, R>(
 ///    assert_eq!(mapped_values.len(), 1);
 /// });
 /// ```
-pub fn entries_q<C: Fn(JSValueRef, JSValueRef) -> Result<R, JsError>, R>(
+pub fn entries_q<C: Fn(QuickJsValueAdapter, QuickJsValueAdapter) -> Result<R, JsError>, R>(
     q_ctx: &QuickJsRealmAdapter,
-    map: &JSValueRef,
+    map: &QuickJsValueAdapter,
     consumer_producer: C,
 ) -> Result<Vec<R>, JsError> {
     unsafe { entries(q_ctx.context, map, consumer_producer) }
@@ -371,12 +371,12 @@ pub fn entries_q<C: Fn(JSValueRef, JSValueRef) -> Result<R, JsError>, R>(
 /// iterate over all entries of a map
 /// # Safety
 /// please ensure the passed JSContext is still valid
-pub unsafe fn entries<C: Fn(JSValueRef, JSValueRef) -> Result<R, JsError>, R>(
+pub unsafe fn entries<C: Fn(QuickJsValueAdapter, QuickJsValueAdapter) -> Result<R, JsError>, R>(
     ctx: *mut q::JSContext,
-    map: &JSValueRef,
+    map: &QuickJsValueAdapter,
     consumer_producer: C,
 ) -> Result<Vec<R>, JsError> {
-    let iter_ref = functions::invoke_member_function(ctx, map, "entries", vec![])?;
+    let iter_ref = functions::invoke_member_function(ctx, map, "entries", &[])?;
 
     iterators::iterate(ctx, &iter_ref, |arr_ref| {
         let key = arrays::get_element(ctx, &arr_ref, 0)?;

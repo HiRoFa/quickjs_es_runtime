@@ -1,8 +1,8 @@
 //JS_AtomToCString(ctx: *mut JSContext, atom: JSAtom) -> *const ::std::os::raw::c_char
 use crate::quickjs_utils::primitives;
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-use crate::valueref::JSValueRef;
-use hirofa_utils::js_utils::JsError;
+use crate::quickjsvalueadapter::QuickJsValueAdapter;
+use crate::jsutils::JsError;
 use libquickjs_sys as q;
 use std::ffi::{CStr, CString};
 
@@ -46,7 +46,7 @@ pub unsafe fn to_string(
     atom_ref: &JSAtomRef,
 ) -> Result<String, JsError> {
     let val = q::JS_AtomToString(context, atom_ref.atom);
-    let val_ref = JSValueRef::new(context, val, false, true, "atoms::to_string");
+    let val_ref = QuickJsValueAdapter::new(context, val, false, true, "atoms::to_string");
     primitives::to_string(context, &val_ref)
 }
 
@@ -58,7 +58,7 @@ pub fn to_string2_q(q_ctx: &QuickJsRealmAdapter, atom: &q::JSAtom) -> Result<Str
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn to_string2(context: *mut q::JSContext, atom: &q::JSAtom) -> Result<String, JsError> {
     let val = q::JS_AtomToString(context, *atom);
-    let val_ref = JSValueRef::new(context, val, false, true, "atoms::to_string");
+    let val_ref = QuickJsValueAdapter::new(context, val, false, true, "atoms::to_string");
     primitives::to_string(context, &val_ref)
 }
 

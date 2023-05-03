@@ -1,10 +1,10 @@
 //! Utils to compile script to bytecode and run script from bytecode
 
+use crate::jsutils::JsError;
+use crate::jsutils::Script;
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::make_cstring;
-use crate::valueref::JSValueRef;
-use hirofa_utils::js_utils::JsError;
-use hirofa_utils::js_utils::Script;
+use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use libquickjs_sys as q;
 use std::os::raw::c_void;
 
@@ -13,7 +13,7 @@ use std::os::raw::c_void;
 /// # Example
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-/// use hirofa_utils::js_utils::Script;
+/// use quickjs_runtime::jsutils::Script;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::compile::{compile, run_compiled_function};
 /// let rt = QuickJsRuntimeBuilder::new().build();
@@ -32,7 +32,10 @@ use std::os::raw::c_void;
 /// ```
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn compile(context: *mut q::JSContext, script: Script) -> Result<JSValueRef, JsError> {
+pub unsafe fn compile(
+    context: *mut q::JSContext,
+    script: Script,
+) -> Result<QuickJsValueAdapter, JsError> {
     let filename_c = make_cstring(script.get_path())?;
     let code_c = make_cstring(script.get_code())?;
 
@@ -49,7 +52,7 @@ pub unsafe fn compile(context: *mut q::JSContext, script: Script) -> Result<JSVa
     log::trace!("after compile, checking error");
 
     // check for error
-    let ret = JSValueRef::new(
+    let ret = QuickJsValueAdapter::new(
         context,
         value_raw,
         false,
@@ -75,11 +78,12 @@ pub unsafe fn compile(context: *mut q::JSContext, script: Script) -> Result<JSVa
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn run_compiled_function(
     context: *mut q::JSContext,
-    compiled_func: &JSValueRef,
-) -> Result<JSValueRef, JsError> {
+    compiled_func: &QuickJsValueAdapter,
+) -> Result<QuickJsValueAdapter, JsError> {
     assert!(compiled_func.is_compiled_function());
     let val = q::JS_EvalFunction(context, compiled_func.clone_value_incr_rc());
-    let val_ref = JSValueRef::new(context, val, false, true, "run_compiled_function result");
+    let val_ref =
+        QuickJsValueAdapter::new(context, val, false, true, "run_compiled_function result");
     if val_ref.is_exception() {
         let ex_opt = QuickJsRealmAdapter::get_exception(context);
         if let Some(ex) = ex_opt {
@@ -98,7 +102,7 @@ pub unsafe fn run_compiled_function(
 /// # Example
 /// ```rust
 /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
-/// use hirofa_utils::js_utils::Script;
+/// use quickjs_runtime::jsutils::Script;
 /// use quickjs_runtime::quickjs_utils::primitives;
 /// use quickjs_runtime::quickjs_utils::compile::{compile, run_compiled_function, to_bytecode, from_bytecode};
 /// let rt = QuickJsRuntimeBuilder::new().build();
@@ -122,7 +126,10 @@ pub unsafe fn run_compiled_function(
 /// ```
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn to_bytecode(context: *mut q::JSContext, compiled_func: &JSValueRef) -> Vec<u8> {
+pub unsafe fn to_bytecode(
+    context: *mut q::JSContext,
+    compiled_func: &QuickJsValueAdapter,
+) -> Vec<u8> {
     assert!(compiled_func.is_compiled_function() || compiled_func.is_module());
 
     let mut len = 0;
@@ -147,7 +154,7 @@ pub unsafe fn to_bytecode(context: *mut q::JSContext, compiled_func: &JSValueRef
 pub unsafe fn from_bytecode(
     context: *mut q::JSContext,
     bytecode: &[u8],
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     assert!(!bytecode.is_empty());
     {
         let len = bytecode.len();
@@ -155,7 +162,7 @@ pub unsafe fn from_bytecode(
         let buf = bytecode.as_ptr();
         let raw = q::JS_ReadObject(context, buf, len as _, q::JS_READ_OBJ_BYTECODE as i32);
 
-        let func_ref = JSValueRef::new(context, raw, false, true, "from_bytecode result");
+        let func_ref = QuickJsValueAdapter::new(context, raw, false, true, "from_bytecode result");
         if func_ref.is_exception() {
             let ex_opt = QuickJsRealmAdapter::get_exception(context);
             if let Some(ex) = ex_opt {
@@ -175,18 +182,17 @@ pub unsafe fn from_bytecode(
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
     use crate::facades::tests::init_test_rt;
+    use crate::jsutils::modules::CompiledModuleLoader;
+    use crate::jsutils::Script;
     use crate::quickjs_utils::compile::{
         compile, from_bytecode, run_compiled_function, to_bytecode,
     };
     use crate::quickjs_utils::modules::compile_module;
     use crate::quickjs_utils::primitives;
     use crate::quickjsrealmadapter::QuickJsRealmAdapter;
+    use crate::values::JsValueFacade;
     use backtrace::Backtrace;
     use futures::executor::block_on;
-    use hirofa_utils::js_utils::facades::values::JsValueFacade;
-    use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
-    use hirofa_utils::js_utils::modules::CompiledModuleLoader;
-    use hirofa_utils::js_utils::Script;
     use log::LevelFilter;
     use std::panic;
     use std::sync::Arc;
@@ -325,7 +331,7 @@ pub mod tests {
     fn init_bytes() -> Arc<Vec<u8>> {
         // in order to init our bytes fgor our module we lazy init a rt
         let rt = QuickJsRuntimeBuilder::new().build();
-        rt.js_loop_realm_sync(None, |_rt, realm| unsafe {
+        rt.loop_realm_sync(None, |_rt, realm| unsafe {
             let script = Script::new(
                 "test_module.js",
                 "export function someFunction(a, b){return a*b;};",
@@ -338,7 +344,7 @@ pub mod tests {
     }
 
     struct Cml {}
-    impl CompiledModuleLoader<QuickJsRealmAdapter> for Cml {
+    impl CompiledModuleLoader for Cml {
         fn normalize_path(
             &self,
             _q_ctx: &QuickJsRealmAdapter,
@@ -376,12 +382,10 @@ pub mod tests {
             "test_bytecode_module.js",
             "import('testcompiledmodule').then((mod) => {return mod.someFunction(3, 5);})",
         );
-        let res_fut = rt.js_eval(None, test_script);
+        let res_fut = rt.eval(None, test_script);
         let res_prom = block_on(res_fut).expect("script failed");
-        let rti_weak = rt.js_get_runtime_facade_inner();
         if let JsValueFacade::JsPromise { cached_promise } = res_prom {
-            let rti = rti_weak.upgrade().expect("invalid state");
-            let prom_res_fut = cached_promise.js_get_promise_result(&*rti);
+            let prom_res_fut = cached_promise.js_get_promise_result();
             let prom_res = block_on(prom_res_fut)
                 .expect("prom failed")
                 .expect("prom was rejected");

@@ -1,11 +1,11 @@
 //! Utils for working with objects
 
+use crate::jsutils::JsError;
 use crate::quickjs_utils::properties::JSPropertyEnumRef;
 use crate::quickjs_utils::{atoms, functions, get_constructor, get_global};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::{make_cstring, QuickJsRuntimeAdapter};
-use crate::valueref::JSValueRef;
-use hirofa_utils::js_utils::JsError;
+use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use libquickjs_sys as q;
 
 /// get a namespace object
@@ -17,15 +17,15 @@ use libquickjs_sys as q;
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     let q_ctx = q_js_rt.get_main_context();
-///     let ns_obj = get_namespace_q(q_ctx, vec!["com", "hirofa", "examplepackage"], true).ok().unwrap();
+///     let ns_obj = get_namespace_q(q_ctx, &["com", "hirofa", "examplepackage"], true).ok().unwrap();
 ///     assert!(ns_obj.is_object())
 /// })
 /// ```
 pub fn get_namespace_q(
     context: &QuickJsRealmAdapter,
-    namespace: Vec<&str>,
+    namespace: &[&str],
     create_if_absent: bool,
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { get_namespace(context.context, namespace, create_if_absent) }
 }
 
@@ -33,9 +33,9 @@ pub fn get_namespace_q(
 /// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
 pub unsafe fn get_namespace(
     context: *mut q::JSContext,
-    namespace: Vec<&str>,
+    namespace: &[&str],
     create_if_absent: bool,
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     log::trace!("objects::get_namespace({})", namespace.join("."));
 
     let mut obj = get_global(context);
@@ -70,9 +70,9 @@ pub unsafe fn get_namespace(
 /// please ensure the passed JSContext is still valid
 pub unsafe fn construct_object(
     ctx: *mut q::JSContext,
-    constructor_ref: &JSValueRef,
-    args: &[&JSValueRef],
-) -> Result<JSValueRef, JsError> {
+    constructor_ref: &QuickJsValueAdapter,
+    args: &[&QuickJsValueAdapter],
+) -> Result<QuickJsValueAdapter, JsError> {
     let arg_count = args.len() as i32;
 
     let mut qargs = args.iter().map(|a| *a.borrow_value()).collect::<Vec<_>>();
@@ -84,7 +84,7 @@ pub unsafe fn construct_object(
         qargs.as_mut_ptr(),
     );
 
-    let res_ref = JSValueRef::new(ctx, res, false, true, "construct_object result");
+    let res_ref = QuickJsValueAdapter::new(ctx, res, false, true, "construct_object result");
 
     if res_ref.is_exception() {
         if let Some(ex) = QuickJsRealmAdapter::get_exception(ctx) {
@@ -100,16 +100,16 @@ pub unsafe fn construct_object(
 }
 
 /// create a new simple object, e.g. `let obj = {};`
-pub fn create_object_q(q_ctx: &QuickJsRealmAdapter) -> Result<JSValueRef, JsError> {
+pub fn create_object_q(q_ctx: &QuickJsRealmAdapter) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { create_object(q_ctx.context) }
 }
 
 /// create a new simple object, e.g. `let obj = {};`
 /// # Safety
 /// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
-pub unsafe fn create_object(context: *mut q::JSContext) -> Result<JSValueRef, JsError> {
+pub unsafe fn create_object(context: *mut q::JSContext) -> Result<QuickJsValueAdapter, JsError> {
     let obj = q::JS_NewObject(context);
-    let obj_ref = JSValueRef::new(context, obj, false, true, "objects::create_object");
+    let obj_ref = QuickJsValueAdapter::new(context, obj, false, true, "objects::create_object");
     if obj_ref.is_exception() {
         return Err(JsError::new_str("Could not create object"));
     }
@@ -119,9 +119,9 @@ pub unsafe fn create_object(context: *mut q::JSContext) -> Result<JSValueRef, Js
 /// set a property in an object, like `obj[propName] = val;`
 pub fn set_property_q(
     q_ctx: &QuickJsRealmAdapter,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
     prop_name: &str,
-    prop_ref: &JSValueRef,
+    prop_ref: &QuickJsValueAdapter,
 ) -> Result<(), JsError> {
     unsafe { set_property(q_ctx.context, obj_ref, prop_name, prop_ref) }
 }
@@ -131,9 +131,9 @@ pub fn set_property_q(
 /// when passing a context ptr please be sure that the corresponding QuickJsContext is still active
 pub unsafe fn set_property(
     context: *mut q::JSContext,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
     prop_name: &str,
-    prop_ref: &JSValueRef,
+    prop_ref: &QuickJsValueAdapter,
 ) -> Result<(), JsError> {
     set_property2(
         context,
@@ -174,9 +174,9 @@ pub unsafe fn set_property(
 /// ```                         
 pub fn set_property2_q(
     q_ctx: &QuickJsRealmAdapter,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
     prop_name: &str,
-    prop_ref: &JSValueRef,
+    prop_ref: &QuickJsValueAdapter,
     flags: i32,
 ) -> Result<(), JsError> {
     unsafe { set_property2(q_ctx.context, obj_ref, prop_name, prop_ref, flags) }
@@ -187,9 +187,9 @@ pub fn set_property2_q(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn set_property2(
     context: *mut q::JSContext,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
     prop_name: &str,
-    prop_ref: &JSValueRef,
+    prop_ref: &QuickJsValueAdapter,
     flags: i32,
 ) -> Result<(), JsError> {
     log::trace!("set_property2: {}", prop_name);
@@ -234,7 +234,7 @@ pub unsafe fn set_property2(
 /// use quickjs_runtime::quickjs_utils::functions::new_function_q;
 /// use quickjs_runtime::quickjs_utils::primitives::from_i32;
 /// use quickjs_runtime::quickjs_utils::{new_null_ref, get_global_q};
-/// use hirofa_utils::js_utils::Script;
+/// use quickjs_runtime::jsutils::Script;
 /// use quickjs_runtime::JsError::JsError;
 /// let rt = EsRuntimeBuilder::new().build();
 /// rt.add_to_event_queue_sync(|q_js_rt| {
@@ -256,10 +256,10 @@ pub unsafe fn set_property2(
 /// ```
 pub fn define_getter_setter_q(
     q_ctx: &QuickJsRealmAdapter,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
     prop_name: &str,
-    getter_func_ref: &JSValueRef,
-    setter_func_ref: &JSValueRef,
+    getter_func_ref: &QuickJsValueAdapter,
+    setter_func_ref: &QuickJsValueAdapter,
 ) -> Result<(), JsError> {
     unsafe {
         define_getter_setter(
@@ -278,10 +278,10 @@ pub fn define_getter_setter_q(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn define_getter_setter(
     context: *mut q::JSContext,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
     prop_name: &str,
-    getter_func_ref: &JSValueRef,
-    setter_func_ref: &JSValueRef,
+    getter_func_ref: &QuickJsValueAdapter,
+    setter_func_ref: &QuickJsValueAdapter,
 ) -> Result<(), JsError> {
     /*
      pub fn JS_DefinePropertyGetSet(
@@ -332,9 +332,9 @@ pub unsafe fn define_getter_setter(
 /// get a property from an object by name
 pub fn get_property_q(
     q_ctx: &QuickJsRealmAdapter,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
     prop_name: &str,
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { get_property(q_ctx.context, obj_ref, prop_name) }
 }
 
@@ -343,9 +343,9 @@ pub fn get_property_q(
 /// when passing a context please ensure the corresponding QuickJsContext is still valid
 pub unsafe fn get_property(
     context: *mut q::JSContext,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
     prop_name: &str,
-) -> Result<JSValueRef, JsError> {
+) -> Result<QuickJsValueAdapter, JsError> {
     if obj_ref.is_null() || obj_ref.is_undefined() {
         return Err(JsError::new_str(
             "could not get prop from null or undefined",
@@ -357,7 +357,7 @@ pub unsafe fn get_property(
     log::trace!("objects::get_property {}", prop_name);
 
     let prop_val = q::JS_GetPropertyStr(context, *obj_ref.borrow_value(), c_prop_name.as_ptr());
-    let prop_ref = JSValueRef::new(
+    let prop_ref = QuickJsValueAdapter::new(
         context,
         prop_val,
         false,
@@ -371,7 +371,7 @@ pub unsafe fn get_property(
 /// get the property names of an object
 pub fn get_own_property_names_q(
     q_ctx: &QuickJsRealmAdapter,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
 ) -> Result<JSPropertyEnumRef, JsError> {
     unsafe { get_own_property_names(q_ctx.context, obj_ref) }
 }
@@ -381,7 +381,7 @@ pub fn get_own_property_names_q(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn get_own_property_names(
     context: *mut q::JSContext,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
 ) -> Result<JSPropertyEnumRef, JsError> {
     let mut properties: *mut q::JSPropertyEnum = std::ptr::null_mut();
     let mut count: u32 = 0;
@@ -405,7 +405,7 @@ pub unsafe fn get_own_property_names(
 /// get the names of all properties of an object
 pub fn get_property_names_q(
     q_ctx: &QuickJsRealmAdapter,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
 ) -> Result<Vec<String>, JsError> {
     unsafe { get_property_names(q_ctx.context, obj_ref) }
 }
@@ -415,7 +415,7 @@ pub fn get_property_names_q(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn get_property_names(
     context: *mut q::JSContext,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
 ) -> Result<Vec<String>, JsError> {
     let enum_ref = get_own_property_names(context, obj_ref)?;
 
@@ -431,22 +431,22 @@ pub unsafe fn get_property_names(
 
 pub fn traverse_properties_q<V, R>(
     q_ctx: &QuickJsRealmAdapter,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
     visitor: V,
 ) -> Result<Vec<R>, JsError>
 where
-    V: Fn(&str, &JSValueRef) -> Result<R, JsError>,
+    V: Fn(&str, &QuickJsValueAdapter) -> Result<R, JsError>,
 {
     unsafe { traverse_properties(q_ctx.context, obj_ref, visitor) }
 }
 
 pub fn traverse_properties_q_mut<V, R>(
     q_ctx: &QuickJsRealmAdapter,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
     visitor: V,
 ) -> Result<(), JsError>
 where
-    V: FnMut(&str, &JSValueRef) -> Result<R, JsError>,
+    V: FnMut(&str, &QuickJsValueAdapter) -> Result<R, JsError>,
 {
     unsafe { traverse_properties_mut(q_ctx.context, obj_ref, visitor) }
 }
@@ -455,11 +455,11 @@ where
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn traverse_properties<V, R>(
     context: *mut q::JSContext,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
     visitor: V,
 ) -> Result<Vec<R>, JsError>
 where
-    V: Fn(&str, &JSValueRef) -> Result<R, JsError>,
+    V: Fn(&str, &QuickJsValueAdapter) -> Result<R, JsError>,
 {
     let enum_ref = get_own_property_names(context, obj_ref)?;
 
@@ -476,7 +476,7 @@ where
             *obj_ref.borrow_value(),
             0,
         );
-        let prop_val_ref = JSValueRef::new(
+        let prop_val_ref = QuickJsValueAdapter::new(
             context,
             raw_value,
             false,
@@ -499,11 +499,11 @@ where
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn traverse_properties_mut<V, R>(
     context: *mut q::JSContext,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
     mut visitor: V,
 ) -> Result<(), JsError>
 where
-    V: FnMut(&str, &JSValueRef) -> Result<R, JsError>,
+    V: FnMut(&str, &QuickJsValueAdapter) -> Result<R, JsError>,
 {
     let enum_ref = get_own_property_names(context, obj_ref)?;
 
@@ -518,7 +518,7 @@ where
             *obj_ref.borrow_value(),
             0,
         );
-        let prop_val_ref = JSValueRef::new(
+        let prop_val_ref = QuickJsValueAdapter::new(
             context,
             raw_value,
             false,
@@ -537,8 +537,8 @@ where
 
 pub fn get_prototype_of_q(
     q_ctx: &QuickJsRealmAdapter,
-    obj_ref: &JSValueRef,
-) -> Result<JSValueRef, JsError> {
+    obj_ref: &QuickJsValueAdapter,
+) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { get_prototype_of(q_ctx.context, obj_ref) }
 }
 
@@ -547,10 +547,10 @@ pub fn get_prototype_of_q(
 /// please ensure the JSContext is valid and remains valid while using this function
 pub unsafe fn get_prototype_of(
     ctx: *mut q::JSContext,
-    obj_ref: &JSValueRef,
-) -> Result<JSValueRef, JsError> {
+    obj_ref: &QuickJsValueAdapter,
+) -> Result<QuickJsValueAdapter, JsError> {
     let raw = q::JS_GetPrototype(ctx, *obj_ref.borrow_value());
-    let pt_ref = JSValueRef::new(ctx, raw, false, true, "object::get_prototype_of_q");
+    let pt_ref = QuickJsValueAdapter::new(ctx, raw, false, true, "object::get_prototype_of_q");
 
     if pt_ref.is_exception() {
         if let Some(ex) = QuickJsRealmAdapter::get_exception(ctx) {
@@ -567,8 +567,8 @@ pub unsafe fn get_prototype_of(
 
 pub fn is_instance_of_q(
     q_ctx: &QuickJsRealmAdapter,
-    obj_ref: &JSValueRef,
-    constructor_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
+    constructor_ref: &QuickJsValueAdapter,
 ) -> bool {
     unsafe { is_instance_of(q_ctx.context, obj_ref, constructor_ref) }
 }
@@ -577,8 +577,8 @@ pub fn is_instance_of_q(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn is_instance_of(
     context: *mut q::JSContext,
-    obj_ref: &JSValueRef,
-    constructor_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
+    constructor_ref: &QuickJsValueAdapter,
 ) -> bool {
     if !obj_ref.is_object() {
         return false;
@@ -593,7 +593,7 @@ pub unsafe fn is_instance_of(
 
 pub fn is_instance_of_by_name_q(
     context: &QuickJsRealmAdapter,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
     constructor_name: &str,
 ) -> Result<bool, JsError> {
     unsafe { is_instance_of_by_name(context.context, obj_ref, constructor_name) }
@@ -603,7 +603,7 @@ pub fn is_instance_of_by_name_q(
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn is_instance_of_by_name(
     context: *mut q::JSContext,
-    obj_ref: &JSValueRef,
+    obj_ref: &QuickJsValueAdapter,
     constructor_name: &str,
 ) -> Result<bool, JsError> {
     if !obj_ref.is_object() {
@@ -634,12 +634,12 @@ pub unsafe fn is_instance_of_by_name(
 #[cfg(test)]
 pub mod tests {
     use crate::facades::tests::init_test_rt;
+    use crate::jsutils::Script;
     use crate::quickjs_utils::objects::{
         create_object_q, get_property_names_q, get_property_q, set_property_q,
     };
     use crate::quickjs_utils::primitives::{from_i32, to_i32};
     use crate::quickjs_utils::{get_global_q, primitives};
-    use hirofa_utils::js_utils::Script;
 
     #[test]
     fn test_get_refs() {

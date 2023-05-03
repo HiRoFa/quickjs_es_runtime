@@ -1,4 +1,10 @@
-# 0.9
+# 0.10
+
+* removed Js*Adapter/Facade traits
+* renamed JSValueRef to QuickjsValueAdapter
+* removed legacy EsValueFacade
+* removed Weak<QuickjsRuntimeFacadeInner> ref arg from JsValueFacade inners
+* renamed all js_ functions to more readable names (eg js_null_create()) -> create_null())
 
 # 0.9.0
 

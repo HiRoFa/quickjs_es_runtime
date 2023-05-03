@@ -60,7 +60,7 @@
 //!    // convert JsValueFacade to JsValueAdapter
 //!    let input_adapter = realm.from_js_value_facade(input_facade);
 //!    // call myObj.someMember.someFunction();
-//!    let result_adapter = realm.js_function_invoke_by_name(&["myObj", "someMember"], "someFunction", &[input_adapter])?;
+//!    let result_adapter = realm.invoke_function_by_name(&["myObj", "someMember"], "someFunction", &[input_adapter])?;
 //!    // convert adapter to facade again so it may move out of the worker thread
 //!    return realm.to_js_value_facade();
 //! }).await;
@@ -87,7 +87,6 @@ macro_rules! es_args {
 }
 
 pub mod builder;
-pub mod esvalue;
 pub mod facades;
 #[cfg(any(
     feature = "settimeout",
@@ -96,24 +95,23 @@ pub mod facades;
     feature = "setimmediate"
 ))]
 pub mod features;
+pub mod jsutils;
 pub mod quickjs_utils;
 pub mod quickjsrealmadapter;
 pub mod quickjsruntimeadapter;
+pub mod quickjsvalueadapter;
 pub mod reflection;
-pub mod runtimefacade_utils;
-pub mod valueref;
+pub mod values;
 
 #[cfg(test)]
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
     use crate::facades::QuickJsRuntimeFacade;
+    use crate::jsutils::jsproxies::JsProxy;
+    use crate::jsutils::{JsError, Script};
     use crate::quickjsrealmadapter::QuickJsRealmAdapter;
+    use crate::values::{JsValueConvertable, JsValueFacade};
     use futures::executor::block_on;
-    use hirofa_utils::js_utils::adapters::proxies::JsProxy;
-    use hirofa_utils::js_utils::adapters::JsRealmAdapter;
-    use hirofa_utils::js_utils::facades::values::{JsValueConvertable, JsValueFacade};
-    use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
-    use hirofa_utils::js_utils::{JsError, Script};
     use std::time::Duration;
 
     #[test]
@@ -136,15 +134,13 @@ pub mod tests {
         //simple_logging::log_to_stderr(LevelFilter::Info);
 
         // do a simple eval on the main realm
-        let eval_res = rt
-            .js_eval(None, Script::new("simple_eval.js", "2*7;"))
-            .await?;
+        let eval_res = rt.eval(None, Script::new("simple_eval.js", "2*7;")).await?;
         log::info!("simple eval:{}", eval_res.get_i32());
 
         // invoke a JS method from rust
 
         let meth_res = rt
-            .js_function_invoke(None, &["Math"], "round", vec![12.321.to_js_value_facade()])
+            .invoke_function(None, &["Math"], "round", vec![12.321.to_js_value_facade()])
             .await?;
         log::info!("Math.round(12.321) = {}", meth_res.get_i32());
 
@@ -156,7 +152,7 @@ pub mod tests {
             log::info!("rust cb was called with a:{} and b:{}", a, b);
             Ok(JsValueFacade::Null)
         });
-        rt.js_function_invoke(
+        rt.invoke_function(
             None,
             &[],
             "setTimeout",
@@ -172,24 +168,27 @@ pub mod tests {
         log::info!("rust cb should have been called by now");
 
         // create simple proxy class with an async function
-        rt.js_loop_realm_sync(None, |_rt_adapter, realm_adapter| {
-            let proxy = JsProxy::new(&["com", "mystuff"], "MyProxy").add_static_method(
-                "doSomething",
-                |_rt_adapter, realm_adapter: &QuickJsRealmAdapter, _args| {
-                    realm_adapter.js_promise_create_resolving_async(
-                        async { Ok(take_long().await) },
-                        |realm_adapter, producer_result| {
-                            realm_adapter.js_i32_create(producer_result)
-                        },
-                    )
-                },
-            );
+        rt.loop_realm_sync(None, |_rt_adapter, realm_adapter| {
+            let proxy = JsProxy::new()
+                .namespace(&["com", "mystuff"])
+                .name("MyProxy")
+                .static_method(
+                    "doSomething",
+                    |_rt_adapter, realm_adapter: &QuickJsRealmAdapter, _args| {
+                        realm_adapter.create_resolving_promise_async(
+                            async { Ok(take_long().await) },
+                            |realm_adapter, producer_result| {
+                                realm_adapter.create_i32(producer_result)
+                            },
+                        )
+                    },
+                );
             realm_adapter
-                .js_proxy_install(proxy, true)
+                .install_proxy(proxy, true)
                 .expect("could not install proxy");
         });
 
-        rt.js_eval(
+        rt.eval(
             None,
             Script::new(
                 "testMyProxy.js",

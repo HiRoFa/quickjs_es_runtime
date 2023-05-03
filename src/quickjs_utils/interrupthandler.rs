@@ -26,9 +26,9 @@ unsafe extern "C" fn interrupt_handler(_rt: *mut q::JSRuntime, _opaque: *mut c_v
 #[cfg(test)]
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
+    use crate::jsutils::Script;
     use crate::quickjs_utils::get_script_or_module_name_q;
     use backtrace::Backtrace;
-    use hirofa_utils::js_utils::Script;
     use log::LevelFilter;
     use std::cell::RefCell;
     use std::panic;
@@ -72,10 +72,13 @@ pub mod tests {
             })
             .build();
 
-        match rt.eval_sync(Script::new(
-            "test_interrupt.es",
-            "for (let x = 0; x < 10000; x++) {console.log('x' + x);}",
-        )) {
+        match rt.eval_sync(
+            None,
+            Script::new(
+                "test_interrupt.es",
+                "for (let x = 0; x < 10000; x++) {console.log('x' + x);}",
+            ),
+        ) {
             Ok(_) => {}
             Err(err) => {
                 panic!("err: {}", err);
