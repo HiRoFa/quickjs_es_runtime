@@ -53,7 +53,7 @@ unsafe extern "C" fn set_immediate(
         QuickJsRuntimeFacade::add_local_task_to_event_loop(move |_q_js_rt| {
             let func = &args[0];
 
-            match functions::call_function(context, &func, &args[1..], None) {
+            match functions::call_function(context, func, &args[1..], None) {
                 Ok(_) => {}
                 Err(e) => {
                     log::error!("setImmediate failed: {}", e);

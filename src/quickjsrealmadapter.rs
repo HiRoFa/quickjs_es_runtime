@@ -911,7 +911,7 @@ impl QuickJsRealmAdapter {
                     // passing a typedarray out of the worker thread is sketchy because you either copy the buffer like we do here, or you detach the buffer effectively destroying the jsvalue
                     // you should be better of optimizing this in native methods
                     JsValueFacade::TypedArray {
-                        buffer: self.copy_typed_array_buffer(&js_value)?,
+                        buffer: self.copy_typed_array_buffer(js_value)?,
                         array_type: TypedArrayType::Uint8,
                     }
                 } else {
