@@ -5,10 +5,10 @@
 
 use std::fmt::{Debug, Display, Error, Formatter};
 
-pub mod modules;
-pub mod jsproxies;
-pub mod promises;
 pub mod helper_tasks;
+pub mod jsproxies;
+pub mod modules;
+pub mod promises;
 
 pub trait ScriptPreProcessor {
     fn process(&self, script: &mut Script) -> Result<(), JsError>;

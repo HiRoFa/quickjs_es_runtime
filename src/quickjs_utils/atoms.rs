@@ -1,8 +1,8 @@
 //JS_AtomToCString(ctx: *mut JSContext, atom: JSAtom) -> *const ::std::os::raw::c_char
+use crate::jsutils::JsError;
 use crate::quickjs_utils::primitives;
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsvalueadapter::QuickJsValueAdapter;
-use crate::jsutils::JsError;
 use libquickjs_sys as q;
 use std::ffi::{CStr, CString};
 

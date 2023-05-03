@@ -1,5 +1,5 @@
-use hirofa_utils::task_manager::TaskManager;
 use futures::Future;
+use hirofa_utils::task_manager::TaskManager;
 use lazy_static::lazy_static;
 use tokio::task::JoinError;
 
@@ -10,8 +10,8 @@ lazy_static! {
 
 /// add a task the the "helper" thread pool
 pub fn add_helper_task<T>(task: T)
-    where
-        T: FnOnce() + Send + 'static,
+where
+    T: FnOnce() + Send + 'static,
 {
     log::trace!("adding a helper task");
     HELPER_TASKS.add_task(task);
