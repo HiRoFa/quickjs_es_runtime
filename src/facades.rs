@@ -1165,7 +1165,7 @@ pub mod tests {
                 match esvf {
                     JsValueFacade::JsPromise { cached_promise } => {
                         let p_res = cached_promise
-                            .js_get_promise_result_sync()
+                            .get_promise_result_sync()
                             .expect("promise timed out");
                         if p_res.is_err() {
                             panic!("{:?}", p_res.err().unwrap());

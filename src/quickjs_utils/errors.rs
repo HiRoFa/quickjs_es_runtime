@@ -191,7 +191,7 @@ pub mod tests {
             let func_jsvf = &args[0];
             match func_jsvf {
                 JsValueFacade::JsFunction { cached_function } => {
-                    let _ = cached_function.js_invoke_function_sync(vec![12.to_js_value_facade()]);
+                    let _ = cached_function.invoke_function_sync(vec![12.to_js_value_facade()]);
                     Ok(0.to_js_value_facade())
                 }
                 _ => Err(JsError::new_str("poof")),

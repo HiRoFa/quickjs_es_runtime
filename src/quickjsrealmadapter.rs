@@ -833,7 +833,7 @@ impl QuickJsRealmAdapter {
         };
         let res = json::stringify_q(self, object, opt_space_jsvr);
         match res {
-            Ok(jsvr) => jsvr.js_to_string(),
+            Ok(jsvr) => jsvr.to_string(),
             Err(e) => Err(e),
         }
     }
@@ -892,21 +892,21 @@ impl QuickJsRealmAdapter {
     where
         Self: Sized + 'static,
     {
-        let res: JsValueFacade = match js_value.js_get_type() {
+        let res: JsValueFacade = match js_value.get_js_type() {
             JsValueType::I32 => JsValueFacade::I32 {
-                val: js_value.js_to_i32(),
+                val: js_value.to_i32(),
             },
             JsValueType::F64 => JsValueFacade::F64 {
-                val: js_value.js_to_f64(),
+                val: js_value.to_f64(),
             },
             JsValueType::String => JsValueFacade::String {
-                val: DefaultAtom::from(js_value.js_to_string()?),
+                val: DefaultAtom::from(js_value.to_string()?),
             },
             JsValueType::Boolean => JsValueFacade::Boolean {
-                val: js_value.js_to_bool(),
+                val: js_value.to_bool(),
             },
             JsValueType::Object => {
-                if js_value.js_is_typed_array() {
+                if js_value.is_typed_array() {
                     // todo TypedArray as JsValueType?
                     // passing a typedarray out of the worker thread is sketchy because you either copy the buffer like we do here, or you detach the buffer effectively destroying the jsvalue
                     // you should be better of optimizing this in native methods
@@ -945,13 +945,9 @@ impl QuickJsRealmAdapter {
                 },
             },
             JsValueType::Error => {
-                let name = self.get_object_property(js_value, "name")?.js_to_string()?;
-                let message = self
-                    .get_object_property(js_value, "message")?
-                    .js_to_string()?;
-                let stack = self
-                    .get_object_property(js_value, "stack")?
-                    .js_to_string()?;
+                let name = self.get_object_property(js_value, "name")?.to_string()?;
+                let message = self.get_object_property(js_value, "message")?.to_string()?;
+                let stack = self.get_object_property(js_value, "stack")?.to_string()?;
                 JsValueFacade::JsError {
                     val: JsError::new(name, message, stack),
                 }
@@ -1064,11 +1060,11 @@ impl QuickJsRealmAdapter {
         &self,
         value_adapter: &QuickJsValueAdapter,
     ) -> Result<serde_json::Value, JsError> {
-        match value_adapter.js_get_type() {
-            JsValueType::I32 => Ok(Value::from(value_adapter.js_to_i32())),
-            JsValueType::F64 => Ok(Value::from(value_adapter.js_to_f64())),
-            JsValueType::String => Ok(Value::from(value_adapter.js_to_string()?)),
-            JsValueType::Boolean => Ok(Value::from(value_adapter.js_to_bool())),
+        match value_adapter.get_js_type() {
+            JsValueType::I32 => Ok(Value::from(value_adapter.to_i32())),
+            JsValueType::F64 => Ok(Value::from(value_adapter.to_f64())),
+            JsValueType::String => Ok(Value::from(value_adapter.to_string()?)),
+            JsValueType::Boolean => Ok(Value::from(value_adapter.to_bool())),
             JsValueType::Object => {
                 let mut map: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
                 self.traverse_object_mut(value_adapter, |k, v| {

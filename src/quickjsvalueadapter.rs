@@ -266,19 +266,19 @@ pub(crate) const TAG_FLOAT64: i64 = 7;
 
 impl QuickJsValueAdapter {
     pub fn is_function(&self) -> bool {
-        self.is_object() && self.js_get_type() == JsValueType::Function
+        self.is_object() && self.get_js_type() == JsValueType::Function
     }
     pub fn is_array(&self) -> bool {
-        self.is_object() && self.js_get_type() == JsValueType::Array
+        self.is_object() && self.get_js_type() == JsValueType::Array
     }
     pub fn is_error(&self) -> bool {
-        self.is_object() && self.js_get_type() == JsValueType::Error
+        self.is_object() && self.get_js_type() == JsValueType::Error
     }
     pub fn is_promise(&self) -> bool {
-        self.is_object() && self.js_get_type() == JsValueType::Promise
+        self.is_object() && self.get_js_type() == JsValueType::Promise
     }
 
-    pub fn js_get_type(&self) -> JsValueType {
+    pub fn get_js_type(&self) -> JsValueType {
         match self.get_tag() {
             TAG_EXCEPTION => JsValueType::Error,
             TAG_NULL => JsValueType::Null,
@@ -306,22 +306,22 @@ impl QuickJsValueAdapter {
         }
     }
 
-    pub fn js_is_typed_array(&self) -> bool {
+    pub fn is_typed_array(&self) -> bool {
         self.is_object() && unsafe { is_typed_array(self.context, self) }
     }
 
-    pub fn js_is_proxy_instance(&self) -> bool {
+    pub fn is_proxy_instance(&self) -> bool {
         self.is_object() && unsafe { is_proxy_instance(self.context, self) }
     }
 
-    pub fn js_type_of(&self) -> &'static str {
+    pub fn type_of(&self) -> &'static str {
         match self.get_tag() {
             TAG_BIG_INT => "bigint",
             TAG_STRING => "string",
             TAG_MODULE => "module",
             TAG_FUNCTION_BYTECODE => "function",
             TAG_OBJECT => {
-                if self.js_get_type() == JsValueType::Function {
+                if self.get_js_type() == JsValueType::Function {
                     "function"
                 } else {
                     "object"
@@ -337,37 +337,37 @@ impl QuickJsValueAdapter {
         }
     }
 
-    pub fn js_to_bool(&self) -> bool {
-        if self.js_get_type() == JsValueType::Boolean {
+    pub fn to_bool(&self) -> bool {
+        if self.get_js_type() == JsValueType::Boolean {
             primitives::to_bool(self).expect("could not convert bool to bool")
         } else {
             panic!("not a boolean");
         }
     }
 
-    pub fn js_to_i32(&self) -> i32 {
-        if self.js_get_type() == JsValueType::I32 {
+    pub fn to_i32(&self) -> i32 {
+        if self.get_js_type() == JsValueType::I32 {
             primitives::to_i32(self).expect("could not convert to i32")
         } else {
             panic!("not an i32");
         }
     }
 
-    pub fn js_to_f64(&self) -> f64 {
-        if self.js_get_type() == JsValueType::F64 {
+    pub fn to_f64(&self) -> f64 {
+        if self.get_js_type() == JsValueType::F64 {
             primitives::to_f64(self).expect("could not convert to f64")
         } else {
             panic!("not a f64");
         }
     }
 
-    pub fn js_to_string(&self) -> Result<String, JsError> {
-        match self.js_get_type() {
-            JsValueType::I32 => Ok(self.js_to_i32().to_string()),
-            JsValueType::F64 => Ok(self.js_to_f64().to_string()),
+    pub fn to_string(&self) -> Result<String, JsError> {
+        match self.get_js_type() {
+            JsValueType::I32 => Ok(self.to_i32().to_string()),
+            JsValueType::F64 => Ok(self.to_f64().to_string()),
             JsValueType::String => unsafe { primitives::to_string(self.context, self) },
             JsValueType::Boolean => {
-                if self.js_to_bool() {
+                if self.to_bool() {
                     Ok("true".to_string())
                 } else {
                     Ok("false".to_string())
@@ -381,8 +381,8 @@ impl QuickJsValueAdapter {
         }
     }
 
-    pub fn js_to_str(&self) -> Result<&str, JsError> {
-        if self.js_get_type() == JsValueType::String {
+    pub fn to_str(&self) -> Result<&str, JsError> {
+        if self.get_js_type() == JsValueType::String {
             unsafe { primitives::to_str(self.context, self) }
         } else {
             Err(JsError::new_str("this value is not a string"))
@@ -405,8 +405,8 @@ pub mod tests {
             match res {
                 Ok(res) => {
                     log::info!("script ran ok: {:?}", res);
-                    assert!(res.js_get_type() == JsValueType::String);
-                    assert_eq!(res.js_to_str().expect("str conv failed"), "hello world");
+                    assert!(res.get_js_type() == JsValueType::String);
+                    assert_eq!(res.to_str().expect("str conv failed"), "hello world");
                 }
                 Err(e) => {
                     log::error!("script failed: {}", e);

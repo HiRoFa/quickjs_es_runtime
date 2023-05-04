@@ -270,9 +270,9 @@ pub mod tests {
         assert!(esvf.is_js_promise());
 
         let res = match esvf {
-            JsValueFacade::JsPromise { cached_promise } => cached_promise
-                .js_get_promise_result_sync()
-                .expect("timed out"),
+            JsValueFacade::JsPromise { cached_promise } => {
+                cached_promise.get_promise_result_sync().expect("timed out")
+            }
             _ => Err(JsValueFacade::new_str("poof")),
         };
 
@@ -307,9 +307,7 @@ pub mod tests {
 
         match esvf {
             JsValueFacade::JsPromise { cached_promise } => {
-                let res = cached_promise
-                    .js_get_promise_result_sync()
-                    .expect("timed out");
+                let res = cached_promise.get_promise_result_sync().expect("timed out");
                 assert!(res.is_ok());
                 let res_str_esvf = res.ok().unwrap();
                 let res_str = res_str_esvf.get_str();

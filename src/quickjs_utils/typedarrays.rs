@@ -196,7 +196,7 @@ pub unsafe fn detach_array_buffer_buffer(
     // abuf->opaque seems impossible to get at, so we store the id ourselves as well
     let id_prop = get_property(ctx, array_buffer, "__buffer_id")?;
     let id_opt = if id_prop.is_i32() {
-        Some(id_prop.js_to_i32() as usize)
+        Some(id_prop.to_i32() as usize)
     } else {
         None
     };

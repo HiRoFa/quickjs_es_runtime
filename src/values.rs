@@ -199,13 +199,11 @@ impl CachedJsPromiseRef {
         self.cached_object.to_json_string().await
     }
 
-    pub fn js_get_promise_result_sync(
-        &self,
-    ) -> Result<Result<JsValueFacade, JsValueFacade>, JsError> {
-        block_on(self.js_get_promise_result())
+    pub fn get_promise_result_sync(&self) -> Result<Result<JsValueFacade, JsValueFacade>, JsError> {
+        block_on(self.get_promise_result())
     }
 
-    pub async fn js_get_promise_result(
+    pub async fn get_promise_result(
         &self,
     ) -> Result<Result<JsValueFacade, JsValueFacade>, JsError> {
         let fut: ResolvableFuture<Result<Result<JsValueFacade, JsValueFacade>, JsError>> =
@@ -272,7 +270,7 @@ impl CachedJsArrayRef {
     pub async fn to_json_string(&self) -> Result<String, JsError> {
         self.cached_object.to_json_string().await
     }
-    pub async fn js_get_array(&self) -> Result<Vec<JsValueFacade>, JsError> {
+    pub async fn get_array(&self) -> Result<Vec<JsValueFacade>, JsError> {
         self.cached_object
             .with_obj(|realm, arr| {
                 let mut vec: Vec<JsValueFacade> = vec![];
@@ -287,11 +285,11 @@ impl CachedJsArrayRef {
 }
 
 impl CachedJsFunctionRef {
-    pub async fn js_get_serde_value(&self) -> Result<serde_json::Value, JsError> {
+    pub async fn get_serde_value(&self) -> Result<serde_json::Value, JsError> {
         self.cached_object.get_serde_value().await
     }
 
-    pub fn js_invoke_function(
+    pub fn invoke_function(
         &self,
         args: Vec<JsValueFacade>,
     ) -> impl Future<Output = Result<JsValueFacade, JsError>> + Send {
@@ -319,10 +317,7 @@ impl CachedJsFunctionRef {
             }
         })
     }
-    pub fn js_invoke_function_sync(
-        &self,
-        args: Vec<JsValueFacade>,
-    ) -> Result<JsValueFacade, JsError> {
+    pub fn invoke_function_sync(&self, args: Vec<JsValueFacade>) -> Result<JsValueFacade, JsError> {
         self.cached_object.with_obj_sync(|realm, func_adapter| {
             //
             let mut adapter_args = vec![];

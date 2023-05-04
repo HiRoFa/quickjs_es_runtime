@@ -385,7 +385,7 @@ pub mod tests {
         let res_fut = rt.eval(None, test_script);
         let res_prom = block_on(res_fut).expect("script failed");
         if let JsValueFacade::JsPromise { cached_promise } = res_prom {
-            let prom_res_fut = cached_promise.js_get_promise_result();
+            let prom_res_fut = cached_promise.get_promise_result();
             let prom_res = block_on(prom_res_fut)
                 .expect("prom failed")
                 .expect("prom was rejected");

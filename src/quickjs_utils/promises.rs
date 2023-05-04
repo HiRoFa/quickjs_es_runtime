@@ -434,7 +434,7 @@ pub mod tests {
             match jsvf_res {
                 JsValueFacade::JsPromise { cached_promise } => {
                     jsvf_res = cached_promise
-                        .js_get_promise_result_sync()
+                        .get_promise_result_sync()
                         .expect("prom timed out")
                         .expect("prom was rejected");
                 }
@@ -478,8 +478,8 @@ pub mod tests {
         match res {
             Ok(val) => {
                 if let JsValueFacade::JsPromise { cached_promise } = val {
-                    let prom_res = block_on(cached_promise.js_get_promise_result())
-                        .expect("promise timed out");
+                    let prom_res =
+                        block_on(cached_promise.get_promise_result()).expect("promise timed out");
                     match prom_res {
                         Ok(v) => {
                             panic!("promise unexpectedly resolved to val: {:?}", v);

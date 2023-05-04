@@ -250,7 +250,7 @@ pub mod tests {
         match res_prom {
             JsValueFacade::JsPromise { cached_promise } => {
                 let res = cached_promise
-                    .js_get_promise_result_sync()
+                    .get_promise_result_sync()
                     .expect("prom timed out");
                 let obj = res.expect("prom failed");
                 assert!(obj.is_js_object());

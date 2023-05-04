@@ -635,7 +635,7 @@ pub unsafe fn is_proxy_instance(ctx: *mut q::JSContext, obj: &QuickJsValueAdapte
         // workaround for instanceof not yet working
         let prop_res = get_property(ctx, obj, "__proxy__");
         if let Ok(prop) = prop_res {
-            if prop.is_bool() && prop.js_to_bool() {
+            if prop.is_bool() && prop.to_bool() {
                 return true;
             }
         }

@@ -182,7 +182,7 @@ unsafe fn parse_line(ctx: *mut q::JSContext, args: Vec<QuickJsValueAdapter>) -> 
         return output;
     }
 
-    let message = match &args[0].js_get_type() {
+    let message = match &args[0].get_js_type() {
         JsValueType::Object => stringify_log_obj(ctx, &args[0]),
         JsValueType::Function => stringify_log_obj(ctx, &args[0]),
         JsValueType::Array => stringify_log_obj(ctx, &args[0]),
@@ -227,7 +227,7 @@ unsafe fn parse_line(ctx: *mut q::JSContext, args: Vec<QuickJsValueAdapter>) -> 
     for arg in args.iter().skip(filled) {
         // add args which we're not filled in str
         output.push(' ');
-        let tail_arg = match arg.js_get_type() {
+        let tail_arg = match arg.get_js_type() {
             JsValueType::Object => stringify_log_obj(ctx, arg),
             JsValueType::Function => stringify_log_obj(ctx, arg),
             JsValueType::Array => stringify_log_obj(ctx, arg),

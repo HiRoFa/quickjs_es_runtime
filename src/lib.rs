@@ -40,7 +40,7 @@
 //! In order to do something and get the result synchronously you can use the sync variant
 //! ```dontrun
 //! use quickjs_runtime::quickjsruntime::QuickJsRuntime;
-//! let res = rt.js_loop_realm_sync(None, |rt, realm| {
+//! let res = rt.loop_realm_sync(None, |rt, realm| {
 //!    // this will run in the Worker thread, here we can use the quickjs API
 //!    return 1;
 //! });
