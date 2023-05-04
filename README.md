@@ -61,136 +61,31 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 * Worker support
 * WebAssembly support
 
-# goals
+# Goals
 
-Same goals as https://github.com/HiRoFa/es_runtime but with using quickjs
+Embedding a script engine in a rust project seems a very tedious job which involves learning a lot about the inner workings of that engine.
 
-so 
-* slower js
+The main goal of this project is to make that job easy!
 
-but
- 
-* smaller footprint 
-* much faster compilation
+The manner in which this is achieved is primarily focused on abstracting the workings of the engine from the implementor, therefore some functionality may not be the fastest way of getting things done.
 
-For some of my projects those are a big plus!
+So a second goal is to make implementing a fast and efficient integration doable for the uninitiated, the most common tasks you do with the engine should be doable with the utils in this package and working examples should be provided in the test modules.
+
+The reason I chose QuickJS as the engine is that I've been dealing with less modern engines in my java projects and not being able to use the latest and greatest ECMA-script features becomes quite disappointing at times.
+
+NB: one day I started with Spidermonkey at https://github.com/HiRoFa/es_runtime, Some day I might pick that up again.
+
+The fun stuff about QuickJS: 
+* small footprint 
+* fast compilation / startup
+* great JS compatibility
+
 
 # examples
 
 Here are some quickstarts:
+* start by reading the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/index.html)
+* [eval a script](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/facades/struct.QuickJsRuntimeFacade.html#method.eval)
 
-Cargo.toml
-
-```toml
-[dependencies]
-hirofa_utils = "0.5"
-quickjs_runtime = "0.8"
-log = "0.4"
-simple-logging = "2.0"
-```
-
-```rust
-use crate::builder::QuickJsRuntimeBuilder;
-    use crate::facades::QuickJsRuntimeFacade;
-    use crate::quickjsrealmadapter::QuickJsRealmAdapter;
-    use futures::executor::block_on;
-    use hirofa_utils::js_utils::adapters::proxies::JsProxy;
-    use hirofa_utils::js_utils::adapters::JsRealmAdapter;
-    use hirofa_utils::js_utils::facades::values::{JsValueConvertable, JsValueFacade};
-    use hirofa_utils::js_utils::facades::{JsRuntimeBuilder, JsRuntimeFacade};
-    use hirofa_utils::js_utils::{JsError, Script};
-    use log::LevelFilter;
-    use std::time::Duration;
-
-    #[test]
-    fn test_examples() {
-        let rt = QuickJsRuntimeBuilder::new().js_build();
-        let outcome = block_on(run_examples(&rt));
-        if outcome.is_err() {
-            log::error!("an error occured: {}", outcome.err().unwrap());
-        }
-        log::info!("done");
-    }
-
-    async fn take_long() -> i32 {
-        std::thread::sleep(Duration::from_millis(500));
-        537
-    }
-
-    async fn run_examples(rt: &QuickJsRuntimeFacade) -> Result<(), JsError> {
-        // ensure console.log calls get outputted
-        simple_logging::log_to_stderr(LevelFilter::Info);
-
-        // do a simple eval on the main realm
-        let eval_res = rt
-            .js_eval(None, Script::new("simple_eval.js", "2*7;"))
-            .await?;
-        log::info!("simple eval:{}", eval_res.get_i32());
-
-        // invoke a JS method from rust
-
-        let meth_res = rt
-            .invoke_function(None, &["Math"], "round", vec![12.321.to_js_value_facade()])
-            .await?;
-        log::info!("Math.round(12.321) = {}", meth_res.get_i32());
-
-        // add a rust function to js as a callback
-
-        let cb = JsValueFacade::new_callback(|args| {
-            let a = args[0].get_i32();
-            let b = args[1].get_i32();
-            log::info!("rust cb was called with a:{} and b:{}", a, b);
-            Ok(JsValueFacade::Null)
-        });
-        rt.invoke_function(
-            None,
-            &[],
-            "setTimeout",
-            vec![
-                cb,
-                10.to_js_value_facade(),
-                12.to_js_value_facade(),
-                13.to_js_value_facade(),
-            ],
-        )
-        .await?;
-        std::thread::sleep(Duration::from_millis(20));
-        log::info!("rust cb should have been called by now");
-
-        // create simple proxy class with an async function
-        rt.js_loop_realm_sync(None, |_rt_adapter, realm_adapter| {
-            let proxy = JsProxy::new(&["com", "mystuff"], "MyProxy").add_static_method(
-                "doSomething",
-                |_rt_adapter, realm_adapter: &QuickJsRealmAdapter, _args| {
-                    realm_adapter.js_promise_create_resolving_async(
-                        async { Ok(take_long().await) },
-                        |realm_adapter, producer_result| {
-                            realm_adapter.js_i32_create(producer_result)
-                        },
-                    )
-                },
-            );
-            realm_adapter
-                .js_proxy_install(proxy, true)
-                .ok()
-                .expect("could not install proxy");
-        });
-
-        rt.js_eval(
-            None,
-            Script::new(
-                "testMyProxy.js",
-                "async function a() {\
-                            console.log('a called at %s ms', new Date().getTime());\
-                            let res = await com.mystuff.MyProxy.doSomething();\
-                            console.log('a got result %s at %s ms', res, new Date().getTime());\
-                           }; a();",
-            ),
-        )
-        .await?;
-        std::thread::sleep(Duration::from_millis(600));
-        log::info!("a should have been called by now");
-
-        Ok(())
-    }
-```
+The quickjs Api utils:
+* [quickjs_utils](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/quickjs_utils/index.html)

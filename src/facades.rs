@@ -283,7 +283,7 @@ impl QuickJsRuntimeFacade {
 
     /// get memory usage for this runtime
     pub async fn memory_usage(&self) -> MemoryUsage {
-        self.js_loop(|rt| rt.memory_usage()).await
+        self.loop_async(|rt| rt.memory_usage()).await
     }
 
     pub(crate) fn clear_contexts(&self) {
@@ -563,10 +563,6 @@ fn loop_realm_func<
 }
 
 impl QuickJsRuntimeFacade {
-    pub fn get_runtime_facade_inner(&self) -> Weak<QuickjsRuntimeFacadeInner> {
-        Arc::downgrade(&self.inner)
-    }
-
     pub fn create_realm(&self, name: &str) -> Result<(), JsError> {
         let name = name.to_string();
         self.inner
@@ -591,6 +587,7 @@ impl QuickJsRuntimeFacade {
         self.exe_rt_task_in_event_loop(move |rt| Ok(rt.get_realm(name.as_str()).is_some()))
     }
 
+    /// add a job to the eventloop which will execute sync(placed at end of eventloop)
     pub fn loop_sync<R: Send + 'static, C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static>(
         &self,
         consumer: C,
@@ -608,17 +605,24 @@ impl QuickJsRuntimeFacade {
         self.exe_task_in_event_loop(|| QuickJsRuntimeAdapter::do_with_mut(consumer))
     }
 
-    pub fn js_loop<R: Send + 'static, C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static>(
+    /// add a job to the eventloop which will execute async(placed at end of eventloop)
+    /// returns a Future which can be waited ob with .await
+    pub fn loop_async<
+        R: Send + 'static,
+        C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static,
+    >(
         &self,
         consumer: C,
     ) -> Pin<Box<dyn Future<Output = R> + Send>> {
         Box::pin(self.add_rt_task_to_event_loop(consumer))
     }
 
+    /// add a job to the eventloop (placed at end of eventloop) without expecting a result
     pub fn loop_void<C: FnOnce(&QuickJsRuntimeAdapter) + Send + 'static>(&self, consumer: C) {
         self.add_rt_task_to_event_loop_void(consumer)
     }
 
+    /// add a job to the eventloop which will be executed synchronously (placed at end of eventloop)
     pub fn loop_realm_sync<
         R: Send + 'static,
         C: FnOnce(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> R + Send + 'static,
@@ -631,6 +635,8 @@ impl QuickJsRuntimeFacade {
         self.exe_task_in_event_loop(|| loop_realm_func(realm_name, consumer))
     }
 
+    /// add a job to the eventloop which will be executed async (placed at end of eventloop)
+    /// returns a Future which can be waited ob with .await
     pub fn loop_realm<
         R: Send + 'static,
         C: FnOnce(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> R + Send + 'static,
@@ -643,6 +649,8 @@ impl QuickJsRuntimeFacade {
         Box::pin(self.add_task_to_event_loop(|| loop_realm_func(realm_name, consumer)))
     }
 
+    /// add a job for a specific realm without expecting a result.
+    /// the job will be added to the end of the eventloop
     pub fn loop_realm_void<
         C: FnOnce(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) + Send + 'static,
     >(
@@ -655,6 +663,17 @@ impl QuickJsRuntimeFacade {
     }
 
     /// Evaluate a script asynchronously
+    /// # Example
+    /// ```rust
+    /// use futures::executor::block_on;
+    /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+    /// use quickjs_runtime::jsutils::Script;
+    /// let rt = QuickJsRuntimeBuilder::new().build();
+    /// let my_script = r#"
+    ///    console.log("i'm a script");
+    /// "#;
+    /// block_on(rt.eval(None, Script::new("my_script.js", my_script))).expect("script failed");
+    /// ```
     #[allow(clippy::type_complexity)]
     pub fn eval(
         &self,
@@ -676,7 +695,7 @@ impl QuickJsRuntimeFacade {
     /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
     /// use quickjs_runtime::jsutils::Script;
     /// let rt = QuickJsRuntimeBuilder::new().build();
-    /// let script = Script::new("my_file.es", "(9 * 3);");
+    /// let script = Script::new("my_file.js", "(9 * 3);");
     /// let res = rt.eval_sync(None, script).ok().expect("script failed");
     /// assert_eq!(res.get_i32(), 27);
     /// ```

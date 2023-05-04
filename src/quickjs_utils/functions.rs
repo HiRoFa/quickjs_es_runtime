@@ -972,6 +972,7 @@ unsafe extern "C" fn callback_function(
 
     let cb_opt = CALLBACK_REGISTRY.with(|registry_rc| {
         let registry = &*registry_rc.borrow();
+        // yes we clone here, yes that bites, but callbacks can be called recursively causing the CALLBACK_REGISTRY to be already borrowed
         registry.get(&(callback_id as usize)).cloned()
     });
     if let Some((name, callback)) = cb_opt {

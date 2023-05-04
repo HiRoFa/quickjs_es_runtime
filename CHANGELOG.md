@@ -5,6 +5,8 @@
 * removed legacy EsValueFacade
 * removed Weak<QuickjsRuntimeFacadeInner> ref arg from JsValueFacade inners
 * renamed all js_ functions to more readable names (eg js_null_create()) -> create_null())
+* added (static_)catch_all_getter_setter to Proxy for getting/setting all prop names
+* altered the way things are parsed in reflection, like propnames.. should lead to less string allocation
 
 # 0.9.0
 
