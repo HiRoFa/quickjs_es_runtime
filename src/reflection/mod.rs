@@ -1362,9 +1362,9 @@ unsafe extern "C" fn proxy_static_set_prop(
                     }
                 }
             } else {
-                let err = "proxy_instance_set_prop failed, no handler avail";
+                let err = format!("proxy_instance_set_prop failed, no handler found for proxy_static_set_prop: {}", prop_name);
                 log::error!("{}", err);
-                let _ = q_ctx.report_ex(err);
+                let _ = q_ctx.report_ex(err.as_str());
                 -1
             }
         } else {
@@ -1438,9 +1438,9 @@ unsafe extern "C" fn proxy_instance_set_prop(
                 }
             }
         } else {
-            let err = "proxy_instance_set_prop failed, no handler found";
+            let err = format!("proxy_instance_set_prop failed, no handler found for proxy_instance_set_prop: {}", prop_name);
             log::error!("{}", err);
-            let _ = q_ctx.report_ex(err);
+            let _ = q_ctx.report_ex(err.as_str());
             -1
         }
     })
