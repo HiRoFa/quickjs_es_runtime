@@ -548,6 +548,9 @@ impl Proxy {
         }
 
         let prim_cn = self.get_class_name();
+        let prim_cn2 = prim_cn.clone();
+
+        // todo turn these into native methods
         self = self.method("Symbol.toPrimitive", move |_rt, q_ctx, id, _args| {
             let prim = primitives::from_string_q(
                 q_ctx,
@@ -556,6 +559,18 @@ impl Proxy {
             Ok(prim)
         });
         let prim_cn = self.get_class_name();
+        self = self.static_method("Symbol.hasInstance", move |_rt, realm, args| {
+            if args.len() == 1 {
+                let instance = &args[0];
+                if instance.is_proxy_instance() {
+                    let info = realm.get_proxy_instance_info(instance)?;
+                    if info.0.eq(prim_cn2.as_str()) {
+                        return realm.create_boolean(true);
+                    }
+                }
+            }
+            realm.create_boolean(false)
+        });
         self = self.static_method("Symbol.toPrimitive", move |_rt, q_ctx, _args| {
             let prim = primitives::from_string_q(q_ctx, format!("Proxy::{prim_cn}").as_str())?;
             Ok(prim)
@@ -1456,6 +1471,7 @@ pub mod tests {
     use crate::jsutils::Script;
     use crate::quickjs_utils::objects::create_object_q;
     use crate::quickjs_utils::{functions, primitives};
+    use crate::quickjsvalueadapter::QuickJsValueAdapter;
     use crate::reflection::{
         get_proxy_instance_proxy_and_instance_id_q, is_proxy_instance_q, Proxy,
         PROXY_INSTANCE_CLASS_ID,
@@ -1553,6 +1569,37 @@ pub mod tests {
             let res2 = is_proxy_instance_q(q_ctx, &some_obj);
             println!("res2 = {res2}");
             assert!(!res2);
+        });
+    }
+
+    #[test]
+    pub fn test_instance_of() {
+        log::info!("> test_instance_of");
+
+        let rt = init_test_rt();
+        rt.exe_rt_task_in_event_loop(|q_js_rt| {
+            q_js_rt.gc();
+            let q_ctx = q_js_rt.get_main_context();
+            let _ = Proxy::new()
+                .constructor(|_rt, _q_ctx, _id, _args| Ok(()))
+                .namespace(&["com", "company"])
+                .name("Test")
+                .install(q_ctx, true);
+            match q_ctx.eval(Script::new(
+                "test_tostring.js",
+                r#"
+                    let t = new com.company.Test();
+                    t instanceof com.company.Test
+                    "#,
+            )) {
+                Ok(res) => {
+                    let bln = res.to_bool();
+                    assert!(bln);
+                }
+                Err(e) => {
+                    panic!("e: {}", e);
+                }
+            }
         });
     }
 
