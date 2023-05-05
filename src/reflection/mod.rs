@@ -894,7 +894,6 @@ fn get_proxy_instance_info(val: &q::JSValue) -> &ProxyInstanceInfo {
 
 #[allow(dead_code)]
 unsafe extern "C" fn finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
-
     log::trace!("finalizer called");
 
     let info: &ProxyInstanceInfo = get_proxy_instance_info(&val);
