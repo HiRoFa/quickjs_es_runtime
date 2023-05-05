@@ -1438,7 +1438,10 @@ unsafe extern "C" fn proxy_instance_set_prop(
                 }
             }
         } else {
-            let err = format!("proxy_instance_set_prop failed, no handler found for proxy_instance_set_prop: {}", prop_name);
+            let err = format!(
+                "proxy_instance_set_prop failed, no handler found for proxy_instance_set_prop: {}",
+                prop_name
+            );
             log::error!("{}", err);
             let _ = q_ctx.report_ex(err.as_str());
             -1
