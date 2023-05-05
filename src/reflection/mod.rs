@@ -894,7 +894,7 @@ fn get_proxy_instance_info(val: &q::JSValue) -> &ProxyInstanceInfo {
 
 #[allow(dead_code)]
 unsafe extern "C" fn finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
-    //todo
+
     log::trace!("finalizer called");
 
     let info: &ProxyInstanceInfo = get_proxy_instance_info(&val);
@@ -1344,7 +1344,7 @@ unsafe extern "C" fn proxy_static_set_prop(
                         // fail, todo do i need ex?
                         let err = format!("proxy_instance_set_prop failed: {e}");
                         log::error!("{}", err);
-                        //let _ = q_ctx.report_ex(err.as_str());
+                        let _ = q_ctx.report_ex(err.as_str());
                         -1
                     }
                 }
@@ -1358,15 +1358,20 @@ unsafe extern "C" fn proxy_static_set_prop(
                         // fail, todo do i need ex?
                         let err = format!("proxy_instance_set_prop failed: {e}");
                         log::error!("{}", err);
-                        //let _ = q_ctx.report_ex(err.as_str());
+                        let _ = q_ctx.report_ex(err.as_str());
                         -1
                     }
                 }
             } else {
-                // fail
+                let err = "proxy_instance_set_prop failed, no handler avail";
+                log::error!("{}", err);
+                let _ = q_ctx.report_ex(err);
                 -1
             }
         } else {
+            let err = "proxy_instance_set_prop failed, no proxy found";
+            log::error!("{}", err);
+            let _ = q_ctx.report_ex(err);
             -1
         }
     })
@@ -1415,7 +1420,7 @@ unsafe extern "C" fn proxy_instance_set_prop(
                     // fail, todo do i need ex?
                     let err = format!("proxy_instance_set_prop failed: {e}");
                     log::error!("{}", err);
-                    //let _ = q_ctx.report_ex(err.as_str());
+                    let _ = q_ctx.report_ex(err.as_str());
                     -1
                 }
             }
@@ -1429,12 +1434,14 @@ unsafe extern "C" fn proxy_instance_set_prop(
                     // fail, todo do i need ex?
                     let err = format!("proxy_instance_set_prop failed: {e}");
                     log::error!("{}", err);
-                    //let _ = q_ctx.report_ex(err.as_str());
+                    let _ = q_ctx.report_ex(err.as_str());
                     -1
                 }
             }
         } else {
-            // fail
+            let err = "proxy_instance_set_prop failed, no handler found";
+            log::error!("{}", err);
+            let _ = q_ctx.report_ex(err);
             -1
         }
     })
