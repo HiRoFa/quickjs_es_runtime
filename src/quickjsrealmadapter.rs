@@ -701,6 +701,17 @@ impl QuickJsRealmAdapter {
         arrays::get_element_q(self, array, index)
     }
 
+    /// push an element into an Array
+    pub fn push_array_element(
+        &self,
+        array: &QuickJsValueAdapter,
+        element: &QuickJsValueAdapter,
+    ) -> Result<u32, JsError> {
+        let push_func = self.get_object_property(array, "push")?;
+        let res = self.invoke_function(Some(array), &push_func, &[element])?;
+        Ok(res.to_i32() as u32)
+    }
+
     pub fn set_array_element(
         &self,
         array: &QuickJsValueAdapter,
