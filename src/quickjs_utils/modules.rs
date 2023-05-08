@@ -283,7 +283,7 @@ pub mod tests {
 
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let res = q_ctx.eval_module(Script::new(
                 "test1.mes",
                 "export const name = 'foobar';\nconsole.log('evalling module');",
@@ -296,7 +296,7 @@ pub mod tests {
         });
 
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let res = q_ctx.eval_module(Script::new(
                 "test2.mes",
                 "import {name} from 'test1.mes';\n\nconsole.log('imported name: ' + name);",
@@ -310,7 +310,7 @@ pub mod tests {
         });
 
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let res = q_ctx.eval_module(Script::new(
                 "test3.mes",
                 "import {name} from 'notfound.mes';\n\nconsole.log('imported name: ' + name);",
@@ -325,7 +325,7 @@ pub mod tests {
         });
 
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let res = q_ctx.eval_module(Script::new(
                 "test4.mes",
                 "import {name} from 'invalid.mes';\n\nconsole.log('imported name: ' + name);",
@@ -340,7 +340,7 @@ pub mod tests {
         });
 
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let res = q_ctx.eval_module(Script::new(
                 "test2.mes",
                 "import {name} from 'test1.mes';\n\nconsole.log('imported name: ' + name);",

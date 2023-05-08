@@ -17,7 +17,7 @@ use libquickjs_sys as q;
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 /// });
 /// ```
@@ -55,7 +55,7 @@ pub unsafe fn is_map(ctx: *mut q::JSContext, obj: &QuickJsValueAdapter) -> Resul
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
@@ -93,7 +93,7 @@ pub unsafe fn set(
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
@@ -131,7 +131,7 @@ pub unsafe fn get(
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
@@ -169,7 +169,7 @@ pub unsafe fn delete(
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
@@ -208,7 +208,7 @@ pub unsafe fn has(
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
@@ -239,7 +239,7 @@ pub unsafe fn size(ctx: *mut q::JSContext, map: &QuickJsValueAdapter) -> Result<
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
@@ -271,7 +271,7 @@ pub unsafe fn clear(ctx: *mut q::JSContext, map: &QuickJsValueAdapter) -> Result
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
@@ -311,7 +311,7 @@ pub unsafe fn keys<C: Fn(QuickJsValueAdapter) -> Result<R, JsError>, R>(
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);
@@ -351,7 +351,7 @@ pub unsafe fn values<C: Fn(QuickJsValueAdapter) -> Result<R, JsError>, R>(
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_map: QuickJsValueAdapter = new_map_q(q_ctx).ok().unwrap();
 ///    let key = primitives::from_i32(12);
 ///    let value = primitives::from_i32(23);

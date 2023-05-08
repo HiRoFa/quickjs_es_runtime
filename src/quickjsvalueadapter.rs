@@ -399,7 +399,7 @@ pub mod tests {
     fn test_to_str() {
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let res = q_ctx.eval(Script::new("test_to_str.es", "('hello ' + 'world');"));
 
             match res {

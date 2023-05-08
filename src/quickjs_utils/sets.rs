@@ -17,7 +17,7 @@ use libquickjs_sys as q;
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_set: QuickJsValueAdapter = new_set_q(q_ctx).ok().unwrap();
 /// });
 /// ```
@@ -55,7 +55,7 @@ pub unsafe fn is_set(ctx: *mut q::JSContext, obj: &QuickJsValueAdapter) -> Resul
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_set: QuickJsValueAdapter = new_set_q(q_ctx).ok().unwrap();
 ///    let value = primitives::from_i32(23);
 ///    add_q(q_ctx, &my_set, value).ok().unwrap();
@@ -90,7 +90,7 @@ pub unsafe fn add(
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_set: QuickJsValueAdapter = new_set_q(q_ctx).ok().unwrap();
 ///    let value = primitives::from_i32(23);
 ///    add_q(q_ctx, &my_set, value.clone()).ok().unwrap();
@@ -127,7 +127,7 @@ pub unsafe fn delete(
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_set: QuickJsValueAdapter = new_set_q(q_ctx).ok().unwrap();
 ///    let value = primitives::from_i32(23);
 ///    add_q(q_ctx, &my_set, value.clone()).ok().unwrap();
@@ -165,7 +165,7 @@ pub unsafe fn has(
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_set: QuickJsValueAdapter = new_set_q(q_ctx).ok().unwrap();
 ///    let value = primitives::from_i32(23);
 ///    add_q(q_ctx, &my_set, value).ok().unwrap();
@@ -195,7 +195,7 @@ pub unsafe fn size(ctx: *mut q::JSContext, set: &QuickJsValueAdapter) -> Result<
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_set: QuickJsValueAdapter = new_set_q(q_ctx).ok().unwrap();
 ///    let value = primitives::from_i32(23);
 ///    add_q(q_ctx, &my_set, value).ok().unwrap();
@@ -226,7 +226,7 @@ pub unsafe fn clear(ctx: *mut q::JSContext, set: &QuickJsValueAdapter) -> Result
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let my_set: QuickJsValueAdapter = new_set_q(q_ctx).ok().unwrap();
 ///    let value = primitives::from_i32(23);
 ///    add_q(q_ctx, &my_set, value).ok().unwrap();

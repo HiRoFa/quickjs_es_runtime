@@ -271,7 +271,7 @@ pub mod tests {
 
         let rt = init_test_rt();
         let io = rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let res = q_ctx.eval(Script::new(
                 "test_instance_of_prom.es",
                 "(new Promise((res, rej) => {}));",
@@ -304,7 +304,7 @@ pub mod tests {
 
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let func_ref = q_ctx
                 .eval(Script::new(
                     "new_prom.es",
@@ -337,7 +337,7 @@ pub mod tests {
 
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let func_ref = q_ctx
                 .eval(Script::new(
                     "new_prom.es",
@@ -370,7 +370,7 @@ pub mod tests {
 
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let prom_ref = q_ctx
                 .eval(Script::new(
                     "test_promise_reactions.es",

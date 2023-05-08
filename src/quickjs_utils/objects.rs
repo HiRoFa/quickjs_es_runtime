@@ -16,7 +16,7 @@ use libquickjs_sys as q;
 /// use quickjs_runtime::quickjs_utils::objects::get_namespace_q;
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///     let q_ctx = q_js_rt.get_main_context();
+///     let q_ctx = q_js_rt.get_main_realm();
 ///     let ns_obj = get_namespace_q(q_ctx, &["com", "hirofa", "examplepackage"], true).ok().unwrap();
 ///     assert!(ns_obj.is_object())
 /// })
@@ -165,7 +165,7 @@ pub unsafe fn set_property(
 /// use libquickjs_sys as q;
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    let obj = create_object_q(q_ctx).ok().unwrap();
 ///    let prop = from_i32(785);
 ///    // not enumerable
@@ -620,7 +620,7 @@ pub unsafe fn is_instance_of_by_name(
     } else {
         // todo check if context is not __main__
         QuickJsRuntimeAdapter::do_with(|q_js_rt| {
-            let main_ctx = q_js_rt.get_main_context();
+            let main_ctx = q_js_rt.get_main_realm();
             let main_constructor_ref = get_constructor(main_ctx.context, constructor_name)?;
             if is_instance_of(main_ctx.context, obj_ref, &main_constructor_ref) {
                 Ok(true)
@@ -645,7 +645,7 @@ pub mod tests {
     fn test_get_refs() {
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let obj = create_object_q(q_ctx).ok().expect("a");
             let prop_ref = create_object_q(q_ctx).ok().expect("b");
             let prop2_ref = create_object_q(q_ctx).ok().expect("c");
@@ -680,7 +680,7 @@ pub mod tests {
 
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
 
             let obj_a = create_object_q(q_ctx).ok().unwrap();
             let obj_b = create_object_q(q_ctx).ok().unwrap();
@@ -713,7 +713,7 @@ pub mod tests {
 
         let rt = init_test_rt();
         let io = rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
 
             let obj_ref = q_ctx
                 .eval(Script::new("test_propnames.es", "({one: 1, two: 2});"))
@@ -740,7 +740,7 @@ pub mod tests {
 
         let rt = init_test_rt();
         let io = rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
 
             let obj_ref = create_object_q(q_ctx).ok().unwrap();
 

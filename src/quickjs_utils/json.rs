@@ -67,7 +67,7 @@ pub unsafe fn parse(
 /// use quickjs_runtime::quickjs_utils::{json, objects, primitives};
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///     let q_ctx = q_js_rt.get_main_context();
+///     let q_ctx = q_js_rt.get_main_realm();
 ///     let obj_ref = objects::create_object_q(q_ctx).ok().unwrap();
 ///     objects::set_property_q(q_ctx, &obj_ref, "a", &primitives::from_i32(741)).ok().unwrap();
 ///     let str_ref = json::stringify_q(q_ctx, &obj_ref, None).ok().unwrap();
@@ -135,7 +135,7 @@ pub mod tests {
     fn test_json() {
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
 
             let obj = objects::create_object_q(q_ctx).ok().unwrap();
             objects::set_property_q(q_ctx, &obj, "a", &primitives::from_i32(532))

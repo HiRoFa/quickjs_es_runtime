@@ -540,7 +540,7 @@ impl QuickJsRuntimeAdapter {
         self.native_module_loaders.push(nml);
     }
 
-    pub fn get_main_context(&self) -> &QuickJsRealmAdapter {
+    pub fn get_main_realm(&self) -> &QuickJsRealmAdapter {
         // todo store this somewhere so we don't need a lookup in the map every time
         self.get_context("__main__")
     }
@@ -752,10 +752,6 @@ impl QuickJsRuntimeAdapter {
         } else {
             None
         }
-    }
-
-    pub fn get_main_realm(&self) -> &QuickJsRealmAdapter {
-        self.get_main_context()
     }
 
     pub fn add_realm_init_hook<H>(&self, hook: H) -> Result<(), JsError>

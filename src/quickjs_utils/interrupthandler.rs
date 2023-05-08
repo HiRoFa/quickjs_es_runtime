@@ -57,7 +57,7 @@ pub mod tests {
         let rt = QuickJsRuntimeBuilder::new()
             .set_interrupt_handler(move |qjs_rt| {
                 log::debug!("interrupt_handler called / 1");
-                let script_name = get_script_or_module_name_q(qjs_rt.get_main_context());
+                let script_name = get_script_or_module_name_q(qjs_rt.get_main_realm());
                 match script_name {
                     Ok(script_name) => {
                         log::debug!("interrupt_handler called: {}", script_name);

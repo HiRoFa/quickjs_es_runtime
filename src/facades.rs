@@ -47,7 +47,7 @@ impl QuickjsRuntimeFacadeInner {
     /// use quickjs_runtime::quickjs_utils::primitives;
     /// let rt = QuickJsRuntimeBuilder::new().build();
     /// let res = rt.exe_rt_task_in_event_loop(|q_js_rt| {
-    ///     let q_ctx = q_js_rt.get_main_context();
+    ///     let q_ctx = q_js_rt.get_main_realm();
     ///     // here you are in the worker thread and you can use the quickjs_utils
     ///     let val_ref = q_ctx.eval(Script::new("test.es", "(11 * 6);")).ok().expect("script failed");
     ///     primitives::to_i32(&val_ref).ok().expect("could not get i32")
@@ -379,7 +379,7 @@ impl QuickJsRuntimeFacade {
     /// use quickjs_runtime::quickjs_utils::primitives;
     /// let rt = QuickJsRuntimeBuilder::new().build();
     /// let res = rt.exe_rt_task_in_event_loop(|q_js_rt| {
-    ///     let q_ctx = q_js_rt.get_main_context();
+    ///     let q_ctx = q_js_rt.get_main_realm();
     ///     // here you are in the worker thread and you can use the quickjs_utils
     ///     let val_ref = q_ctx.eval(Script::new("test.es", "(11 * 6);")).ok().expect("script failed");
     ///     primitives::to_i32(&val_ref).ok().expect("could not get i32")
@@ -1142,7 +1142,7 @@ pub mod tests {
 
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             //q_js_rt.run_pending_jobs_if_any();
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let r = q_ctx.eval(Script::new(
                 "test_async.es",
                 "let f = async function(){let p = new Promise((resolve, reject) => {resolve(12345);}); const p2 = await p; return p2}; f();",

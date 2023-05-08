@@ -224,7 +224,7 @@ pub mod tests {
 
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
 
             q_ctx
                 .eval(Script::new(

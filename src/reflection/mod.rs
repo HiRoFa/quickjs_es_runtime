@@ -218,7 +218,7 @@ fn next_id(proxy: &Proxy) -> usize {
 ///
 /// // install our proxy class as com.hirofa.FunkyClass
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///    let q_ctx = q_js_rt.get_main_context();
+///    let q_ctx = q_js_rt.get_main_realm();
 ///    Proxy::new()
 ///    .namespace(&["com", "hirofa"])
 ///    .name("FunkyClass")
@@ -1313,25 +1313,25 @@ unsafe extern "C" fn proxy_static_set_prop(
     receiver: q::JSValue,
     _flags: ::std::os::raw::c_int,
 ) -> ::std::os::raw::c_int {
-    trace!("proxy_instance_set_prop");
+    trace!("proxy_static_set_prop");
 
     let value_ref = QuickJsValueAdapter::new(
         context,
         value,
         false,
         false,
-        "reflection::proxy_instance_set_prop value",
+        "reflection::proxy_static_set_prop value",
     );
     let receiver_ref = QuickJsValueAdapter::new(
         context,
         receiver,
         false,
         false,
-        "reflection::proxy_instance_set_prop value",
+        "reflection::proxy_static_set_prop value",
     );
 
-    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
-        let q_ctx = q_js_rt.get_quickjs_context(context);
+    QuickJsRuntimeAdapter::do_with(|rt| {
+        let realm = rt.get_quickjs_context(context);
 
         let prop_name = atoms::to_str(context, &atom).expect("could not get name");
         trace!("proxy_static_set_prop: {}", prop_name);
@@ -1346,46 +1346,66 @@ unsafe extern "C" fn proxy_static_set_prop(
             .unwrap();
         trace!("proxy_static_set_prop: {}", proxy_name);
 
-        let registry = &*q_ctx.proxy_registry.borrow();
+        let registry = &*realm.proxy_registry.borrow();
         if let Some(proxy) = registry.get(proxy_name.as_str()) {
             if let Some(getter_setter) = proxy.static_getters_setters.get(prop_name) {
                 // call the setter
                 let setter = &getter_setter.1;
-                let res: Result<(), JsError> = setter(q_js_rt, q_ctx, value_ref);
+                let res: Result<(), JsError> = setter(rt, realm, value_ref);
                 match res {
                     Ok(_) => 0,
                     Err(e) => {
                         // fail, todo do i need ex?
-                        let err = format!("proxy_instance_set_prop failed: {e}");
+                        let err = format!("proxy_static_set_prop failed: {e}");
                         log::error!("{}", err);
-                        let _ = q_ctx.report_ex(err.as_str());
+                        let _ = realm.report_ex(err.as_str());
                         -1
                     }
                 }
             } else if let Some(catch_all_getter_setter) = &proxy.static_catch_all {
                 // call the setter
                 let setter = &catch_all_getter_setter.1;
-                let res: Result<(), JsError> = setter(q_js_rt, q_ctx, prop_name, value_ref);
+                let res: Result<(), JsError> = setter(rt, realm, prop_name, value_ref);
                 match res {
                     Ok(_) => 0,
                     Err(e) => {
                         // fail, todo do i need ex?
-                        let err = format!("proxy_instance_set_prop failed: {e}");
+                        let err = format!("proxy_static_set_prop failed: {e}");
                         log::error!("{}", err);
-                        let _ = q_ctx.report_ex(err.as_str());
+                        let _ = realm.report_ex(err.as_str());
                         -1
                     }
                 }
             } else {
-                let err = format!("proxy_instance_set_prop failed, no handler found for proxy_static_set_prop: {}", prop_name);
+                let receiver_ref = QuickJsValueAdapter::new(
+                    context,
+                    receiver,
+                    false,
+                    false,
+                    "reflection::proxy_static_set_prop receiver",
+                );
+
+                match realm.set_object_property(&receiver_ref, prop_name, &value_ref) {
+                    Ok(()) => 0,
+                    Err(e) => {
+                        let err = format!("proxy_static_set_prop failed, {}", e);
+                        log::error!("{}", err);
+                        let _ = realm.report_ex(err.as_str());
+                        -1
+                    }
+                }
+                /*
+                let err = format!("proxy_static_set_prop failed, no handler found for proxy_static_set_prop: {}", prop_name);
                 log::error!("{}", err);
                 let _ = q_ctx.report_ex(err.as_str());
                 -1
+
+                 */
             }
         } else {
-            let err = "proxy_instance_set_prop failed, no proxy found";
+            let err = "proxy_static_set_prop failed, no proxy found";
             log::error!("{}", err);
-            let _ = q_ctx.report_ex(err);
+            let _ = realm.report_ex(err);
             -1
         }
     })
@@ -1396,7 +1416,7 @@ unsafe extern "C" fn proxy_instance_set_prop(
     obj: q::JSValue,
     atom: q::JSAtom,
     value: q::JSValue,
-    _receiver: q::JSValue,
+    receiver: q::JSValue,
     _flags: ::std::os::raw::c_int,
 ) -> ::std::os::raw::c_int {
     trace!("proxy_instance_set_prop");
@@ -1409,8 +1429,8 @@ unsafe extern "C" fn proxy_instance_set_prop(
         "reflection::proxy_instance_set_prop value",
     );
 
-    QuickJsRuntimeAdapter::do_with(|q_js_rt| {
-        let q_ctx = q_js_rt.get_quickjs_context(context);
+    QuickJsRuntimeAdapter::do_with(|rt| {
+        let realm = rt.get_quickjs_context(context);
 
         let prop_name = atoms::to_str(context, &atom).expect("could not get name");
         trace!("proxy_instance_set_prop: {}", prop_name);
@@ -1421,45 +1441,67 @@ unsafe extern "C" fn proxy_instance_set_prop(
 
         // see if we have a matching gettersetter
 
-        let registry = &*q_ctx.proxy_registry.borrow();
+        let registry = &*realm.proxy_registry.borrow();
         let proxy = registry.get(&info.class_name).unwrap();
 
         if let Some(getter_setter) = proxy.getters_setters.get(prop_name) {
             // call the setter
             let setter = &getter_setter.1;
-            let res: Result<(), JsError> = setter(q_js_rt, q_ctx, &info.id, value_ref);
+            let res: Result<(), JsError> = setter(rt, realm, &info.id, value_ref);
             match res {
                 Ok(_) => 0,
                 Err(e) => {
                     // fail, todo do i need ex?
                     let err = format!("proxy_instance_set_prop failed: {e}");
                     log::error!("{}", err);
-                    let _ = q_ctx.report_ex(err.as_str());
+                    let _ = realm.report_ex(err.as_str());
                     -1
                 }
             }
         } else if let Some(catch_all_getter_setter) = &proxy.catch_all {
             // call the setter
             let setter = &catch_all_getter_setter.1;
-            let res: Result<(), JsError> = setter(q_js_rt, q_ctx, &info.id, prop_name, value_ref);
+            let res: Result<(), JsError> = setter(rt, realm, &info.id, prop_name, value_ref);
             match res {
                 Ok(_) => 0,
                 Err(e) => {
                     // fail, todo do i need ex?
                     let err = format!("proxy_instance_set_prop failed: {e}");
                     log::error!("{}", err);
-                    let _ = q_ctx.report_ex(err.as_str());
+                    let _ = realm.report_ex(err.as_str());
                     -1
                 }
             }
         } else {
+            // if not handler just add to receiver
+
+            let receiver_ref = QuickJsValueAdapter::new(
+                context,
+                receiver,
+                false,
+                false,
+                "reflection::proxy_instance_set_prop receiver",
+            );
+
+            match realm.set_object_property(&receiver_ref, prop_name, &value_ref) {
+                Ok(()) => 0,
+                Err(e) => {
+                    let err = format!("proxy_instance_set_prop failed, {}", e);
+                    log::error!("{}", err);
+                    let _ = realm.report_ex(err.as_str());
+                    -1
+                }
+            }
+            /*
             let err = format!(
                 "proxy_instance_set_prop failed, no handler found for proxy_instance_set_prop: {}",
                 prop_name
             );
             log::error!("{}", err);
-            let _ = q_ctx.report_ex(err.as_str());
+            let _ = realm.report_ex(err.as_str());
             -1
+
+             */
         }
     })
 }
@@ -1471,7 +1513,6 @@ pub mod tests {
     use crate::jsutils::Script;
     use crate::quickjs_utils::objects::create_object_q;
     use crate::quickjs_utils::{functions, primitives};
-    use crate::quickjsvalueadapter::QuickJsValueAdapter;
     use crate::reflection::{
         get_proxy_instance_proxy_and_instance_id_q, is_proxy_instance_q, Proxy,
         PROXY_INSTANCE_CLASS_ID,
@@ -1493,7 +1534,7 @@ pub mod tests {
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             q_js_rt.gc();
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let _ = Proxy::new()
                 .constructor(|_q_js_rt, _q_ctx, _id, _args| Ok(()))
                 .name("Test")
@@ -1511,7 +1552,7 @@ pub mod tests {
         let rt = init_test_rt();
         let err = rt.exe_rt_task_in_event_loop(|q_js_rt| {
             q_js_rt.gc();
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let _ = Proxy::new()
                 .constructor(|_q_js_rt, _q_ctx, _id, _args| Ok(()))
                 .method("run", |_rt, _realm, _instance_id, _args| {
@@ -1538,7 +1579,7 @@ pub mod tests {
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             q_js_rt.gc();
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let _ = Proxy::new()
                 .constructor(|_rt, _q_ctx, _id, _args| Ok(()))
                 .namespace(&["com", "company"])
@@ -1573,13 +1614,46 @@ pub mod tests {
     }
 
     #[test]
+    pub fn test_rest_props() {
+        log::info!("> test_rest_props");
+
+        let rt = init_test_rt();
+        rt.exe_rt_task_in_event_loop(|q_js_rt| {
+            q_js_rt.gc();
+            let realm = q_js_rt.get_main_realm();
+            let _ = Proxy::new()
+                .constructor(|_rt, _q_ctx, _id, _args| Ok(()))
+                .namespace(&["com", "company"])
+                .name("Test")
+                .install(realm, true);
+            match realm.eval(Script::new(
+                "test_tostring.js",
+                r#"
+                    let t = new com.company.Test();
+                    t.foo = "bar";
+                    com.company.Test.sfoo = "sbar"
+                    t.foo + "_" + com.company.Test.sfoo;
+                    "#,
+            )) {
+                Ok(res) => {
+                    let s = res.to_str().expect("could not to_str");
+                    assert_eq!(s, "bar_sbar");
+                }
+                Err(e) => {
+                    panic!("e: {}", e);
+                }
+            }
+        });
+    }
+
+    #[test]
     pub fn test_instance_of() {
         log::info!("> test_instance_of");
 
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             q_js_rt.gc();
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let _ = Proxy::new()
                 .constructor(|_rt, _q_ctx, _id, _args| Ok(()))
                 .namespace(&["com", "company"])
@@ -1610,7 +1684,7 @@ pub mod tests {
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             q_js_rt.gc();
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let _ = Proxy::new()
                 .constructor(|_rt, _q_ctx, _id, _args| Ok(()))
                 .namespace(&["com", "company"])
@@ -1634,7 +1708,7 @@ pub mod tests {
 
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let res = Proxy::new()
                 .name("TestClass1")
                 .constructor(|_rt, _context, id, _args| {

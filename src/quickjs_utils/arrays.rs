@@ -12,7 +12,7 @@ use libquickjs_sys as q;
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///     let q_ctx = q_js_rt.get_main_context();
+///     let q_ctx = q_js_rt.get_main_realm();
 ///     let obj_ref = q_ctx.eval(Script::new("is_array_test.es", "([1, 2, 3]);")).ok().expect("script failed");
 ///     let is_array = arrays::is_array_q(q_ctx, &obj_ref);
 ///     assert!(is_array);
@@ -39,7 +39,7 @@ pub unsafe fn is_array(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///     let q_ctx = q_js_rt.get_main_context();
+///     let q_ctx = q_js_rt.get_main_realm();
 ///     let obj_ref = q_ctx.eval(Script::new("get_length_test.es", "([1, 2, 3]);")).ok().expect("script failed");
 ///     let len = arrays::get_length_q(q_ctx, &obj_ref).ok().expect("could not get length");
 ///     assert_eq!(len, 3);
@@ -76,7 +76,7 @@ pub unsafe fn get_length(
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///     let q_ctx = q_js_rt.get_main_context();
+///     let q_ctx = q_js_rt.get_main_realm();
 ///     // create a method to pass our new array to
 ///     q_ctx.eval(Script::new("create_array_test.es", "this.create_array_func = function(arr){return arr.length;};")).ok().expect("script failed");
 ///     // create a new array
@@ -118,7 +118,7 @@ pub unsafe fn create_array(context: *mut q::JSContext) -> Result<QuickJsValueAda
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///     let q_ctx = q_js_rt.get_main_context();
+///     let q_ctx = q_js_rt.get_main_realm();
 ///     // get an Array from script
 ///     let arr_ref = q_ctx.eval(Script::new("set_element_test.es", "([1, 2, 3]);")).ok().expect("script failed");
 ///     // add some values
@@ -171,7 +171,7 @@ pub unsafe fn set_element(
 ///
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///     let q_ctx = q_js_rt.get_main_context();
+///     let q_ctx = q_js_rt.get_main_realm();
 ///     // get an Array from script
 ///     let arr_ref = q_ctx.eval(Script::new("get_element_test.es", "([1, 2, 3]);")).ok().expect("script failed");
 ///     // get a value, the 3 in this case
@@ -220,7 +220,7 @@ pub mod tests {
     fn test_array() {
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let arr = create_array_q(q_ctx).ok().unwrap();
             assert_eq!(arr.get_ref_count(), 1);
 

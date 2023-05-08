@@ -553,7 +553,7 @@ pub(crate) fn init_statics() {
 /// use quickjs_runtime::quickjs_utils::objects::set_property_q;
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
-///     let q_ctx = q_js_rt.get_main_context();
+///     let q_ctx = q_js_rt.get_main_realm();
 ///     // create a function which always returns 1253
 ///     let func_obj = new_function_q(q_ctx, "myFunc7654", |_q_ctx, _this, _args|{Ok(from_i32(1253))}, 0).ok().unwrap();
 ///     // store as a global member so script can call it
@@ -680,7 +680,7 @@ pub mod tests {
     pub fn test_invoke() {
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let obj_ref = q_ctx
                 .eval(Script::new(
                     "test_to_invoke.es",
@@ -709,7 +709,7 @@ pub mod tests {
     pub fn test_ret_refcount() {
         let rt = init_test_rt();
         let io = rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let func_ref = q_ctx
                 .eval(Script::new(
                     "test_ret_refcount.es",
@@ -756,7 +756,7 @@ pub mod tests {
     pub fn test_to_string() {
         let rt = init_test_rt();
         let io = rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let i = primitives::from_i32(480);
             let i_s = call_to_string_q(q_ctx, &i)
                 .ok()
@@ -779,7 +779,7 @@ pub mod tests {
     pub fn test_call() {
         let rt = init_test_rt();
         let io = rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let func_ref = q_ctx
                 .eval(Script::new(
                     "test_call.es",
@@ -817,7 +817,7 @@ pub mod tests {
         rt.eval_sync(None, Script::new("test_callback1.es", "let test_callback_563 = function(cb){console.log('before invoke cb');let result = cb(1, true, 'foobar');console.log('after invoke cb. got:' + result);};")).ok().expect("script failed");
 
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let mut cb_ref = new_function_q(
                 q_ctx,
                 "cb",
@@ -860,7 +860,7 @@ pub mod tests {
 
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
 
-                let q_ctx = q_js_rt.get_main_context();
+                let q_ctx = q_js_rt.get_main_realm();
 
             let func_ref = q_ctx.eval(Script::new(
                 "test_callback845.es",
@@ -901,7 +901,7 @@ pub mod tests {
         let rt = init_test_rt();
 
         let err = rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
 
             q_ctx
                 .install_function(
@@ -1008,7 +1008,7 @@ pub mod tests2 {
     fn test_function() {
         let rt = QuickJsRuntimeBuilder::new().build();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let func = new_function_q(
                 q_ctx,
                 "test_func",

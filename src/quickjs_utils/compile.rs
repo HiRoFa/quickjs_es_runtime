@@ -19,7 +19,7 @@ use std::os::raw::c_void;
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     unsafe {
-///         let q_ctx = q_js_rt.get_main_context();
+///         let q_ctx = q_js_rt.get_main_realm();
 ///         let func_res = compile(q_ctx.context, Script::new("test_func.es", "let a = 7; let b = 5; a * b;"));
 ///         let func = func_res.ok().expect("func compile failed");
 ///         let run_res = run_compiled_function(q_ctx.context, &func);
@@ -108,7 +108,7 @@ pub unsafe fn run_compiled_function(
 /// let rt = QuickJsRuntimeBuilder::new().build();
 /// rt.exe_rt_task_in_event_loop(|q_js_rt| {
 ///     unsafe {
-///     let q_ctx = q_js_rt.get_main_context();
+///     let q_ctx = q_js_rt.get_main_realm();
 ///     let func_res = compile(q_ctx.context, Script::new("test_func.es", "let a = 7; let b = 5; a * b;"));
 ///     let func = func_res.ok().expect("func compile failed");
 ///     let bytecode: Vec<u8> = to_bytecode(q_ctx.context, &func);
@@ -202,7 +202,7 @@ pub mod tests {
         let rt = init_test_rt();
 
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let func_res = unsafe {
                 compile(
                     q_ctx.context,
@@ -236,7 +236,7 @@ pub mod tests {
     fn test_bytecode() {
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| unsafe {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             let func_res = compile(
                 q_ctx.context,
                 Script::new(
@@ -269,7 +269,7 @@ pub mod tests {
     fn test_bytecode_bad_compile() {
         let rt = QuickJsRuntimeBuilder::new().build();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
 
             let func_res = unsafe {
                 compile(
@@ -288,7 +288,7 @@ pub mod tests {
     fn test_bytecode_bad_run() {
         let rt = QuickJsRuntimeBuilder::new().build();
         rt.exe_rt_task_in_event_loop(|q_js_rt| unsafe {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
 
             let func_res = compile(
                 q_ctx.context,

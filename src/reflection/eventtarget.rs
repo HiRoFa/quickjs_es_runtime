@@ -540,7 +540,7 @@ pub mod tests {
 
         let rt = init_test_rt();
         let ct = rt.exe_rt_task_in_event_loop(move |q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             Proxy::new()
                 .namespace(&[])
                 .constructor(move |_rt, _q, id, _args| {
@@ -596,7 +596,7 @@ pub mod tests {
     fn test_proxy_eh_rcs() {
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_context();
+            let q_ctx = q_js_rt.get_main_realm();
             Proxy::new()
                 .namespace(&[])
                 .constructor(move |_rt, _q, id, _args| {
