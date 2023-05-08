@@ -40,19 +40,20 @@ pub fn gc(q_js_rt: &QuickJsRuntimeAdapter) {
 }
 
 pub fn new_undefined_ref() -> QuickJsValueAdapter {
-    QuickJsValueAdapter::new_no_context(
-        q::JSValue {
-            u: q::JSValueUnion { int32: 0 },
-            tag: TAG_UNDEFINED,
-        },
-        "new_undefined_ref",
-    )
+    QuickJsValueAdapter::new_no_context(new_undefined(), "new_undefined_ref")
 }
 
 pub fn new_null() -> q::JSValue {
     q::JSValue {
         u: q::JSValueUnion { int32: 0 },
         tag: TAG_NULL,
+    }
+}
+
+pub fn new_undefined() -> q::JSValue {
+    q::JSValue {
+        u: q::JSValueUnion { int32: 0 },
+        tag: TAG_UNDEFINED,
     }
 }
 

@@ -1037,7 +1037,7 @@ unsafe extern "C" fn proxy_static_get_prop(
                     }
                 }
             } else {
-                quickjs_utils::new_null()
+                quickjs_utils::new_undefined()
             }
         } else {
             q_ctx.report_ex("proxy class not found")
@@ -1154,7 +1154,7 @@ unsafe extern "C" fn proxy_instance_get_prop(
             }
         } else {
             // return null if nothing was returned
-            quickjs_utils::new_null()
+            quickjs_utils::new_undefined()
         }
     })
 
@@ -1234,7 +1234,7 @@ unsafe extern "C" fn proxy_instance_method(
             }
         } else {
             // return null if nothing was returned
-            quickjs_utils::new_null()
+            quickjs_utils::new_undefined()
         }
     })
 }
@@ -1300,7 +1300,7 @@ unsafe extern "C" fn proxy_static_method(
             }
         } else {
             // return null if nothing was returned
-            quickjs_utils::new_null()
+            quickjs_utils::new_undefined()
         }
     })
 }
