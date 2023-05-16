@@ -118,7 +118,7 @@ pub mod tests {
 
     #[test]
     fn test_examples() {
-        let rt = QuickJsRuntimeBuilder::new().js_build();
+        let rt = QuickJsRuntimeBuilder::new().build();
         let outcome = block_on(run_examples(&rt));
         if outcome.is_err() {
             log::error!("an error occured: {}", outcome.err().unwrap());

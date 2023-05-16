@@ -725,6 +725,7 @@ impl QuickJsRuntimeFacade {
     /// also to use this you need to build the QuickJsRuntimeFacade with a module loader
     /// # example
     /// ```rust
+    /// use futures::executor::block_on;
     /// use quickjs_runtime::builder::QuickJsRuntimeBuilder;
     /// use quickjs_runtime::jsutils::modules::ScriptModuleLoader;
     /// use quickjs_runtime::jsutils::Script;
@@ -739,13 +740,13 @@ impl QuickJsRuntimeFacade {
     ///         "export const util = function(a, b, c){return a+b+c;};".to_string()
     ///     }
     /// }
-    /// let rt = QuickJsRuntimeBuilder::new().script_module_loader(Box::new(TestModuleLoader{})).build();
+    /// let rt = QuickJsRuntimeBuilder::new().script_module_loader(TestModuleLoader{}).build();
     /// let script = Script::new("/opt/files/my_module.js", r#"
     ///     import {util} from 'other_module.js';\n
     ///     console.log(util(1, 2, 3));
     /// "#);
     /// // in real life you would .await this
-    /// let _res = rt.eval_module_sync(None, script);
+    /// let _res = block_on(rt.eval_module(None, script));
     /// ```
     pub fn eval_module(
         &self,
@@ -783,7 +784,7 @@ impl QuickJsRuntimeFacade {
     ///         "export const util = function(a, b, c){return a+b+c;};".to_string()
     ///     }
     /// }
-    /// let rt = QuickJsRuntimeBuilder::new().script_module_loader(Box::new(TestModuleLoader{})).build();
+    /// let rt = QuickJsRuntimeBuilder::new().script_module_loader(TestModuleLoader{}).build();
     /// let script = Script::new("/opt/files/my_module.js", r#"
     ///     import {util} from 'other_module.js';\n
     ///     console.log(util(1, 2, 3));
@@ -1073,8 +1074,8 @@ pub mod tests {
         QuickJsRuntimeFacade::builder()
             .gc_interval(Duration::from_secs(1))
             .max_stack_size(128 * 1024)
-            .script_module_loader(Box::new(TestScriptModuleLoader {}))
-            .native_module_loader(Box::new(TestNativeModuleLoader {}))
+            .script_module_loader(TestScriptModuleLoader {})
+            .native_module_loader(TestNativeModuleLoader {})
             .build()
     }
 
@@ -1358,7 +1359,7 @@ pub mod abstraction_tests {
     #[tokio::test]
     async fn serde_tests_serialize() {
         let rtb: QuickJsRuntimeBuilder = QuickJsRuntimeBuilder::new();
-        let rt = rtb.js_build();
+        let rt = rtb.build();
 
         // init my function
         rt.eval(
@@ -1411,7 +1412,7 @@ pub mod abstraction_tests {
     #[tokio::test]
     async fn serde_tests_value() {
         let rtb: QuickJsRuntimeBuilder = QuickJsRuntimeBuilder::new();
-        let rt = rtb.js_build();
+        let rt = rtb.build();
 
         // init my function
         rt.eval(

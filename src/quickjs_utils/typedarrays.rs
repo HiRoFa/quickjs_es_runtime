@@ -360,7 +360,7 @@ pub mod tests {
 
         //simple_logging::log_to_stderr(log::LevelFilter::max());
 
-        let rt = QuickJsRuntimeBuilder::new().js_build();
+        let rt = QuickJsRuntimeBuilder::new().build();
 
         let res = rt.loop_realm_sync(None, |_rt, realm| {
             let obj = realm

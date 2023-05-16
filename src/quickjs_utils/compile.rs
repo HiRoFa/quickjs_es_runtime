@@ -375,7 +375,7 @@ pub mod tests {
             .expect("could not init logger");
 
         let rt = QuickJsRuntimeBuilder::new()
-            .js_compiled_module_loader(Cml {})
+            .compiled_module_loader(Cml {})
             .build();
 
         let test_script = Script::new(

@@ -75,15 +75,15 @@ impl QuickJsRuntimeBuilder {
     /// }
     ///
     /// let rt = QuickJsRuntimeBuilder::new()
-    ///     .script_module_loader(Box::new(MyModuleLoader{}))
+    ///     .script_module_loader(MyModuleLoader{})
     ///     .build();
     /// rt.eval_module_sync(None, Script::new("test_module.es", "import {foo} from 'some_module.mes';\nconsole.log('foo = %s', foo);")).ok().unwrap();
     /// ```
     pub fn script_module_loader<M: ScriptModuleLoader + Send + 'static>(
         mut self,
-        loader: Box<M>,
+        loader: M,
     ) -> Self {
-        self.script_module_loaders.push(loader);
+        self.script_module_loaders.push(Box::new(loader));
         self
     }
 
@@ -93,14 +93,6 @@ impl QuickJsRuntimeBuilder {
         processor: S,
     ) -> Self {
         self.script_pre_processors.push(Box::new(processor));
-        self
-    }
-
-    pub fn runtime_init_hook<H>(mut self, hook: H) -> Self
-    where
-        H: FnOnce(&QuickJsRuntimeFacade) -> Result<(), JsError> + Send + 'static,
-    {
-        self.runtime_init_hooks.push(Box::new(hook));
         self
     }
 
@@ -148,16 +140,19 @@ impl QuickJsRuntimeBuilder {
     /// }
     ///
     /// let rt = QuickJsRuntimeBuilder::new()
-    /// .native_module_loader(Box::new(MyModuleLoader{}))
+    /// .native_module_loader(MyModuleLoader{})
     /// .build();
     ///
     /// rt.eval_module_sync(None, Script::new("test_native_mod.es", "import {someVal, someFunc, SomeClass} from 'my_module';\nlet i = (someVal + someFunc() + SomeClass.doIt());\nif (i !== 2087){throw Error('i was not 2087');}")).ok().expect("script failed");
     /// ```
-    pub fn native_module_loader<M: NativeModuleLoader + Send + 'static>(
+    pub fn native_module_loader<S: NativeModuleLoader + Send + 'static>(
         mut self,
-        loader: Box<M>,
-    ) -> Self {
-        self.native_module_loaders.push(loader);
+        module_loader: S,
+    ) -> Self
+    where
+        Self: Sized,
+    {
+        self.native_module_loaders.push(Box::new(module_loader));
         self
     }
 
@@ -202,11 +197,7 @@ impl Default for QuickJsRuntimeBuilder {
 }
 
 impl QuickJsRuntimeBuilder {
-    pub fn js_build(self) -> QuickJsRuntimeFacade {
-        self.build()
-    }
-
-    pub fn js_runtime_init_hook<
+    pub fn runtime_facade_init_hook<
         H: FnOnce(&QuickJsRuntimeFacade) -> Result<(), JsError> + Send + 'static,
     >(
         mut self,
@@ -216,25 +207,25 @@ impl QuickJsRuntimeBuilder {
         self
     }
 
-    pub fn js_realm_adapter_init_hook<
+    pub fn realm_adapter_init_hook<
         H: Fn(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> Result<(), JsError> + Send + 'static,
     >(
         self,
         hook: H,
     ) -> Self {
-        self.js_runtime_adapter_init_hook(move |rt| {
+        self.runtime_adapter_init_hook(move |rt| {
             rt.add_context_init_hook(hook)?;
             Ok(())
         })
     }
 
-    pub fn js_runtime_adapter_init_hook<
+    pub fn runtime_adapter_init_hook<
         H: FnOnce(&QuickJsRuntimeAdapter) -> Result<(), JsError> + Send + 'static,
     >(
         self,
         hook: H,
     ) -> Self {
-        self.runtime_init_hook(|rt| {
+        self.runtime_facade_init_hook(|rt| {
             rt.exe_rt_task_in_event_loop(|rt| {
                 let _ = hook(rt);
             });
@@ -242,38 +233,11 @@ impl QuickJsRuntimeBuilder {
         })
     }
 
-    pub fn js_script_pre_processor<S: ScriptPreProcessor + Send + 'static>(
-        mut self,
-        preprocessor: S,
-    ) -> Self {
-        self.script_pre_processors.push(Box::new(preprocessor));
-        self
-    }
-
-    pub fn js_script_module_loader<S: ScriptModuleLoader + Send + 'static>(
-        mut self,
-        module_loader: S,
-    ) -> Self {
-        self.script_module_loaders.push(Box::new(module_loader));
-        self
-    }
-
-    pub fn js_compiled_module_loader<S: CompiledModuleLoader + Send + 'static>(
+    pub fn compiled_module_loader<S: CompiledModuleLoader + Send + 'static>(
         mut self,
         module_loader: S,
     ) -> Self {
         self.compiled_module_loaders.push(Box::new(module_loader));
-        self
-    }
-
-    pub fn js_native_module_loader<S: NativeModuleLoader + Send + 'static>(
-        mut self,
-        module_loader: S,
-    ) -> Self
-    where
-        Self: Sized,
-    {
-        self.native_module_loaders.push(Box::new(module_loader));
         self
     }
 }
@@ -304,7 +268,7 @@ pub mod tests {
         }
 
         let rt = QuickJsRuntimeBuilder::new()
-            .script_module_loader(Box::new(MyModuleLoader {}))
+            .script_module_loader(MyModuleLoader {})
             .build();
         match rt.eval_module_sync(
             None,

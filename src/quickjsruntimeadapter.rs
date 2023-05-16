@@ -819,7 +819,7 @@ pub mod tests {
     fn test_script_load() {
         log::debug!("testing1");
         let rt = QuickJsRuntimeBuilder::new()
-            .script_module_loader(Box::new(FooScriptModuleLoader {}))
+            .script_module_loader(FooScriptModuleLoader {})
             .build();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             log::debug!("testing2");
@@ -846,7 +846,7 @@ pub mod tests {
 
                 simple_logging::log_to_stderr(LevelFilter::max());
         */
-        let rt = QuickJsRuntimeBuilder::new().js_build();
+        let rt = QuickJsRuntimeBuilder::new().build();
 
         rt.exe_task_in_event_loop(|| {
             QuickJsRuntimeAdapter::do_with(|rt| {

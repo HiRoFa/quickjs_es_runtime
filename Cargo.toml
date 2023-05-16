@@ -21,10 +21,10 @@ setinterval = []
 setimmediate = []
 
 [dependencies]
-#hirofa_utils = "0.6"
+hirofa_utils = "0.7"
 #hirofa_utils = {path="../utils"}
 #hirofa_utils = {git="https://github.com/SreeniIO/utils.git"}
-hirofa_utils = {git="https://github.com/HiRoFa/utils"}
+#hirofa_utils = {git="https://github.com/HiRoFa/utils"}
 backtrace = "0.3.67"
 libquickjs-sys = "0.10.0"
 lazy_static = "1.4.0"
