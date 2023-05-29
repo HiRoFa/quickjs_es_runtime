@@ -5,6 +5,7 @@ use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use crate::reflection::JsProxyInstanceId;
 use futures::executor::block_on;
 use futures::Future;
+use hirofa_utils::debug_mutex::DebugMutex;
 use hirofa_utils::resolvable_future::ResolvableFuture;
 use serde::Serialize;
 use serde_json::Value;
@@ -12,14 +13,14 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Debug, Formatter};
 use std::pin::Pin;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Weak};
 use string_cache::DefaultAtom;
 
 pub struct CachedJsObjectRef {
     pub(crate) id: i32,
     rti: Weak<QuickjsRuntimeFacadeInner>,
     realm_id: String,
-    drop_action: Mutex<Option<Box<dyn FnOnce() + Send>>>,
+    drop_action: DebugMutex<Option<Box<dyn FnOnce() + Send>>>,
 }
 
 pub struct CachedJsPromiseRef {
@@ -67,7 +68,10 @@ impl CachedJsObjectRef {
             id,
             rti,
             realm_id: realm_name,
-            drop_action: Mutex::new(Some(Box::new(drop_action))),
+            drop_action: DebugMutex::new(
+                Some(Box::new(drop_action)),
+                "CachedJsObjectRef.drop_action",
+            ),
         }
     }
     pub async fn to_json_string(&self) -> Result<String, JsError> {
@@ -184,7 +188,7 @@ impl CachedJsObjectRef {
 
 impl Drop for CachedJsObjectRef {
     fn drop(&mut self) {
-        let lck = &mut *self.drop_action.lock().unwrap();
+        let lck = &mut *self.drop_action.lock("drop").unwrap();
         if let Some(da) = lck.take() {
             da();
         }
@@ -376,7 +380,7 @@ pub enum JsValueFacade {
     },
     // promise created from rust which will run an async producer
     Promise {
-        producer: Mutex<
+        producer: DebugMutex<
             Option<Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>> + Send + 'static>>>,
         >,
     },
@@ -466,7 +470,7 @@ impl JsValueFacade {
         P: Future<Output = Result<JsValueFacade, JsError>> + Send + 'static,
     {
         JsValueFacade::Promise {
-            producer: Mutex::new(Some(Box::pin(producer))),
+            producer: DebugMutex::new(Some(Box::pin(producer)), "JsValueFacade::Promise.producer"),
         }
     }
 

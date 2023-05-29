@@ -1,4 +1,8 @@
-# 0.10
+# 0.10.1
+
+* replaced Mutex with DebugMutex and thus with parking_lot
+
+# 0.10.0
 
 * removed Js*Adapter/Facade traits
 * renamed JSValueRef to QuickjsValueAdapter

@@ -1015,7 +1015,7 @@ impl QuickJsRealmAdapter {
                 Ok(obj)
             }
             JsValueFacade::Promise { producer } => {
-                let producer = &mut *producer.lock().unwrap();
+                let producer = &mut *producer.lock("from_js_value_facade").unwrap();
                 if producer.is_some() {
                     self.create_resolving_promise_async(producer.take().unwrap(), |realm, jsvf| {
                         realm.from_js_value_facade(jsvf)

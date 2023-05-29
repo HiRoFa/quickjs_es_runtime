@@ -62,7 +62,7 @@ where
                                                 err.get_message(),
                                                 err.get_stack(),
                                             )
-                                            .expect("could not create str");
+                                            .expect("could not create error");
                                         prom_ref
                                             .js_promise_reject(realm, &err_ref)
                                             .expect("prom rejection failed");
@@ -77,7 +77,7 @@ where
                                         err.get_message(),
                                         err.get_stack(),
                                     )
-                                    .expect("could not create str");
+                                    .expect("could not create error");
                                 prom_ref
                                     .js_promise_reject(realm, &err_ref)
                                     .expect("prom rejection failed");
