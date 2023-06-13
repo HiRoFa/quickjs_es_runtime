@@ -576,20 +576,19 @@ impl Proxy {
             Ok(prim)
         });
 
-        let class_ref = self.install_class_prop(q_ctx, add_variable_to_global)?;
+        let ret = self.install_class_prop(q_ctx, add_variable_to_global)?;
         eventtarget::impl_event_target(self).install_move_to_registry(q_ctx);
 
-        Ok(class_ref)
+        Ok(ret)
     }
 
     fn install_move_to_registry(self, q_ctx: &QuickJsRealmAdapter) {
         let proxy = self;
-
         let reg_map = &mut *q_ctx.proxy_registry.borrow_mut();
         reg_map.insert(proxy.get_class_name(), Rc::new(proxy));
     }
     fn install_class_prop(
-        &self,
+        &mut self,
         q_ctx: &QuickJsRealmAdapter,
         add_variable_to_global: bool,
     ) -> Result<QuickJsValueAdapter, JsError> {
@@ -690,6 +689,9 @@ impl Proxy {
         }
         log::trace!("reflection::Proxy::install_class_prop / 10");
 
+        let proxy_constructor_refs = &mut *q_ctx.proxy_constructor_refs.borrow_mut();
+        proxy_constructor_refs.insert(self.get_class_name(), constructor_ref.clone());
+
         log::trace!("install_class_prop done");
 
         Ok(constructor_ref)
@@ -769,6 +771,8 @@ pub(crate) fn new_instance3(
 
     let class_name = proxy.get_class_name();
 
+    trace!("creating new instance {} of {}", instance_id, class_name);
+
     let class_val_ref = QuickJsValueAdapter::new(
         q_ctx.context,
         class_val,
@@ -812,6 +816,14 @@ pub(crate) fn new_instance3(
         &primitives::from_bool(true),
         0,
     )?;
+
+    let proxy_constructor_refs = &*q_ctx.proxy_constructor_refs.borrow();
+
+    let constructor = proxy_constructor_refs
+        .get(&class_name)
+        .expect("proxy was not installed properly");
+
+    set_property2_q(q_ctx, &class_val_ref, "constructor", constructor, 0)?;
 
     Ok(class_val_ref)
 }
@@ -873,6 +885,7 @@ unsafe extern "C" fn constructor(
 
                         match instance_ref_res {
                             Ok(instance_ref) => instance_ref.clone_value_incr_rc(),
+
                             Err(e) => q_ctx.report_ex(
                                 format!(
                                     "could not create proxy instance for {class_name} due to {e}"
@@ -912,7 +925,12 @@ unsafe extern "C" fn finalizer(_rt: *mut q::JSRuntime, val: q::JSValue) {
     log::trace!("finalizer called");
 
     let info: &ProxyInstanceInfo = get_proxy_instance_info(&val);
-    trace!("finalize {}", info.id);
+    trace!(
+        "finalize id:{} class:{} context:{}",
+        info.id,
+        info.class_name,
+        info.context_id
+    );
 
     QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_context(&info.context_id);
@@ -1521,6 +1539,7 @@ pub mod tests {
     use log::trace;
     use std::cell::RefCell;
     use std::collections::HashMap;
+    use std::panic;
     use std::time::Duration;
 
     thread_local! {
@@ -1846,5 +1865,40 @@ pub mod tests {
         std::thread::sleep(Duration::from_secs(1));
 
         log::info!("< test_proxy");
+    }
+
+    #[test]
+    pub fn test_constructor() {
+        // todo init logger
+
+        let rt = init_test_rt();
+        rt.loop_realm_sync(None, |_rt, realm| {
+            Proxy::new()
+                .name("TestClass")
+                .namespace(&["com", "company"])
+                .constructor(|_rt, _realm, _id, _args| Ok(()))
+                .finalizer(|_rt, _realm, _id| {
+                    //
+                })
+                .install(realm, true)
+                .expect("poof");
+
+            let constr_str = realm
+                .eval(Script::new(
+                    "test_constr.js",
+                    r#"
+                let instance = new com.company.TestClass();
+                const ret = "" + instance.constructor.name;
+                instance = null;
+                ret
+            "#,
+                ))
+                .expect("script failed");
+
+            println!(
+                "cons str = {}",
+                constr_str.to_string().expect("not a string")
+            );
+        });
     }
 }

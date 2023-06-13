@@ -1,3 +1,8 @@
+# 0.10.2
+
+* removed error when dropping rt/ctx (finalizers of proxy classes causing an allreadyborrowed panic )
+* Proxy instances now have a .constructor which is the constructor function..
+
 # 0.10.1
 
 * replaced Mutex with DebugMutex and thus with parking_lot

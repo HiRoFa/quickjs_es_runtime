@@ -64,6 +64,7 @@ pub struct QuickJsRealmAdapter {
     object_cache: RefCell<AutoIdMap<QuickJsValueAdapter>>,
     promise_cache: RefCell<AutoIdMap<QuickJsPromiseAdapter>>,
     pub(crate) proxy_registry: RefCell<HashMap<String, Rc<Proxy>>>, // todo is this Rc needed or can we just borrow the Proxy when needed?
+    pub(crate) proxy_constructor_refs: RefCell<HashMap<String, QuickJsValueAdapter>>,
     pub(crate) proxy_event_listeners: RefCell<ProxyEventListenerMaps>,
     pub(crate) proxy_static_event_listeners: RefCell<ProxyStaticEventListenerMaps>,
     pub id: String,
@@ -87,12 +88,25 @@ impl QuickJsRealmAdapter {
             );
             cache_map.clear();
         }
-        {
-            let proxy_event_listeners = &mut *self.proxy_event_listeners.borrow_mut();
-            proxy_event_listeners.clear();
-        }
+
+        let mut all_listeners = {
+            let proxy_event_listeners: &mut ProxyEventListenerMaps =
+                &mut *self.proxy_event_listeners.borrow_mut();
+            std::mem::take(proxy_event_listeners)
+        };
+        // drop outside of borrowmut so finalizers don;t get error when trying to get mut borrow on map
+        all_listeners.clear();
+
+        // hmm these should still exist minus the constrcutor ref on free, so we need to remove the constructor refs, then call free, then call gc and then clear proxies
+        // so here we should just clear the refs..
+        let mut all_constructor_refs = {
+            let proxy_constructor_refs = &mut *self.proxy_constructor_refs.borrow_mut();
+            std::mem::take(proxy_constructor_refs)
+        };
+        all_constructor_refs.clear();
 
         unsafe { q::JS_FreeContext(self.context) };
+
         log::trace!("after QuickJsContext:free {}", self.id);
     }
     pub(crate) fn new(id: String, q_js_rt: &QuickJsRuntimeAdapter) -> Self {
@@ -120,6 +134,7 @@ impl QuickJsRealmAdapter {
             object_cache: RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize)),
             promise_cache: RefCell::new(AutoIdMap::new()),
             proxy_registry: RefCell::new(Default::default()),
+            proxy_constructor_refs: RefCell::new(Default::default()),
             proxy_event_listeners: RefCell::new(Default::default()),
             proxy_static_event_listeners: RefCell::new(Default::default()),
         }

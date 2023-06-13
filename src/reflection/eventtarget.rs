@@ -19,6 +19,25 @@ fn with_proxy_instances_map<C, R>(
 ) -> R
 where
     C: FnOnce(
+        &HashMap<usize, HashMap<String, HashMap<QuickJsValueAdapter, QuickJsValueAdapter>>>,
+    ) -> R,
+{
+    let listeners = &*q_ctx.proxy_event_listeners.borrow();
+    if listeners.contains_key(proxy_class_name) {
+        let proxy_instance_map = listeners.get(proxy_class_name).unwrap();
+        consumer(proxy_instance_map)
+    } else {
+        consumer(&HashMap::new())
+    }
+}
+
+fn with_proxy_instances_map_mut<C, R>(
+    q_ctx: &QuickJsRealmAdapter,
+    proxy_class_name: &str,
+    consumer: C,
+) -> R
+where
+    C: FnOnce(
         &mut HashMap<usize, HashMap<String, HashMap<QuickJsValueAdapter, QuickJsValueAdapter>>>,
     ) -> R,
 {
@@ -31,7 +50,7 @@ where
     consumer(proxy_instance_map)
 }
 
-fn with_listener_map<C, R>(
+fn with_listener_map_mut<C, R>(
     q_ctx: &QuickJsRealmAdapter,
     proxy_class_name: &str,
     instance_id: usize,
@@ -41,7 +60,7 @@ fn with_listener_map<C, R>(
 where
     C: FnOnce(&mut HashMap<QuickJsValueAdapter, QuickJsValueAdapter>) -> R,
 {
-    with_proxy_instances_map(q_ctx, proxy_class_name, |proxy_instance_map| {
+    with_proxy_instances_map_mut(q_ctx, proxy_class_name, |proxy_instance_map| {
         let event_id_map = proxy_instance_map
             .entry(instance_id)
             .or_insert_with(HashMap::new);
@@ -53,6 +72,29 @@ where
         let listener_map = event_id_map.get_mut(event_id).unwrap();
 
         consumer(listener_map)
+    })
+}
+
+fn with_listener_map<C, R>(
+    q_ctx: &QuickJsRealmAdapter,
+    proxy_class_name: &str,
+    instance_id: usize,
+    event_id: &str,
+    consumer: C,
+) -> R
+where
+    C: FnOnce(&HashMap<QuickJsValueAdapter, QuickJsValueAdapter>) -> R,
+{
+    with_proxy_instances_map(q_ctx, proxy_class_name, |proxy_instance_map| {
+        if let Some(event_id_map) = proxy_instance_map.get(&instance_id) {
+            if let Some(listener_map) = event_id_map.get(event_id) {
+                consumer(listener_map)
+            } else {
+                consumer(&HashMap::new())
+            }
+        } else {
+            consumer(&HashMap::new())
+        }
     })
 }
 
@@ -91,7 +133,7 @@ pub fn add_event_listener(
         event_id,
         instance_id
     );
-    with_listener_map(q_ctx, proxy_class_name, instance_id, event_id, |map| {
+    with_listener_map_mut(q_ctx, proxy_class_name, instance_id, event_id, |map| {
         let _ = map.insert(listener_func, options_obj);
     })
 }
@@ -126,7 +168,7 @@ pub fn remove_event_listener(
         event_id,
         instance_id
     );
-    with_listener_map(q_ctx, proxy_class_name, instance_id, event_id, |map| {
+    with_listener_map_mut(q_ctx, proxy_class_name, instance_id, event_id, |map| {
         let _ = map.remove(listener_func);
     })
 }
@@ -153,9 +195,10 @@ fn remove_map(q_ctx: &QuickJsRealmAdapter, proxy_class_name: &str, instance_id: 
         proxy_class_name,
         instance_id
     );
-    with_proxy_instances_map(q_ctx, proxy_class_name, |map| {
+
+    with_proxy_instances_map_mut(q_ctx, proxy_class_name, |map| {
         let _ = map.remove(&instance_id);
-    })
+    });
 }
 
 /// dispatch an Event on an instance of a Proxy class
