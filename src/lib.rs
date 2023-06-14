@@ -103,6 +103,8 @@ pub mod quickjsrealmadapter;
 pub mod quickjsruntimeadapter;
 pub mod quickjsvalueadapter;
 pub mod reflection;
+#[cfg(feature = "typescript")]
+pub mod typescript;
 pub mod values;
 
 #[cfg(test)]

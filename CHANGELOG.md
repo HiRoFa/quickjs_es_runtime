@@ -1,3 +1,8 @@
+# 0.11.0
+
+* Script has code/transpiledcode/map for correct error reporting of transpiled code
+* built-in typescript support via feature in Cargo.toml
+
 # 0.10.2
 
 * removed error when dropping rt/ctx (finalizers of proxy classes causing an allreadyborrowed panic )

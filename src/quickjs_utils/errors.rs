@@ -61,12 +61,11 @@ pub unsafe fn error_to_js_error(
     }
 
     if stack_ref.is_string() {
-        stack_string.push_str(
-            primitives::to_string(context, &stack_ref)
-                .ok()
-                .unwrap()
-                .as_str(),
-        );
+        let stack_str = primitives::to_string(context, &stack_ref).ok().unwrap();
+        #[cfg(feature = "typescript")]
+        let stack_str = crate::typescript::unmap_stack_trace(stack_str.as_str());
+
+        stack_string.push_str(stack_str.as_str());
     }
 
     JsError::new(name_string, message_string, stack_string)

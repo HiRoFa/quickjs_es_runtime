@@ -18,14 +18,15 @@ pub unsafe fn compile_module(
     context: *mut q::JSContext,
     script: Script,
 ) -> Result<QuickJsValueAdapter, JsError> {
-    let code = script.get_code();
-    let code_c = CString::new(code).ok().unwrap();
+    let code_str = script.get_runnable_code();
+
+    let code_c = CString::new(code_str).ok().unwrap();
     let filename_c = CString::new(script.get_path()).ok().unwrap();
 
     let value_raw = q::JS_Eval(
         context,
         code_c.as_ptr(),
-        code.len() as _,
+        code_str.len() as _,
         filename_c.as_ptr(),
         (q::JS_EVAL_TYPE_MODULE | q::JS_EVAL_FLAG_COMPILE_ONLY) as i32,
     );

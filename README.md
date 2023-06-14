@@ -6,8 +6,7 @@ quickjs_runtime is a library for quickly getting started with embedding a javasc
 
 An example on how to embed a script engine in rust using this lib can be found here: [github.com/andrieshiemstra/ScriptExtensionLayerExample](https://github.com/andrieshiemstra/ScriptExtensionLayerExample). It was published in TWIR as a walkthrough. 
 
-quickjs_runtime focuses purely on making [quickjs](https://bellard.org/quickjs/) easy to use and does not add any additional features, that's where these projects come in:
-* TypeScript support can be added by using [typescript_utils](https://github.com/HiRoFa/typescript_utils)
+quickjs_runtime focuses on making [quickjs](https://bellard.org/quickjs/) easy to use and does not add any additional features, that's where these projects come in:
 * A more feature-rich (e.g. fetch api support, http based module loader and much more) runtime: [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime).
 * The commandline client: [GreenCopperCmd](https://github.com/HiRoFa/GreenCopperCmd).
 
@@ -36,6 +35,7 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 
 ## Script and Modules
 
+* Typescript (via SWC)
 * console (.log/info/debug/trace/error) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/features/console/index.html))
 * Eval script ([docs](https://hirofa.github.io/quickjs_es_runtime/hirofa_utils/js_utils/adapters/trait.JsRealmAdapter.html#tymethod.js_eval))
 * Create promises in JavaScript which execute async
@@ -73,13 +73,10 @@ So a second goal is to make implementing a fast and efficient integration doable
 
 The reason I chose QuickJS as the engine is that I've been dealing with less modern engines in my java projects and not being able to use the latest and greatest ECMA-script features becomes quite disappointing at times.
 
-NB: one day I started with Spidermonkey at https://github.com/HiRoFa/es_runtime, Some day I might pick that up again.
-
 The fun stuff about QuickJS: 
 * small footprint 
 * fast compilation / startup
 * great JS compatibility
-
 
 # examples
 

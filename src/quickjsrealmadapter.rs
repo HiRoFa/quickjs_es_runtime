@@ -91,7 +91,7 @@ impl QuickJsRealmAdapter {
 
         let mut all_listeners = {
             let proxy_event_listeners: &mut ProxyEventListenerMaps =
-                &mut *self.proxy_event_listeners.borrow_mut();
+                &mut self.proxy_event_listeners.borrow_mut();
             std::mem::take(proxy_event_listeners)
         };
         // drop outside of borrowmut so finalizers don;t get error when trying to get mut borrow on map
@@ -182,14 +182,16 @@ impl QuickJsRealmAdapter {
 
         script = QuickJsRuntimeAdapter::pre_process(script)?;
 
+        let code_str = script.get_runnable_code();
+
         let filename_c = make_cstring(script.get_path())?;
-        let code_c = make_cstring(script.get_code())?;
+        let code_c = make_cstring(code_str)?;
 
         let value_raw = match this_opt {
             None => q::JS_Eval(
                 context,
                 code_c.as_ptr(),
-                script.get_code().len() as _,
+                code_str.len() as _,
                 filename_c.as_ptr(),
                 q::JS_EVAL_TYPE_GLOBAL as i32,
             ),
@@ -197,7 +199,7 @@ impl QuickJsRealmAdapter {
                 context,
                 this.clone_value_incr_rc(),
                 code_c.as_ptr(),
-                script.get_code().len() as _,
+                code_str.len() as _,
                 filename_c.as_ptr(),
                 q::JS_EVAL_TYPE_GLOBAL as i32,
             ),
@@ -241,13 +243,15 @@ impl QuickJsRealmAdapter {
 
         script = QuickJsRuntimeAdapter::pre_process(script)?;
 
+        let code_str = script.get_runnable_code();
+
         let filename_c = make_cstring(script.get_path())?;
-        let code_c = make_cstring(script.get_code())?;
+        let code_c = make_cstring(code_str)?;
 
         let value_raw = q::JS_Eval(
             context,
             code_c.as_ptr(),
-            script.get_code().len() as _,
+            code_str.len() as _,
             filename_c.as_ptr(),
             q::JS_EVAL_TYPE_MODULE as i32,
         );
@@ -974,6 +978,10 @@ impl QuickJsRealmAdapter {
                 let name = self.get_object_property(js_value, "name")?.to_string()?;
                 let message = self.get_object_property(js_value, "message")?.to_string()?;
                 let stack = self.get_object_property(js_value, "stack")?.to_string()?;
+
+                #[cfg(feature = "typescript")]
+                let stack = crate::typescript::unmap_stack_trace(stack.as_str());
+
                 JsValueFacade::JsError {
                     val: JsError::new(name, message, stack),
                 }

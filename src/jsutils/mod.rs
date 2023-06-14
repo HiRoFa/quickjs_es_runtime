@@ -110,6 +110,8 @@ impl From<Error> for JsError {
 pub struct Script {
     path: String,
     code: String,
+    transpiled_code: Option<String>,
+    map: Option<String>,
 }
 
 impl Debug for Script {
@@ -123,6 +125,8 @@ impl Script {
         Self {
             path: absolute_path.to_string(),
             code: script_code.to_string(),
+            transpiled_code: None,
+            map: None,
         }
     }
     pub fn get_path(&self) -> &str {
@@ -131,16 +135,32 @@ impl Script {
     pub fn get_code(&self) -> &str {
         self.code.as_str()
     }
+    pub fn get_runnable_code(&self) -> &str {
+        if let Some(t_code) = self.transpiled_code.as_ref() {
+            t_code.as_str()
+        } else {
+            self.code.as_str()
+        }
+    }
     pub fn set_code(&mut self, code: String) {
         self.code = code;
+    }
+    pub fn set_transpiled_code(&mut self, transpiled_code: String, map: Option<String>) {
+        self.transpiled_code = Some(transpiled_code);
+        self.map = map;
+    }
+    pub fn get_map(&self) -> Option<&str> {
+        self.map.as_deref()
     }
 }
 
 impl Clone for Script {
     fn clone(&self) -> Self {
         Self {
-            path: self.get_path().to_string(),
-            code: self.get_code().to_string(),
+            path: self.path.clone(),
+            code: self.code.clone(),
+            transpiled_code: self.transpiled_code.clone(),
+            map: self.map.clone(),
         }
     }
 }

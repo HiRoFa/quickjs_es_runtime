@@ -261,6 +261,7 @@ pub struct QuickJsRuntimeAdapter {
     script_module_loaders: Vec<ScriptModuleLoaderAdapter>,
     native_module_loaders: Vec<NativeModuleLoaderAdapter>,
     compiled_module_loaders: Vec<CompiledModuleLoaderAdapter>,
+    // script preprocs just preproc the input code, typescript transpiler will be special option which is run as last preproc
     pub(crate) script_pre_processors: Vec<Box<dyn ScriptPreProcessor + Send>>,
     #[allow(clippy::type_complexity)]
     pub(crate) interrupt_handler: Option<Box<dyn Fn(&QuickJsRuntimeAdapter) -> bool>>,
@@ -383,6 +384,10 @@ impl QuickJsRuntimeAdapter {
             for pp in &q_js_rt.script_pre_processors {
                 pp.process(&mut script)?;
             }
+            #[cfg(feature = "typescript")]
+            crate::typescript::transpile_serverside(q_js_rt, &mut script)?;
+
+            // todo see if script has a map, store that map
             Ok(script)
         })
     }
@@ -824,7 +829,7 @@ pub mod tests {
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             log::debug!("testing2");
             let script = q_js_rt.load_module_script_opt("", "test.mjs").unwrap();
-            assert_eq!(script.get_code(), "{}");
+            assert_eq!(script.get_runnable_code(), "{}");
             log::debug!("tested");
         });
     }

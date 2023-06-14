@@ -37,14 +37,15 @@ pub unsafe fn compile(
     script: Script,
 ) -> Result<QuickJsValueAdapter, JsError> {
     let filename_c = make_cstring(script.get_path())?;
-    let code_c = make_cstring(script.get_code())?;
+    let code_str = script.get_runnable_code();
+    let code_c = make_cstring(code_str)?;
 
     log::debug!("q_js_rt.compile file {}", script.get_path());
 
     let value_raw = q::JS_Eval(
         context,
         code_c.as_ptr(),
-        script.get_code().len() as _,
+        code_str.len() as _,
         filename_c.as_ptr(),
         q::JS_EVAL_FLAG_COMPILE_ONLY as i32,
     );
