@@ -80,6 +80,12 @@ The fun stuff about QuickJS:
 
 # examples
 
+Cargo.toml
+```toml
+[dependencies]
+quickjs_runtime = {version = "0.11", features=["default", "typescript"]}
+```
+
 Here are some quickstarts:
 * start by reading the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/index.html)
 * [eval a script](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/facades/struct.QuickJsRuntimeFacade.html#method.eval)
