@@ -24,7 +24,6 @@ typescript = ["swc", "swc_ecma_parser", "swc_common", "swc_ecma_minifier"]
 [dependencies]
 hirofa_utils = "0.7"
 #hirofa_utils = {path="../utils"}
-#hirofa_utils = {git="https://github.com/SreeniIO/utils.git"}
 #hirofa_utils = {git="https://github.com/HiRoFa/utils"}
 backtrace = "0.3.67"
 libquickjs-sys = "0.10.0"

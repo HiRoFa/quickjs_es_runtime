@@ -225,8 +225,7 @@ thread_local! {
 }
 
 // fix stacktrace method
-pub(crate) fn transpile_serverside(
-    _rt: &QuickJsRuntimeAdapter,
+pub fn transpile_serverside(
     script: &mut Script,
 ) -> Result<(), JsError> {
     // transpile and store map in qjsrt
