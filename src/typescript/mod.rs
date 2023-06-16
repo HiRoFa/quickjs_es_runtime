@@ -6,6 +6,7 @@ use crate::quickjs_utils::modules::detect_module;
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt::format;
 use std::io;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -268,7 +269,7 @@ impl FromStr for StackEntry {
         let function_name = parts[1].to_string();
         let file_name = parts[2].to_string();
         let line_number = if parts.len() > 3 {
-            Some(parts[3].parse::<u32>().expect("could not parse"))
+            Some(parts[3].parse::<u32>().map_err(|e| format!("{e}"))?)
         } else {
             None
         };
@@ -315,26 +316,41 @@ pub(crate) fn unmap_stack_trace(stack_trace: &str) -> String {
 }
 
 pub fn fix_stack_trace(stack_trace: &str, maps: &HashMap<String, String>) -> String {
-    let mut parsed_stack = parse_stack_trace(stack_trace).expect("could not parse stacktrace");
-
-    for stack_trace_entry in parsed_stack.iter_mut() {
-        if let Some(map_str) = maps.get(stack_trace_entry.file_name.as_str()) {
-            if let Some(line_number) = stack_trace_entry.line_number {
-                let source_map = swc::sourcemap::SourceMap::from_reader(io::Cursor::new(map_str))
-                    .expect("could not init sourcemap");
-
-                if let Some(original_location) = source_map.lookup_token(line_number, 0) {
-                    let original_line = original_location.get_src_line();
-                    stack_trace_entry.line_number = Some(original_line);
+    match parse_stack_trace(stack_trace) {
+        Ok(mut parsed_stack) => {
+            for stack_trace_entry in parsed_stack.iter_mut() {
+                if let Some(map_str) = maps.get(stack_trace_entry.file_name.as_str()) {
+                    if let Some(line_number) = stack_trace_entry.line_number {
+                        match swc::sourcemap::SourceMap::from_reader(io::Cursor::new(map_str)) {
+                            Ok(source_map) => {
+                                if let Some(original_location) =
+                                    source_map.lookup_token(line_number, 0)
+                                {
+                                    let original_line = original_location.get_src_line();
+                                    stack_trace_entry.line_number = Some(original_line);
+                                }
+                            }
+                            Err(_) => {
+                                log::debug!(
+                                    "could not parse source_map for {}",
+                                    stack_trace_entry.file_name.as_str()
+                                );
+                            }
+                        }
+                    }
                 }
+
+                // Now you have the original filename and line number
+                // You can use them as needed
             }
+
+            serialize_stack(&parsed_stack)
         }
-
-        // Now you have the original filename and line number
-        // You can use them as needed
+        Err(_) => {
+            log::error!("could not parse stack: \n{}", stack_trace);
+            stack_trace.to_string()
+        }
     }
-
-    return serialize_stack(&parsed_stack);
 }
 
 #[cfg(test)]

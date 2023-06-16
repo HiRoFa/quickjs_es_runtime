@@ -1,3 +1,7 @@
+# 0.11.1
+
+* if stack parsing fails, log as error but just return original stack
+
 # 0.11.0
 
 * Script has code/transpiledcode/map for correct error reporting of transpiled code
