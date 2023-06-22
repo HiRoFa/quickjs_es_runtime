@@ -258,20 +258,28 @@ impl FromStr for StackEntry {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let cleaned = s.trim().replace("(", "").replace(")", "").replace(":", " ");
-        let parts: Vec<&str> = cleaned.split_whitespace().collect();
+        let parts: Vec<&str> = s.split(" ").collect();
 
         if parts.len() < 3 {
             return Err(format!("Invalid stack trace entry: {}", s));
         }
 
+        println!("parts = {}", parts.join(" & "));
+
         let function_name = parts[1].to_string();
-        let file_name = parts[2].to_string();
-        let line_number = if parts.len() > 3 {
-            Some(parts[3].parse::<u32>().map_err(|e| format!("{e}"))?)
-        } else {
-            None
-        };
+        let file_name_part = parts[2].to_string();
+
+        let mut line_number = None;
+        let mut file_name = file_name_part.clone();
+
+        if file_name_part.contains(":") {
+            let fn_parts: Vec<&str> = file_name_part.split(":").collect();
+            file_name = fn_parts[0].to_string();
+            line_number = match fn_parts[1].parse::<u32>() {
+                Ok(num) => Some(num),
+                Err(_) => None,
+            };
+        }
 
         Ok(StackEntry {
             function_name,
@@ -358,7 +366,7 @@ pub fn fix_stack_trace(stack_trace: &str, maps: &HashMap<String, String>) -> Str
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
     use crate::jsutils::{JsValueType, Script};
-    use crate::typescript::{parse_stack_trace, StackEntry};
+    use crate::typescript::parse_stack_trace;
 
     #[test]
     fn test_ts() {
@@ -406,6 +414,7 @@ pub mod tests {
     fn test_stack_parse() {
         let stack = r#"
             at func (file.ts:88)
+            at doWriteTransactioned (gcsproject:///gcs_objectstore/ObjectStore.ts:170)
         "#;
         match parse_stack_trace(stack) {
             Ok(_) => {}

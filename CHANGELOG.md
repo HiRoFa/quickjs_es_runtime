@@ -1,3 +1,7 @@
+# 0.11.3
+
+* more robust stacktrace parser
+
 # 0.11.2
 
 * pin swc versions
