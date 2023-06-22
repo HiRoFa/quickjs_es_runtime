@@ -403,7 +403,7 @@ pub mod tests {
         assert!(res.get_stack().contains("t_ts (file:///test.ts):8"));
     }
     #[test]
-    fn test_stack_parse(){
+    fn test_stack_parse() {
         let stack = r#"
             at func (file.ts:88)
         "#;
