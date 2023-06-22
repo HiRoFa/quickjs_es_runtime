@@ -264,7 +264,7 @@ impl FromStr for StackEntry {
             return Err(format!("Invalid stack trace entry: {}", s));
         }
 
-        println!("parts = {}", parts.join(" & "));
+        //println!("parts = {}", parts.join(" & "));
 
         let function_name = parts[1].to_string();
         let file_name_part = parts[2].to_string();
