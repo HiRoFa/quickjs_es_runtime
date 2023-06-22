@@ -75,19 +75,6 @@
 extern crate lazy_static;
 extern crate core;
 
-#[macro_export]
-macro_rules! es_args {
-    ( $( $x:expr ),* ) => {
-        {
-            let mut temp_vec: Vec<$crate::esvalue::EsValueFacade> = Vec::new();
-            $(
-                temp_vec.push($crate::esvalue::EsValueConvertible::to_es_value_facade($x));
-            )*
-            temp_vec
-        }
-    };
-}
-
 pub mod builder;
 pub mod facades;
 #[cfg(any(

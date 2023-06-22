@@ -6,7 +6,6 @@ use crate::quickjs_utils::modules::detect_module;
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fmt::format;
 use std::io;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -285,6 +284,8 @@ impl FromStr for StackEntry {
 fn parse_stack_trace(stack_trace: &str) -> Result<Vec<StackEntry>, String> {
     let entries: Vec<StackEntry> = stack_trace
         .lines()
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty())
         .map(|line| line.parse::<StackEntry>())
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -357,6 +358,7 @@ pub fn fix_stack_trace(stack_trace: &str, maps: &HashMap<String, String>) -> Str
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
     use crate::jsutils::{JsValueType, Script};
+    use crate::typescript::{parse_stack_trace, StackEntry};
 
     #[test]
     fn test_ts() {
@@ -398,6 +400,18 @@ pub mod tests {
             .expect("script passed.. which it shouldnt");
         // far from perfect test, also line numbers don't yet realy match..
         // check again after https://github.com/HiRoFa/quickjs_es_runtime/issues/77
-        assert!(res.get_stack().contains("t_ts (test.ts):8"));
+        assert!(res.get_stack().contains("t_ts (file:///test.ts):8"));
+    }
+    #[test]
+    fn test_stack_parse(){
+        let stack = r#"
+            at func (file.ts:88)
+        "#;
+        match parse_stack_trace(stack) {
+            Ok(_) => {}
+            Err(e) => {
+                panic!("{}", e);
+            }
+        }
     }
 }

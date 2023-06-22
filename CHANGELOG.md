@@ -1,3 +1,8 @@
+# 0.11.2
+
+* pin swc versions
+* stacktrace fixer/parser no longer fails on empty lines
+
 # 0.11.1
 
 * if stack parsing fails, log as error but just return original stack
