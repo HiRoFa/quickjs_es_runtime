@@ -620,7 +620,7 @@ impl QuickJsRealmAdapter {
                     args_fac.push(realm.to_js_value_facade(arg)?);
                 }
                 let fut = js_function(this_fac, args_fac);
-                realm.create_resolving_promise_async(async move { fut.await }, |realm, pres| {
+                realm.create_resolving_promise_async( fut, |realm, pres| {
                     //
                     realm.from_js_value_facade(pres)
                 })
