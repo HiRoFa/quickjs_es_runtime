@@ -97,12 +97,14 @@ pub mod values;
 #[cfg(test)]
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
+    use crate::facades::tests::init_test_rt;
     use crate::facades::QuickJsRuntimeFacade;
     use crate::jsutils::jsproxies::JsProxy;
     use crate::jsutils::{JsError, Script};
     use crate::quickjsrealmadapter::QuickJsRealmAdapter;
     use crate::values::{JsValueConvertable, JsValueFacade};
     use futures::executor::block_on;
+    use std::thread;
     use std::time::Duration;
 
     #[test]
@@ -113,6 +115,39 @@ pub mod tests {
             log::error!("an error occured: {}", outcome.err().unwrap());
         }
         log::info!("done");
+    }
+
+    #[test]
+    fn test_st() {
+        let rt = init_test_rt();
+
+        let _res = rt
+            .eval_sync(
+                None,
+                Script::new(
+                    "t.js",
+                    r#"
+            
+            async function a(){
+                await b();
+            }
+            
+            async function b(){
+                throw Error("poof");
+            }
+            
+            a().then(() => {
+                console.log("a done");
+            }).catch(() => {
+                console.log("a error");
+            });
+            
+            1
+        "#,
+                ),
+            )
+            .expect("script failed");
+        thread::sleep(Duration::from_secs(1));
     }
 
     async fn take_long() -> i32 {

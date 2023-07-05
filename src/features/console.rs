@@ -148,14 +148,14 @@ unsafe fn parse_field_value(
                 }
             }
             return f_val;
-        } else if field.ends_with('o') || field.ends_with('O') {
-            let json_str_res = json::stringify(ctx, value, None);
-            let json = match json_str_res {
-                Ok(json_str) => primitives::to_string(ctx, &json_str).unwrap_or(String::new()),
-                Err(_e) => "".to_string(),
-            };
-            return json;
         }
+    } else if field.ends_with('o') || field.ends_with('O') {
+        let json_str_res = json::stringify(ctx, value, None);
+        let json = match json_str_res {
+            Ok(json_str) => primitives::to_string(ctx, &json_str).unwrap_or(String::new()),
+            Err(_e) => "".to_string(),
+        };
+        return json;
     }
     call_to_string(ctx, value).unwrap_or(String::new())
 }
@@ -325,7 +325,7 @@ pub mod tests {
 
     #[test]
     pub fn test_console() {
-        //simple_logging::log_to_stderr(LevelFilter::Info);
+        //simple_logging::log_to_stderr(log::LevelFilter::Info);
         log::info!("> test_console");
         let rt = QuickJsRuntimeBuilder::new().build();
         rt.eval_sync(
@@ -337,6 +337,7 @@ pub mod tests {
             console.log('date:', new Date());\
             console.log('err:', new Error('testpoof'));\
             console.log('array:', [1, 2, true, {a: 1}]);\
+            console.log('obj: %o', {a: 1});\
             console.log({obj: true}, {obj: false});",
             ),
         )

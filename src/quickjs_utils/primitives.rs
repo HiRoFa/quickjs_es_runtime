@@ -63,7 +63,7 @@ pub unsafe fn to_string(
     context: *mut q::JSContext,
     value_ref: &QuickJsValueAdapter,
 ) -> Result<String, JsError> {
-    log::trace!("primitives::to_string on {}", value_ref.borrow_value().tag);
+    //log::trace!("primitives::to_string on {}", value_ref.borrow_value().tag);
 
     assert!(value_ref.is_string());
 
@@ -97,7 +97,7 @@ pub unsafe fn to_str(
     context: *mut q::JSContext,
     value_ref: &QuickJsValueAdapter,
 ) -> Result<&str, JsError> {
-    log::trace!("primitives::to_str on {}", value_ref.borrow_value().tag);
+    //log::trace!("primitives::to_str on {}", value_ref.borrow_value().tag);
 
     assert!(value_ref.is_string());
 

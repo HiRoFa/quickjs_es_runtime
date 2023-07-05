@@ -1,3 +1,7 @@
+# 0.11.4
+
+* fix %o pattern in console.log
+
 # 0.11.3
 
 * more robust stacktrace parser
