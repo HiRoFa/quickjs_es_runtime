@@ -258,7 +258,6 @@ impl FromStr for StackEntry {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-
         // remove 'at '
         let s = &s[3..];
 
@@ -269,20 +268,19 @@ impl FromStr for StackEntry {
             file_name = file_name.as_str()[1..].to_string();
         }
         if file_name.ends_with(')') {
-            file_name = file_name.as_str()[..file_name.len()-1].to_string();
+            file_name = file_name.as_str()[..file_name.len() - 1].to_string();
         }
 
         let mut line_number = None;
 
         if let Some(i) = file_name.rfind(':') {
-
             let line_num_part = &file_name.as_str()[i..];
 
             line_number = match line_num_part.parse::<u32>() {
                 Ok(num) => {
-                    file_name = file_name.as_str()[..i-1].to_string();
+                    file_name = file_name.as_str()[..i - 1].to_string();
                     Some(num)
-                },
+                }
                 Err(_) => None,
             };
         }
@@ -421,21 +419,22 @@ pub mod tests {
     }
     #[test]
     fn test_stack_parse() {
-
         let stack = r#"
             at func (file.ts:88)
             at doWriteTransactioned (gcsproject:///gcs_objectstore/ObjectStore.ts:170)
         "#;
         match parse_stack_trace(stack) {
             Ok(a) => {
-                assert_eq!(serialize_stack(&a).as_str(), r#"    at func (file.ts:88)
+                assert_eq!(
+                    serialize_stack(&a).as_str(),
+                    r#"    at func (file.ts:88)
     at doWriteTransactioned (gcsproject:///gcs_objectstore/ObjectStore.ts:170)
-"#);
+"#
+                );
             }
             Err(e) => {
                 panic!("{}", e);
             }
         }
-
     }
 }
