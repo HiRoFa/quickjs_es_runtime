@@ -1,3 +1,7 @@
+# 0.11.5 (WiP)
+
+* more robust stacktrace parser, again
+
 # 0.11.4
 
 * fix %o pattern in console.log

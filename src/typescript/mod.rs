@@ -258,25 +258,31 @@ impl FromStr for StackEntry {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<&str> = s.split(" ").collect();
 
-        if parts.len() < 3 {
-            return Err(format!("Invalid stack trace entry: {}", s));
+        // remove 'at '
+        let s = &s[3..];
+
+        let mut parts = s.splitn(2, ' ');
+        let function_name = parts.next().unwrap_or("unnamed").to_string();
+        let mut file_name = parts.next().unwrap_or("(unknown)").to_string();
+        if file_name.starts_with('(') {
+            file_name = file_name.as_str()[1..].to_string();
+        }
+        if file_name.ends_with(')') {
+            file_name = file_name.as_str()[..file_name.len()-1].to_string();
         }
 
-        //println!("parts = {}", parts.join(" & "));
-
-        let function_name = parts[1].to_string();
-        let file_name_part = parts[2].to_string();
-
         let mut line_number = None;
-        let mut file_name = file_name_part.clone();
 
-        if file_name_part.contains(":") {
-            let fn_parts: Vec<&str> = file_name_part.split(":").collect();
-            file_name = fn_parts[0].to_string();
-            line_number = match fn_parts[1].parse::<u32>() {
-                Ok(num) => Some(num),
+        if let Some(i) = file_name.rfind(':') {
+
+            let line_num_part = &file_name.as_str()[i..];
+
+            line_number = match line_num_part.parse::<u32>() {
+                Ok(num) => {
+                    file_name = file_name.as_str()[..i-1].to_string();
+                    Some(num)
+                },
                 Err(_) => None,
             };
         }
@@ -320,7 +326,7 @@ fn serialize_stack(entries: &[StackEntry]) -> String {
 }
 
 pub(crate) fn unmap_stack_trace(stack_trace: &str) -> String {
-    // todo: not the fastest way to impl this.. should i keep instances of source map instead of string? what does that do to mem consumtion?
+    // todo: not the fastest way to impl this.. should I keep instances of source map instead of string? what does that do to mem consumtion?
     SOURCE_MAPS.with(|rc| fix_stack_trace(stack_trace, &*rc.borrow()))
 }
 
@@ -365,16 +371,19 @@ pub fn fix_stack_trace(stack_trace: &str, maps: &HashMap<String, String>) -> Str
 #[cfg(test)]
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
+    use crate::facades::tests::init_test_rt;
     use crate::jsutils::{JsValueType, Script};
-    use crate::typescript::parse_stack_trace;
+    use crate::typescript::{parse_stack_trace, serialize_stack};
 
     #[test]
     fn test_ts() {
-        let rt = QuickJsRuntimeBuilder::new().build();
+        let rt = init_test_rt();
         println!("testing ts");
         let script = Script::new(
             "test.ts",
             r#"
+            // hi
+            // ho
             function t_ts(a: string, b: num): boolean {
                 return true;
             }
@@ -412,15 +421,21 @@ pub mod tests {
     }
     #[test]
     fn test_stack_parse() {
+
         let stack = r#"
             at func (file.ts:88)
             at doWriteTransactioned (gcsproject:///gcs_objectstore/ObjectStore.ts:170)
         "#;
         match parse_stack_trace(stack) {
-            Ok(_) => {}
+            Ok(a) => {
+                assert_eq!(serialize_stack(&a).as_str(), r#"    at func (file.ts:88)
+    at doWriteTransactioned (gcsproject:///gcs_objectstore/ObjectStore.ts:170)
+"#);
+            }
             Err(e) => {
                 panic!("{}", e);
             }
         }
+
     }
 }

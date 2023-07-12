@@ -13,7 +13,7 @@ readme = "README.md"
 categories = ["development-tools"]
 
 [features]
-default = ["console", "setimmediate", "setinterval", "settimeout"]
+default = ["console", "setimmediate", "setinterval", "settimeout", "typescript"]
 tokio_full = ["tokio/full"]
 console = []
 settimeout = []
