@@ -91,6 +91,7 @@ pub unsafe fn to_string(
     Ok(s)
 }
 
+
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn to_str(

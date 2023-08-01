@@ -148,22 +148,21 @@ pub mod tests {
                 q_ctx,
                 &obj,
                 "c",
-                &primitives::from_string_q(q_ctx, "abc").ok().unwrap(),
+                &primitives::from_string_q(q_ctx, "abcdË").ok().unwrap(),
             )
             .ok()
             .unwrap();
             let str_res = json::stringify_q(q_ctx, &obj, None).ok().unwrap();
             assert_eq!(str_res.get_ref_count(), 1);
-            let json = primitives::to_string_q(q_ctx, &str_res).ok().unwrap();
-            assert_eq!(json.as_str(), "{\"a\":532,\"b\":true,\"c\":\"abc\"}");
+            let json = str_res.to_str().ok().unwrap();
+            assert_eq!(json, "{\"a\":532,\"b\":true,\"c\":\"abcdË\"}");
 
-            let obj2 = json::parse_q(q_ctx, json.as_str()).ok().unwrap();
+            let obj2 = json::parse_q(q_ctx, json).ok().unwrap();
 
+            let prop_c = objects::get_property_q(q_ctx, &obj2, "c").ok().unwrap();
             assert_eq!(
-                532,
-                primitives::to_i32(&objects::get_property_q(q_ctx, &obj2, "a").ok().unwrap())
-                    .ok()
-                    .unwrap()
+                "abcdË",
+                prop_c.to_str().ok().unwrap()
             );
         });
     }

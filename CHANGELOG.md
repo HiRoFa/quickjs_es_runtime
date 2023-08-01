@@ -1,4 +1,4 @@
-# 0.11.5 (WiP)
+# 0.11.5
 
 * more robust stacktrace parser, again
 
