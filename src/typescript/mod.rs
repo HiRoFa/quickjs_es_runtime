@@ -233,7 +233,7 @@ pub(crate) fn transpile_serverside(
 
     // transpile
     TRANSPILER.with(|rc| {
-        let transpiler: &TypeScriptTranspiler = &*rc.borrow();
+        let transpiler: &TypeScriptTranspiler = &rc.borrow();
         transpiler.transpile_script(script)
     })?;
 
@@ -325,7 +325,7 @@ fn serialize_stack(entries: &[StackEntry]) -> String {
 
 pub(crate) fn unmap_stack_trace(stack_trace: &str) -> String {
     // todo: not the fastest way to impl this.. should I keep instances of source map instead of string? what does that do to mem consumtion?
-    SOURCE_MAPS.with(|rc| fix_stack_trace(stack_trace, &*rc.borrow()))
+    SOURCE_MAPS.with(|rc| fix_stack_trace(stack_trace, &rc.borrow()))
 }
 
 pub fn fix_stack_trace(stack_trace: &str, maps: &HashMap<String, String>) -> String {
