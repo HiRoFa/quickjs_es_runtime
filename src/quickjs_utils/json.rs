@@ -160,10 +160,7 @@ pub mod tests {
             let obj2 = json::parse_q(q_ctx, json).ok().unwrap();
 
             let prop_c = objects::get_property_q(q_ctx, &obj2, "c").ok().unwrap();
-            assert_eq!(
-                "abcdË",
-                prop_c.to_str().ok().unwrap()
-            );
+            assert_eq!("abcdË", prop_c.to_str().ok().unwrap());
         });
     }
 
