@@ -176,7 +176,7 @@ unsafe fn parse_line(ctx: *mut q::JSContext, args: Vec<QuickJsValueAdapter>) -> 
 
     output.push_str("JS_REALM:");
     QuickJsRealmAdapter::with_context(ctx, |realm| {
-        output.push_str("[");
+        output.push('[');
         output.push_str(realm.id.as_str());
         output.push_str("][");
         if let Ok(script_or_module_name) = quickjs_utils::get_script_or_module_name_q(realm) {

@@ -724,6 +724,9 @@ pub fn get_proxy_instance_id_q(
     }
 }
 
+/// Get the instance id of a proxy instance
+/// # Safety
+/// please make sure context is still valid
 pub unsafe fn get_proxy_instance_id(
     ctx: *mut libquickjs_sys::JSContext,
     obj: &QuickJsValueAdapter,
@@ -735,6 +738,7 @@ pub unsafe fn get_proxy_instance_id(
         Some(info.id)
     }
 }
+
 
 pub fn is_proxy_instance_q(q_ctx: &QuickJsRealmAdapter, obj: &QuickJsValueAdapter) -> bool {
     unsafe { is_proxy_instance(q_ctx.context, obj) }
