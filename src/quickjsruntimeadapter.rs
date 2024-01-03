@@ -387,8 +387,6 @@ impl QuickJsRuntimeAdapter {
             #[cfg(feature = "typescript")]
             crate::typescript::transpile_serverside(q_js_rt, &mut script)?;
 
-
-
             Ok(script)
         })
     }

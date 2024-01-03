@@ -372,7 +372,7 @@ pub mod tests {
         }));
 
         //simple_logging::log_to_file("quickjs_runtime.log", LevelFilter::max())
-//            .expect("could not init logger");
+        //            .expect("could not init logger");
 
         let rt = QuickJsRuntimeBuilder::new()
             .compiled_module_loader(Cml {})

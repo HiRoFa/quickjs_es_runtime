@@ -185,8 +185,6 @@ unsafe fn parse_line(ctx: *mut q::JSContext, args: Vec<QuickJsValueAdapter>) -> 
         output.push_str("]: ");
     });
 
-
-
     if args.is_empty() {
         return output;
     }
@@ -328,15 +326,14 @@ unsafe extern "C" fn console_error(
 
 #[cfg(test)]
 pub mod tests {
+    use crate::builder::QuickJsRuntimeBuilder;
+    use crate::jsutils::Script;
     use std::thread;
     use std::time::Duration;
     use swc_timer::tracing;
-    use crate::builder::QuickJsRuntimeBuilder;
-    use crate::jsutils::Script;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     pub async fn test_console() {
-
         eprintln!("> test_console");
 
         let loglevel = log::LevelFilter::Info;
@@ -349,10 +346,7 @@ pub mod tests {
             .expect("could not init LogTracer");
 
         // Graylog address
-        let address = format!(
-            "{}:{}",
-            "192.168.10.43", 12201
-        );
+        let address = format!("{}:{}", "192.168.10.43", 12201);
 
         // Start tracing
         let mut conn_handle = tracing_gelf::Logger::builder()
