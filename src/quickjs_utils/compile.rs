@@ -194,7 +194,6 @@ pub mod tests {
     use crate::values::JsValueFacade;
     use backtrace::Backtrace;
     use futures::executor::block_on;
-    use log::LevelFilter;
     use std::panic;
     use std::sync::Arc;
 
@@ -372,8 +371,8 @@ pub mod tests {
             );
         }));
 
-        simple_logging::log_to_file("quickjs_runtime.log", LevelFilter::max())
-            .expect("could not init logger");
+        //simple_logging::log_to_file("quickjs_runtime.log", LevelFilter::max())
+//            .expect("could not init logger");
 
         let rt = QuickJsRuntimeBuilder::new()
             .compiled_module_loader(Cml {})

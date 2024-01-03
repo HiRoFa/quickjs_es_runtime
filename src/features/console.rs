@@ -174,9 +174,18 @@ unsafe fn stringify_log_obj(ctx: *mut q::JSContext, arg: &QuickJsValueAdapter) -
 unsafe fn parse_line(ctx: *mut q::JSContext, args: Vec<QuickJsValueAdapter>) -> String {
     let mut output = String::new();
 
-    output.push_str("JS_REALM:[");
-    QuickJsRealmAdapter::with_context(ctx, |realm| output.push_str(realm.id.as_str()));
-    output.push_str("]: ");
+    output.push_str("JS_REALM:");
+    QuickJsRealmAdapter::with_context(ctx, |realm| {
+        output.push_str("[");
+        output.push_str(realm.id.as_str());
+        output.push_str("][");
+        if let Ok(script_or_module_name) = quickjs_utils::get_script_or_module_name_q(realm) {
+            output.push_str(script_or_module_name.as_str());
+        }
+        output.push_str("]: ");
+    });
+
+
 
     if args.is_empty() {
         return output;
@@ -319,13 +328,53 @@ unsafe extern "C" fn console_error(
 
 #[cfg(test)]
 pub mod tests {
+    use std::thread;
+    use std::time::Duration;
+    use swc_timer::tracing;
     use crate::builder::QuickJsRuntimeBuilder;
     use crate::jsutils::Script;
-    //use log::LevelFilter;
 
-    #[test]
-    pub fn test_console() {
-        //simple_logging::log_to_stderr(log::LevelFilter::Info);
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    pub async fn test_console() {
+
+        eprintln!("> test_console");
+
+        let loglevel = log::LevelFilter::Info;
+
+        tracing_log::LogTracer::builder()
+            //.ignore_crate("swc_ecma_codegen")
+            //.ignore_crate("swc_ecma_transforms_base")
+            .with_max_level(loglevel)
+            .init()
+            .expect("could not init LogTracer");
+
+        // Graylog address
+        let address = format!(
+            "{}:{}",
+            "192.168.10.43", 12201
+        );
+
+        // Start tracing
+        let mut conn_handle = tracing_gelf::Logger::builder()
+            .init_udp(address)
+            .expect("could not init udp con for logger");
+
+        // Spawn background task
+        // Any futures executor can be used
+
+        println!("> init");
+        tokio::runtime::Handle::current().spawn(async move {
+            //
+            conn_handle.connect().await
+            //
+        });
+        println!("< init");
+
+        // Send log using a macro defined in the create log
+        log::error!("Logger initialized");
+
+        tracing::error!("via tracing");
+
         log::info!("> test_console");
         let rt = QuickJsRuntimeBuilder::new().build();
         rt.eval_sync(
@@ -333,15 +382,17 @@ pub mod tests {
             Script::new(
                 "test_console.es",
                 "console.log('one %s', 'two', 3);\
-            console.log('two %s %s', 'two', 3);\
-            console.log('date:', new Date());\
-            console.log('err:', new Error('testpoof'));\
-            console.log('array:', [1, 2, true, {a: 1}]);\
-            console.log('obj: %o', {a: 1});\
-            console.log({obj: true}, {obj: false});",
+            console.error('two %s %s', 'two', 3);\
+            console.error('date:', new Date());\
+            console.error('err:', new Error('testpoof'));\
+            console.error('array:', [1, 2, true, {a: 1}]);\
+            console.error('obj: %o', {a: 1});\
+            console.error({obj: true}, {obj: false});",
             ),
         )
         .expect("test_console.es failed");
         log::info!("< test_console");
+
+        thread::sleep(Duration::from_secs(15));
     }
 }

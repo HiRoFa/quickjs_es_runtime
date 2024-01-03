@@ -2,7 +2,7 @@
 name = "quickjs_runtime"
 version = "0.11.5"
 authors = ["Andries Hiemstra <info@hirofa.com>"]
-edition = "2018"
+edition = "2021"
 description = "Wrapper API and utils for the QuickJS JavaScript engine with support for Promise, Modules, Async/await"
 homepage = "https://github.com/HiRoFa/quickjs_es_runtime"
 keywords = ["quickjs", "javascript", "runtime", "async", "engine"]
@@ -30,12 +30,11 @@ backtrace = "0.3.67"
 libquickjs-sys = "0.10.0"
 lazy_static = "1.4.0"
 log = "0.4"
-simple-logging = "2.0"
 num_cpus = "1"
 rand = "0.8"
 thread-id = "4"
 futures = "0.3"
-tokio = {version = "1", features = ["rt-multi-thread", "rt", "bytes", "fs", "io-std", "io-util", "libc", "macros", "tracing", "time", "tokio-macros", "test-util", "sync", "parking_lot", "mio", "net", "num_cpus"]}
+tokio = {version = "1", features = ["rt-multi-thread", "rt", "bytes", "fs", "io-std", "io-util", "libc", "macros", "time", "tokio-macros", "test-util", "sync", "parking_lot", "mio", "net", "num_cpus"]}
 serde_json = "1.0"
 serde = {version="1.0", features=["derive"]}
 string_cache = "0.8"
@@ -100,6 +99,10 @@ swc_trace_macro = {version="=0.1.2", optional=true}
 #green_copper_runtime =  { git = 'https://github.com/HiRoFa/GreenCopperRuntime', branch="main", features = ["console"]}
 serde = "1"
 serde_json = "1"
+tracing = "0.1"
+tracing-log = "0.1"
+tracing-gelf = "0.7"
+simple-logging = "2.0.2"
 
 [dev-dependencies.cargo-husky]
 version = "1.5.0"

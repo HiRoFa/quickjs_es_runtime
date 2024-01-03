@@ -29,7 +29,6 @@ pub mod tests {
     use crate::jsutils::Script;
     use crate::quickjs_utils::get_script_or_module_name_q;
     use backtrace::Backtrace;
-    use log::LevelFilter;
     use std::cell::RefCell;
     use std::panic;
     use std::sync::{Arc, Mutex};
@@ -51,8 +50,8 @@ pub mod tests {
             );
         }));
 
-        simple_logging::log_to_file("esruntime.log", LevelFilter::max())
-            .expect("could not init logger");
+        //simple_logging::log_to_file("esruntime.log", LevelFilter::max())
+//            .expect("could not init logger");
 
         let rt = QuickJsRuntimeBuilder::new()
             .set_interrupt_handler(move |qjs_rt| {

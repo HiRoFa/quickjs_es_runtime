@@ -387,7 +387,8 @@ impl QuickJsRuntimeAdapter {
             #[cfg(feature = "typescript")]
             crate::typescript::transpile_serverside(q_js_rt, &mut script)?;
 
-            // todo see if script has a map, store that map
+
+
             Ok(script)
         })
     }

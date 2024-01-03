@@ -229,7 +229,7 @@ impl QuickJsRuntimeFacade {
 
         let init_hooks: Vec<_> = builder.runtime_init_hooks.drain(..).collect();
 
-        ret.exe_task_in_event_loop(|| {
+        ret.exe_task_in_event_loop(move || {
             QuickJsRuntimeAdapter::do_with_mut(|q_js_rt| {
                 for native_module_loader in builder.native_module_loaders {
                     q_js_rt.add_native_module_loader(NativeModuleLoaderAdapter::new(
@@ -957,7 +957,6 @@ pub mod tests {
     use backtrace::Backtrace;
     use futures::executor::block_on;
     use log::debug;
-    use log::LevelFilter;
     use std::panic;
     use std::time::Duration;
 
@@ -1067,9 +1066,6 @@ pub mod tests {
                 backtrace
             );
         }));
-
-        simple_logging::log_to_file("quickjs_runtime.log", LevelFilter::max())
-            .expect("could not init logger");
 
         QuickJsRuntimeFacade::builder()
             .gc_interval(Duration::from_secs(1))
