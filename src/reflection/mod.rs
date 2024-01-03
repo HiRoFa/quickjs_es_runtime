@@ -739,7 +739,6 @@ pub unsafe fn get_proxy_instance_id(
     }
 }
 
-
 pub fn is_proxy_instance_q(q_ctx: &QuickJsRealmAdapter, obj: &QuickJsValueAdapter) -> bool {
     unsafe { is_proxy_instance(q_ctx.context, obj) }
 }
