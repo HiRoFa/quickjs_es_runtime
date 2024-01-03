@@ -124,7 +124,7 @@ pub unsafe fn new_promise(context: *mut q::JSContext) -> Result<QuickJsPromiseAd
 
     let prom_val = q::JS_NewPromiseCapability(context, promise_resolution_functions.as_mut_ptr());
 
-    let resolve_func_val = *promise_resolution_functions.get(0).unwrap();
+    let resolve_func_val = *promise_resolution_functions.first().unwrap();
     let reject_func_val = *promise_resolution_functions.get(1).unwrap();
 
     let resolve_function_obj_ref = QuickJsValueAdapter::new(

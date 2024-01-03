@@ -63,7 +63,7 @@ where
     with_proxy_instances_map_mut(q_ctx, proxy_class_name, |proxy_instance_map| {
         let event_id_map = proxy_instance_map
             .entry(instance_id)
-            .or_insert_with(HashMap::new);
+            .or_default();
 
         if !event_id_map.contains_key(event_id) {
             event_id_map.insert(event_id.to_string(), HashMap::new());
@@ -551,6 +551,7 @@ unsafe extern "C" fn ext_dispatch_static_event(
 
             let res =
                 dispatch_static_event(q_ctx, proxy_name.as_str(), event_id.as_str(), evt_obj)?;
+
 
             Ok(res)
         }

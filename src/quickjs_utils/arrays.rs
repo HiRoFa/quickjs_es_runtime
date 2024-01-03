@@ -146,7 +146,6 @@ pub unsafe fn set_element(
     index: u32,
     entry_value_ref: &QuickJsValueAdapter,
 ) -> Result<(), JsError> {
-    let entry_value_ref = entry_value_ref;
 
     let ret = q::JS_DefinePropertyValueUint32(
         context,
