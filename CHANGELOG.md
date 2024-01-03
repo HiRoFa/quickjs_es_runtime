@@ -1,3 +1,8 @@
+# 0.11.6
+
+* added get_proxy_instance_id for getting instance id without looking up the proxy
+* console functions output source filename
+
 # 0.11.5
 
 * more robust stacktrace parser, again

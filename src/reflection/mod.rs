@@ -712,6 +712,30 @@ pub fn get_proxy_instance_proxy_and_instance_id_q(
     }
 }
 
+pub fn get_proxy_instance_id_q(
+    q_ctx: &QuickJsRealmAdapter,
+    obj: &QuickJsValueAdapter,
+) -> Option<usize> {
+    if !is_proxy_instance_q(q_ctx, obj) {
+        None
+    } else {
+        let info = get_proxy_instance_info(obj.borrow_value());
+        Some(info.id)
+    }
+}
+
+pub unsafe fn get_proxy_instance_id(
+    ctx: *mut libquickjs_sys::JSContext,
+    obj: &QuickJsValueAdapter,
+) -> Option<usize> {
+    if !is_proxy_instance(ctx, obj) {
+        None
+    } else {
+        let info = get_proxy_instance_info(obj.borrow_value());
+        Some(info.id)
+    }
+}
+
 pub fn is_proxy_instance_q(q_ctx: &QuickJsRealmAdapter, obj: &QuickJsValueAdapter) -> bool {
     unsafe { is_proxy_instance(q_ctx.context, obj) }
 }
