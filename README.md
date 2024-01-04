@@ -2,7 +2,7 @@
 
 quickjs_runtime is a library for quickly getting started with embedding a javascript engine in your rust project.
 
-**DISCLAIMER: This project is not yet what I would call "Battle Tested", use at your own risk.**
+**as of 2024 this lib no longer relies on [libquickjs-sys](https://github.com/theduke/quickjs-rs/tree/master/libquickjs-sys) but on out own [hirofa-quickjs-sys](https://github.com/HiRoFa/quickjs-sys) adding flexibility in used quickjs version**
 
 An example on how to embed a script engine in rust using this lib can be found here: [github.com/andrieshiemstra/ScriptExtensionLayerExample](https://github.com/andrieshiemstra/ScriptExtensionLayerExample). It was published in TWIR as a walkthrough. 
 
@@ -10,7 +10,6 @@ quickjs_runtime focuses on making [quickjs](https://bellard.org/quickjs/) easy t
 * A more feature-rich (e.g. fetch api support, http based module loader and much more) runtime: [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime).
 * The commandline client: [GreenCopperCmd](https://github.com/HiRoFa/GreenCopperCmd).
 
-This project is inspired by the quickjs wrapper at [theduke/quickjs-rs](https://github.com/theduke/quickjs-rs) and still uses its low level bindings [libquickjs-sys](https://crates.io/crates/libquickjs-sys).
 
 The big difference to quickjs-rs is that quickjs_runtime executes all quickjs related code in a dedicated single-threaded EventLoop.
 

@@ -94,6 +94,8 @@ pub mod reflection;
 pub mod typescript;
 pub mod values;
 
+pub use libquickjs_sys;
+
 #[cfg(test)]
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;

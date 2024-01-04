@@ -1,6 +1,6 @@
 [package]
 name = "quickjs_runtime"
-version = "0.11.5"
+version = "0.12.0"
 authors = ["Andries Hiemstra <info@hirofa.com>"]
 edition = "2021"
 description = "Wrapper API and utils for the QuickJS JavaScript engine with support for Promise, Modules, Async/await"
@@ -27,7 +27,8 @@ hirofa_utils = "0.7"
 #hirofa_utils = {git="https://github.com/SreeniIO/utils.git"}
 #hirofa_utils = {git="https://github.com/HiRoFa/utils"}
 backtrace = "0.3.67"
-libquickjs-sys = "0.10.0"
+
+libquickjs-sys = {package="hirofa-quickjs-sys", path='../quickjs-sys', features=["bellard"]}
 lazy_static = "1.4.0"
 log = "0.4"
 num_cpus = "1"
