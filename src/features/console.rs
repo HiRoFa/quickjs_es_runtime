@@ -331,44 +331,42 @@ pub mod tests {
     use std::thread;
     use std::time::Duration;
 
-
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     pub async fn test_console() {
         eprintln!("> test_console");
-/*
-        let loglevel = log::LevelFilter::Info;
+        /*
+                let loglevel = log::LevelFilter::Info;
 
-        tracing_log::LogTracer::builder()
-            //.ignore_crate("swc_ecma_codegen")
-            //.ignore_crate("swc_ecma_transforms_base")
-            .with_max_level(loglevel)
-            .init()
-            .expect("could not init LogTracer");
+                tracing_log::LogTracer::builder()
+                    //.ignore_crate("swc_ecma_codegen")
+                    //.ignore_crate("swc_ecma_transforms_base")
+                    .with_max_level(loglevel)
+                    .init()
+                    .expect("could not init LogTracer");
 
-        // Graylog address
-        let address = format!("{}:{}", "192.168.10.43", 12201);
+                // Graylog address
+                let address = format!("{}:{}", "192.168.10.43", 12201);
 
-        // Start tracing
-        let mut conn_handle = tracing_gelf::Logger::builder()
-            .init_udp(address)
-            .expect("could not init udp con for logger");
+                // Start tracing
+                let mut conn_handle = tracing_gelf::Logger::builder()
+                    .init_udp(address)
+                    .expect("could not init udp con for logger");
 
-        // Spawn background task
-        // Any futures executor can be used
+                // Spawn background task
+                // Any futures executor can be used
 
-        println!("> init");
-        tokio::runtime::Handle::current().spawn(async move {
-            //
-            conn_handle.connect().await
-            //
-        });
-        println!("< init");
-        log::error!("Logger initialized");
+                println!("> init");
+                tokio::runtime::Handle::current().spawn(async move {
+                    //
+                    conn_handle.connect().await
+                    //
+                });
+                println!("< init");
+                log::error!("Logger initialized");
 
-        tracing::error!("via tracing");
-*/
+                tracing::error!("via tracing");
+        */
         // Send log using a macro defined in the create log
-
 
         log::info!("> test_console");
         let rt = QuickJsRuntimeBuilder::new().build();

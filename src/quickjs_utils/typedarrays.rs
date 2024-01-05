@@ -208,7 +208,7 @@ pub unsafe fn detach_array_buffer_buffer(
         })
     } else {
         #[cfg(target_pointer_width = "64")]
-        let mut len:usize = 0;
+        let mut len: usize = 0;
         #[cfg(target_pointer_width = "32")]
         let mut len: u32 = 0;
 
