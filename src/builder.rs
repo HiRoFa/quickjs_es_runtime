@@ -37,6 +37,7 @@ pub struct QuickJsRuntimeBuilder {
 impl QuickJsRuntimeBuilder {
     /// build an EsRuntime
     pub fn build(self) -> QuickJsRuntimeFacade {
+        log::debug!("QuickJsRuntimeBuilder.build");
         QuickJsRuntimeFacade::new(self)
     }
 

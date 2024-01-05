@@ -74,7 +74,7 @@ pub unsafe fn new_array_buffer(
     buf: Vec<u8>,
 ) -> Result<QuickJsValueAdapter, JsError> {
     #[cfg(target_pointer_width = "64")]
-    let length = buf.len() as u64;
+    let length = buf.len();
     #[cfg(target_pointer_width = "32")]
     let length = buf.len() as u32;
 
@@ -157,7 +157,7 @@ pub unsafe fn new_array_buffer_copy(
     buf: &[u8],
 ) -> Result<QuickJsValueAdapter, JsError> {
     #[cfg(target_pointer_width = "64")]
-    let length = buf.len() as u64;
+    let length = buf.len();
     #[cfg(target_pointer_width = "32")]
     let length = buf.len() as u32;
 
@@ -208,13 +208,13 @@ pub unsafe fn detach_array_buffer_buffer(
         })
     } else {
         #[cfg(target_pointer_width = "64")]
-        let mut len: u64 = 0;
+        let mut len:usize = 0;
         #[cfg(target_pointer_width = "32")]
         let mut len: u32 = 0;
 
         let ptr = q::JS_GetArrayBuffer(ctx, &mut len, *array_buffer.borrow_value());
 
-        Vec::from_raw_parts(ptr, len as usize, len as usize)
+        Vec::from_raw_parts(ptr, len as usize, len as _)
     };
 
     q::JS_DetachArrayBuffer(ctx, *array_buffer.borrow_value());
@@ -244,13 +244,13 @@ pub unsafe fn get_array_buffer_buffer_copy(
     debug_assert!(is_array_buffer(ctx, array_buffer));
 
     #[cfg(target_pointer_width = "64")]
-    let mut len: u64 = 0;
+    let mut len: usize = 0;
     #[cfg(target_pointer_width = "32")]
     let mut len: u32 = 0;
 
     let ptr = q::JS_GetArrayBuffer(ctx, &mut len, *array_buffer.borrow_value());
 
-    let slice = std::slice::from_raw_parts(ptr, len as usize);
+    let slice = std::slice::from_raw_parts(ptr, len as _);
 
     Ok(slice.to_vec())
 }

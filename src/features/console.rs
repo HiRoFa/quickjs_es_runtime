@@ -330,12 +330,12 @@ pub mod tests {
     use crate::jsutils::Script;
     use std::thread;
     use std::time::Duration;
-    use swc_timer::tracing;
+
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     pub async fn test_console() {
         eprintln!("> test_console");
-
+/*
         let loglevel = log::LevelFilter::Info;
 
         tracing_log::LogTracer::builder()
@@ -363,11 +363,12 @@ pub mod tests {
             //
         });
         println!("< init");
-
-        // Send log using a macro defined in the create log
         log::error!("Logger initialized");
 
         tracing::error!("via tracing");
+*/
+        // Send log using a macro defined in the create log
+
 
         log::info!("> test_console");
         let rt = QuickJsRuntimeBuilder::new().build();
@@ -387,6 +388,6 @@ pub mod tests {
         .expect("test_console.es failed");
         log::info!("< test_console");
 
-        thread::sleep(Duration::from_secs(15));
+        thread::sleep(Duration::from_secs(1));
     }
 }
