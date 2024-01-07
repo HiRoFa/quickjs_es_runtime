@@ -214,7 +214,7 @@ pub unsafe fn detach_array_buffer_buffer(
 
         let ptr = q::JS_GetArrayBuffer(ctx, &mut len, *array_buffer.borrow_value());
 
-        Vec::from_raw_parts(ptr, len as usize, len as _)
+        Vec::from_raw_parts(ptr, len as _, len as _)
     };
 
     q::JS_DetachArrayBuffer(ctx, *array_buffer.borrow_value());
