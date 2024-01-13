@@ -1079,7 +1079,8 @@ pub mod tests {
     fn test_func() {
         let rt = init_test_rt();
         let res = rt.set_function(&["nl", "my", "utils"], "methodA", |_q_ctx, args| {
-            if args.len() != 2 || !args.first().unwrap().is_i32() || !args.get(1).unwrap().is_i32() {
+            if args.len() != 2 || !args.first().unwrap().is_i32() || !args.get(1).unwrap().is_i32()
+            {
                 Err(JsError::new_str(
                     "i'd really like 2 args of the int32 kind please",
                 ))
