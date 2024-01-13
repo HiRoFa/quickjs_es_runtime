@@ -77,6 +77,65 @@ thread_local! {
 }
 
 impl QuickJsRealmAdapter {
+    pub fn print_stats(&self) {
+        println!(
+            "QuickJsRealmAdapter.object_cache.len = {}",
+            self.object_cache.borrow().len()
+        );
+        println!(
+            "QuickJsRealmAdapter.promise_cache.len = {}",
+            self.promise_cache.borrow().len()
+        );
+
+        println!("-- > QuickJsRealmAdapter.proxy instances");
+        for p in &*self.proxy_registry.borrow() {
+            let prc = p.1.clone();
+            let proxy = &*prc;
+            let mappings = &*proxy.proxy_instance_id_mappings.borrow();
+            println!("---- > {} len:{}", p.0, mappings.len());
+            print!("------ ids: ");
+            for i in mappings {
+                print!("{}, ", i.0);
+            }
+            println!("\n---- < {}", p.0);
+        }
+        println!("-- < QuickJsRealmAdapter.proxy instances");
+
+        let _spsel: &ProxyStaticEventListenerMaps = &self.proxy_static_event_listeners.borrow();
+        let psel: &ProxyEventListenerMaps = &self.proxy_event_listeners.borrow();
+
+        println!("> psel");
+        for a in psel {
+            println!("- psel - {}", a.0);
+            let map = a.1;
+            for b in map {
+                println!("- psel - id {}", b.0);
+                let map_b = b.1;
+                for c in map_b {
+                    println!("- psel - id {} - evt {}", b.0, c.0);
+                    let map_c = c.1;
+                    println!(
+                        "- psel - id {} - evt {} - mapC.len={}",
+                        b.0,
+                        c.0,
+                        map_c.len()
+                    );
+                    for eh in map_c {
+                        // handler, options?
+                        println!(
+                            "- psel - id {} - evt {} - handler:{} options:{}",
+                            b.0,
+                            c.0,
+                            eh.0.to_string().expect("could not toString"),
+                            eh.1.to_string().expect("could not toString")
+                        );
+                    }
+                }
+            }
+        }
+        println!("< psel");
+    }
+
     pub(crate) fn free(&self) {
         log::trace!("QuickJsContext:free {}", self.id);
         {

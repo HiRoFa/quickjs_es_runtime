@@ -1,6 +1,6 @@
 # 0.12.0
 
-* uses hirofa-quickjs-sys 0.10.0 and ['bellard'] feature and thus the 2023-12-09 version of the original quickjs by Fabrice Bellard
+* uses hirofa-quickjs-sys 0.2.0 and ['bellard'] feature and thus the 2024-01-13 version of the original quickjs by Fabrice Bellard
 * added get_proxy_instance_id for getting instance id without looking up the proxy
 * console functions output source filename
 

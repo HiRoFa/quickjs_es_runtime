@@ -344,6 +344,31 @@ impl QuickJsRuntimeAdapter {
         })
     }
 
+    pub fn print_stats(&self) {
+        for ctx in &self.contexts {
+            println!("> ----- ctx: {}", ctx.0);
+            ctx.1.print_stats();
+            println!("< ----- ctx: {}", ctx.0);
+        }
+
+        //
+        crate::quickjs_utils::typedarrays::BUFFERS.with(|rc| {
+            let map = &*rc.borrow();
+            println!("typedarrays::BUFFERS.len() = {}", map.len());
+        });
+        crate::quickjs_utils::functions::CALLBACK_REGISTRY.with(|rc| {
+            let map = &*rc.borrow();
+            println!("functions::CALLBACK_REGISTRY.len() = {}", map.len());
+        });
+        crate::quickjs_utils::functions::CALLBACK_IDS.with(|rc| {
+            let map = &*rc.borrow();
+            println!("functions::CALLBACK_IDS.len() = {}", map.len());
+        });
+
+        let mu = self.memory_usage();
+        println!("MemoryUsage: {mu:?}");
+    }
+
     /// get memory usage for this runtime
     pub fn memory_usage(&self) -> MemoryUsage {
         let mu: q::JSMemoryUsage = unsafe { crate::quickjs_utils::get_memory_usage(self.runtime) };

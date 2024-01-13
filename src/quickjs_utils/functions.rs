@@ -234,7 +234,7 @@ pub unsafe fn call_to_string(
     obj_ref: &QuickJsValueAdapter,
 ) -> Result<String, JsError> {
     if obj_ref.is_string() {
-        crate::quickjs_utils::primitives::to_string(context, obj_ref)
+        primitives::to_string(context, obj_ref)
     } else if obj_ref.is_null() {
         Ok("null".to_string())
     } else if obj_ref.is_undefined() {
@@ -264,7 +264,7 @@ pub unsafe fn call_to_string(
         if !res_ref.is_string() {
             return Err(JsError::new_str("Could not convert value to string"));
         }
-        crate::quickjs_utils::primitives::to_string(context, &res_ref)
+        primitives::to_string(context, &res_ref)
     }
 }
 
@@ -529,11 +529,11 @@ thread_local! {
         RefCell::new(class_id)
     };
 
-    static CALLBACK_REGISTRY: RefCell<AutoIdMap<(String, Rc<Callback>)>> = {
+    pub static CALLBACK_REGISTRY: RefCell<AutoIdMap<(String, Rc<Callback>)>> = {
         RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize))
     };
 
-    static CALLBACK_IDS: RefCell<HashSet<Box<i32>>> = RefCell::new(HashSet::new());
+    pub static CALLBACK_IDS: RefCell<HashSet<Box<i32>>> = RefCell::new(HashSet::new());
 }
 
 pub(crate) fn init_statics() {

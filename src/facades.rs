@@ -212,7 +212,7 @@ impl QuickJsRuntimeFacade {
             std::thread::spawn(move || loop {
                 std::thread::sleep(interval);
                 if let Some(el) = rti_ref.upgrade() {
-                    log::trace!("running gc from gc interval thread");
+                    log::debug!("running gc from gc interval thread");
                     el.event_loop.add_void(|| {
                         QJS_RT
                             .try_with(|rc| {
@@ -1079,12 +1079,12 @@ pub mod tests {
     fn test_func() {
         let rt = init_test_rt();
         let res = rt.set_function(&["nl", "my", "utils"], "methodA", |_q_ctx, args| {
-            if args.len() != 2 || !args.get(0).unwrap().is_i32() || !args.get(1).unwrap().is_i32() {
+            if args.len() != 2 || !args.first().unwrap().is_i32() || !args.get(1).unwrap().is_i32() {
                 Err(JsError::new_str(
                     "i'd really like 2 args of the int32 kind please",
                 ))
             } else {
-                let a = args.get(0).unwrap().get_i32();
+                let a = args.first().unwrap().get_i32();
                 let b = args.get(1).unwrap().get_i32();
                 Ok((a * b).to_js_value_facade())
             }

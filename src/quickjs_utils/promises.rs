@@ -382,7 +382,7 @@ pub mod tests {
                 q_ctx,
                 "testThen",
                 |_q_ctx, _this, args| {
-                    let res = primitives::to_i32(args.get(0).unwrap()).ok().unwrap();
+                    let res = primitives::to_i32(args.first().unwrap()).ok().unwrap();
                     log::trace!("prom resolved with: {}", res);
                     Ok(new_null_ref())
                 },

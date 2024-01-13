@@ -53,7 +53,7 @@ use std::cell::RefCell;
 
 thread_local! {
     // max size is 32.max because we store id as prop
-    static BUFFERS: RefCell<AutoIdMap<Vec<u8>>> = RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize));
+    pub static BUFFERS: RefCell<AutoIdMap<Vec<u8>>> = RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize));
 }
 
 /// this method creates a new ArrayBuffer which is used as a basis for all typed arrays
@@ -73,6 +73,8 @@ pub unsafe fn new_array_buffer(
     ctx: *mut q::JSContext,
     buf: Vec<u8>,
 ) -> Result<QuickJsValueAdapter, JsError> {
+    log::trace!("new_array_buffer");
+
     #[cfg(target_pointer_width = "64")]
     let length = buf.len();
     #[cfg(target_pointer_width = "32")]
@@ -156,6 +158,8 @@ pub unsafe fn new_array_buffer_copy(
     ctx: *mut q::JSContext,
     buf: &[u8],
 ) -> Result<QuickJsValueAdapter, JsError> {
+    log::trace!("new_array_buffer_copy");
+
     #[cfg(target_pointer_width = "64")]
     let length = buf.len();
     #[cfg(target_pointer_width = "32")]
@@ -190,6 +194,8 @@ pub unsafe fn detach_array_buffer_buffer(
     ctx: *mut q::JSContext,
     array_buffer: &QuickJsValueAdapter,
 ) -> Result<Vec<u8>, JsError> {
+    log::trace!("detach_array_buffer_buffer");
+
     debug_assert!(is_array_buffer(ctx, array_buffer));
 
     // check if vec is one we buffered, if not we create a new one from the slice we got from quickjs
@@ -243,16 +249,33 @@ pub unsafe fn get_array_buffer_buffer_copy(
 ) -> Result<Vec<u8>, JsError> {
     debug_assert!(is_array_buffer(ctx, array_buffer));
 
-    #[cfg(target_pointer_width = "64")]
-    let mut len: usize = 0;
-    #[cfg(target_pointer_width = "32")]
-    let mut len: u32 = 0;
+    log::trace!("get_array_buffer_buffer_copy");
 
-    let ptr = q::JS_GetArrayBuffer(ctx, &mut len, *array_buffer.borrow_value());
+    let id_prop = get_property(ctx, array_buffer, "__buffer_id")?;
+    let id_opt = if id_prop.is_i32() {
+        Some(id_prop.to_i32() as usize)
+    } else {
+        None
+    };
 
-    let slice = std::slice::from_raw_parts(ptr, len as _);
+    if let Some(id) = id_opt {
+        let b = BUFFERS.with(|rc| {
+            let buffers = &mut *rc.borrow_mut();
+            buffers.get(&id).expect("invalid buffer state").clone()
+        });
+        Ok(b)
+    } else {
+        #[cfg(target_pointer_width = "64")]
+        let mut len: usize = 0;
+        #[cfg(target_pointer_width = "32")]
+        let mut len: u32 = 0;
 
-    Ok(slice.to_vec())
+        let ptr = q::JS_GetArrayBuffer(ctx, &mut len, *array_buffer.borrow_value());
+
+        let slice = std::slice::from_raw_parts(ptr, len as _);
+
+        Ok(slice.to_vec())
+    }
 }
 
 /// get the underlying ArrayBuffer of a TypedArray
@@ -276,6 +299,7 @@ pub unsafe fn get_array_buffer(
 
     // todo!();
     // for our Uint8Array uses cases this works fine
+    log::trace!("get_array_buffer");
     get_property(ctx, typed_array, "buffer")
 }
 
@@ -324,11 +348,13 @@ unsafe extern "C" fn free_func(
     opaque: *mut ::std::os::raw::c_void,
     ptr: *mut ::std::os::raw::c_void,
 ) {
+    let id = opaque as usize;
+    log::trace!("typedarrays::free_func {}", id);
+
     if ptr.is_null() {
         return;
     }
 
-    let id = opaque as usize;
     BUFFERS.with(|rc| {
         let buffers = &mut *rc.borrow_mut();
         if buffers.contains_key(&id) {
@@ -340,14 +366,23 @@ unsafe extern "C" fn free_func(
 #[cfg(test)]
 pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
-    use crate::jsutils::Script;
+    use crate::jsutils::{JsError, Script};
     use crate::quickjs_utils::typedarrays::{
-        detach_array_buffer_buffer_q, get_array_buffer_q, is_array_buffer_q, is_typed_array_q,
-        new_array_buffer_q, new_uint8_array_q,
+        detach_array_buffer_buffer_q, get_array_buffer_buffer_copy_q, get_array_buffer_q,
+        is_array_buffer_q, is_typed_array_q, new_array_buffer_q, new_uint8_array_copy_q,
+        new_uint8_array_q,
     };
+    use crate::values::{JsValueFacade, TypedArrayType};
+
+    use crate::quickjs_utils::objects::set_property_q;
+    use crate::quickjs_utils::{get_global_q, new_undefined_ref};
+    use std::thread;
+    use std::time::Duration;
 
     #[test]
     fn test_typed() {
+        simple_logging::log_to_stderr(log::LevelFilter::max());
+
         std::panic::set_hook(Box::new(|panic_info| {
             let backtrace = backtrace::Backtrace::new();
             println!("thread panic occurred: {panic_info}\nbacktrace: {backtrace:?}");
@@ -358,7 +393,56 @@ pub mod tests {
             );
         }));
 
-        //simple_logging::log_to_stderr(log::LevelFilter::max());
+        let rt = QuickJsRuntimeBuilder::new().build();
+
+        let res: Result<(), JsError> = rt.exe_rt_task_in_event_loop(|rt| {
+            let mut buffer: Vec<u8> = vec![];
+            for y in 0..(10 * 1024 * 1024) {
+                buffer.push(y as u8);
+            }
+
+            let realm = rt.get_main_realm();
+            let adapter = new_uint8_array_copy_q(realm, &buffer)?;
+            drop(buffer);
+            let global = get_global_q(realm);
+            set_property_q(realm, &global, "buf", &adapter)?;
+
+            drop(adapter);
+
+            realm.eval(Script::new(
+                "l.js",
+                "console.log(`buf l=%s 1=%s`, globalThis.buf.length, globalThis.buf[1]);",
+            ))?;
+
+            set_property_q(realm, &global, "buf", &new_undefined_ref())?;
+
+            rt.gc();
+
+            Ok(())
+        });
+        match res {
+            Ok(_) => {
+                log::info!("done ok");
+            }
+            Err(err) => {
+                panic!("{err}");
+            }
+        }
+    }
+
+    #[test]
+    fn test_typed2() {
+        simple_logging::log_to_stderr(log::LevelFilter::max());
+
+        std::panic::set_hook(Box::new(|panic_info| {
+            let backtrace = backtrace::Backtrace::new();
+            println!("thread panic occurred: {panic_info}\nbacktrace: {backtrace:?}");
+            log::error!(
+                "thread panic occurred: {}\nbacktrace: {:?}",
+                panic_info,
+                backtrace
+            );
+        }));
 
         let rt = QuickJsRuntimeBuilder::new().build();
 
@@ -379,7 +463,7 @@ pub mod tests {
             realm
                 .eval(Script::new(
                     "testu8",
-                    "globalThis.testTyped = function(typedArray) {console.log('t=%s len=%s 0=%s 1=%s 2=%s', typedArray.constructor.name, typedArray.length, typedArray[0], typedArray[1], typedArray[2]); typedArray[0] = 34;};",
+                    "globalThis.testTyped = function(typedArray) {console.log('t=%s len=%s 0=%s 1=%s 2=%s', typedArray.constructor.name, typedArray.length, typedArray[0], typedArray[1], typedArray[2]); typedArray[0] = 34; const ret = []; for (let x = 0; x < 1024; x++) {ret.push(x);}; return new Uint8Array(ret);};",
                 ))
                 .expect("script failed");
         });
@@ -410,7 +494,7 @@ pub mod tests {
             match arr_res {
                 Ok(mut arr) => {
                     arr.label("arr");
-                    log::debug!("arr created");
+                    log::debug!("arr created, refcount={}", arr.get_ref_count());
 
                     assert!(is_typed_array_q(realm, &arr));
 
@@ -419,6 +503,9 @@ pub mod tests {
                         .expect("testTyped failed");
 
                     let ab = get_array_buffer_q(realm, &arr).expect("did not get buffer");
+
+                    let copy = get_array_buffer_buffer_copy_q(realm, &ab).expect("could not copy");
+                    log::info!("copy.len = {}", copy.len());
 
                     log::trace!("reclaiming");
                     let buf2_reclaimed =
@@ -452,5 +539,37 @@ pub mod tests {
                 }
             }
         });
+
+        thread::sleep(Duration::from_secs(1));
+
+        for x in 0..10 {
+            let mut buffer2: Vec<u8> = vec![];
+            for y in 0..(10 * 1024 * 1024) {
+                buffer2.push(y as u8);
+            }
+            let ta = JsValueFacade::TypedArray {
+                buffer: buffer2,
+                array_type: TypedArrayType::Uint8,
+            };
+            let res = rt.invoke_function_sync(None, &[], "testTyped", vec![ta]);
+            match res {
+                Ok(r) => {
+                    log::info!("from jsvf got {:?}", r);
+                }
+                Err(e) => {
+                    panic!("{}", e);
+                }
+            }
+            log::info!("x={x}");
+        }
+
+        drop(rt);
+
+        crate::quickjs_utils::typedarrays::BUFFERS.with(|rc| {
+            let buffers = &mut *rc.borrow_mut();
+            log::info!("BUFFERS.len = {}", buffers.len());
+        });
+
+        thread::sleep(Duration::from_secs(1));
     }
 }

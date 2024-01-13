@@ -28,8 +28,9 @@ hirofa_utils = "0.7"
 #hirofa_utils = {git="https://github.com/HiRoFa/utils"}
 backtrace = "0.3.67"
 
-libquickjs-sys = {package="hirofa-quickjs-sys", git='https://github.com/HiRoFa/quickjs-sys', features=["bellard"]}
+#libquickjs-sys = {package="hirofa-quickjs-sys", git='https://github.com/HiRoFa/quickjs-sys', features=["bellard"]}
 #libquickjs-sys = {package="hirofa-quickjs-sys", path='../quickjs-sys', features=["bellard"]}
+libquickjs-sys = {package="hirofa-quickjs-sys", version="0.2.0", features=["bellard"]}
 lazy_static = "1.4.0"
 log = "0.4"
 num_cpus = "1"
