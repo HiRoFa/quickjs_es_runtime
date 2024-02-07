@@ -1062,7 +1062,7 @@ pub mod tests {
         }
     }
 
-    pub fn init_test_rt() -> QuickJsRuntimeFacade {
+    pub fn init_logging() {
         {
             let i_lock = &mut *crate::facades::INITTED.lock().unwrap();
             if !*i_lock {
@@ -1082,6 +1082,10 @@ pub mod tests {
                 *i_lock = true;
             }
         }
+    }
+
+    pub fn init_test_rt() -> QuickJsRuntimeFacade {
+        init_logging();
 
         QuickJsRuntimeFacade::builder()
             .gc_interval(Duration::from_secs(1))

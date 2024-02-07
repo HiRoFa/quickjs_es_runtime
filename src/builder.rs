@@ -252,6 +252,8 @@ pub mod tests {
 
     #[test]
     fn test_module_loader() {
+        crate::facades::tests::init_logging();
+
         struct MyModuleLoader {}
         impl ScriptModuleLoader for MyModuleLoader {
             fn normalize_path(
