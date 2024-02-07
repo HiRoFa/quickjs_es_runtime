@@ -192,7 +192,7 @@ pub mod tests {
     use crate::quickjs_utils::primitives;
     use crate::quickjsrealmadapter::QuickJsRealmAdapter;
     use crate::values::JsValueFacade;
-    use backtrace::Backtrace;
+    //use backtrace::Backtrace;
     use futures::executor::block_on;
     use std::panic;
     use std::sync::Arc;
@@ -361,7 +361,7 @@ pub mod tests {
 
     #[test]
     fn test_bytecode_module() {
-        panic::set_hook(Box::new(|panic_info| {
+        /*panic::set_hook(Box::new(|panic_info| {
             let backtrace = Backtrace::new();
             println!("thread panic occurred: {panic_info}\nbacktrace: {backtrace:?}");
             log::error!(
@@ -369,7 +369,7 @@ pub mod tests {
                 panic_info,
                 backtrace
             );
-        }));
+        }));*/
 
         //simple_logging::log_to_file("quickjs_runtime.log", LevelFilter::max())
         //            .expect("could not init logger");

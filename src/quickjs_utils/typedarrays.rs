@@ -365,7 +365,6 @@ unsafe extern "C" fn free_func(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::builder::QuickJsRuntimeBuilder;
     use crate::jsutils::{JsError, Script};
     use crate::quickjs_utils::typedarrays::{
         detach_array_buffer_buffer_q, get_array_buffer_buffer_copy_q, get_array_buffer_q,
@@ -374,6 +373,7 @@ pub mod tests {
     };
     use crate::values::{JsValueFacade, TypedArrayType};
 
+    use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::objects::set_property_q;
     use crate::quickjs_utils::{get_global_q, new_undefined_ref};
     use std::thread;
@@ -381,19 +381,7 @@ pub mod tests {
 
     #[test]
     fn test_typed() {
-        simple_logging::log_to_stderr(log::LevelFilter::max());
-
-        std::panic::set_hook(Box::new(|panic_info| {
-            let backtrace = backtrace::Backtrace::new();
-            println!("thread panic occurred: {panic_info}\nbacktrace: {backtrace:?}");
-            log::error!(
-                "thread panic occurred: {}\nbacktrace: {:?}",
-                panic_info,
-                backtrace
-            );
-        }));
-
-        let rt = QuickJsRuntimeBuilder::new().build();
+        let rt = init_test_rt();
 
         let res: Result<(), JsError> = rt.exe_rt_task_in_event_loop(|rt| {
             let mut buffer: Vec<u8> = vec![];
@@ -432,19 +420,7 @@ pub mod tests {
 
     #[test]
     fn test_typed2() {
-        simple_logging::log_to_stderr(log::LevelFilter::max());
-
-        std::panic::set_hook(Box::new(|panic_info| {
-            let backtrace = backtrace::Backtrace::new();
-            println!("thread panic occurred: {panic_info}\nbacktrace: {backtrace:?}");
-            log::error!(
-                "thread panic occurred: {}\nbacktrace: {:?}",
-                panic_info,
-                backtrace
-            );
-        }));
-
-        let rt = QuickJsRuntimeBuilder::new().build();
+        let rt = init_test_rt();
 
         let res = rt.loop_realm_sync(None, |_rt, realm| {
             let obj = realm

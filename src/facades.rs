@@ -945,7 +945,13 @@ impl QuickJsRuntimeFacade {
 }
 
 #[cfg(test)]
+lazy_static! {
+    static ref INITTED: std::sync::Mutex<bool> = std::sync::Mutex::new(false);
+}
+
+#[cfg(test)]
 pub mod tests {
+
     use crate::facades::QuickJsRuntimeFacade;
     use crate::jsutils::modules::{NativeModuleLoader, ScriptModuleLoader};
     use crate::jsutils::JsError;
@@ -1057,15 +1063,25 @@ pub mod tests {
     }
 
     pub fn init_test_rt() -> QuickJsRuntimeFacade {
-        panic::set_hook(Box::new(|panic_info| {
-            let backtrace = Backtrace::new();
-            println!("thread panic occurred: {panic_info}\nbacktrace: {backtrace:?}");
-            log::error!(
-                "thread panic occurred: {}\nbacktrace: {:?}",
-                panic_info,
-                backtrace
-            );
-        }));
+        {
+            let i_lock = &mut *crate::facades::INITTED.lock().unwrap();
+            if !*i_lock {
+                panic::set_hook(Box::new(|panic_info| {
+                    let backtrace = Backtrace::new();
+                    println!("thread panic occurred: {panic_info}\nbacktrace: {backtrace:?}");
+                    log::error!(
+                        "thread panic occurred: {}\nbacktrace: {:?}",
+                        panic_info,
+                        backtrace
+                    );
+                }));
+
+                simple_logging::log_to_file("./quickjs_runtime.log", log::LevelFilter::max())
+                    .expect("could not init logger");
+
+                *i_lock = true;
+            }
+        }
 
         QuickJsRuntimeFacade::builder()
             .gc_interval(Duration::from_secs(1))
