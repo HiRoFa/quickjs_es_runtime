@@ -120,12 +120,14 @@ impl ModuleLoader for ScriptModuleLoaderAdapter {
         realm: &QuickJsRealmAdapter,
         absolute_path: &str,
     ) -> Result<*mut q::JSModuleDef, JsError> {
+        log::trace!("load_module");
         let code = self.inner.load_module(realm, absolute_path);
 
         let mut script = Script::new(absolute_path, code.as_str());
         script = QuickJsRuntimeAdapter::pre_process(script)?;
-
+        log::trace!("load_module / 2");
         let compiled_module = unsafe { compile_module(realm.context, script)? };
+        log::trace!("load_module / 3");
         Ok(get_module_def(&compiled_module))
     }
 

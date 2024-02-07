@@ -10,7 +10,9 @@ use libquickjs_sys as q;
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<JsError> {
+    log::trace!("get_exception");
     let exception_val = q::JS_GetException(context);
+    log::trace!("get_exception / 2");
     let exception_ref =
         QuickJsValueAdapter::new(context, exception_val, false, true, "errors::get_exception");
 
@@ -35,6 +37,7 @@ pub unsafe fn error_to_js_error(
     context: *mut q::JSContext,
     exception_ref: &QuickJsValueAdapter,
 ) -> JsError {
+    log::trace!("error_to_js_error");
     let name_ref = objects::get_property(context, exception_ref, "name")
         .ok()
         .unwrap();

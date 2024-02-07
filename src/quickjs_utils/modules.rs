@@ -58,7 +58,9 @@ pub unsafe fn compile_module(
 
 // get the ModuleDef obj from a JSValue, this is used for module loading
 pub fn get_module_def(value: &QuickJsValueAdapter) -> *mut q::JSModuleDef {
+    log::trace!("get_module_def");
     assert!(value.is_module());
+    log::trace!("get_module_def / 2");
     unsafe { value.borrow_value().u.ptr as *mut q::JSModuleDef }
 }
 
