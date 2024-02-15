@@ -8,6 +8,7 @@ use crate::quickjs_utils::modules::{
     add_module_export, compile_module, get_module_def, get_module_name, new_module,
     set_module_export,
 };
+use crate::quickjs_utils::runtime::new_class_id;
 use crate::quickjs_utils::{gc, interrupthandler, modules, promises};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use libquickjs_sys as q;
@@ -344,6 +345,10 @@ impl QuickJsRuntimeAdapter {
             let opt = &mut *rc.borrow_mut();
             opt.replace(rt);
         })
+    }
+
+    pub fn new_class_id(&self) -> u32 {
+        unsafe { new_class_id(self.runtime) }
     }
 
     pub fn print_stats(&self) {
@@ -810,6 +815,7 @@ pub mod tests {
     use crate::quickjsrealmadapter::QuickJsRealmAdapter;
     use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 
+    use crate::facades::tests::init_test_rt;
     use std::panic;
 
     use crate::jsutils::modules::ScriptModuleLoader;
@@ -858,6 +864,19 @@ pub mod tests {
             assert_eq!(script.get_runnable_code(), "{}");
             log::debug!("tested");
         });
+    }
+
+    #[test]
+    fn test_eval() {
+        let rt = init_test_rt();
+        rt.eval_sync(
+            None,
+            Script::new(
+                "eval.js",
+                "console.log('bigint: ' + BigInt('1234') + '/' + BigInt(8765));",
+            ),
+        )
+        .expect("script failed to compile");
     }
 
     #[test]

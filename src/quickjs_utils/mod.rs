@@ -18,6 +18,7 @@ pub mod objects;
 pub mod primitives;
 pub mod promises;
 pub mod properties;
+pub mod runtime;
 pub mod sets;
 pub mod typedarrays;
 

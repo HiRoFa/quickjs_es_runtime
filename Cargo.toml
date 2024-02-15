@@ -13,13 +13,15 @@ readme = "README.md"
 categories = ["development-tools"]
 
 [features]
-default = ["console", "setimmediate", "setinterval", "settimeout", "typescript"]
+default = ["console", "setimmediate", "setinterval", "settimeout", "typescript", "bellard"]
 tokio_full = ["tokio/full"]
 console = []
 settimeout = []
 setinterval = []
 setimmediate = []
 typescript = ["swc", "swc_atoms", "swc_cached", "swc_common", "swc_macros_common", "swc_eq_ignore_macros", "swc_visit", "swc_visit_macros", "swc_config", "swc_config_macro", "swc_ecma_codegen", "swc_ecma_ast", "swc_ecma_codegen_macros", "swc_ecma_ext_transforms", "swc_ecma_utils", "swc_ecma_visit", "swc_ecma_lints", "swc_ecma_loader", "swc_ecma_minifier", "swc_ecma_parser", "swc_error_reporters", "swc_fast_graph", "swc_ecma_usage_analyzer", "swc_timer", "swc_ecma_preset_env", "swc_ecma_transforms", "swc_ecma_transforms_base", "swc_ecma_transforms_compat", "swc_ecma_transforms_classes", "swc_ecma_transforms_module", "swc_ecma_transforms_optimization", "swc_ecma_transforms_proposal", "swc_ecma_transforms_macros", "swc_ecma_transforms_react", "swc_ecma_transforms_typescript", "swc_node_comments", "swc_trace_macro"]
+bellard = ["libquickjs-sys/bellard"]
+quickjs-ng = ["libquickjs-sys/quickjs-ng"]
 
 [dependencies]
 hirofa_utils = "0.7"
@@ -28,9 +30,9 @@ hirofa_utils = "0.7"
 #hirofa_utils = {git="https://github.com/HiRoFa/utils"}
 backtrace = "0.3.67"
 
-#libquickjs-sys = {package="hirofa-quickjs-sys", git='https://github.com/HiRoFa/quickjs-sys', features=["bellard"]}
-#libquickjs-sys = {package="hirofa-quickjs-sys", path='../quickjs-sys', features=["bellard"]}
-libquickjs-sys = {package="hirofa-quickjs-sys", version="0.2.0", features=["bellard"]}
+libquickjs-sys = {package="hirofa-quickjs-sys", git='https://github.com/HiRoFa/quickjs-sys'}
+#libquickjs-sys = {package="hirofa-quickjs-sys", path='../quickjs-sys'}
+#libquickjs-sys = {package="hirofa-quickjs-sys", version="0.2.0", features=["bellard"]}
 lazy_static = "1.4.0"
 log = "0.4"
 num_cpus = "1"

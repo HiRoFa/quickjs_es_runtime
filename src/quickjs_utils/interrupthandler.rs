@@ -28,7 +28,7 @@ pub mod tests {
     use crate::builder::QuickJsRuntimeBuilder;
     use crate::jsutils::Script;
     use crate::quickjs_utils::get_script_or_module_name_q;
-    use backtrace::Backtrace;
+
     use std::cell::RefCell;
     use std::panic;
     use std::sync::{Arc, Mutex};
@@ -40,7 +40,7 @@ pub mod tests {
         let called = Arc::new(Mutex::new(RefCell::new(false)));
         let called2 = called.clone();
 
-        panic::set_hook(Box::new(|panic_info| {
+        /*panic::set_hook(Box::new(|panic_info| {
             let backtrace = Backtrace::new();
             println!("thread panic occurred: {panic_info}\nbacktrace: {backtrace:?}");
             log::error!(
@@ -48,7 +48,7 @@ pub mod tests {
                 panic_info,
                 backtrace
             );
-        }));
+        }));*/
 
         //simple_logging::log_to_file("esruntime.log", LevelFilter::max())
         //            .expect("could not init logger");

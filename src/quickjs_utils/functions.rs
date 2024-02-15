@@ -513,8 +513,13 @@ thread_local! {
     };
 
     static CALLBACK_CLASS_ID: RefCell<u32> = {
-        let mut c_id: u32 = 0;
-        let class_id: u32 = unsafe { q::JS_NewClassID(&mut c_id) };
+
+        let class_id: u32 =
+            QuickJsRuntimeAdapter::do_with(|q_js_rt| {
+                q_js_rt.new_class_id()
+            });
+
+
         log::trace!("got class id {}", class_id);
 
         CALLBACK_CLASS_DEF.with(|cd_rc| {

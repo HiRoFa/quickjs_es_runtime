@@ -4,14 +4,26 @@ quickjs_runtime is a library for quickly getting started with embedding a javasc
 
 **as of 2024 this lib no longer relies on [libquickjs-sys](https://github.com/theduke/quickjs-rs/tree/master/libquickjs-sys) but on out own [hirofa-quickjs-sys](https://github.com/HiRoFa/quickjs-sys) adding flexibility in used quickjs version**
 
+quickjs_runtime runs all javascript action in a single thread using an EventLoop. This means you can call javascript safely from several threads by adding tasks to the EventLoop.
+
+# quickjs or quickjs-ng
+
+I'm working on supporting both the original quickjs and the quickjs-ng project.
+
+You can try out quickjs-ng by adding the dep to quickjs_runtime like this:
+```toml
+quickjs_runtime = {git="https://github.com/HiRoFa/quickjs_es_runtime", features=["console", "setimmediate", "setinterval", "settimeout", "typescript", "quickjs-ng"], default-features=false}
+```
+
+Use at your own risk as I have not extensively tested it yet
+
+# Usage and Features
+
 An example on how to embed a script engine in rust using this lib can be found here: [github.com/andrieshiemstra/ScriptExtensionLayerExample](https://github.com/andrieshiemstra/ScriptExtensionLayerExample). It was published in TWIR as a walkthrough. 
 
 quickjs_runtime focuses on making [quickjs](https://bellard.org/quickjs/) easy to use and does not add any additional features, that's where these projects come in:
 * A more feature-rich (e.g. fetch api support, http based module loader and much more) runtime: [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime).
 * The commandline client: [GreenCopperCmd](https://github.com/HiRoFa/GreenCopperCmd).
-
-
-The big difference to quickjs-rs is that quickjs_runtime executes all quickjs related code in a dedicated single-threaded EventLoop.
 
 Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/index.html) for all inner workings
 
@@ -24,8 +36,8 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 * Pass a module loader
 
 ## 2. Wrap quickjs for use as a ready to go JavaScript Runtime
-* This is the EsRuntime struct, it provides an EventQueue which has a thread_local QuickJsRuntime
-* All values are copied or abstracted in an EsValueFacade
+* Start at the QuickjsRuntimeFacade, it provides an EventQueue which has a thread_local QuickJsRuntimeAdapter
+* All values are copied or abstracted in a JsValueFacades
 * So no need to worry about Garbage collection
 * evaluate script and invoke functions while waiting for results blocking or with async/await  
 * Get Promise result blocking or with async/await
@@ -40,7 +52,7 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 * Create promises in JavaScript which execute async
 * Eval modules ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/facades/struct.QuickJsRuntimeFacade.html#method.eval_module))
 * Load modules (dynamic and static) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/builder/struct.QuickJsRuntimeBuilder.html#method.script_module_loader))
-* fetch api (moved to [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime))
+* ~~fetch api (moved to [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime))~~
 * setImmediate
 * setTimeout/Interval (and clear)
 * script preprocessing (impls for ifdef/macro's/typescript can be found in [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime))
@@ -54,11 +66,6 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 * Create Classes from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/reflection/struct.Proxy.html))
 * async/await support on eval/call_function/promise resolution ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/values/struct.CachedJsPromiseRef.html#method.get_promise_result))
 * import native Modules (e.g. dynamic loading of rust functions or Proxy classes) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/builder/struct.QuickJsRuntimeBuilder.html#method.native_module_loader))
-
-## Future / Todo
-
-* Worker support
-* WebAssembly support
 
 # Goals
 
@@ -82,7 +89,7 @@ The fun stuff about QuickJS:
 Cargo.toml
 ```toml
 [dependencies]
-quickjs_runtime = {version = "0.11", features=["default", "typescript"]}
+quickjs_runtime = "0.12"
 ```
 
 Here are some quickstarts:

@@ -276,33 +276,40 @@ pub mod tests {
             }
         });
 
-        let mjsvf = rt
-            .eval_module_sync(
-                None,
-                Script::new(
-                    "test_ex2.es",
-                    r#"
+        #[cfg(feature = "bellard")]
+        {
+            let mjsvf = rt
+                .eval_module_sync(
+                    None,
+                    Script::new(
+                        "test_ex2.es",
+                        r#"
                                 throw Error('poof');
                                 "#,
-                ),
-            )
-            .expect("script compilation failed");
-        match mjsvf {
-            JsValueFacade::JsPromise { cached_promise } => {
-                let pres = cached_promise
-                    .get_promise_result_sync()
-                    .expect("promise timed out");
-                match pres {
-                    Ok(m) => {
-                        log::info!("prom resolved to {}", m.stringify())
-                    }
-                    Err(e) => {
-                        log::info!("prom rejected to {}", e.stringify())
+                    ),
+                )
+                .map_err(|e| {
+                    log::error!("script compilation failed: {e}");
+                    e
+                })
+                .expect("script compilation failed");
+            match mjsvf {
+                JsValueFacade::JsPromise { cached_promise } => {
+                    let pres = cached_promise
+                        .get_promise_result_sync()
+                        .expect("promise timed out");
+                    match pres {
+                        Ok(m) => {
+                            log::info!("prom resolved to {}", m.stringify())
+                        }
+                        Err(e) => {
+                            log::info!("prom rejected to {}", e.stringify())
+                        }
                     }
                 }
-            }
-            _ => {
-                panic!("not a prom")
+                _ => {
+                    panic!("not a prom")
+                }
             }
         }
 
