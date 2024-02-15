@@ -152,7 +152,14 @@ unsafe fn parse_field_value(
     } else if field.ends_with('o') || field.ends_with('O') {
         let json_str_res = json::stringify(ctx, value, None);
         let json = match json_str_res {
-            Ok(json_str) => primitives::to_string(ctx, &json_str).unwrap_or_default(),
+            Ok(json_str) => {
+                if json_str.is_undefined() {
+                    // if undefined is passed tp json.stringify it returns undefined, else always a string
+                    "undefined".to_string()
+                } else {
+                    primitives::to_string(ctx, &json_str).unwrap_or_default()
+                }
+            }
             Err(_e) => "".to_string(),
         };
         return json;
