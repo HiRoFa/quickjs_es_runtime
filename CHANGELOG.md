@@ -1,3 +1,7 @@
+# 0.12.1
+
+* bugfix: console.log("a:%s", undefined); would fail
+
 # 0.12.0
 
 * uses hirofa-quickjs-sys 0.2.0 and ['bellard'] feature and thus the 2024-01-13 version of the original quickjs by Fabrice Bellard
