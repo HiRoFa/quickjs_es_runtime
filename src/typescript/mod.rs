@@ -252,6 +252,7 @@ struct StackEntry {
     function_name: String,
     file_name: String,
     line_number: Option<u32>,
+    column_number: Option<u32>,
 }
 
 impl FromStr for StackEntry {
@@ -270,24 +271,20 @@ impl FromStr for StackEntry {
         if file_name.ends_with(')') {
             file_name = file_name.as_str()[..file_name.len() - 1].to_string();
         }
+        file_name = file_name.replace("://", "_double_point_placeholder_//");
 
-        let mut line_number = None;
+        let parts: Vec<&str> = file_name.split(':').collect();
 
-        if let Some(i) = file_name.rfind(':') {
-            let line_num_part = &file_name.as_str()[i..];
-
-            line_number = match line_num_part.parse::<u32>() {
-                Ok(num) => {
-                    file_name = file_name.as_str()[..i - 1].to_string();
-                    Some(num)
-                }
-                Err(_) => None,
-            };
-        }
+        let file_name = parts[0]
+            .to_string()
+            .replace("_double_point_placeholder_//", "://");
+        let line_number = parts.get(1).and_then(|s| s.parse::<u32>().ok());
+        let column_number = parts.get(2).and_then(|s| s.parse::<u32>().ok());
 
         Ok(StackEntry {
             function_name,
             file_name,
+            column_number,
             line_number,
         })
     }
@@ -308,14 +305,17 @@ fn serialize_stack(entries: &[StackEntry]) -> String {
     let mut result = String::new();
 
     for entry in entries {
-        result.push_str(&format!(
-            "    at {} ({})",
-            entry.function_name, entry.file_name
-        ));
+        let fname_lnum = if let Some(line_number) = entry.line_number {
+            if let Some(column_number) = entry.column_number {
+                format!("{}:{line_number}:{column_number}", entry.file_name)
+            } else {
+                format!("{}:{line_number}", entry.file_name)
+            }
+        } else {
+            entry.file_name.clone()
+        };
 
-        if let Some(line_number) = entry.line_number {
-            result.push_str(&format!(":{}", line_number));
-        }
+        result.push_str(&format!("    at {} ({fname_lnum})", entry.function_name));
 
         result.push('\n');
     }
@@ -329,35 +329,49 @@ pub(crate) fn unmap_stack_trace(stack_trace: &str) -> String {
 }
 
 pub fn fix_stack_trace(stack_trace: &str, maps: &HashMap<String, String>) -> String {
+    log::trace!("fix_stack_trace:\n{stack_trace}");
     match parse_stack_trace(stack_trace) {
         Ok(mut parsed_stack) => {
             for stack_trace_entry in parsed_stack.iter_mut() {
                 if let Some(map_str) = maps.get(stack_trace_entry.file_name.as_str()) {
+                    log::trace!(
+                        "fix_stack_trace:found map for file {}:\n{map_str}",
+                        stack_trace_entry.file_name.as_str()
+                    );
                     if let Some(line_number) = stack_trace_entry.line_number {
+                        log::trace!("lookup line number:{line_number}");
                         match swc::sourcemap::SourceMap::from_reader(io::Cursor::new(map_str)) {
                             Ok(source_map) => {
-                                if let Some(original_location) =
-                                    source_map.lookup_token(line_number, 0)
-                                {
+                                if let Some(original_location) = source_map.lookup_token(
+                                    line_number,
+                                    stack_trace_entry.column_number.unwrap_or(1),
+                                ) {
                                     let original_line = original_location.get_src_line();
+                                    let original_column = original_location.get_src_col();
+                                    log::trace!("lookup original_line:{original_line}");
                                     stack_trace_entry.line_number = Some(original_line);
+                                    stack_trace_entry.column_number = Some(original_column);
                                 }
                             }
                             Err(_) => {
-                                log::debug!(
+                                log::trace!(
                                     "could not parse source_map for {}",
                                     stack_trace_entry.file_name.as_str()
                                 );
                             }
                         }
                     }
+                } else {
+                    log::trace!("no map found for {}", stack_trace_entry.file_name.as_str());
                 }
 
                 // Now you have the original filename and line number
                 // You can use them as needed
             }
 
-            serialize_stack(&parsed_stack)
+            let ret = serialize_stack(&parsed_stack);
+            log::trace!("fix_stack_trace ret:\n{ret}");
+            ret
         }
         Err(_) => {
             log::error!("could not parse stack: \n{}", stack_trace);
@@ -393,7 +407,7 @@ pub mod tests {
     }
     #[test]
     fn test_stack_map() {
-        let rt = QuickJsRuntimeBuilder::new().build();
+        let rt = init_test_rt();
         println!("testing ts");
         let script = Script::new(
             "test.ts",
@@ -406,8 +420,9 @@ pub mod tests {
             function t_ts(a: string, b: num): boolean {
                 return a.a.a === "hi";
             }
+
             t_ts("hello", 1337);
-        "#,
+"#,
         );
         let _res = rt
             .eval_sync(None, script)
@@ -418,12 +433,28 @@ pub mod tests {
     }
     #[test]
     fn test_stack_parse() {
+        // just to init logging;
+        let _rt = init_test_rt();
+
         let stack = r#"
-            at func (file.ts:88)
+            at func (file.ts:88:12)
             at doWriteTransactioned (gcsproject:///gcs_objectstore/ObjectStore.ts:170)
         "#;
         match parse_stack_trace(stack) {
             Ok(a) => {
+                assert_eq!(a[0].file_name, "file.ts");
+                assert_eq!(a[0].line_number, Some(88));
+                assert_eq!(a[0].column_number, Some(12));
+                assert_eq!(a[0].function_name, "func");
+
+                assert_eq!(
+                    a[1].file_name,
+                    "gcsproject:///gcs_objectstore/ObjectStore.ts"
+                );
+                assert_eq!(a[1].line_number, Some(170));
+                assert_eq!(a[1].column_number, None);
+                assert_eq!(a[1].function_name, "doWriteTransactioned");
+
                 assert_eq!(
                     serialize_stack(&a).as_str(),
                     r#"    at func (file.ts:88)
