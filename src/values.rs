@@ -13,6 +13,7 @@ use std::error::Error;
 use std::fmt::{Debug, Formatter};
 use std::pin::Pin;
 use std::sync::{Arc, Weak};
+use std::time::Duration;
 use string_cache::DefaultAtom;
 
 pub struct CachedJsObjectRef {
@@ -203,12 +204,36 @@ impl CachedJsPromiseRef {
     }
 
     pub fn get_promise_result_sync(&self) -> Result<Result<JsValueFacade, JsValueFacade>, JsError> {
-        block_on(self.get_promise_result())
+        let rx = self.get_promise_result_receiver();
+        rx.recv().map_err(|e| JsError::new_string(format!("{e}")))?
+    }
+
+    pub fn get_promise_result_sync_timeout(
+        &self,
+        timeout: Option<Duration>,
+    ) -> Result<Result<JsValueFacade, JsValueFacade>, JsError> {
+        let rx = self.get_promise_result_receiver();
+        let res = if let Some(timeout) = timeout {
+            rx.recv_timeout(timeout)
+                .map_err(|e| JsError::new_string(format!("{e}")))
+        } else {
+            rx.recv().map_err(|e| JsError::new_string(format!("{e}")))
+        };
+        res?
     }
 
     pub async fn get_promise_result(
         &self,
     ) -> Result<Result<JsValueFacade, JsValueFacade>, JsError> {
+        let rx = self.get_promise_result_receiver();
+        rx.into_recv_async()
+            .await
+            .map_err(|e| JsError::new_string(format!("{e}")))?
+    }
+
+    pub fn get_promise_result_receiver(
+        &self,
+    ) -> flume::Receiver<Result<Result<JsValueFacade, JsValueFacade>, JsError>> {
         let (tx, rx) = flume::bounded(1);
 
         let tx1 = tx.clone();
@@ -264,9 +289,7 @@ impl CachedJsPromiseRef {
             }
         });
 
-        rx.recv_async()
-            .await
-            .map_err(|e| JsError::new_string(format!("{e}")))?
+        rx
     }
 }
 
