@@ -1,3 +1,7 @@
+# 0.13.0
+
+* support quickjs-ng (v 0.3.0) as feature, it compiles, some test cases fail (bigint) but should be a nice first step 
+
 # 0.12.1
 
 * bugfix: console.log("a:%s", undefined); would fail

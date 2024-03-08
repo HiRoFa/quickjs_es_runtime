@@ -382,7 +382,6 @@ pub fn fix_stack_trace(stack_trace: &str, maps: &HashMap<String, String>) -> Str
 
 #[cfg(test)]
 pub mod tests {
-    use crate::builder::QuickJsRuntimeBuilder;
     use crate::facades::tests::init_test_rt;
     use crate::jsutils::{JsValueType, Script};
     use crate::typescript::{parse_stack_trace, serialize_stack};
@@ -457,7 +456,7 @@ pub mod tests {
 
                 assert_eq!(
                     serialize_stack(&a).as_str(),
-                    r#"    at func (file.ts:88)
+                    r#"    at func (file.ts:88:12)
     at doWriteTransactioned (gcsproject:///gcs_objectstore/ObjectStore.ts:170)
 "#
                 );

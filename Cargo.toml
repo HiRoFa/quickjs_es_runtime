@@ -1,6 +1,6 @@
 [package]
 name = "quickjs_runtime"
-version = "0.12.1"
+version = "0.13.0"
 authors = ["Andries Hiemstra <info@hirofa.com>"]
 edition = "2021"
 description = "Wrapper API and utils for the QuickJS JavaScript engine with support for Promise, Modules, Async/await"
@@ -30,9 +30,9 @@ hirofa_utils = "0.7"
 #hirofa_utils = {git="https://github.com/HiRoFa/utils"}
 backtrace = "0.3.67"
 
-libquickjs-sys = {package="hirofa-quickjs-sys", git='https://github.com/HiRoFa/quickjs-sys'}
+#libquickjs-sys = {package="hirofa-quickjs-sys", git='https://github.com/HiRoFa/quickjs-sys'}
 #libquickjs-sys = {package="hirofa-quickjs-sys", path='../quickjs-sys'}
-#libquickjs-sys = {package="hirofa-quickjs-sys", version="0.2.0", features=["bellard"]}
+libquickjs-sys = {package="hirofa-quickjs-sys", version="0.3.0", default-features=false}
 lazy_static = "1.4.0"
 log = "0.4"
 num_cpus = "1"
@@ -43,6 +43,7 @@ tokio = {version = "1", features = ["rt-multi-thread", "rt", "bytes", "fs", "io-
 serde_json = "1.0"
 serde = {version="1.0", features=["derive"]}
 string_cache = "0.8"
+flume = {version="0.10", features=["async"]}
 
 #swc
 # like the good people at denoland said

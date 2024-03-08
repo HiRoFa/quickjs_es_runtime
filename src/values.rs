@@ -6,7 +6,6 @@ use crate::reflection::JsProxyInstanceId;
 use futures::executor::block_on;
 use futures::Future;
 use hirofa_utils::debug_mutex::DebugMutex;
-use hirofa_utils::resolvable_future::ResolvableFuture;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -210,11 +209,10 @@ impl CachedJsPromiseRef {
     pub async fn get_promise_result(
         &self,
     ) -> Result<Result<JsValueFacade, JsValueFacade>, JsError> {
-        let fut: ResolvableFuture<Result<Result<JsValueFacade, JsValueFacade>, JsError>> =
-            ResolvableFuture::new();
-        let resolver = fut.get_resolver();
-        let resolver1 = resolver.clone();
-        let resolver2 = resolver.clone();
+        let (tx, rx) = flume::bounded(1);
+
+        let tx1 = tx.clone();
+        let tx2 = tx.clone();
 
         self.cached_object.with_obj_void(move |realm, obj| {
             let res = || {
@@ -224,8 +222,8 @@ impl CachedJsPromiseRef {
                         //
                         let resolution = &args[0];
                         let send_res = match realm.to_js_value_facade(resolution) {
-                            Ok(vf) => resolver1.resolve(Ok(Ok(vf))),
-                            Err(conv_err) => resolver1.resolve(Err(conv_err)),
+                            Ok(vf) => tx1.send(Ok(Ok(vf))),
+                            Err(conv_err) => tx1.send(Err(conv_err)),
                         };
                         send_res
                             .map_err(|e| JsError::new_string(format!("could not send: {e}")))?;
@@ -239,8 +237,8 @@ impl CachedJsPromiseRef {
                         //
                         let rejection = &args[0];
                         let send_res = match realm.to_js_value_facade(rejection) {
-                            Ok(vf) => resolver2.resolve(Ok(Err(vf))),
-                            Err(conv_err) => resolver2.resolve(Err(conv_err)),
+                            Ok(vf) => tx2.send(Ok(Err(vf))),
+                            Err(conv_err) => tx2.send(Err(conv_err)),
                         };
                         send_res
                             .map_err(|e| JsError::new_string(format!("could not send: {e}")))?;
@@ -254,16 +252,21 @@ impl CachedJsPromiseRef {
             };
             match res() {
                 Ok(_) => {}
-                Err(e) => match resolver.resolve(Err(e)) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        log::error!("failed to resolve 47643: {}", e);
+                Err(e) => {
+                    log::error!("failed to add promise reactions {}", e);
+                    match tx.send(Err(e)) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            log::error!("failed to resolve 47643: {}", e);
+                        }
                     }
-                },
+                }
             }
         });
 
-        fut.await
+        rx.recv_async()
+            .await
+            .map_err(|e| JsError::new_string(format!("{e}")))?
     }
 }
 
