@@ -89,7 +89,7 @@ The fun stuff about QuickJS:
 Cargo.toml
 ```toml
 [dependencies]
-quickjs_runtime = "0.12"
+quickjs_runtime = "0.13.1"
 ```
 
 Here are some quickstarts:

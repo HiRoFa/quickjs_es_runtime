@@ -1,3 +1,8 @@
+# 0.13.1
+
+* update quickjs-ng to 4.0.1
+* fixed bigint support for quickjs-ng
+
 # 0.13.0
 
 * support quickjs-ng (v 0.3.0) as feature, it compiles, some test cases fail (bigint) but should be a nice first step 

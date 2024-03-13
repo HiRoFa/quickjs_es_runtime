@@ -12,6 +12,13 @@ pub fn new_bigint_i64_q(
     unsafe { new_bigint_i64(context.context, int) }
 }
 
+pub fn new_bigint_u64_q(
+    context: &QuickJsRealmAdapter,
+    int: u64,
+) -> Result<QuickJsValueAdapter, JsError> {
+    unsafe { new_bigint_u64(context.context, int) }
+}
+
 #[allow(dead_code)]
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
@@ -83,17 +90,34 @@ pub unsafe fn to_string(
 #[cfg(test)]
 pub mod tests {
     use crate::facades::tests::init_test_rt;
+    use crate::jsutils::Script;
     use crate::quickjs_utils::bigints;
     use crate::quickjs_utils::bigints::new_bigint_str_q;
 
-    //#[test]
-    fn _test_bigint() {
+    #[test]
+    fn test_bigint() {
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_realm();
 
-            let bi_ref = bigints::new_bigint_i64_q(q_ctx, 659863456456)
+            let res = q_ctx
+                .eval(Script::new("createABigInt.js", "BigInt(1234567890)"))
+                .expect("script failed");
+            log::info!(
+                "script bi was {} {}",
+                res.get_tag(),
+                res.to_string().expect("could not toString")
+            );
+
+            let bi_ref = bigints::new_bigint_u64_q(q_ctx, 659863456456)
                 .expect("could not create bigint from u64");
+
+            unsafe {
+                if let Some(e) = crate::quickjs_utils::errors::get_exception(q_ctx.context) {
+                    log::error!("ex: {}", e);
+                }
+            }
+
             let to_str = bigints::to_string_q(q_ctx, &bi_ref).expect("could not tostring bigint");
             assert_eq!(to_str, "659863456456");
             let bi_ref = bigints::new_bigint_i64_q(q_ctx, 659863456457)

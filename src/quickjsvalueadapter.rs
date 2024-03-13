@@ -250,7 +250,10 @@ impl QuickJsValueAdapter {
     }
 }
 
+#[cfg(feature = "bellard")]
 pub(crate) const TAG_BIG_INT: i64 = -10;
+#[cfg(feature = "quickjs-ng")]
+pub(crate) const TAG_BIG_INT: i64 = -9;
 //pub(crate) const TAG_BIG_FLOAT: i64 = -9;
 //pub(crate) const TAG_SYMBOL: i64 = -8;
 pub(crate) const TAG_STRING: i64 = -7;

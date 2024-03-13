@@ -147,6 +147,7 @@ pub mod tests {
     use crate::jsutils::{JsError, Script};
     use crate::quickjs_utils::functions;
     use crate::values::{JsValueConvertable, JsValueFacade};
+    use std::thread;
     //use log::LevelFilter;
     use std::time::Duration;
 
@@ -162,9 +163,12 @@ pub mod tests {
                 "console.log('foo');\nconsole.log('bar');let a = __c_v__ * 7;",
             ),
         );
-        let ex = res.expect_err("sciprt should have failed;");
+        let ex = res.expect_err("script should have failed;");
 
+        #[cfg(feature = "bellard")]
         assert_eq!(ex.get_message(), "'__c_v__' is not defined");
+        #[cfg(feature = "quickjs-ng")]
+        assert_eq!(ex.get_message(), "__c_v__ is not defined");
     }
 
     #[test]
@@ -179,9 +183,12 @@ pub mod tests {
                 "console.log('foo');\nconsole.log('bar');let a = __c_v__ * 7;",
             ),
         );
-        let ex = res.expect_err("sciprt should have failed;");
+        let ex = res.expect_err("script should have failed;");
 
+        #[cfg(feature = "bellard")]
         assert_eq!(ex.get_message(), "'__c_v__' is not defined");
+        #[cfg(feature = "quickjs-ng")]
+        assert_eq!(ex.get_message(), "__c_v__ is not defined");
     }
 
     #[test]
@@ -219,6 +226,71 @@ pub mod tests {
             //panic!("{}", e);
         }
         std::thread::sleep(Duration::from_secs(1));
+    }
+
+    #[test]
+    fn test_ex3() {
+        let rt = init_test_rt();
+        rt.eval_sync(
+            None,
+            Script::new(
+                "test_ex3.js",
+                r#"              
+async function asyncDebugStackPreserve(delegate, invokerName) {
+
+    const startStack = new Error().stack;
+    try {
+        return await delegate();
+    } catch (ex) {
+        const err = Error(ex.message);
+        
+        err.fileName = ex.fileName;
+        err.lineNumber = ex.lineNumber;
+        err.columnNumber = ex.columnNumber;
+        err.cause = ex.cause;
+        
+        err.stack = ex.stack + startStack;
+        throw err;
+    }
+
+}
+
+async function sleep(ms) {
+    return new Promise((res) => {
+        setTimeout(res, ms);
+    });
+}
+
+async function a(){
+	
+	return new Promise(async (res, rej) => {
+		try {
+			let ret = await asyncDebugStackPreserve(async function aInner() {
+			    await sleep(100);
+			    let ret = await b();
+     		});
+			res(ret);
+		} catch(ex) {
+			rej(ex);
+			}
+		});
+	}
+	
+	async function b(){
+        throw Error("poof");
+	}
+	
+		a().catch((ex) => {
+			console.error(ex);
+			});
+	
+       
+       
+        "#,
+            ),
+        )
+        .expect("script failed");
+        thread::sleep(Duration::from_secs(1));
     }
 
     #[test]
