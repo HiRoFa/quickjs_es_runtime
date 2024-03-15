@@ -1,3 +1,7 @@
+# 0.13.2 (WiP)
+
+* add realm id to log on unhandled promises
+
 # 0.13.1
 
 * update quickjs-ng to 4.0.1

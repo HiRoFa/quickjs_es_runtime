@@ -232,8 +232,6 @@ unsafe extern "C" fn promise_rejection_tracker(
     _opaque: *mut ::std::os::raw::c_void,
 ) {
     if is_handled == 0 {
-        log::error!("unhandled promise rejection detected");
-
         let reason_ref = QuickJsValueAdapter::new(
             ctx,
             reason,
@@ -242,14 +240,27 @@ unsafe extern "C" fn promise_rejection_tracker(
             "promises::promise_rejection_tracker reason",
         );
         let reason_str_res = functions::call_to_string(ctx, &reason_ref);
-        match reason_str_res {
-            Ok(reason_str) => {
-                log::error!("unhandled promise rejection - reason: {}", reason_str);
+        QuickJsRuntimeAdapter::do_with(|rt| {
+            let realm = rt.get_quickjs_context(ctx);
+            let realm_id = realm.get_realm_id();
+
+            match reason_str_res {
+                Ok(reason_str) => {
+                    log::error!(
+                        "[{}] unhandled promise rejection, reason: {}",
+                        realm_id,
+                        reason_str
+                    );
+                }
+                Err(e) => {
+                    log::error!(
+                        "[{}] unhandled promise rejection, could not get reason: {}",
+                        realm_id,
+                        e
+                    );
+                }
             }
-            Err(e) => {
-                log::error!("could not get reason: {}", e);
-            }
-        }
+        });
     }
 }
 
