@@ -51,9 +51,14 @@ where
                                 // resolve or reject promise
                                 match raw_res {
                                     Ok(val_ref) => {
-                                        prom_ref
-                                            .js_promise_resolve(realm, &val_ref)
-                                            .expect("prom resolution failed");
+                                        if let Err(e) = prom_ref.js_promise_resolve(realm, &val_ref)
+                                        {
+                                            log::error!(
+                                                "[{}] could not resolve promise5: {}",
+                                                realm.get_realm_id(),
+                                                e
+                                            );
+                                        }
                                     }
                                     Err(err) => {
                                         let err_ref = realm
@@ -63,9 +68,14 @@ where
                                                 err.get_stack(),
                                             )
                                             .expect("could not create error");
-                                        prom_ref
-                                            .js_promise_reject(realm, &err_ref)
-                                            .expect("prom rejection failed");
+                                        if let Err(e) = prom_ref.js_promise_reject(realm, &err_ref)
+                                        {
+                                            log::error!(
+                                                "[{}] could not reject promise4: {}",
+                                                realm.get_realm_id(),
+                                                e
+                                            );
+                                        }
                                     }
                                 }
                             }
@@ -78,9 +88,13 @@ where
                                         err.get_stack(),
                                     )
                                     .expect("could not create error");
-                                prom_ref
-                                    .js_promise_reject(realm, &err_ref)
-                                    .expect("prom rejection failed");
+                                if let Err(e) = prom_ref.js_promise_reject(realm, &err_ref) {
+                                    log::error!(
+                                        "[{}] could not reject promise3: {}",
+                                        realm.get_realm_id(),
+                                        e
+                                    );
+                                }
                             }
                         }
                     } else {
@@ -148,9 +162,14 @@ where
                                 // resolve or reject promise
                                 match raw_res {
                                     Ok(val_ref) => {
-                                        prom_ref
-                                            .js_promise_resolve(realm, &val_ref)
-                                            .expect("prom resolution failed");
+                                        if let Err(e) = prom_ref.js_promise_resolve(realm, &val_ref)
+                                        {
+                                            log::error!(
+                                                "[{}] could not resolve promise: {}",
+                                                realm.get_realm_id(),
+                                                e
+                                            );
+                                        }
                                     }
                                     Err(err) => {
                                         let err_ref = realm
@@ -160,9 +179,14 @@ where
                                                 err.get_stack(),
                                             )
                                             .expect("could not create err");
-                                        prom_ref
-                                            .js_promise_reject(realm, &err_ref)
-                                            .expect("prom rejection failed");
+                                        if let Err(e) = prom_ref.js_promise_reject(realm, &err_ref)
+                                        {
+                                            log::error!(
+                                                "[{}] could not reject promise: {}",
+                                                realm.get_realm_id(),
+                                                e
+                                            );
+                                        }
                                     }
                                 }
                             }
@@ -175,9 +199,13 @@ where
                                         err.get_stack(),
                                     )
                                     .expect("could not create str");
-                                prom_ref
-                                    .js_promise_reject(realm, &err_ref)
-                                    .expect("prom rejection failed");
+                                if let Err(e) = prom_ref.js_promise_reject(realm, &err_ref) {
+                                    log::error!(
+                                        "[{}] could not reject promise2: {}",
+                                        realm.get_realm_id(),
+                                        e
+                                    );
+                                }
                             }
                         }
                     } else {
