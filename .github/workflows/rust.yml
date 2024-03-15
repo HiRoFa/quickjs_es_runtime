@@ -35,6 +35,29 @@ jobs:
       run: |
         cargo test
 
+  build-test-msvc:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Install stable toolchain (windows)
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+          override: true
+      - name: Setup (windows)
+        run: |
+          echo "CARGO_BUILD_TARGET=x86_64-pc-windows-msvc" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Build (windows)
+        run: |
+          cargo clean
+          cargo build --no-default-features --features quickjs-ng
+      - name: Test (windows)
+        run: |
+          cargo test --no-default-features --features quickjs-ng
+
   build-test-mac:
     runs-on: macOs-latest
     steps:
