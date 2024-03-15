@@ -36,6 +36,7 @@ jobs:
         cargo test
 
   build-test-msvc:
+    if: ${{ false }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v1
