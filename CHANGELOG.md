@@ -1,6 +1,7 @@
-# 0.13.2 (WiP)
+# 0.13.2
 
 * add realm id to log on unhandled promises
+* add stack to unhandled prom tracker
 
 # 0.13.1
 

@@ -129,6 +129,11 @@ pub unsafe fn is_error(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter
     }
 }
 
+pub fn get_stack(realm: &QuickJsRealmAdapter) -> Result<QuickJsValueAdapter, JsError> {
+    let e = realm.invoke_function_by_name(&[], "Error", &[])?;
+    realm.get_object_property(&e, "stack")
+}
+
 /// Throw an error and get an Exception JSValue to return from native methods
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
@@ -148,7 +153,6 @@ pub mod tests {
     use crate::quickjs_utils::functions;
     use crate::values::{JsValueConvertable, JsValueFacade};
     use std::thread;
-    //use log::LevelFilter;
     use std::time::Duration;
 
     #[test]
@@ -291,6 +295,39 @@ async function a(){
         )
         .expect("script failed");
         thread::sleep(Duration::from_secs(1));
+    }
+
+    #[test]
+    fn test_ex_stack() {
+        let rt = init_test_rt();
+        rt.exe_rt_task_in_event_loop(|rt| {
+            let realm = rt.get_main_realm();
+            realm
+                .install_closure(
+                    &[],
+                    "myFunc",
+                    |_rt, realm, _this, _args| crate::quickjs_utils::errors::get_stack(realm),
+                    0,
+                )
+                .expect("could not install func");
+
+            let res = realm
+                .eval(Script::new(
+                    "runMyFunc.js",
+                    r#"
+                function a(){
+                    return b();                
+                }
+                function b(){
+                    return myFunc();
+                }
+                a()
+            "#,
+                ))
+                .expect("script failed");
+
+            log::info!("test_ex_stack res = {}", res.to_string().unwrap());
+        });
     }
 
     #[test]

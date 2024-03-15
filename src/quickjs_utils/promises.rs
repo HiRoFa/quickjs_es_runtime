@@ -1,5 +1,6 @@
 use crate::jsutils::JsError;
 use crate::quickjs_utils;
+use crate::quickjs_utils::errors::get_stack;
 use crate::quickjs_utils::functions;
 use crate::quickjs_utils::objects::is_instance_of_by_name;
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
@@ -243,20 +244,28 @@ unsafe extern "C" fn promise_rejection_tracker(
         QuickJsRuntimeAdapter::do_with(|rt| {
             let realm = rt.get_quickjs_context(ctx);
             let realm_id = realm.get_realm_id();
-
+            let stack = match get_stack(realm) {
+                Ok(s) => match s.to_string() {
+                    Ok(s) => s,
+                    Err(_) => "".to_string(),
+                },
+                Err(_) => "".to_string(),
+            };
             match reason_str_res {
                 Ok(reason_str) => {
                     log::error!(
-                        "[{}] unhandled promise rejection, reason: {}",
+                        "[{}] unhandled promise rejection, reason: {}{}",
                         realm_id,
-                        reason_str
+                        reason_str,
+                        stack
                     );
                 }
                 Err(e) => {
                     log::error!(
-                        "[{}] unhandled promise rejection, could not get reason: {}",
+                        "[{}] unhandled promise rejection, could not get reason: {}{}",
                         realm_id,
-                        e
+                        e,
+                        stack
                     );
                 }
             }
