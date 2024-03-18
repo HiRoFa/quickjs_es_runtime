@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["is_valid_ascii","is_valid_ascii_slice","is_valid_letter","is_valid_letter_slice"]};

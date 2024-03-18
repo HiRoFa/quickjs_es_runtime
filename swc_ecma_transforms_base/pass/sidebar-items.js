@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["noop"],"struct":["Optional"],"trait":["JsPass","Repeated","RepeatedJsPass"]};

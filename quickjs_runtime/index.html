@@ -1,0 +1,62 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="quickjs_runtime"><title>quickjs_runtime - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="quickjs_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../quickjs_runtime/index.html">quickjs_runtime</a><span class="version">0.13.3</span></h2></div><div class="sidebar-elems"><ul class="block">
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li></ul></section></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../quickjs_runtime/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">quickjs_runtime</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/quickjs_runtime/lib.rs.html#1-236">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="quickjs_runtime"><a href="#quickjs_runtime">quickjs_runtime</a></h2>
+<p>This crate consists of two main parts:</p>
+<ul>
+<li>thread-safe utils and wrappers
+you can call these from any thread, all logic is directed to a single worker-thread(EventLoop) which invokes the quickjs API</li>
+<li>quickjs bindings and utils
+these talk to the quickjs API directly and need to run in the same thread as the Runtime</li>
+</ul>
+<h3 id="noteworthy-structs"><a href="#noteworthy-structs">Noteworthy structs</a></h3>
+<p>These are the structs you’ll use the most</p>
+<p>| Thread safe (Facades) | Runtime Thread-local (Adapters) |
+| — | — | — | — |
+| <a href="facades/struct.QuickJsRuntimeFacade.html">QuickJsRuntimeFacade</a> the ‘starting point’ | <a href="quickjsruntimeadapter/struct.QuickJsRuntimeAdapter.html">QuickJsRuntimeAdapter</a> the wrapper for all things quickjs |
+| - | <a href="quickjsrealmadapter/struct.QuickJsRealmAdapter.html">QuickJsRealmAdapter</a> a realm or context |
+| <a href="https://hirofa.github.io/utils/hirofa_utils/js_utils/facades/values/enum.JsValueFacade.html">JsValueFacade</a> copy of- or reference to a value in the JsRuntimeAdapter | <a href="quickjsvalueadapter/struct.QuickJsValueAdapter.html">QuickJsValueAdapter</a> reference counting pointer to a Value |</p>
+<h3 id="doing-something-in-the-runtime-worker-thread"><a href="#doing-something-in-the-runtime-worker-thread">Doing something in the runtime worker thread</a></h3>
+<p>You always start with building a new <a href="facades/struct.QuickjsRuntimeFacade.html">QuickjsRuntimeFacade</a></p>
+<div class="example-wrap"><pre class="language-dontrun"><code>use quickjs_runtime::builder::QuickJsRuntimeBuilder;
+let rt: JsRuntimeFacade = QuickJsRuntimeBuilder::new().js_build();
+</code></pre></div>
+<p><a href="facades/struct.QuickJsRuntimeFacade.html">QuickJsRuntimeFacade</a> has plenty public methods you can check out but one of the things you’ll need to understand is how to communicate with the <a href="quickjsruntimeadapter/struct.QuickJsRuntimeAdapter.html">QuickJsRuntimeAdapter</a> and the <a href="quickjsrealmadapter/struct.QuickJsRealmAdapter.html">QuickJsRealmAdapter</a>
+This is done by adding a job to the <a href="https://hirofa.github.io/utils/hirofa_utils/eventloop/struct.EventLoop.html">EventLoop</a> of the <a href="facades/struct.QuickJsRuntimeFacade.html">QuickJsRuntimeFacade</a></p>
+<div class="example-wrap"><pre class="language-dontrun"><code>// with the first Option you may specify which realm to use, None indicates the default or main realm
+let res = rt.loop_realm(None, |rt: QuickJsRuntimeAdapter, realm: QuickJsRealmAdapter| {
+   // this will run in the Worker thread, here we can use the Adapters
+   // since we passed None as realm the realm adapter will be the &quot;main&quot; realm
+   return true;
+}).await;
+</code></pre></div>
+<p>All the non-sync functions return a Future so you can .await them from async functions.</p>
+<p>In order to do something and get the result synchronously you can use the sync variant</p>
+<div class="example-wrap"><pre class="language-dontrun"><code>use quickjs_runtime::quickjsruntime::QuickJsRuntime;
+let res = rt.loop_realm_sync(None, |rt, realm| {
+   // this will run in the Worker thread, here we can use the quickjs API
+   return 1;
+});
+</code></pre></div>
+<p>One last thing you need to know is how to pass values from the js engine out of the worker thread</p>
+<p>This is where the JsValueFacade comes in</p>
+<div class="example-wrap"><pre class="language-dontrun"><code>
+// init a simple function
+rt.eval(Script::new(&quot;init_func.js&quot;, &quot;globalThis.myObj = {someMember: {someFunction: function(input){return(input + &quot; &gt; hello rust!&quot;);}}};&quot;)).await;
+
+// create an input variable by using one of the constructor methods of the JsValueFacade
+let input_facade = JsValueFacade::new_str(&quot;hello js!&quot;);
+// move it into a closure which will run in the worker thread
+let res = rt.loop_realm(None, move |rt: JsRuntimeAdapter, realm: JsRealmAdapter| {
+   // convert the input JsValueFacade to JsValueAdapter
+   let input_adapter = realm.from_js_value_facade(input_facade);
+   // call myObj.someMember.someFunction();
+   let result_adapter = realm.invoke_function_by_name(&amp;[&quot;myObj&quot;, &quot;someMember&quot;], &quot;someFunction&quot;, &amp;[input_adapter])?;
+   // convert adapter to facade again so it may move out of the worker thread
+   return realm.to_js_value_facade(&amp;result_adapter);
+}).await;
+assert_eq!(res.get_str(), &quot;hello_js! &gt; hello rust!&quot;);
+</code></pre></div>
+<p>For more details and examples please explore the packages below</p>
+</div></details><h2 id="reexports" class="section-header"><a href="#reexports">Re-exports</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.libquickjs_sys"><code>pub use <a class="mod" href="../hirofa_quickjs_sys/index.html" title="mod hirofa_quickjs_sys">libquickjs_sys</a>;</code></div></li></ul><h2 id="modules" class="section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="builder/index.html" title="mod quickjs_runtime::builder">builder</a></div><div class="desc docblock-short">contains the QuickJsRuntimeBuilder which may be used to instantiate a new QuickjsRuntimeFacade</div></li><li><div class="item-name"><a class="mod" href="facades/index.html" title="mod quickjs_runtime::facades">facades</a></div><div class="desc docblock-short">contains the QuickJsRuntimeFacade</div></li><li><div class="item-name"><a class="mod" href="features/index.html" title="mod quickjs_runtime::features">features</a></div><div class="desc docblock-short">contains engine features like console, setTimeout, setInterval and setImmediate</div></li><li><div class="item-name"><a class="mod" href="jsutils/index.html" title="mod quickjs_runtime::jsutils">jsutils</a></div><div class="desc docblock-short">This contains abstract traits and structs for use with different javascript runtimes
+the Adapter traits are use in the worker thread (EventLoop) of the Runtime and thus are not Send, they should never leave the thread
+The facade classes are for use outside the worker thread, they are Send</div></li><li><div class="item-name"><a class="mod" href="quickjs_utils/index.html" title="mod quickjs_runtime::quickjs_utils">quickjs_utils</a></div><div class="desc docblock-short">low level contains utils for calling the quickjs api</div></li><li><div class="item-name"><a class="mod" href="quickjsrealmadapter/index.html" title="mod quickjs_runtime::quickjsrealmadapter">quickjsrealmadapter</a></div></li><li><div class="item-name"><a class="mod" href="quickjsruntimeadapter/index.html" title="mod quickjs_runtime::quickjsruntimeadapter">quickjsruntimeadapter</a></div></li><li><div class="item-name"><a class="mod" href="quickjsvalueadapter/index.html" title="mod quickjs_runtime::quickjsvalueadapter">quickjsvalueadapter</a></div><div class="desc docblock-short">JSValueRef is a wrapper for quickjs’s JSValue. it provides automatic reference counting making it safer to use  </div></li><li><div class="item-name"><a class="mod" href="reflection/index.html" title="mod quickjs_runtime::reflection">reflection</a></div><div class="desc docblock-short">utils for implementing proxy classes which can be used to use rust structs from JS (define method/getters/setters/etc)</div></li><li><div class="item-name"><a class="mod" href="typescript/index.html" title="mod quickjs_runtime::typescript">typescript</a></div></li><li><div class="item-name"><a class="mod" href="values/index.html" title="mod quickjs_runtime::values">values</a></div></li></ul></section></div></main></body></html>
