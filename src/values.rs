@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Debug, Formatter};
 use std::pin::Pin;
+use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 use string_cache::DefaultAtom;
@@ -239,19 +240,31 @@ impl CachedJsPromiseRef {
         let tx1 = tx.clone();
         let tx2 = tx.clone();
 
+        let state = Arc::new(AtomicU16::new(0));
+        let state_then = state.clone();
+        let state_catch = state.clone();
+
         self.cached_object.with_obj_void(move |realm, obj| {
             let res = || {
                 let then_func = realm.create_function(
                     "then",
                     move |realm, _this, args| {
                         //
+
+                        state_then.fetch_add(1, Ordering::Relaxed);
+
                         let resolution = &args[0];
                         let send_res = match realm.to_js_value_facade(resolution) {
                             Ok(vf) => tx1.send(Ok(Ok(vf))),
                             Err(conv_err) => tx1.send(Err(conv_err)),
                         };
-                        send_res
-                            .map_err(|e| JsError::new_string(format!("could not send: {e}")))?;
+
+                        send_res.map_err(|e| {
+                            JsError::new_string(format!(
+                                "could not send: {e} state:{}",
+                                state_then.load(Ordering::Relaxed)
+                            ))
+                        })?;
                         realm.create_undefined()
                     },
                     1,
@@ -260,13 +273,21 @@ impl CachedJsPromiseRef {
                     "catch",
                     move |realm, _this, args| {
                         //
+
+                        state_catch.fetch_add(16, Ordering::Relaxed);
+
                         let rejection = &args[0];
                         let send_res = match realm.to_js_value_facade(rejection) {
                             Ok(vf) => tx2.send(Ok(Err(vf))),
                             Err(conv_err) => tx2.send(Err(conv_err)),
                         };
-                        send_res
-                            .map_err(|e| JsError::new_string(format!("could not send: {e}")))?;
+
+                        send_res.map_err(|e| {
+                            JsError::new_string(format!(
+                                "could not send: {e} state:{}",
+                                state_catch.load(Ordering::Relaxed)
+                            ))
+                        })?;
                         realm.create_undefined()
                     },
                     1,
@@ -278,6 +299,7 @@ impl CachedJsPromiseRef {
             match res() {
                 Ok(_) => {}
                 Err(e) => {
+                    state.fetch_add(64, Ordering::Relaxed);
                     log::error!("failed to add promise reactions {}", e);
                     match tx.send(Err(e)) {
                         Ok(_) => {}
