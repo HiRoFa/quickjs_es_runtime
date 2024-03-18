@@ -1,3 +1,7 @@
+# 0.13.3
+
+* added some debug info to async promise await code
+
 # 0.13.2
 
 * add realm id to log on unhandled promises
