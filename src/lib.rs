@@ -10,7 +10,7 @@
 //! These are the structs you'll use the most
 //!
 //! | Thread safe (Facades) | Runtime Thread-local (Adapters) |
-//! | --- | --- | --- | --- |
+//! | --- | --- |
 //! | [QuickJsRuntimeFacade](facades/struct.QuickJsRuntimeFacade.html) the 'starting point' | [QuickJsRuntimeAdapter](quickjsruntimeadapter/struct.QuickJsRuntimeAdapter.html) the wrapper for all things quickjs |
 //! | - | [QuickJsRealmAdapter](quickjsrealmadapter/struct.QuickJsRealmAdapter.html) a realm or context |
 //! | [JsValueFacade](https://hirofa.github.io/utils/hirofa_utils/js_utils/facades/values/enum.JsValueFacade.html) copy of- or reference to a value in the JsRuntimeAdapter | [QuickJsValueAdapter](quickjsvalueadapter/struct.QuickJsValueAdapter.html) reference counting pointer to a Value |
