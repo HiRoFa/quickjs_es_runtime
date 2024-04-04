@@ -10,7 +10,7 @@
 //! These are the structs you'll use the most
 //!
 //! | Thread safe (Facades) | Runtime Thread-local (Adapters) |
-//! | --- | --- | --- | --- |
+//! | --- | --- |
 //! | [QuickJsRuntimeFacade](facades/struct.QuickJsRuntimeFacade.html) the 'starting point' | [QuickJsRuntimeAdapter](quickjsruntimeadapter/struct.QuickJsRuntimeAdapter.html) the wrapper for all things quickjs |
 //! | - | [QuickJsRealmAdapter](quickjsrealmadapter/struct.QuickJsRealmAdapter.html) a realm or context |
 //! | [JsValueFacade](https://hirofa.github.io/utils/hirofa_utils/js_utils/facades/values/enum.JsValueFacade.html) copy of- or reference to a value in the JsRuntimeAdapter | [QuickJsValueAdapter](quickjsvalueadapter/struct.QuickJsValueAdapter.html) reference counting pointer to a Value |
@@ -60,7 +60,7 @@
 //! // move it into a closure which will run in the worker thread
 //! let res = rt.loop_realm(None, move |rt: JsRuntimeAdapter, realm: JsRealmAdapter| {
 //!    // convert the input JsValueFacade to JsValueAdapter
-//!    let input_adapter = realm.from_js_value_facade(input_facade);
+//!    let input_adapter = realm.from_js_value_facade(input_facade)?;
 //!    // call myObj.someMember.someFunction();
 //!    let result_adapter = realm.invoke_function_by_name(&["myObj", "someMember"], "someFunction", &[input_adapter])?;
 //!    // convert adapter to facade again so it may move out of the worker thread
