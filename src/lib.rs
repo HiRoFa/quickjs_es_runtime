@@ -60,7 +60,7 @@
 //! // move it into a closure which will run in the worker thread
 //! let res = rt.loop_realm(None, move |rt: JsRuntimeAdapter, realm: JsRealmAdapter| {
 //!    // convert the input JsValueFacade to JsValueAdapter
-//!    let input_adapter = realm.from_js_value_facade(input_facade);
+//!    let input_adapter = realm.from_js_value_facade(input_facade)?;
 //!    // call myObj.someMember.someFunction();
 //!    let result_adapter = realm.invoke_function_by_name(&["myObj", "someMember"], "someFunction", &[input_adapter])?;
 //!    // convert adapter to facade again so it may move out of the worker thread
