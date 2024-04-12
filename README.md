@@ -2,20 +2,18 @@
 
 quickjs_runtime is a library for quickly getting started with embedding a javascript engine in your rust project.
 
-**as of 2024 this lib no longer relies on [libquickjs-sys](https://github.com/theduke/quickjs-rs/tree/master/libquickjs-sys) but on out own [hirofa-quickjs-sys](https://github.com/HiRoFa/quickjs-sys) adding flexibility in used quickjs version**
+**as of 2024 this lib no longer relies on [libquickjs-sys](https://github.com/theduke/quickjs-rs/tree/master/libquickjs-sys) but on our own [hirofa-quickjs-sys](https://github.com/HiRoFa/quickjs-sys) adding flexibility in used quickjs version**
 
 quickjs_runtime runs all javascript action in a single thread using an EventLoop. This means you can call javascript safely from several threads by adding tasks to the EventLoop.
 
 # quickjs or quickjs-ng
 
-I'm working on supporting both the original quickjs and the quickjs-ng project.
+quickjs_runtime supporta both the original quickjs and the quickjs-ng project.
 
-You can try out quickjs-ng by adding the dep to quickjs_runtime like this:
+You can try out quickjs-ng by adding the dep to quickjs_runtime like this (use at your own risk as I have not extensively tested it yet):
 ```toml
 quickjs_runtime = {git="https://github.com/HiRoFa/quickjs_es_runtime", features=["console", "setimmediate", "setinterval", "settimeout", "typescript", "quickjs-ng"], default-features=false}
 ```
-
-Use at your own risk as I have not extensively tested it yet
 
 # Usage and Features
 
@@ -52,7 +50,7 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 * Create promises in JavaScript which execute async
 * Eval modules ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/facades/struct.QuickJsRuntimeFacade.html#method.eval_module))
 * Load modules (dynamic and static) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/builder/struct.QuickJsRuntimeBuilder.html#method.script_module_loader))
-* ~~fetch api (moved to [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime))~~
+* fetch api (impl in [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime))
 * setImmediate
 * setTimeout/Interval (and clear)
 * script preprocessing (impls for ifdef/macro's/typescript can be found in [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime))
