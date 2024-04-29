@@ -8,7 +8,7 @@ quickjs_runtime runs all javascript action in a single thread using an EventLoop
 
 # quickjs or quickjs-ng
 
-quickjs_runtime supporta both the original quickjs and the quickjs-ng project.
+quickjs_runtime supports both the original quickjs and the quickjs-ng project.
 
 You can try out quickjs-ng by adding the dep to quickjs_runtime like this (use at your own risk as I have not extensively tested it yet):
 ```toml
