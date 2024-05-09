@@ -75,10 +75,7 @@ pub unsafe fn new_array_buffer(
 ) -> Result<QuickJsValueAdapter, JsError> {
     log::trace!("new_array_buffer");
 
-    #[cfg(target_pointer_width = "64")]
-    let length = buf.len();
-    #[cfg(target_pointer_width = "32")]
-    let length = buf.len() as u32;
+    let length: usize = buf.len();
 
     let (buffer_id, buffer_ptr) = BUFFERS.with(|rc| {
         let buffers = &mut *rc.borrow_mut();
@@ -160,10 +157,7 @@ pub unsafe fn new_array_buffer_copy(
 ) -> Result<QuickJsValueAdapter, JsError> {
     log::trace!("new_array_buffer_copy");
 
-    #[cfg(target_pointer_width = "64")]
-    let length = buf.len();
-    #[cfg(target_pointer_width = "32")]
-    let length = buf.len() as u32;
+    let length: usize = buf.len();
 
     let raw = q::JS_NewArrayBufferCopy(ctx, buf.as_ptr(), length);
     let obj_ref = QuickJsValueAdapter::new(
@@ -213,10 +207,7 @@ pub unsafe fn detach_array_buffer_buffer(
             buffers.remove(&id)
         })
     } else {
-        #[cfg(target_pointer_width = "64")]
         let mut len: usize = 0;
-        #[cfg(target_pointer_width = "32")]
-        let mut len: u32 = 0;
 
         let ptr = q::JS_GetArrayBuffer(ctx, &mut len, *array_buffer.borrow_value());
 
@@ -265,10 +256,7 @@ pub unsafe fn get_array_buffer_buffer_copy(
         });
         Ok(b)
     } else {
-        #[cfg(target_pointer_width = "64")]
         let mut len: usize = 0;
-        #[cfg(target_pointer_width = "32")]
-        let mut len: u32 = 0;
 
         let ptr = q::JS_GetArrayBuffer(ctx, &mut len, *array_buffer.borrow_value());
 
