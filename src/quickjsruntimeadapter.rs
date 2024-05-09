@@ -466,6 +466,9 @@ impl QuickJsRuntimeAdapter {
             Ok(())
         })
     }
+    pub fn list_contexts(&self) -> Vec<&str> {
+        self.contexts.keys().map(|k| k.as_str()).collect()
+    }
     pub fn remove_context(id: &str) {
         log::debug!("QuickJsRuntime::drop_context: {}", id);
 
