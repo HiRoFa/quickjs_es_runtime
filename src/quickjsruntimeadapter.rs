@@ -246,9 +246,7 @@ thread_local! {
    /// this only exists for the worker thread of the EsEventQueue
    /// todo move rt init to toplevel stackframe (out of lazy init)
    /// so the thread_local should be a refcel containing a null reF? or a None
-   pub(crate) static QJS_RT: RefCell<Option<QuickJsRuntimeAdapter >> = {
-       RefCell::new(None)
-   };
+   pub(crate) static QJS_RT: RefCell<Option<QuickJsRuntimeAdapter >> = const { RefCell::new(None) };
 
 }
 
@@ -271,7 +269,7 @@ pub struct QuickJsRuntimeAdapter {
 }
 
 thread_local! {
-    static NESTED: RefCell<bool> = RefCell::new(false);
+    static NESTED: RefCell<bool> = const {RefCell::new(false)};
 }
 
 #[derive(Serialize)]
