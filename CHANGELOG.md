@@ -1,3 +1,7 @@
+# 0.13.4
+
+* added rust backtrace to errors generated in rust
+
 # 0.13.3
 
 * added some debug info to async promise await code

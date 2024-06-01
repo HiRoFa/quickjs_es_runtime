@@ -206,7 +206,8 @@ impl CachedJsPromiseRef {
 
     pub fn get_promise_result_sync(&self) -> Result<Result<JsValueFacade, JsValueFacade>, JsError> {
         let rx = self.get_promise_result_receiver();
-        rx.recv().map_err(|e| JsError::new_string(format!("{e}")))?
+        rx.recv()
+            .map_err(|e| JsError::new_string(format!("get_promise_result_sync/1: {e}")))?
     }
 
     pub fn get_promise_result_sync_timeout(
@@ -216,9 +217,10 @@ impl CachedJsPromiseRef {
         let rx = self.get_promise_result_receiver();
         let res = if let Some(timeout) = timeout {
             rx.recv_timeout(timeout)
-                .map_err(|e| JsError::new_string(format!("{e}")))
+                .map_err(|e| JsError::new_string(format!("get_promise_result_sync_timeout/1: {e}")))
         } else {
-            rx.recv().map_err(|e| JsError::new_string(format!("{e}")))
+            rx.recv()
+                .map_err(|e| JsError::new_string(format!("get_promise_result_sync_timeout/2: {e}")))
         };
         res?
     }

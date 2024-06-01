@@ -3,6 +3,7 @@
 //! The facade classes are for use outside the worker thread, they are Send
 //!
 
+use backtrace::Backtrace;
 use std::fmt::{Debug, Display, Error, Formatter};
 
 pub mod helper_tasks;
@@ -71,10 +72,11 @@ impl JsError {
         Self::new_string(err.to_string())
     }
     pub fn new_string(err: String) -> Self {
+        let bt = Backtrace::new();
         JsError {
             name: "Error".to_string(),
             message: err,
-            stack: "".to_string(),
+            stack: format!("{bt:?}"),
         }
     }
     pub fn get_message(&self) -> &str {
