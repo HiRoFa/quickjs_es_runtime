@@ -1,3 +1,8 @@
+# 0.14.0
+
+* simplified tokio dep
+* removed tokio_full feature
+
 # 0.13.4
 
 * added rust backtrace to errors generated in rust

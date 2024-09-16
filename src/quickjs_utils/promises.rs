@@ -429,6 +429,35 @@ pub mod tests {
         log::info!("< test_promise_reactions");
     }
 
+    #[tokio::test]
+    async fn test_promise_async() {
+        let rt = init_test_rt();
+        let jsvf = rt
+            .eval(
+                None,
+                Script::new("test_prom_async.js", "Promise.resolve(123)"),
+            )
+            .await
+            .expect("script failed");
+        if let JsValueFacade::JsPromise { cached_promise } = jsvf {
+            let res = cached_promise
+                .get_promise_result()
+                .await
+                .expect("promise resolve send code stuf exploded");
+            match res {
+                Ok(prom_res) => {
+                    if prom_res.is_i32() {
+                        assert_eq!(prom_res.get_i32(), 123);
+                    } else {
+                        panic!("promise did not resolve to an i32.. well that was unexpected!");
+                    }
+                }
+                Err(e) => {
+                    panic!("prom was rejected: {}", e.stringify())
+                }
+            }
+        }
+    }
     #[test]
     fn test_promise_nested() {
         log::info!("> test_promise_nested");
