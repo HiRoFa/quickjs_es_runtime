@@ -32,7 +32,12 @@ pub fn to_f64(value_ref: &QuickJsValueAdapter) -> Result<f64, JsError> {
 }
 
 pub fn from_f64(f: f64) -> QuickJsValueAdapter {
+    #[cfg(feature = "bellard")]
     let raw = unsafe { q::JS_NewFloat64(ptr::null_mut(), f) };
+
+    #[cfg(feature = "quickjs-ng")]
+    let raw = unsafe { q::JS_NewNumber(ptr::null_mut(), f) };
+
     QuickJsValueAdapter::new_no_context(raw, "primitives::from_f64")
 }
 

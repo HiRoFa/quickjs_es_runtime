@@ -469,6 +469,7 @@ where
         let atom = enum_ref.get_atom_raw(index) as q::JSAtom;
         let prop_name = atoms::to_str(context, &atom)?;
 
+        #[cfg(feature = "bellard")]
         let raw_value = q::JS_GetPropertyInternal(
             context,
             *obj_ref.borrow_value(),
@@ -476,6 +477,9 @@ where
             *obj_ref.borrow_value(),
             0,
         );
+        #[cfg(feature = "quickjs-ng")]
+        let raw_value = q::JS_GetProperty(context, *obj_ref.borrow_value(), atom);
+
         let prop_val_ref = QuickJsValueAdapter::new(
             context,
             raw_value,
@@ -511,6 +515,7 @@ where
         let atom = enum_ref.get_atom_raw(index) as q::JSAtom;
         let prop_name = atoms::to_str(context, &atom)?;
 
+        #[cfg(feature = "bellard")]
         let raw_value = q::JS_GetPropertyInternal(
             context,
             *obj_ref.borrow_value(),
@@ -518,6 +523,9 @@ where
             *obj_ref.borrow_value(),
             0,
         );
+        #[cfg(feature = "quickjs-ng")]
+        let raw_value = q::JS_GetProperty(context, *obj_ref.borrow_value(), atom);
+
         let prop_val_ref = QuickJsValueAdapter::new(
             context,
             raw_value,
