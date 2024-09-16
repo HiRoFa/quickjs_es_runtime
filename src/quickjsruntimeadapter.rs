@@ -213,30 +213,28 @@ unsafe extern "C" fn native_module_init(
 
     QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         QuickJsRealmAdapter::with_context(ctx, |q_ctx| {
-            if let Some(res) = q_js_rt.with_all_module_loaders(|module_loader| {
-                if module_loader.has_module(q_ctx, module_name.as_str()) {
-                    match module_loader.init_module(q_ctx, module) {
-                        Ok(_) => {
-                            Some(0) // ok
+            q_js_rt
+                .with_all_module_loaders(|module_loader| {
+                    if module_loader.has_module(q_ctx, module_name.as_str()) {
+                        match module_loader.init_module(q_ctx, module) {
+                            Ok(_) => {
+                                Some(0) // ok
+                            }
+                            Err(e) => {
+                                q_ctx.report_ex(
+                                    format!(
+                                        "Failed to init native module: {module_name} caused by {e}"
+                                    )
+                                    .as_str(),
+                                );
+                                Some(1)
+                            }
                         }
-                        Err(e) => {
-                            q_ctx.report_ex(
-                                format!(
-                                    "Failed to init native module: {module_name} caused by {e}"
-                                )
-                                .as_str(),
-                            );
-                            Some(1)
-                        }
+                    } else {
+                        None
                     }
-                } else {
-                    None
-                }
-            }) {
-                res
-            } else {
-                0
-            }
+                })
+                .unwrap_or(0)
         })
     })
 }

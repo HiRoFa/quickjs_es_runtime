@@ -26,7 +26,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::future::Future;
-use std::i32;
 use std::os::raw::c_void;
 use std::rc::Rc;
 use std::sync::{Arc, Weak};
