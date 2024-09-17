@@ -109,6 +109,7 @@ tracing-log = "0.1"
 tracing-gelf = "0.7"
 simple-logging = "2.0.2"
 tokio = {version = "1", features=["macros"]}
+anyhow="1"
 
 [dev-dependencies.cargo-husky]
 version = "1.5.0"
