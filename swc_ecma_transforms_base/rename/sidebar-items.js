@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["rename","rename_with_config","renamer"],"trait":["Renamer"]};

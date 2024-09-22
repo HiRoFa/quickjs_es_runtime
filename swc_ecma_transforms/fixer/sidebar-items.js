@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["fixer","paren_remover"]};

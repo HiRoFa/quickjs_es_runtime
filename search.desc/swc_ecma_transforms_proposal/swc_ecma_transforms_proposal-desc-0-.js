@@ -1,0 +1,1 @@
+searchState.loadedDescShard("swc_ecma_transforms_proposal", 0, "<code>@babel/plugin-proposal-export-default-from</code>\nSimple class decorator\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.")

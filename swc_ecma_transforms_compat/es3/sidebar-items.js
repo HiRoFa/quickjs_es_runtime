@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["es3","member_expression_literals","property_literals","reserved_words"]};

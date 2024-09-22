@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["amd","amd_with_resolver"],"struct":["Amd","Config"]};

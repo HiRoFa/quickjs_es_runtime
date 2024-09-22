@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["cpu_count"],"trait":["Items","Parallel","ParallelExt"]};

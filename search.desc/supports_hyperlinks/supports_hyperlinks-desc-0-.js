@@ -1,0 +1,1 @@
+searchState.loadedDescShard("supports_hyperlinks", 0, "Detects whether the current terminal supports hyperlinks …\npossible stream sources\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.\nReturns true if <code>stream</code> is a TTY, and the current terminal …\nReturns true if the current terminal, detected through …")
