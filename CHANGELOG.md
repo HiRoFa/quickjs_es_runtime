@@ -1,4 +1,9 @@
-# 0.14.2
+# 0.14.3
+
+* update quickjs-ng to 0.6.0
+* bellard as default
+
+# 0.14.2 (yanked, accidentaly set quickjs-ng as default)
 
 * update quickjs-ng to 0.6.0
 
