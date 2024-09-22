@@ -1,3 +1,11 @@
+# 0.14.2
+
+* update quickjs-ng to 0.6.0
+
+# 0.14.1
+
+* update quickjs-ng to 0.5.0
+
 # 0.14.0
 
 * simplified tokio dep
