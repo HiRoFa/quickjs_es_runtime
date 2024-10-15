@@ -1,0 +1,1 @@
+searchState.loadedDescShard("enum_kind", 0, "Attributes on enum")

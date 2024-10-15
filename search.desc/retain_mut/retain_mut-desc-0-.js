@@ -1,0 +1,1 @@
+searchState.loadedDescShard("retain_mut", 0, "<strong>This crate has been deprecated. Rust 1.61 stabilized </strong>…\nTrait that provides <code>retain_mut</code> method.\nRetains only the elements specified by the predicate, …")

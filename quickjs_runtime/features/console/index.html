@@ -1,0 +1,39 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="the console feature enables the script to use various cansole.log variants see also: MDN the following methods are available"><title>quickjs_runtime::features::console - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="quickjs_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../quickjs_runtime/index.html">quickjs_runtime</a><span class="version">0.14.4</span></h2></div><h2 class="location"><a href="#">Module console</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#functions">Functions</a></li></ul></section><h2><a href="../index.html">In quickjs_runtime::features</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">quickjs_runtime</a>::<wbr><a href="../index.html">features</a>::<wbr><a class="mod" href="#">console</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/quickjs_runtime/features/console.rs.html#1-398">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>the console feature enables the script to use various cansole.log variants
+see also: <a href="https://developer.mozilla.org/en-US/docs/Web/API/Console">MDN</a>
+the following methods are available</p>
+<ul>
+<li>console.log()</li>
+<li>console.info()</li>
+<li>console.error()</li>
+<li>console.warning()</li>
+<li>console.trace()</li>
+</ul>
+<p>The methods use rust’s log crate to output messages. e.g. console.info() uses the log::info!() macro
+so the console messages should appear in the log you initialized from rust</p>
+<p>All methods accept a single message string and optional substitution values</p>
+<p>e.g.</p>
+<div class="example-wrap"><pre class="language-javascript"><code>console.log(&#39;Oh dear %s totaly failed %i times because of a %.4f variance in the space time continuum&#39;, &#39;some guy&#39;, 12, 2.46)
+</code></pre></div>
+<p>will output ‘Oh dear some guy totaly failed 12 times because of a 2.4600 variance in the space time continuum’</p>
+<p>The string substitution you can use are</p>
+<ul>
+<li>%o or %O Outputs a JavaScript object (serialized)</li>
+<li>%d or %i Outputs an integer. Number formatting is supported, for example  console.log(“Foo %.2d”, 1.1) will output the number as two significant figures with a leading 0: Foo 01</li>
+<li>%s Outputs a string (will attempt to call .toString() on objects, use %o to output a serialized JSON string)</li>
+<li>%f Outputs a floating-point value. Formatting is supported, for example  console.log(“Foo %.2f”, 1.1) will output the number to 2 decimal places: Foo 1.10</li>
+</ul>
+<h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>quickjs_runtime::builder::QuickJsRuntimeBuilder;
+<span class="kw">use </span>log::LevelFilter;
+<span class="kw">use </span>quickjs_runtime::jsutils::Script;
+simple_logging::log_to_file(<span class="string">"console_test.log"</span>, LevelFilter::max())
+            .ok()
+            .expect(<span class="string">"could not init logger"</span>);
+<span class="kw">let </span>rt = QuickJsRuntimeBuilder::new().build();
+rt.eval_sync(<span class="prelude-val">None</span>, Script::new(
+<span class="string">"console.es"</span>,
+<span class="string">"console.log('the %s %s %s jumped over %i fences with a accuracy of %.2f', 'quick', 'brown', 'fox', 32, 0.512);"
+</span>)).expect(<span class="string">"script failed"</span>);</code></pre></div>
+<p>which will result in a log entry like
+<code>[00:00:00.012] (7f44e7d24700) INFO   the quick brown fox jumped over 32 fences with a accuracy of 0.51</code></p>
+</div></details><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.init.html" title="fn quickjs_runtime::features::console::init">init</a></div></li></ul></section></div></main></body></html>

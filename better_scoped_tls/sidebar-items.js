@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["scoped_tls"],"struct":["ScopedKey"]};

@@ -1,0 +1,1 @@
+searchState.loadedDescShard("ast_node", 0, "Derives <code>serde::Deserialize</code> which is aware of <code>tag</code> based …\nDerives [<code>swc_common::Spanned</code>]. See [<code>swc_common::Spanned</code>] …\nAlias for <code>#[derive(Spanned, Fold, Clone, Debug, PartialEq)]</code>…\nDerives <code>serde::Serialize</code> and <code>serde::Deserialize</code>.")

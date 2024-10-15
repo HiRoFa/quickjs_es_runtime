@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["hygiene","hygiene_with_config","rename"],"struct":["Config"]};
