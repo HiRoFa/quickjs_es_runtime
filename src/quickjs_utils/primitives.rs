@@ -124,7 +124,8 @@ pub unsafe fn to_str(
     }
 
     let cstr = std::ffi::CStr::from_ptr(ptr);
-    Ok(cstr.to_str().expect("bad cstr bad!"))
+    cstr.to_str()
+        .map_err(|e| JsError::new_string(format!("utf8 error: {e}")))
 
     //let s = cstr.to_string_lossy();
 

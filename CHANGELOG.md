@@ -1,3 +1,7 @@
+# 0.14.4
+
+* don't panic on utf8 error in to_str
+
 # 0.14.3
 
 * update quickjs-ng to 0.6.0
