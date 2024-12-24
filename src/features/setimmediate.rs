@@ -15,7 +15,6 @@ use libquickjs_sys as q;
 /// rt.eval_sync(None, Script::new("test_immediate.es", "setImmediate(() => {console.log('immediate logging')});")).expect("script failed");
 /// std::thread::sleep(Duration::from_secs(1));
 /// ```
-
 pub fn init(q_js_rt: &QuickJsRuntimeAdapter) -> Result<(), JsError> {
     log::trace!("setimmediate::init");
 

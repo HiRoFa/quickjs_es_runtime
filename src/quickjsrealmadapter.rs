@@ -215,8 +215,8 @@ impl QuickJsRealmAdapter {
         let namespace_ref = unsafe { objects::get_namespace(self.context, namespace, false) }?;
         functions::invoke_member_function_q(self, &namespace_ref, func_name, arguments)
     }
-    /// evaluate a script
 
+    /// evaluate a script
     pub fn eval(&self, script: Script) -> Result<QuickJsValueAdapter, JsError> {
         unsafe { Self::eval_ctx(self.context, script, None) }
     }

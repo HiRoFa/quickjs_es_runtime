@@ -92,7 +92,6 @@ pub unsafe fn get_length(
 ///     assert_eq!(len, 2);
 /// });
 /// ```
-
 pub fn create_array_q(q_ctx: &QuickJsRealmAdapter) -> Result<QuickJsValueAdapter, JsError> {
     unsafe { create_array(q_ctx.context) }
 }
