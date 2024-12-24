@@ -721,32 +721,41 @@ pub mod tests {
                     "this.test = {q: {}}; let global = this; (function(a, b){global.test.a = a; return {a: 1};});",
                 ))
                 .expect("aa");
+            #[cfg(feature = "bellard")]
             assert_eq!(func_ref.get_ref_count(), 1);
 
             let a = objects::create_object_q(q_ctx).ok().unwrap();
             let b = objects::create_object_q(q_ctx).ok().unwrap();
 
+            #[cfg(feature = "bellard")]
             assert_eq!(1, a.get_ref_count());
+            #[cfg(feature = "bellard")]
             assert_eq!(1, b.get_ref_count());
 
             let i_res = call_function_q(q_ctx, &func_ref, &[a.clone(), b.clone()], None)
                 .expect("a");
-            assert!(i_res.is_object());
-            assert_eq!(i_res.get_ref_count(), 1);
 
+            assert!(i_res.is_object());
+            #[cfg(feature = "bellard")]
+            assert_eq!(i_res.get_ref_count(), 1);
+            #[cfg(feature = "bellard")]
             assert_eq!(2, a.get_ref_count());
+            #[cfg(feature = "bellard")]
             assert_eq!(1, b.get_ref_count());
 
             let q_ref = q_ctx.eval(Script::new("test_ret_refcount2.es", "test.q;")).expect("get q failed");
+            #[cfg(feature = "bellard")]
             assert_eq!(2, q_ref.get_ref_count());
             let _ = call_function_q(q_ctx, &func_ref, &[primitives::from_i32(123), q_ref], None)
                 .expect("b");
             let q_ref = q_ctx.eval(Script::new("test_ret_refcount2.es", "test.q;")).expect("get q failed");
+            #[cfg(feature = "bellard")]
             assert_eq!(2, q_ref.get_ref_count());
             let _ = call_function_q(q_ctx, &func_ref, &[q_ref, primitives::from_i32(123)], None)
                 .expect("b");
-            let q_ref = q_ctx.eval(Script::new("test_ret_refcount2.es", "test.q;")).expect("get q failed");
-            assert_eq!(3, q_ref.get_ref_count());
+            let _q_ref = q_ctx.eval(Script::new("test_ret_refcount2.es", "test.q;")).expect("get q failed");
+            #[cfg(feature = "bellard")]
+            assert_eq!(3, _q_ref.get_ref_count());
 
             // cleanup
             q_ctx.eval(Script::new("cleanup.es", "this.test = null;")).ok().unwrap();
@@ -835,6 +844,7 @@ pub mod tests {
             .ok()
             .expect("could not create function");
 
+            #[cfg(feature = "bellard")]
             assert_eq!(1, cb_ref.get_ref_count());
 
             cb_ref.label("cb_ref at test_callback");
@@ -844,6 +854,7 @@ pub mod tests {
                 .ok()
                 .expect("could not get function");
 
+            #[cfg(feature = "bellard")]
             assert_eq!(2, func_ref.get_ref_count());
 
             let res = call_function_q(q_ctx, &func_ref, &[cb_ref], None);
@@ -876,9 +887,10 @@ pub mod tests {
             let cb_ref = new_function_q(
                 q_ctx,
                 "cb",
-                |_q_ctx, _this_ref, args| {
+                |_q_ctx, _this_ref, _args| {
                     log::trace!("native callback invoked");
-                    assert_eq!(args[0].get_ref_count(), 3);
+                    #[cfg(feature = "bellard")]
+                    assert_eq!(_args[0].get_ref_count(), 3);
 
                     Ok(primitives::from_i32(983))
                 },

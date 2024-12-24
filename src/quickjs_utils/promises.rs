@@ -153,8 +153,11 @@ pub unsafe fn new_promise(context: *mut q::JSContext) -> Result<QuickJsPromiseAd
         "promises::new_promise prom_val",
     );
 
+    #[cfg(feature = "bellard")]
     debug_assert_eq!(resolve_function_obj_ref.get_ref_count(), 1);
+    #[cfg(feature = "bellard")]
     debug_assert_eq!(reject_function_obj_ref.get_ref_count(), 1);
+    #[cfg(feature = "bellard")]
     debug_assert_eq!(promise_obj_ref.get_ref_count(), 3);
 
     Ok(QuickJsPromiseAdapter {

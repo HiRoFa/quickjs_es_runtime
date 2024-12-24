@@ -458,6 +458,7 @@ pub mod tests {
             match arr_res {
                 Ok(mut arr) => {
                     arr.label("arr");
+                    #[cfg(feature = "bellard")]
                     log::debug!("arr created, refcount={}", arr.get_ref_count());
 
                     assert!(is_typed_array_q(realm, &arr));

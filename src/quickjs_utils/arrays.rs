@@ -220,17 +220,26 @@ pub mod tests {
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_realm();
             let arr = create_array_q(q_ctx).ok().unwrap();
+
+            #[cfg(feature = "bellard")]
             assert_eq!(arr.get_ref_count(), 1);
 
             let a = objects::create_object_q(q_ctx).ok().unwrap();
+
+            #[cfg(feature = "bellard")]
             assert_eq!(1, a.get_ref_count());
 
             set_element_q(q_ctx, &arr, 0, &a).ok().unwrap();
+
+            #[cfg(feature = "bellard")]
             assert_eq!(2, a.get_ref_count());
 
-            let a2 = get_element_q(q_ctx, &arr, 0).ok().unwrap();
+            let _a2 = get_element_q(q_ctx, &arr, 0).ok().unwrap();
+
+            #[cfg(feature = "bellard")]
             assert_eq!(3, a.get_ref_count());
-            assert_eq!(3, a2.get_ref_count());
+            #[cfg(feature = "bellard")]
+            assert_eq!(3, _a2.get_ref_count());
         });
     }
 }

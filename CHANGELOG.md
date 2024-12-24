@@ -1,3 +1,7 @@
+# 0.14.5
+
+* quickjs-ng 0.8.0
+
 # 0.14.4
 
 * don't panic on utf8 error in to_str

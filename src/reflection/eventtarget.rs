@@ -655,10 +655,12 @@ pub mod tests {
             q_ctx
                 .eval(Script::new("e.es", "let target = new MyThing();"))
                 .expect("constr failed");
-            let target_ref = q_ctx
+            let _target_ref = q_ctx
                 .eval(Script::new("t.es", "(target);"))
                 .expect("could not get target");
-            assert_eq!(target_ref.get_ref_count(), 2); // one for me one for global
+
+            #[cfg(feature = "bellard")]
+            assert_eq!(_target_ref.get_ref_count(), 2); // one for me one for global
 
             q_ctx
                 .eval(Script::new(
@@ -666,8 +668,8 @@ pub mod tests {
                     "target.addEventListener('someEvent', (evt) => {console.log('got event');});",
                 ))
                 .expect("addlistnrfailed");
-
-            assert_eq!(target_ref.get_ref_count(), 2); // one for me one for global
+            #[cfg(feature = "bellard")]
+            assert_eq!(_target_ref.get_ref_count(), 2); // one for me one for global
         });
     }
 }

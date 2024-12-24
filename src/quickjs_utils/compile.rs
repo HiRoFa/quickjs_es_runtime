@@ -295,31 +295,37 @@ pub mod tests {
                 Script::new("test_func_runfail.es", "let abcdef = 1;"),
             );
             let func = func_res.expect("func compile failed");
+            #[cfg(feature = "bellard")]
             assert_eq!(1, func.get_ref_count());
 
             let bytecode: Vec<u8> = to_bytecode(q_ctx.context, &func);
 
+            #[cfg(feature = "bellard")]
             assert_eq!(1, func.get_ref_count());
 
             drop(func);
 
+            #[cfg(feature = "bellard")]
             assert!(!bytecode.is_empty());
 
             let func2_res = from_bytecode(q_ctx.context, &bytecode);
             let func2 = func2_res.expect("could not read bytecode");
             //should fail the second time you run this because abcdef is already defined
 
+            #[cfg(feature = "bellard")]
             assert_eq!(1, func2.get_ref_count());
 
             let run_res1 =
                 run_compiled_function(q_ctx.context, &func2).expect("run 1 failed unexpectedly");
             drop(run_res1);
 
+            #[cfg(feature = "bellard")]
             assert_eq!(1, func2.get_ref_count());
 
             let _run_res2 = run_compiled_function(q_ctx.context, &func2)
                 .expect_err("run 2 succeeded unexpectedly");
 
+            #[cfg(feature = "bellard")]
             assert_eq!(1, func2.get_ref_count());
         });
     }

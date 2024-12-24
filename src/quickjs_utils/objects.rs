@@ -657,23 +657,32 @@ pub mod tests {
             let obj = create_object_q(q_ctx).ok().expect("a");
             let prop_ref = create_object_q(q_ctx).ok().expect("b");
             let prop2_ref = create_object_q(q_ctx).ok().expect("c");
+            #[cfg(feature = "bellard")]
             assert_eq!(obj.get_ref_count(), 1);
+            #[cfg(feature = "bellard")]
             assert_eq!(prop_ref.get_ref_count(), 1);
             set_property_q(q_ctx, &obj, "a", &prop_ref).ok().expect("d");
+            #[cfg(feature = "bellard")]
             assert_eq!(prop_ref.get_ref_count(), 2);
             set_property_q(q_ctx, &obj, "b", &prop_ref).ok().expect("e");
+            #[cfg(feature = "bellard")]
             assert_eq!(prop_ref.get_ref_count(), 3);
             set_property_q(q_ctx, &obj, "b", &prop2_ref)
                 .ok()
                 .expect("f");
+            #[cfg(feature = "bellard")]
             assert_eq!(prop_ref.get_ref_count(), 2);
+            #[cfg(feature = "bellard")]
             assert_eq!(prop2_ref.get_ref_count(), 2);
 
             let p3 = get_property_q(q_ctx, &obj, "b").ok().expect("g");
+            #[cfg(feature = "bellard")]
             assert_eq!(p3.get_ref_count(), 3);
+            #[cfg(feature = "bellard")]
             assert_eq!(prop2_ref.get_ref_count(), 3);
 
             drop(p3);
+            #[cfg(feature = "bellard")]
             assert_eq!(prop2_ref.get_ref_count(), 2);
 
             drop(obj);
@@ -752,6 +761,7 @@ pub mod tests {
 
             let obj_ref = create_object_q(q_ctx).ok().unwrap();
 
+            #[cfg(feature = "bellard")]
             assert_eq!(obj_ref.get_ref_count(), 1);
 
             let global_ref = get_global_q(q_ctx);
@@ -759,6 +769,7 @@ pub mod tests {
                 .ok()
                 .expect("could not set property 1");
 
+            #[cfg(feature = "bellard")]
             assert_eq!(obj_ref.get_ref_count(), 2);
 
             let prop_ref = from_i32(123);

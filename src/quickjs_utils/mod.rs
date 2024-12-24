@@ -173,10 +173,12 @@ pub mod tests {
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             let q_ctx = q_js_rt.get_main_realm();
 
+            #[cfg(feature = "bellard")]
             let ct = get_global_q(q_ctx).get_ref_count();
             for _ in 0..5 {
-                let global = get_global_q(q_ctx);
-                assert_eq!(global.get_ref_count(), ct);
+                let _global = get_global_q(q_ctx);
+                #[cfg(feature = "bellard")]
+                assert_eq!(_global.get_ref_count(), ct);
             }
         });
     }

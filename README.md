@@ -1,14 +1,14 @@
 # quickjs_runtime
 
-quickjs_runtime is a library for quickly getting started with embedding a javascript engine in your rust project.
+Quickjs_runtime is a library for quickly getting started with embedding a javascript engine in your rust project.
 
-**as of 2024 this lib no longer relies on [libquickjs-sys](https://github.com/theduke/quickjs-rs/tree/master/libquickjs-sys) but on our own [hirofa-quickjs-sys](https://github.com/HiRoFa/quickjs-sys) adding flexibility in used quickjs version**
+Relies on [hirofa-quickjs-sys](https://github.com/HiRoFa/quickjs-sys) to support quickjs-ng as well as the original quickjs
 
-quickjs_runtime runs all javascript action in a single thread using an EventLoop. This means you can call javascript safely from several threads by adding tasks to the EventLoop.
+Quickjs_runtime runs all javascript action in a single thread using an EventLoop. This means you can call javascript safely from several threads by adding tasks to the EventLoop.
 
 # quickjs or quickjs-ng
 
-quickjs_runtime supports both the original quickjs and the quickjs-ng project.
+Quickjs_runtime supports both the original quickjs and the quickjs-ng project.
 
 You can try out quickjs-ng by adding the dep to quickjs_runtime like this (use at your own risk as I have not extensively tested it yet):
 ```toml
@@ -19,7 +19,7 @@ quickjs_runtime = {git="https://github.com/HiRoFa/quickjs_es_runtime", features=
 
 An example on how to embed a script engine in rust using this lib can be found here: [github.com/andrieshiemstra/ScriptExtensionLayerExample](https://github.com/andrieshiemstra/ScriptExtensionLayerExample). It was published in TWIR as a walkthrough. 
 
-quickjs_runtime focuses on making [quickjs](https://bellard.org/quickjs/) easy to use and does not add any additional features, that's where these projects come in:
+Wuickjs_runtime focuses on making [quickjs](https://bellard.org/quickjs/) easy to use and does not add any additional features, that's where these projects come in:
 * A more feature-rich (e.g. fetch api support, http based module loader and much more) runtime: [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime).
 * The commandline client: [GreenCopperCmd](https://github.com/HiRoFa/GreenCopperCmd).
 
@@ -37,7 +37,7 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 * Start at the QuickjsRuntimeFacade, it provides an EventQueue which has a thread_local QuickJsRuntimeAdapter
 * All values are copied or abstracted in a JsValueFacades
 * So no need to worry about Garbage collection
-* evaluate script and invoke functions while waiting for results blocking or with async/await  
+* Evaluate script and invoke functions while waiting for results blocking or with async/await  
 * Get Promise result blocking or with async/await
 
 # What works?
@@ -45,15 +45,15 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 ## Script and Modules
 
 * Typescript (via SWC)
-* console (.log/info/debug/trace/error) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/features/console/index.html))
+* Console (.log/info/debug/trace/error) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/features/console/index.html))
 * Eval script ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/facades/struct.QuickJsRuntimeFacade.html#method.eval))
 * Create promises in JavaScript which execute async
 * Eval modules ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/facades/struct.QuickJsRuntimeFacade.html#method.eval_module))
 * Load modules (dynamic and static) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/builder/struct.QuickJsRuntimeBuilder.html#method.script_module_loader))
-* fetch api (impl in [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime))
+* Fetch api (impl in [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime))
 * setImmediate
 * setTimeout/Interval (and clear)
-* script preprocessing (impls for ifdef/macro's/typescript can be found in [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime))
+* Script preprocessing (impls for ifdef/macro's/typescript can be found in [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime))
 
 ## Rust-Script interoperability
 
@@ -62,8 +62,8 @@ Please see the [DOCS](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtim
 * Invoke JS functions from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/facades/struct.QuickJsRuntimeFacade.html#method.invoke_function))
 * Pass primitives, objects and arrays from and to rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/quickjs_utils/primitives/index.html))
 * Create Classes from rust ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/reflection/struct.Proxy.html))
-* async/await support on eval/call_function/promise resolution ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/values/struct.CachedJsPromiseRef.html#method.get_promise_result))
-* import native Modules (e.g. dynamic loading of rust functions or Proxy classes) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/builder/struct.QuickJsRuntimeBuilder.html#method.native_module_loader))
+* Async/await support on eval/call_function/promise resolution ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/values/struct.CachedJsPromiseRef.html#method.get_promise_result))
+* Import native Modules (e.g. dynamic loading of rust functions or Proxy classes) ([docs](https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/builder/struct.QuickJsRuntimeBuilder.html#method.native_module_loader))
 
 # Goals
 
@@ -87,7 +87,7 @@ The fun stuff about QuickJS:
 Cargo.toml
 ```toml
 [dependencies]
-quickjs_runtime = "0.13.1"
+quickjs_runtime = "0.14"
 ```
 
 Here are some quickstarts:

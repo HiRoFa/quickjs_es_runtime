@@ -81,6 +81,7 @@ impl Drop for QuickJsValueAdapter {
             // pointer.
 
             if self.ref_ct_decr_on_drop {
+                #[cfg(feature = "bellard")]
                 if self.get_ref_count() <= 0 {
                     log::error!(
                         "dropping ref while refcount already 0, which is bad mmkay.. {}",
@@ -118,7 +119,10 @@ impl std::fmt::Debug for QuickJsValueAdapter {
 impl QuickJsValueAdapter {
     pub(crate) fn increment_ref_count(&self) {
         if self.get_tag() < 0 {
-            unsafe { libquickjs_sys::JS_DupValue(self.context, *self.borrow_value()) }
+            unsafe {
+                let _ = libquickjs_sys::JS_DupValue(self.context, *self.borrow_value());
+            }
+            ()
         }
     }
 
@@ -162,6 +166,7 @@ impl QuickJsValueAdapter {
         s
     }
 
+    #[cfg(feature = "bellard")]
     pub fn get_ref_count(&self) -> i32 {
         if self.get_tag() < 0 {
             // This transmute is OK since if tag < 0, the union will be a refcount

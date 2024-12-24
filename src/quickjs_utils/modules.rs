@@ -78,8 +78,33 @@ pub fn set_module_loader(q_js_rt: &QuickJsRuntimeAdapter) {
 
 /// detect if a script is module (contains import or export statements)
 pub fn detect_module(source: &str) -> bool {
-    let cstr = CString::new(source).expect("could not create CString due to null term in source");
-    unsafe { q::JS_DetectModule(cstr.as_ptr(), source.len() as _) != 0 }
+    // own impl since detectmodule in quickjs-ng is broken since 0.7.0
+    // https://github.com/quickjs-ng/quickjs/issues/767
+
+    // Check for static `import` statements
+
+    #[cfg(feature = "quickjs-ng")]
+    {
+        for line in source.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("import ") && !trimmed.contains("(") {
+                return true;
+            }
+            if trimmed.starts_with("export ") {
+                return true;
+            }
+        }
+        false
+    }
+
+    #[cfg(feature = "bellard")]
+    {
+        let cstr =
+            CString::new(source).expect("could not create CString due to null term in source");
+        let res = unsafe { q::JS_DetectModule(cstr.as_ptr(), source.len() as _) };
+        //println!("res for {} = {}", source, res);
+        res != 0
+    }
 }
 
 /// create new Module (JSModuleDef struct) which can be populated with exports after (and from) the init_func
@@ -274,10 +299,11 @@ pub mod tests {
 
     #[test]
     fn test_detect() {
-        assert!(detect_module("import {} from 'foo.es';"));
+        assert!(detect_module("import {} from 'foo.js';"));
         assert!(detect_module("export function a(){};"));
-        assert!(!detect_module("import('foo.es').then((a) = {});"));
+        assert!(!detect_module("//hi"));
         assert!(!detect_module("let a = 1;"));
+        assert!(!detect_module("import('foo.js').then((a) = {});"));
     }
 
     #[test]

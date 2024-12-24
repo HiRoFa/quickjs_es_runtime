@@ -156,6 +156,8 @@ pub mod tests {
             .ok()
             .unwrap();
             let str_res = json::stringify_q(q_ctx, &obj, None).ok().unwrap();
+
+            #[cfg(feature = "bellard")]
             assert_eq!(str_res.get_ref_count(), 1);
             let json = str_res.to_string().ok().unwrap();
             assert_eq!(json, "{\"a\":532,\"b\":true,\"c\":\"abcdË\"}");

@@ -68,6 +68,19 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
 
+  build-ubuntu-quickjs-ng:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Prepare
+        run: |
+          sudo apt update
+          sudo apt install llvm autoconf2.13 automake clang -y
+      - name: Run tests
+        run: cargo test --verbose --no-default-features --features quickjs-ng console setimmediate setinterval settimeout typescript
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
   build:
     runs-on: ubuntu-latest
     steps:

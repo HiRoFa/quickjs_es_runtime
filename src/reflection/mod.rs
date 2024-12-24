@@ -630,6 +630,7 @@ impl Proxy {
             "reflection::Proxy::install_class_prop class_val",
         );
 
+        #[cfg(feature = "bellard")]
         assert_eq!(1, class_val_ref.get_ref_count());
 
         log::trace!("reflection::Proxy::install_class_prop / 5");
@@ -662,6 +663,7 @@ impl Proxy {
             }
         }
 
+        #[cfg(feature = "bellard")]
         assert_eq!(2, class_val_ref.get_ref_count());
 
         log::trace!("reflection::Proxy::install_class_prop / 7");

@@ -28,6 +28,8 @@ pub unsafe fn new_bigint_i64(
 ) -> Result<QuickJsValueAdapter, JsError> {
     let res_val = q::JS_NewBigInt64(context, int);
     let ret = QuickJsValueAdapter::new(context, res_val, false, true, "new_bigint_i64");
+
+    #[cfg(feature = "bellard")]
     assert_eq!(ret.get_ref_count(), 1);
     Ok(ret)
 }
@@ -41,6 +43,8 @@ pub unsafe fn new_bigint_u64(
 ) -> Result<QuickJsValueAdapter, JsError> {
     let res_val = q::JS_NewBigUint64(context, int);
     let ret = QuickJsValueAdapter::new(context, res_val, false, true, "new_bigint_u64");
+
+    #[cfg(feature = "bellard")]
     assert_eq!(ret.get_ref_count(), 1);
     Ok(ret)
 }
@@ -63,6 +67,8 @@ pub unsafe fn new_bigint_str(
     let str_ref = primitives::from_string(context, input_str)?;
     let bigint_ref = functions::invoke_member_function(context, &global_ref, "BigInt", &[str_ref])?;
     let ret = bigint_ref;
+
+    #[cfg(feature = "bellard")]
     assert_eq!(ret.get_ref_count(), 1);
     Ok(ret)
 }
