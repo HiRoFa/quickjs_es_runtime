@@ -78,7 +78,7 @@ pub fn set_module_loader(q_js_rt: &QuickJsRuntimeAdapter) {
 
 /// detect if a script is module (contains import or export statements)
 pub fn detect_module(source: &str) -> bool {
-    // own impl since detectmodule in quickjs-ng is broken since 0.7.0
+    // own impl since detectmodule in quickjs-ng is different since 0.7.0
     // https://github.com/quickjs-ng/quickjs/issues/767
 
     // Check for static `import` statements
