@@ -78,8 +78,6 @@ jobs:
           sudo apt install llvm autoconf2.13 automake clang -y
       - name: Run tests
         run: cargo test --verbose --no-default-features --features quickjs-ng console setimmediate setinterval settimeout typescript
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
   build:
     runs-on: ubuntu-latest
