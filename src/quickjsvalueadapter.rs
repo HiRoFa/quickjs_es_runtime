@@ -120,9 +120,9 @@ impl QuickJsValueAdapter {
     pub(crate) fn increment_ref_count(&self) {
         if self.get_tag() < 0 {
             unsafe {
+                #[allow(clippy::let_unit_value)]
                 let _ = libquickjs_sys::JS_DupValue(self.context, *self.borrow_value());
             }
-            ()
         }
     }
 
