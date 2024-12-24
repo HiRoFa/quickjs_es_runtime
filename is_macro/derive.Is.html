@@ -1,0 +1,33 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A proc macro to generate methods like is_variant / expect_variant."><title>Is in is_macro - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-b0742ba02757f159.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="is_macro" data-themes="" data-resource-suffix="" data-rustdoc-version="1.83.0 (90b35a623 2024-11-26)" data-channel="1.83.0" data-search-js="search-f0d225181b97f9a4.js" data-settings-js="settings-805db61a62df4bd2.js" ><script src="../static.files/storage-1d39b6787ed640ff.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-f070b9041d14864c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-0111fcff984fae8f.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc derive"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../is_macro/index.html">is_<wbr>macro</a><span class="version">0.2.2</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Is</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#example" title="Example">Example</a></li><li><a href="#renaming" title="Renaming">Renaming</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate is_<wbr>macro</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="index.html">is_macro</a></span><h1>Derive Macro <span class="derive">Is</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/is_macro/lib.rs.html#52-78">source</a> </span></div><pre class="rust item-decl"><code>#[derive(Is)]
+{
+    <span class="comment">// Attributes available to this derive:</span>
+    #[is]
+}
+</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A proc macro to generate methods like is_variant / expect_variant.</p>
+<h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>
+<span class="kw">use </span>is_macro::Is;
+<span class="attr">#[derive(Debug, Is)]
+</span><span class="kw">pub enum </span>Enum&lt;T&gt; {
+    A,
+    B(T),
+    C(<span class="prelude-ty">Option</span>&lt;T&gt;),
+}
+
+<span class="comment">// Rust's type inference cannot handle this.
+</span><span class="macro">assert!</span>(Enum::&lt;()&gt;::A.is_a());
+
+<span class="macro">assert_eq!</span>(Enum::B(String::from(<span class="string">"foo"</span>)).b(), <span class="prelude-val">Some</span>(String::from(<span class="string">"foo"</span>)));
+
+<span class="macro">assert_eq!</span>(Enum::B(String::from(<span class="string">"foo"</span>)).expect_b(), String::from(<span class="string">"foo"</span>));</code></pre></div>
+<h2 id="renaming"><a class="doc-anchor" href="#renaming">§</a>Renaming</h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>
+<span class="kw">use </span>is_macro::Is;
+<span class="attr">#[derive(Debug, Is)]
+</span><span class="kw">pub enum </span>Enum {
+    <span class="attr">#[is(name = <span class="string">"video_mp4"</span>)]
+    </span>VideoMp4,
+}
+
+<span class="macro">assert!</span>(Enum::VideoMp4.is_video_mp4());</code></pre></div>
+</div></details></section></div></main></body></html>

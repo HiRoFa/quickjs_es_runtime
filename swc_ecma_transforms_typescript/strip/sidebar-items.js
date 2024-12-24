@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ImportsNotUsedAsValues","TsImportExportAssignConfig"],"fn":["strip","strip_with_config","strip_with_jsx"],"struct":["Config","TsEnumConfig"],"type":["ImportNotUsedAsValues"]};

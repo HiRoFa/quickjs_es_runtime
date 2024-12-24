@@ -1,0 +1,1 @@
+searchState.loadedDescShard("swc_trace_macro", 0, "Utility proc macro to add …")

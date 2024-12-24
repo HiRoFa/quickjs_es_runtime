@@ -1,0 +1,42 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="browserslist-rs is a Rust-based implementation of Browserslist."><title>browserslist - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-b0742ba02757f159.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="browserslist" data-themes="" data-resource-suffix="" data-rustdoc-version="1.83.0 (90b35a623 2024-11-26)" data-channel="1.83.0" data-search-js="search-f0d225181b97f9a4.js" data-settings-js="settings-805db61a62df4bd2.js" ><script src="../static.files/storage-1d39b6787ed640ff.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-f070b9041d14864c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-0111fcff984fae8f.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../browserslist/index.html">browserslist</a><span class="version">0.12.4</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#introduction" title="Introduction">Introduction</a></li><li><a href="#usage" title="Usage">Usage</a></li><li><a href="#webassembly" title="WebAssembly">WebAssembly</a></li></ul><h3><a href="#macros">Crate Items</a></h3><ul class="block"><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>browserslist</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/browserslist/lib.rs.html#1-164">source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><strong>browserslist-rs</strong> is a Rust-based implementation of <a href="https://github.com/browserslist/browserslist">Browserslist</a>.</p>
+<h3 id="introduction"><a class="doc-anchor" href="#introduction">§</a>Introduction</h3>
+<p>This library bundles Can I Use data, Electron versions list and Node.js releases list,
+so it won’t and doesn’t need to access any data files.</p>
+<p>Except several non-widely/non-frequently used features,
+this library works as same as the JavaScript-based
+implementation <a href="https://github.com/browserslist/browserslist">Browserslist</a>.</p>
+<h3 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h3>
+<p>It provides a simple API for querying which accepts a sequence of strings and options <a href="struct.Opts.html" title="struct browserslist::Opts"><code>Opts</code></a>,
+then returns the result.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>browserslist::{Distrib, Opts, resolve, Error};
+
+<span class="kw">let </span>distribs = resolve([<span class="string">"ie &lt;= 6"</span>], <span class="kw-2">&amp;</span>Opts::new()).unwrap();
+<span class="macro">assert_eq!</span>(distribs[<span class="number">0</span>].name(), <span class="string">"ie"</span>);
+<span class="macro">assert_eq!</span>(distribs[<span class="number">0</span>].version(), <span class="string">"6"</span>);
+<span class="macro">assert_eq!</span>(distribs[<span class="number">1</span>].name(), <span class="string">"ie"</span>);
+<span class="macro">assert_eq!</span>(distribs[<span class="number">1</span>].version(), <span class="string">"5.5"</span>);
+
+<span class="macro">assert_eq!</span>(
+    resolve([<span class="string">"yuru 1.0"</span>], <span class="kw-2">&amp;</span>Opts::new()),
+    <span class="prelude-val">Err</span>(Error::BrowserNotFound(String::from(<span class="string">"yuru"</span>)))
+);</code></pre></div>
+<p>The result isn’t a list of strings, instead, it’s a tuple struct called <a href="struct.Distrib.html" title="struct browserslist::Distrib"><code>Distrib</code></a>.
+If you need to retrieve something like JavaScript-based implementation of
+<a href="https://github.com/browserslist/browserslist">Browserslist</a>,
+you can convert them to strings:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>browserslist::{Distrib, Opts, resolve, Error};
+
+<span class="kw">let </span>distribs = resolve([<span class="string">"ie &lt;= 6"</span>], <span class="kw-2">&amp;</span>Opts::new()).unwrap();
+<span class="macro">assert_eq!</span>(
+    distribs.into_iter().map(|d| d.to_string()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+    <span class="macro">vec!</span>[String::from(<span class="string">"ie 6"</span>), String::from(<span class="string">"ie 5.5"</span>)]
+);</code></pre></div>
+<h3 id="webassembly"><a class="doc-anchor" href="#webassembly">§</a>WebAssembly</h3>
+<p>This crate can be compiled as WebAssembly, without configuring any features manually.</p>
+<p>Please note that browser and Deno can run WebAssembly,
+but those environments aren’t Node.js,
+so you will receive an error when querying <code>current node</code> in those environments.</p>
+</div></details><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.browser_name_atom.html" title="macro browserslist::browser_name_atom">browser_<wbr>name_<wbr>atom</a></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Distrib.html" title="struct browserslist::Distrib">Distrib</a></div><div class="desc docblock-short">Representation of browser name (or <code>node</code>) and its version.</div></li><li><div class="item-name"><a class="struct" href="struct.Opts.html" title="struct browserslist::Opts">Opts</a></div><div class="desc docblock-short">Options for controlling the behavior of browserslist.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Error.html" title="enum browserslist::Error">Error</a></div><div class="desc docblock-short">The errors may occur when querying with browserslist.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.execute.html" title="fn browserslist::execute">execute</a></div><div class="desc docblock-short">Load queries from configuration with environment information,
+then resolve those queries.</div></li><li><div class="item-name"><a class="fn" href="fn.resolve.html" title="fn browserslist::resolve">resolve</a></div><div class="desc docblock-short">Resolve browserslist queries.</div></li></ul></section></div></main></body></html>

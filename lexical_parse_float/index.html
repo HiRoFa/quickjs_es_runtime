@@ -1,0 +1,69 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Fast lexical string-to-float conversion routines."><title>lexical_parse_float - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-b0742ba02757f159.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="lexical_parse_float" data-themes="" data-resource-suffix="" data-rustdoc-version="1.83.0 (90b35a623 2024-11-26)" data-channel="1.83.0" data-search-js="search-f0d225181b97f9a4.js" data-settings-js="settings-805db61a62df4bd2.js" ><script src="../static.files/storage-1d39b6787ed640ff.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-f070b9041d14864c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-0111fcff984fae8f.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../lexical_parse_float/index.html">lexical_<wbr>parse_<wbr>float</a><span class="version">0.8.5</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#features" title="Features">Features</a></li><li><a href="#note" title="Note">Note</a></li><li><a href="#machine-float-only-algorithm" title="Machine Float-Only Algorithm">Machine Float-Only Algorithm</a></li><li><a href="#version-support" title="Version Support">Version Support</a></li><li><a href="#design" title="Design">Design</a></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>lexical_parse_float</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/lexical_parse_float/lib.rs.html#1-134">source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Fast lexical string-to-float conversion routines.</p>
+<p>The default implementations are highly optimized both for simple
+strings, as well as input with large numbers of digits. In order to
+keep performance optimal for simple strings, we avoid overly branching
+to minimize the number of branches (and therefore optimization checks).
+Most of the branches in the code are resolved at compile-time, and
+the resulting ASM as well as comprehensive benchmarks are monitored
+to ensure there are no regressions.</p>
+<p>For simple floats, we use an optimized digit parser with multiple-digit
+optimizations (parsing 8 digits in 3 multiplication instructions),
+and then use machine floats to create an exact representation with
+high throughput. In more complex cases, we use the Eisel-Lemire
+algorithm, described in “Number Parsing at a Gigabyte per Second”,
+available online <a href="https://arxiv.org/abs/2101.11408">here</a>. The
+Eisel-Lemire algorithm creates an extended representation using a
+128-bit (or a fallback 192-bit representation) of the significant
+digits of the float, scaled to the proper exponent using pre-computed
+powers-of-5.</p>
+<p>If the Eisel-Lemire algorithm is unable to unambiguously round the float,
+we fallback to using optimized, big-integer algorithms, which are
+described in <a href="#algorithm-approach">Algorithm Approach</a> below.</p>
+<h2 id="features"><a class="doc-anchor" href="#features">§</a>Features</h2>
+<ul>
+<li><code>std</code> - Use the standard library.</li>
+<li><code>power-of-two</code> - Add support for parsing power-of-two integer strings.</li>
+<li><code>radix</code> - Add support for strings of any radix.</li>
+<li><code>format</code> - Add support for parsing custom integer formats.</li>
+<li><code>compact</code> - Reduce code size at the cost of performance.</li>
+<li><code>safe</code> - Ensure only memory-safe indexing is used.</li>
+<li><code>nightly</code> - Enable assembly instructions to control FPU rounding modes.</li>
+</ul>
+<p><code>safe</code> has a fairly minimal impact, since all parsers are memory-safe
+by default except where unsafe functionality can trivially be proven
+correct.</p>
+<h2 id="note"><a class="doc-anchor" href="#note">§</a>Note</h2>
+<p>Only documented functionality is considered part of the public API:
+any of the modules, internal functions, or structs may change
+release-to-release without major or minor version changes. Use
+internal implementation details at your own risk.</p>
+<p>lexical-parse-float mainly exists as an implementation detail for
+lexical-core, although its API is stable. If you would like to use
+a high-level API that writes to and parses from <code>String</code> and <code>&amp;str</code>,
+respectively, please look at <a href="https://crates.io/crates/lexical">lexical</a>
+instead. If you would like an API that supports multiple numeric
+conversions, please look at <a href="https://crates.io/crates/lexical-core">lexical-core</a>
+instead.</p>
+<h2 id="machine-float-only-algorithm"><a class="doc-anchor" href="#machine-float-only-algorithm">§</a>Machine Float-Only Algorithm</h2>
+<p>We also support an algorithm that uses only machine floats for the
+fast-path algorithm, however, this may be slower for floats with large
+exponents since it uses an iterative algorithm. A code sample
+using this is:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>lexical_parse_float::Options;
+<span class="kw">use </span>lexical_parse_float::format::STANDARD;
+<span class="kw">use </span>lexical_parse_float::parse::ParseFloat;
+
+<span class="kw">let </span>options = Options::new();
+<span class="kw">let </span>result = f64::fast_path_complete::&lt;{ STANDARD }&gt;(<span class="string">b"1.34000"</span>, <span class="kw-2">&amp;</span>options);
+<span class="macro">assert_eq!</span>(result, <span class="prelude-val">Ok</span>(<span class="number">1.34000</span>));</code></pre></div>
+<h2 id="version-support"><a class="doc-anchor" href="#version-support">§</a>Version Support</h2>
+<p>The minimum, standard, required version is 1.51.0, for const generic
+support. Older versions of lexical support older Rust versions.</p>
+<h2 id="design"><a class="doc-anchor" href="#design">§</a>Design</h2>
+<ul>
+<li><a href="https://github.com/Alexhuszagh/rust-lexical/blob/main/lexical-parse-float/docs/Algorithm.md">Algorithm Approach</a></li>
+<li><a href="https://github.com/Alexhuszagh/rust-lexical/blob/main/lexical-parse-float/docs/Benchmarks.md">Benchmarks</a></li>
+<li><a href="https://github.com/Alexhuszagh/rust-lexical/blob/main/lexical-parse-float/docs/BigInteger.md">Big Integer Implementation</a></li>
+</ul>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="format/index.html" title="mod lexical_parse_float::format">format</a></div><div class="desc docblock-short">Public API for the number format packed struct.</div></li><li><div class="item-name"><a class="mod" href="options/index.html" title="mod lexical_parse_float::options">options</a></div><div class="desc docblock-short">Configuration options for parsing floats.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.NumberFormatBuilder.html" title="struct lexical_parse_float::NumberFormatBuilder">Number<wbr>Format<wbr>Builder</a></div><div class="desc docblock-short">Build number format from specifications.</div></li><li><div class="item-name"><a class="struct" href="struct.Options.html" title="struct lexical_parse_float::Options">Options</a></div><div class="desc docblock-short">Options to customize parsing floats.</div></li><li><div class="item-name"><a class="struct" href="struct.OptionsBuilder.html" title="struct lexical_parse_float::OptionsBuilder">Options<wbr>Builder</a></div><div class="desc docblock-short">Builder for <code>Options</code>.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Error.html" title="enum lexical_parse_float::Error">Error</a></div><div class="desc docblock-short">Error code during parsing, indicating failure type.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.FromLexical.html" title="trait lexical_parse_float::FromLexical">From<wbr>Lexical</a></div><div class="desc docblock-short">Trait for numerical types that can be parsed from bytes.</div></li><li><div class="item-name"><a class="trait" href="trait.FromLexicalWithOptions.html" title="trait lexical_parse_float::FromLexicalWithOptions">From<wbr>Lexical<wbr>With<wbr>Options</a></div><div class="desc docblock-short">Trait for numerical types that can be parsed from bytes with custom options.</div></li><li><div class="item-name"><a class="trait" href="trait.ParseOptions.html" title="trait lexical_parse_float::ParseOptions">Parse<wbr>Options</a></div><div class="desc docblock-short">Shared trait for all parser options.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Result.html" title="type lexical_parse_float::Result">Result</a></div><div class="desc docblock-short">A specialized Result type for lexical operations.</div></li></ul></section></div></main></body></html>

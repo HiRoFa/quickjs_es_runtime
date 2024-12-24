@@ -1,0 +1,1 @@
+searchState.loadedDescShard("swc_eq_ignore_macros", 0, "Derives <code>swc_common::EqIgnoreSpan</code>.\nDerives <code>swc_common::TypeEq</code>.")

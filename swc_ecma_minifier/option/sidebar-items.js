@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PureGetterOption"],"mod":["terser"],"struct":["CompressOptions","ExtraOptions","MangleOptions","ManglePropertiesOptions","MinifyOptions","TopLevelOptions"]};
