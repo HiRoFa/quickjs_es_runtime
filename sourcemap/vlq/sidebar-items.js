@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["generate_vlq_segment","parse_vlq_segment"]};

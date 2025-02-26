@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["umd","umd_with_resolver"],"struct":["Config","Umd"]};

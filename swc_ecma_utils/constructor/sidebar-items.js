@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["inject_after_super"]};

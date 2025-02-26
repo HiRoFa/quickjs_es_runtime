@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["environment_resolver","paths_resolver"],"type":["NodeResolver"]};

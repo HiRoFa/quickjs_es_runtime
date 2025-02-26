@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AccessKind"],"fn":["collect_infects_from"],"struct":["AliasConfig","Ctx","InfectionCollector"],"trait":["InfectableNode"],"type":["Access"]};

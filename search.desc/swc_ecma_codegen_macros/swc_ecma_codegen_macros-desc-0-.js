@@ -1,0 +1,1 @@
+searchState.loadedDescShard("swc_ecma_codegen_macros", 0, "")
