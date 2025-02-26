@@ -19,7 +19,7 @@ quickjs_runtime = {git="https://github.com/HiRoFa/quickjs_es_runtime", features=
 
 An example on how to embed a script engine in rust using this lib can be found here: [github.com/andrieshiemstra/ScriptExtensionLayerExample](https://github.com/andrieshiemstra/ScriptExtensionLayerExample). It was published in TWIR as a walkthrough. 
 
-Wuickjs_runtime focuses on making [quickjs](https://bellard.org/quickjs/) easy to use and does not add any additional features, that's where these projects come in:
+Quickjs_runtime focuses on making [quickjs](https://bellard.org/quickjs/) easy to use and does not add any additional features, that's where these projects come in:
 * A more feature-rich (e.g. fetch api support, http based module loader and much more) runtime: [GreenCopperRuntime](https://github.com/HiRoFa/GreenCopperRuntime).
 * The commandline client: [GreenCopperCmd](https://github.com/HiRoFa/GreenCopperCmd).
 
