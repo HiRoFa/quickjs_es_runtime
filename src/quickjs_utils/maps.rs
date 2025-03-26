@@ -2,11 +2,15 @@
 //! see [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map) for more on Maps
 
 use crate::jsutils::JsError;
-use crate::quickjs_utils::objects::{construct_object, is_instance_of_by_name};
+use crate::quickjs_utils::objects::construct_object;
+#[cfg(feature = "bellard")]
+use crate::quickjs_utils::objects::is_instance_of_by_name;
 use crate::quickjs_utils::{arrays, functions, get_constructor, iterators, objects, primitives};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use libquickjs_sys as q;
+#[cfg(feature = "quickjs-ng")]
+use libquickjs_sys::JS_IsMap;
 
 /// create new instance of Map
 /// # Example
@@ -41,8 +45,16 @@ pub fn is_map_q(q_ctx: &QuickJsRealmAdapter, obj: &QuickJsValueAdapter) -> Resul
 /// see if a JSValueRef is an instance of Map
 /// # Safety
 /// please ensure the passed JSContext is still valid
+#[allow(unused_variables)]
 pub unsafe fn is_map(ctx: *mut q::JSContext, obj: &QuickJsValueAdapter) -> Result<bool, JsError> {
-    is_instance_of_by_name(ctx, obj, "Map")
+    #[cfg(feature = "bellard")]
+    {
+        is_instance_of_by_name(ctx, obj, "Map")
+    }
+    #[cfg(feature = "quickjs-ng")]
+    {
+        Ok(JS_IsMap(*obj.borrow_value()))
+    }
 }
 
 /// set a key/value pair in a Map

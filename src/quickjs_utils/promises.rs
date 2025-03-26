@@ -2,11 +2,14 @@ use crate::jsutils::JsError;
 use crate::quickjs_utils;
 use crate::quickjs_utils::errors::get_stack;
 use crate::quickjs_utils::functions;
+#[cfg(feature = "bellard")]
 use crate::quickjs_utils::objects::is_instance_of_by_name;
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use libquickjs_sys as q;
+#[cfg(feature = "quickjs-ng")]
+use libquickjs_sys::JS_IsPromise;
 
 pub fn is_promise_q(context: &QuickJsRealmAdapter, obj_ref: &QuickJsValueAdapter) -> bool {
     unsafe { is_promise(context.context, obj_ref) }
@@ -15,8 +18,18 @@ pub fn is_promise_q(context: &QuickJsRealmAdapter, obj_ref: &QuickJsValueAdapter
 #[allow(dead_code)]
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn is_promise(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter) -> bool {
-    is_instance_of_by_name(context, obj_ref, "Promise").expect("could not check instance_of")
+#[allow(unused_variables)]
+pub unsafe fn is_promise(ctx: *mut q::JSContext, obj: &QuickJsValueAdapter) -> bool {
+
+    #[cfg(feature = "bellard")]
+    {
+        is_instance_of_by_name(ctx, obj, "Promise").unwrap_or(false)
+    }
+    #[cfg(feature = "quickjs-ng")]
+    {
+        JS_IsPromise(*obj.borrow_value())
+    }
+
 }
 
 pub struct QuickJsPromiseAdapter {
@@ -232,10 +245,22 @@ unsafe extern "C" fn promise_rejection_tracker(
     ctx: *mut q::JSContext,
     _promise: q::JSValue,
     reason: q::JSValue,
+    #[cfg(feature = "bellard")]
     is_handled: ::std::os::raw::c_int,
+    #[cfg(feature = "quickjs-ng")]
+    is_handled: bool,
+
+
     _opaque: *mut ::std::os::raw::c_void,
+
+
 ) {
-    if is_handled == 0 {
+    #[cfg(feature = "bellard")]
+    let handled = is_handled != 0;
+    #[cfg(feature = "quickjs-ng")]
+    let handled = is_handled;
+
+    if !handled {
         let reason_ref = QuickJsValueAdapter::new(
             ctx,
             reason,

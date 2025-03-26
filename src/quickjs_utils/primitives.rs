@@ -74,7 +74,10 @@ pub unsafe fn to_string(
 
     let mut len = 0;
 
+    #[cfg(feature = "bellard")]
     let ptr: *const c_char = q::JS_ToCStringLen2(context, &mut len, *value_ref.borrow_value(), 0);
+    #[cfg(feature = "quickjs-ng")]
+    let ptr: *const c_char = q::JS_ToCStringLen2(context, &mut len, *value_ref.borrow_value(), false);
 
     if len == 0 {
         return Ok("".to_string());
@@ -108,7 +111,10 @@ pub unsafe fn to_str(
 
     let mut len = 0;
 
+    #[cfg(feature = "bellard")]
     let ptr: *const c_char = q::JS_ToCStringLen2(context, &mut len, *value_ref.borrow_value(), 0);
+    #[cfg(feature = "quickjs-ng")]
+    let ptr: *const c_char = q::JS_ToCStringLen2(context, &mut len, *value_ref.borrow_value(), false);
     // Free the c string.
     q::JS_FreeCString(context, ptr);
     // ptr should still be valid as long as value_ref lives

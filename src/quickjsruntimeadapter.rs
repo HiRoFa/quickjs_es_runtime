@@ -697,7 +697,14 @@ impl QuickJsRuntimeAdapter {
 
     pub fn has_pending_jobs(&self) -> bool {
         let flag = unsafe { q::JS_IsJobPending(self.runtime) };
-        flag > 0
+        #[cfg(feature = "bellard")]
+        {
+            flag > 0
+        }
+        #[cfg(feature = "quickjs-ng")]
+        {
+            flag
+        }
     }
 
     pub fn run_pending_job(&self) -> Result<(), JsError> {
@@ -872,7 +879,7 @@ pub mod tests {
             None,
             Script::new(
                 "eval.js",
-                "console.log('bigint: ' + BigInt('1234') + '/' + BigInt(8765));",
+                "console.log('euc: ' + encodeURIComponent('hello world'));",
             ),
         )
         .expect("script failed to compile");

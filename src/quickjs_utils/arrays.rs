@@ -24,10 +24,20 @@ pub fn is_array_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &QuickJsValueAdapter) ->
 
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+#[allow(unused_variables)]
 pub unsafe fn is_array(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter) -> bool {
     let r = obj_ref.borrow_value();
-    let val = q::JS_IsArray(context, *r);
-    val > 0
+
+    #[cfg(feature = "bellard")]
+    {
+        let val = q::JS_IsArray(context, *r);
+        val > 0
+    }
+    #[cfg(feature = "quickjs-ng")]
+    {
+        q::JS_IsArray(*r)
+    }
+
 }
 
 /// Get the length of an Array

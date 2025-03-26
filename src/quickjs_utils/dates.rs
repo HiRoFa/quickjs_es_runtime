@@ -2,10 +2,14 @@
 
 use crate::jsutils::JsError;
 use crate::quickjs_utils;
-use crate::quickjs_utils::{functions, objects, primitives};
+use crate::quickjs_utils::{functions, primitives};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use libquickjs_sys as q;
+#[cfg(feature = "quickjs-ng")]
+use libquickjs_sys::{JS_IsDate};
+#[cfg(feature = "bellard")]
+use crate::quickjs_utils::objects::is_instance_of_by_name;
 
 /// create a new instance of a Date object
 pub fn new_date_q(context: &QuickJsRealmAdapter) -> Result<QuickJsValueAdapter, JsError> {
@@ -29,8 +33,16 @@ pub fn is_date_q(context: &QuickJsRealmAdapter, obj_ref: &QuickJsValueAdapter) -
 /// check if a JSValueRef is an instance of Date
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn is_date(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter) -> bool {
-    objects::is_instance_of_by_name(context, obj_ref, "Date").unwrap_or(false)
+#[allow(unused_variables)]
+pub unsafe fn is_date(ctx: *mut q::JSContext, obj: &QuickJsValueAdapter) -> bool {
+    #[cfg(feature = "bellard")]
+    {
+        is_instance_of_by_name(ctx, obj, "Date").unwrap_or(false)
+    }
+    #[cfg(feature = "quickjs-ng")]
+    {
+        JS_IsDate(*obj.borrow_value())
+    }
 }
 
 /// set the timestamp for a Date object

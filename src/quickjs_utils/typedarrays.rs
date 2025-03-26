@@ -87,7 +87,10 @@ pub unsafe fn new_array_buffer(
 
     let opaque = buffer_id;
 
+    #[cfg(feature = "bellard")]
     let is_shared = 0;
+    #[cfg(feature = "quickjs-ng")]
+    let is_shared = false;
 
     let raw = q::JS_NewArrayBuffer(
         ctx,

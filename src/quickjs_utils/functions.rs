@@ -279,8 +279,13 @@ pub fn is_function_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &QuickJsValueAdapter)
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn is_function(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter) -> bool {
     if obj_ref.is_object() {
-        let res = q::JS_IsFunction(context, *obj_ref.borrow_value());
-        res != 0
+        #[cfg(feature = "bellard")]
+        {
+            let res = q::JS_IsFunction(context, *obj_ref.borrow_value());
+            res != 0
+        }
+        #[cfg(feature = "quickjs-ng")]
+        q::JS_IsFunction(context, *obj_ref.borrow_value())
     } else {
         false
     }
@@ -296,8 +301,14 @@ pub fn is_constructor_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &QuickJsValueAdapt
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 pub unsafe fn is_constructor(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter) -> bool {
     if obj_ref.is_object() {
-        let res = q::JS_IsConstructor(context, *obj_ref.borrow_value());
-        res != 0
+        #[cfg(feature = "bellard")]
+        {
+            let res = q::JS_IsConstructor(context, *obj_ref.borrow_value());
+            res != 0
+        }
+        #[cfg(feature = "quickjs-ng")]
+        q::JS_IsConstructor(context, *obj_ref.borrow_value())
+
     } else {
         false
     }

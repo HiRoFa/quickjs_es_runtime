@@ -2,6 +2,7 @@ use crate::jsutils::JsError;
 use crate::quickjs_utils::atoms;
 use crate::quickjs_utils::atoms::JSAtomRef;
 use libquickjs_sys as q;
+#[cfg(feature = "bellard")]
 use std::os::raw::c_int;
 
 #[allow(clippy::upper_case_acronyms)]
@@ -53,8 +54,13 @@ impl JSPropertyEnumRef {
         }
         unsafe {
             let prop: *mut q::JSPropertyEnum = self.property_enum.offset(index as isize);
-            let is_enumerable: c_int = (*prop).is_enumerable;
-            is_enumerable != 0
+            #[cfg(feature = "bellard")]
+            {
+                let is_enumerable: c_int = (*prop).is_enumerable;
+                is_enumerable != 0
+            }
+            #[cfg(feature = "quickjs-ng")]
+            (*prop).is_enumerable
         }
     }
     pub fn len(&self) -> u32 {

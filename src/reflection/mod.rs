@@ -188,7 +188,7 @@ fn next_id(proxy: &Proxy) -> usize {
         panic!("too many instances"); // todo report ex
     }
     let mut rng = thread_rng();
-    let mut r: usize = rng.gen();
+    let mut r: usize = rng.r#gen();
     while mappings.contains_key(&r) {
         r += 1;
     }
