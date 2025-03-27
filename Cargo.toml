@@ -1,7 +1,7 @@
 [package]
 name = "quickjs_runtime"
-version = "0.14.6"
-authors = ["Andries Hiemstra <info@hirofa.com>"]
+version = "0.14.7"
+authors = ["Andries Hiemstra <andries@hiemstra-software.nl>"]
 edition = "2021"
 description = "Wrapper API and utils for the QuickJS JavaScript engine with support for Promise, Modules, Async/await"
 homepage = "https://github.com/HiRoFa/quickjs_es_runtime"
@@ -18,7 +18,7 @@ console = []
 settimeout = []
 setinterval = []
 setimmediate = []
-typescript = ["swc", "swc_atoms", "swc_cached", "swc_common", "swc_macros_common", "swc_eq_ignore_macros", "swc_visit", "swc_visit_macros", "swc_config", "swc_config_macro", "swc_ecma_codegen", "swc_ecma_ast", "swc_ecma_codegen_macros", "swc_ecma_ext_transforms", "swc_ecma_utils", "swc_ecma_visit", "swc_ecma_lints", "swc_ecma_loader", "swc_ecma_minifier", "swc_ecma_parser", "swc_error_reporters", "swc_fast_graph", "swc_ecma_usage_analyzer", "swc_timer", "swc_ecma_preset_env", "swc_ecma_transforms", "swc_ecma_transforms_base", "swc_ecma_transforms_compat", "swc_ecma_transforms_classes", "swc_ecma_transforms_module", "swc_ecma_transforms_optimization", "swc_ecma_transforms_proposal", "swc_ecma_transforms_macros", "swc_ecma_transforms_react", "swc_ecma_transforms_typescript", "swc_node_comments", "swc_trace_macro"]
+typescript = ["swc", "swc_common", "swc_atoms", "swc_cached", "swc_macros_common", "swc_eq_ignore_macros", "swc_visit", "swc_visit_macros", "swc_config", "swc_config_macro", "swc_ecma_codegen", "swc_ecma_ast", "swc_ecma_codegen_macros", "swc_ecma_ext_transforms", "swc_ecma_utils", "swc_ecma_visit", "swc_ecma_lints", "swc_ecma_loader", "swc_ecma_minifier", "swc_ecma_parser", "swc_error_reporters", "swc_fast_graph", "swc_ecma_usage_analyzer", "swc_timer", "swc_ecma_preset_env", "swc_ecma_transforms", "swc_ecma_transforms_base", "swc_ecma_transforms_compat", "swc_ecma_transforms_classes", "swc_ecma_transforms_module", "swc_ecma_transforms_optimization", "swc_ecma_transforms_proposal", "swc_ecma_transforms_macros", "swc_ecma_transforms_react", "swc_ecma_transforms_typescript"]#, "swc_node_comments"]#, "swc_trace_macro"]
 bellard = ["libquickjs-sys/bellard"]
 quickjs-ng = ["libquickjs-sys/quickjs-ng"]
 
@@ -27,73 +27,66 @@ hirofa_utils = "0.7"
 #hirofa_utils = {path="../utils"}
 #hirofa_utils = {git="https://github.com/SreeniIO/utils.git"}
 #hirofa_utils = {git="https://github.com/HiRoFa/utils"}
-backtrace = "0.3.67"
+backtrace = "0.3"
 
 #libquickjs-sys = {package="hirofa-quickjs-sys", git='https://github.com/HiRoFa/quickjs-sys'}
 #libquickjs-sys = {package="hirofa-quickjs-sys", path='../quickjs-sys', default-features=false}
 libquickjs-sys = {package="hirofa-quickjs-sys", version="0.9.0", default-features=false}
-lazy_static = "1.4.0"
+lazy_static = "1.5.0"
 log = "0.4"
 num_cpus = "1"
 rand = "0.8"
-thread-id = "4"
+thread-id = "5"
 futures = "0.3"
 tokio = {version = "1", features=["rt", "rt-multi-thread"]}
 serde_json = "1.0"
 serde = {version="1.0", features=["derive"]}
 string_cache = "0.8"
-flume = {version="0.10", features=["async"]}
+flume = {version="0.11", features=["async"]}
 
 #swc
-# like the good people at denoland said
-# swc's version bumping is very buggy and there will often be patch versions
+# like the good people at denoland said:
+# "swc's version bumping is very buggy and there will often be patch versions
 # published that break our build, so we pin all swc versions to prevent
-# pulling in new versions of swc crates
-
-# before we can use a newer swc with stable rust we wait for swc_ecma_lint to no longer use box patterns
-# see https://github.com/swc-project/swc/blob/main/crates/swc_ecma_lints/src/lib.rs
-# could be a while a srust has no plans to stabilize box_patterns
-# i gues thats one of the reaons deno does not use the swc dep as it allways loads swc_ecma_linter
-# deno does not...
+# pulling in new versions of swc crates"
 # see https://github.com/denoland/deno_ast/blob/main/Cargo.toml
-# nb, just using the swc dep now gives us a lot of errors in macro's since swc upgraded to using syn v2 on june-21-2023
-swc = {version="=0.236.21", optional=true}
-swc_atoms = {version="=0.4.43", optional=true}
-swc_cached = {version="=0.3.15", optional=true}
-swc_common = {version="=0.29.40", optional=true, features = ["tty-emitter"]}
-swc_macros_common = {version="=0.3.7", optional=true}
-swc_eq_ignore_macros = {version="=0.1.1", optional=true}
-swc_visit = {version="=0.5.6", optional=true}
-swc_visit_macros = {version="=0.5.7", optional=true}
-swc_config = {version="=0.1.5", optional=true}
-swc_config_macro = {version="=0.1.1", optional=true}
-swc_ecma_codegen = {version="=0.128.18", optional=true}
-swc_ecma_ast = {version="=0.95.11", optional=true}
-swc_ecma_codegen_macros = {version="=0.7.2", optional=true}
-swc_ecma_ext_transforms = {version="=0.92.19", optional=true}
-swc_ecma_utils = {version="=0.106.18", optional=true}
-swc_ecma_visit = {version="=0.81.11", optional=true}
-swc_ecma_lints = {version="=0.67.24", optional=true}
-swc_ecma_loader = {version="=0.41.42", optional=true}
-swc_ecma_minifier = {version="=0.160.38", optional=true}
-swc_ecma_parser = {version="=0.123.16", optional=true}
-swc_error_reporters = {version="=0.13.41", optional=true}
-swc_fast_graph = {version="=0.17.42", optional=true}
-swc_ecma_usage_analyzer = {version="=0.1.13", optional=true}
-swc_timer = {version="=0.17.43", optional=true}
-swc_ecma_preset_env = {version="=0.175.23", optional=true}
-swc_ecma_transforms = {version="=0.199.27", optional=true}
-swc_ecma_transforms_base = {version="=0.112.24", optional=true}
-swc_ecma_transforms_compat = {version="=0.137.25", optional=true}
-swc_ecma_transforms_classes = {version="=0.101.24", optional=true}
-swc_ecma_transforms_module = {version="=0.154.25", optional=true}
-swc_ecma_transforms_optimization = {version="=0.168.27", optional=true}
-swc_ecma_transforms_proposal = {version="=0.145.25", optional=true}
-swc_ecma_transforms_macros = {version="=0.5.1", optional=true}
-swc_ecma_transforms_react = {version="=0.156.26", optional=true}
-swc_ecma_transforms_typescript = {version="=0.160.27", optional=true}
-swc_node_comments = {version="=0.16.40", optional=true}
-swc_trace_macro = {version="=0.1.2", optional=true}
+swc = {version="=16.1.1", optional=true}
+swc_atoms = {version="=5.0.0", optional=true}
+swc_cached = {version="=2.0.0", optional=true}
+swc_common = {version="=8.0.1", optional=true, features = ["tty-emitter"]}
+swc_macros_common = {version="=1.0.0", optional=true}
+swc_eq_ignore_macros = {version="=1.0.0", optional=true}
+swc_visit = {version="=2.0.0", optional=true}
+swc_visit_macros = {version="=0.5.13", optional=true}
+swc_config = {version="=2.0.0", optional=true}
+swc_config_macro = {version="=1.0.0", optional=true}
+swc_ecma_codegen = {version="=8.0.2", optional=true}
+swc_ecma_ast = {version="=8.1.0", optional=true}
+swc_ecma_codegen_macros = {version="=1.0.1", optional=true}
+swc_ecma_ext_transforms = {version="=11.0.0", optional=true}
+swc_ecma_utils = {version="=11.0.0", optional=true}
+swc_ecma_visit = {version="=8.0.0", optional=true}
+swc_ecma_lints = {version="=11.0.1", optional=true}
+swc_ecma_loader = {version="=8.0.0", optional=true}
+swc_ecma_minifier = {version="=12.4.0", optional=true}
+swc_ecma_parser = {version="=10.0.2", optional=true}
+swc_error_reporters = {version="=9.1.1", optional=true}
+swc_fast_graph = {version="=9.0.0", optional=true}
+swc_ecma_usage_analyzer = {version="=12.0.2", optional=true}
+swc_timer = {version="=1.0.0", optional=true}
+swc_ecma_preset_env = {version="=14.0.0", optional=true}
+swc_ecma_transforms = {version="=14.0.0", optional=true}
+swc_ecma_transforms_base = {version="=11.2.0", optional=true}
+swc_ecma_transforms_compat = {version="=12.0.0", optional=true}
+swc_ecma_transforms_classes = {version="=11.0.0", optional=true}
+swc_ecma_transforms_module = {version="=12.1.0", optional=true}
+swc_ecma_transforms_optimization = {version="=11.1.0", optional=true}
+swc_ecma_transforms_proposal = {version="=11.0.2", optional=true}
+swc_ecma_transforms_macros = {version="=1.0.0", optional=true}
+swc_ecma_transforms_react = {version="=12.0.1", optional=true}
+swc_ecma_transforms_typescript = {version="=12.0.1", optional=true}
+swc_node_comments = {version="=8.0.0", optional=true}
+#swc_trace_macro = {version="=2.0.0", optional=true}
 
 
 #swc_ecma_parser = {version = "0.136.4", optional = true}

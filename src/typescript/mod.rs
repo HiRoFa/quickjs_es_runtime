@@ -76,7 +76,7 @@ impl TypeScriptTranspiler {
 
             let fm = self
                 .source_map
-                .new_source_file(FileName::Custom(file_name.into()), code.into());
+                .new_source_file(Arc::new(FileName::Custom(file_name.into())), code.into());
 
             let mangle_config = if self.mangle {
                 r#"
@@ -208,6 +208,12 @@ impl TypeScriptTranspiler {
             script.get_runnable_code()
         );
 
+        println!(
+            "TypeScriptPreProcessor:process file={} result = {}",
+            script.get_path(),
+            script.get_runnable_code()
+        );
+
         Ok(())
     }
 }
@@ -330,6 +336,7 @@ pub(crate) fn unmap_stack_trace(stack_trace: &str) -> String {
 
 pub fn fix_stack_trace(stack_trace: &str, maps: &HashMap<String, String>) -> String {
     log::trace!("fix_stack_trace:\n{stack_trace}");
+    println!("fix_stack_trace:\n{stack_trace}");
     match parse_stack_trace(stack_trace) {
         Ok(mut parsed_stack) => {
             for stack_trace_entry in parsed_stack.iter_mut() {
@@ -343,14 +350,14 @@ pub fn fix_stack_trace(stack_trace: &str, maps: &HashMap<String, String>) -> Str
                         match swc::sourcemap::SourceMap::from_reader(io::Cursor::new(map_str)) {
                             Ok(source_map) => {
                                 if let Some(original_location) = source_map.lookup_token(
-                                    line_number,
-                                    stack_trace_entry.column_number.unwrap_or(1),
+                                    line_number-1,
+                                    stack_trace_entry.column_number.unwrap_or(1)-1,
                                 ) {
                                     let original_line = original_location.get_src_line();
                                     let original_column = original_location.get_src_col();
                                     log::trace!("lookup original_line:{original_line}");
-                                    stack_trace_entry.line_number = Some(original_line);
-                                    stack_trace_entry.column_number = Some(original_column);
+                                    stack_trace_entry.line_number = Some(original_line+1);
+                                    stack_trace_entry.column_number = Some(original_column+1);
                                 }
                             }
                             Err(_) => {
@@ -423,12 +430,13 @@ pub mod tests {
             t_ts("hello", 1337);
 "#,
         );
-        let _res = rt
+        let res = rt
             .eval_sync(None, script)
             .expect_err("script passed.. which it shouldnt");
         // far from perfect test, also line numbers don't yet realy match..
         // check again after https://github.com/HiRoFa/quickjs_es_runtime/issues/77
-        //assert!(res.get_stack().contains("t_ts (file:///test.ts):8"));
+        println!("stack:{}",res.get_stack());
+        assert!(res.get_stack().contains("t_ts (test.ts:7"));
     }
     #[test]
     fn test_stack_parse() {

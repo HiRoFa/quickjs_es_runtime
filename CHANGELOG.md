@@ -1,3 +1,8 @@
+# 0.14.7
+
+* bumped some deps (especially swc)
+* fixed stack traces for transpiled scripts (line numbers now seem to match)
+
 # 0.14.6
 
 * quickjs-ng 0.9.0
