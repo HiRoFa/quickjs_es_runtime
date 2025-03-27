@@ -208,12 +208,6 @@ impl TypeScriptTranspiler {
             script.get_runnable_code()
         );
 
-        println!(
-            "TypeScriptPreProcessor:process file={} result = {}",
-            script.get_path(),
-            script.get_runnable_code()
-        );
-
         Ok(())
     }
 }
@@ -336,7 +330,7 @@ pub(crate) fn unmap_stack_trace(stack_trace: &str) -> String {
 
 pub fn fix_stack_trace(stack_trace: &str, maps: &HashMap<String, String>) -> String {
     log::trace!("fix_stack_trace:\n{stack_trace}");
-    println!("fix_stack_trace:\n{stack_trace}");
+
     match parse_stack_trace(stack_trace) {
         Ok(mut parsed_stack) => {
             for stack_trace_entry in parsed_stack.iter_mut() {
