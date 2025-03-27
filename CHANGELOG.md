@@ -1,4 +1,4 @@
-# 0.14.7
+# 0.14.8
 
 * bumped some deps (especially swc)
 * fixed stack traces for transpiled scripts (line numbers now seem to match)
