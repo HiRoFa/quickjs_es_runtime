@@ -1,3 +1,7 @@
+# 0.14.9
+
+* TypeScript::TRANSPILER no longer uses external_helpers by default
+
 # 0.14.8
 
 * bumped some deps (especially swc)

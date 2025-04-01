@@ -214,14 +214,14 @@ impl TypeScriptTranspiler {
 
 impl Default for TypeScriptTranspiler {
     fn default() -> Self {
-        Self::new(TargetVersion::Es2020, false, true, false)
+        Self::new(TargetVersion::Es2020, false, false, false)
     }
 }
 
 thread_local! {
     // we store this in a thread local inb the worker thread so they are dropped when the runtimefacade is dropped
     static SOURCE_MAPS: RefCell<HashMap<String, String>> = RefCell::new(HashMap::new());
-    static TRANSPILER: RefCell<TypeScriptTranspiler> = RefCell::new(TypeScriptTranspiler::new(TargetVersion::Es2020, false, true, false));
+    static TRANSPILER: RefCell<TypeScriptTranspiler> = RefCell::new(TypeScriptTranspiler::new(TargetVersion::Es2020, false, false, false));
 }
 
 // fix stacktrace method
