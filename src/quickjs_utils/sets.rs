@@ -2,11 +2,13 @@
 //! see [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Sap) for more on Sets
 
 use crate::jsutils::JsError;
-use crate::quickjs_utils::objects::{construct_object, is_instance_of_by_name};
+use crate::quickjs_utils::class_ids::JS_CLASS_SET;
+use crate::quickjs_utils::objects::construct_object;
 use crate::quickjs_utils::{functions, get_constructor, iterators, objects, primitives};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use libquickjs_sys as q;
+use libquickjs_sys::JS_GetClassID;
 
 /// create new instance of Set
 /// # Example
@@ -34,15 +36,15 @@ pub unsafe fn new_set(ctx: *mut q::JSContext) -> Result<QuickJsValueAdapter, JsE
 }
 
 /// see if a JSValueRef is an instance of Set
-pub fn is_set_q(q_ctx: &QuickJsRealmAdapter, obj: &QuickJsValueAdapter) -> Result<bool, JsError> {
-    unsafe { is_set(q_ctx.context, obj) }
+pub fn is_set_q(obj: &QuickJsValueAdapter) -> bool {
+    unsafe { is_set(obj) }
 }
 
 /// see if a JSValueRef is an instance of Set
 /// # Safety
 /// please ensure the passed JSContext is still valid
-pub unsafe fn is_set(ctx: *mut q::JSContext, obj: &QuickJsValueAdapter) -> Result<bool, JsError> {
-    is_instance_of_by_name(ctx, obj, "Set")
+pub unsafe fn is_set(obj: &QuickJsValueAdapter) -> bool {
+    JS_GetClassID(*obj.borrow_value()) == JS_CLASS_SET
 }
 
 /// add a value to the Set

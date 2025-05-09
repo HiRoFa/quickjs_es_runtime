@@ -499,6 +499,7 @@ type Callback = dyn Fn(
 thread_local! {
     static INSTANCE_ID_MAPPINGS: RefCell<HashMap<usize, Box<(usize, String)>>> = RefCell::new(HashMap::new());
 
+    #[cfg(feature = "quickjs-ng")]
     static CALLBACK_EXOTIC: RefCell<q::JSClassExoticMethods> = RefCell::new(q::JSClassExoticMethods {
         get_own_property: None,
         get_own_property_names: None,
@@ -507,6 +508,21 @@ thread_local! {
         has_property: None,
         get_property: None,
         set_property: None,
+
+    });
+    #[cfg(feature = "bellard")]
+    static CALLBACK_EXOTIC: RefCell<q::JSClassExoticMethods> = RefCell::new(q::JSClassExoticMethods {
+        get_own_property: None,
+        get_own_property_names: None,
+        delete_property: None,
+        define_own_property: None,
+        has_property: None,
+        get_property: None,
+        set_property: None,
+        get_prototype: None,
+        is_extensible: None,
+        prevent_extensions: None,
+        set_prototype: None
     });
 
 

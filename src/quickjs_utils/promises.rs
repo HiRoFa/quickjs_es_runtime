@@ -1,13 +1,15 @@
 use crate::jsutils::JsError;
 use crate::quickjs_utils;
+#[cfg(feature = "bellard")]
+use crate::quickjs_utils::class_ids::JS_CLASS_PROMISE;
 use crate::quickjs_utils::errors::get_stack;
 use crate::quickjs_utils::functions;
-#[cfg(feature = "bellard")]
-use crate::quickjs_utils::objects::is_instance_of_by_name;
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::QuickJsRuntimeAdapter;
 use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use libquickjs_sys as q;
+#[cfg(feature = "bellard")]
+use libquickjs_sys::JS_GetClassID;
 #[cfg(feature = "quickjs-ng")]
 use libquickjs_sys::JS_IsPromise;
 
@@ -20,16 +22,14 @@ pub fn is_promise_q(context: &QuickJsRealmAdapter, obj_ref: &QuickJsValueAdapter
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
 #[allow(unused_variables)]
 pub unsafe fn is_promise(ctx: *mut q::JSContext, obj: &QuickJsValueAdapter) -> bool {
-
     #[cfg(feature = "bellard")]
     {
-        is_instance_of_by_name(ctx, obj, "Promise").unwrap_or(false)
+        JS_GetClassID(*obj.borrow_value()) == JS_CLASS_PROMISE
     }
     #[cfg(feature = "quickjs-ng")]
     {
         JS_IsPromise(*obj.borrow_value())
     }
-
 }
 
 pub struct QuickJsPromiseAdapter {
@@ -245,15 +245,10 @@ unsafe extern "C" fn promise_rejection_tracker(
     ctx: *mut q::JSContext,
     _promise: q::JSValue,
     reason: q::JSValue,
-    #[cfg(feature = "bellard")]
-    is_handled: ::std::os::raw::c_int,
-    #[cfg(feature = "quickjs-ng")]
-    is_handled: bool,
-
+    #[cfg(feature = "bellard")] is_handled: ::std::os::raw::c_int,
+    #[cfg(feature = "quickjs-ng")] is_handled: bool,
 
     _opaque: *mut ::std::os::raw::c_void,
-
-
 ) {
     #[cfg(feature = "bellard")]
     let handled = is_handled != 0;

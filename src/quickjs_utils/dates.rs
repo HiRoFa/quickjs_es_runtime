@@ -2,14 +2,16 @@
 
 use crate::jsutils::JsError;
 use crate::quickjs_utils;
+#[cfg(feature = "bellard")]
+use crate::quickjs_utils::class_ids::JS_CLASS_DATE;
 use crate::quickjs_utils::{functions, primitives};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use libquickjs_sys as q;
-#[cfg(feature = "quickjs-ng")]
-use libquickjs_sys::{JS_IsDate};
 #[cfg(feature = "bellard")]
-use crate::quickjs_utils::objects::is_instance_of_by_name;
+use libquickjs_sys::JS_GetClassID;
+#[cfg(feature = "quickjs-ng")]
+use libquickjs_sys::JS_IsDate;
 
 /// create a new instance of a Date object
 pub fn new_date_q(context: &QuickJsRealmAdapter) -> Result<QuickJsValueAdapter, JsError> {
@@ -37,7 +39,7 @@ pub fn is_date_q(context: &QuickJsRealmAdapter, obj_ref: &QuickJsValueAdapter) -
 pub unsafe fn is_date(ctx: *mut q::JSContext, obj: &QuickJsValueAdapter) -> bool {
     #[cfg(feature = "bellard")]
     {
-        is_instance_of_by_name(ctx, obj, "Date").unwrap_or(false)
+        JS_GetClassID(*obj.borrow_value()) == JS_CLASS_DATE
     }
     #[cfg(feature = "quickjs-ng")]
     {
@@ -87,14 +89,18 @@ pub unsafe fn get_time(
     let time_ref = functions::invoke_member_function(context, date_ref, "getTime", &[])?;
     if time_ref.is_f64() {
         primitives::to_f64(&time_ref)
-    } else {
+    } else if time_ref.is_i32() {
         primitives::to_i32(&time_ref).map(|i| i as f64)
+    } else {
+        Err(JsError::new_string(format!(
+            "could not get time, val was a {}",
+            time_ref.get_js_type()
+        )))
     }
 }
 
 #[cfg(test)]
 pub mod tests {
-
     use crate::facades::tests::init_test_rt;
     use crate::quickjs_utils::dates;
     use crate::quickjs_utils::dates::{get_time_q, is_date_q, set_time_q};
@@ -107,11 +113,15 @@ pub mod tests {
             let date_ref = dates::new_date_q(q_ctx).expect("new_date failed");
             assert!(is_date_q(q_ctx, &date_ref));
 
-            set_time_q(q_ctx, &date_ref, 2147483648f64).expect("could not set time");
+            set_time_q(q_ctx, &date_ref, 1746776901898f64).expect("could not set time");
+            log::info!(
+                "date_str={}",
+                date_ref.to_string().expect("could not get date_ref string")
+            );
             let gt_res = get_time_q(q_ctx, &date_ref);
             match gt_res {
                 Ok(t) => {
-                    assert_eq!(t, 2147483648f64);
+                    assert_eq!(t, 1746776901898f64);
                 }
                 Err(e) => {
                     panic!("get time failed: {}", e);

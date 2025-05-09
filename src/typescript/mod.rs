@@ -344,14 +344,14 @@ pub fn fix_stack_trace(stack_trace: &str, maps: &HashMap<String, String>) -> Str
                         match swc::sourcemap::SourceMap::from_reader(io::Cursor::new(map_str)) {
                             Ok(source_map) => {
                                 if let Some(original_location) = source_map.lookup_token(
-                                    line_number-1,
-                                    stack_trace_entry.column_number.unwrap_or(1)-1,
+                                    line_number - 1,
+                                    stack_trace_entry.column_number.unwrap_or(1) - 1,
                                 ) {
                                     let original_line = original_location.get_src_line();
                                     let original_column = original_location.get_src_col();
                                     log::trace!("lookup original_line:{original_line}");
-                                    stack_trace_entry.line_number = Some(original_line+1);
-                                    stack_trace_entry.column_number = Some(original_column+1);
+                                    stack_trace_entry.line_number = Some(original_line + 1);
+                                    stack_trace_entry.column_number = Some(original_column + 1);
                                 }
                             }
                             Err(_) => {
@@ -429,7 +429,13 @@ pub mod tests {
             .expect_err("script passed.. which it shouldnt");
         // far from perfect test, also line numbers don't yet realy match..
         // check again after https://github.com/HiRoFa/quickjs_es_runtime/issues/77
-        println!("stack:{}",res.get_stack());
+        println!("stack:{}", res.get_stack());
+
+        // bellard is actually better as it points at the actual issue, not the start of the function
+
+        #[cfg(feature = "bellard")]
+        assert!(res.get_stack().contains("t_ts (test.ts:8"));
+        #[cfg(feature = "quickjs-ng")]
         assert!(res.get_stack().contains("t_ts (test.ts:7"));
     }
     #[test]

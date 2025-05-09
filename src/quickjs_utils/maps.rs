@@ -2,13 +2,15 @@
 //! see [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map) for more on Maps
 
 use crate::jsutils::JsError;
-use crate::quickjs_utils::objects::construct_object;
 #[cfg(feature = "bellard")]
-use crate::quickjs_utils::objects::is_instance_of_by_name;
+use crate::quickjs_utils::class_ids::JS_CLASS_MAP;
+use crate::quickjs_utils::objects::construct_object;
 use crate::quickjs_utils::{arrays, functions, get_constructor, iterators, objects, primitives};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use libquickjs_sys as q;
+#[cfg(feature = "bellard")]
+use libquickjs_sys::JS_GetClassID;
 #[cfg(feature = "quickjs-ng")]
 use libquickjs_sys::JS_IsMap;
 
@@ -38,7 +40,7 @@ pub unsafe fn new_map(ctx: *mut q::JSContext) -> Result<QuickJsValueAdapter, JsE
 }
 
 /// see if a JSValueRef is an instance of Map
-pub fn is_map_q(q_ctx: &QuickJsRealmAdapter, obj: &QuickJsValueAdapter) -> Result<bool, JsError> {
+pub fn is_map_q(q_ctx: &QuickJsRealmAdapter, obj: &QuickJsValueAdapter) -> bool {
     unsafe { is_map(q_ctx.context, obj) }
 }
 
@@ -46,14 +48,14 @@ pub fn is_map_q(q_ctx: &QuickJsRealmAdapter, obj: &QuickJsValueAdapter) -> Resul
 /// # Safety
 /// please ensure the passed JSContext is still valid
 #[allow(unused_variables)]
-pub unsafe fn is_map(ctx: *mut q::JSContext, obj: &QuickJsValueAdapter) -> Result<bool, JsError> {
+pub unsafe fn is_map(ctx: *mut q::JSContext, obj: &QuickJsValueAdapter) -> bool {
     #[cfg(feature = "bellard")]
     {
-        is_instance_of_by_name(ctx, obj, "Map")
+        JS_GetClassID(*obj.borrow_value()) == JS_CLASS_MAP
     }
     #[cfg(feature = "quickjs-ng")]
     {
-        Ok(JS_IsMap(*obj.borrow_value()))
+        JS_IsMap(*obj.borrow_value())
     }
 }
 

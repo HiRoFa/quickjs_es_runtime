@@ -3,6 +3,8 @@ use crate::quickjs_utils;
 use crate::quickjs_utils::{functions, primitives};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsvalueadapter::QuickJsValueAdapter;
+#[cfg(feature = "bellard")]
+use crate::quickjsvalueadapter::TAG_BIG_INT;
 use libquickjs_sys as q;
 
 pub fn new_bigint_i64_q(
@@ -30,7 +32,12 @@ pub unsafe fn new_bigint_i64(
     let ret = QuickJsValueAdapter::new(context, res_val, false, true, "new_bigint_i64");
 
     #[cfg(feature = "bellard")]
-    assert_eq!(ret.get_ref_count(), 1);
+    {
+        #[cfg(debug_assertions)]
+        if ret.get_tag() == TAG_BIG_INT {
+            assert_eq!(ret.get_ref_count(), 1);
+        }
+    }
     Ok(ret)
 }
 
@@ -45,7 +52,12 @@ pub unsafe fn new_bigint_u64(
     let ret = QuickJsValueAdapter::new(context, res_val, false, true, "new_bigint_u64");
 
     #[cfg(feature = "bellard")]
-    assert_eq!(ret.get_ref_count(), 1);
+    {
+        #[cfg(debug_assertions)]
+        if ret.get_tag() == TAG_BIG_INT {
+            assert_eq!(ret.get_ref_count(), 1);
+        }
+    }
     Ok(ret)
 }
 

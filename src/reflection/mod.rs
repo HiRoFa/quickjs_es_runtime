@@ -87,6 +87,7 @@ static SCNAME: &str = "ProxyStaticClass\0";
 
 thread_local! {
 
+    #[cfg(feature = "quickjs-ng")]
     static PROXY_STATIC_EXOTIC: RefCell<q::JSClassExoticMethods> = RefCell::new(q::JSClassExoticMethods {
         get_own_property: None,
         get_own_property_names: None,
@@ -96,7 +97,22 @@ thread_local! {
         get_property: Some(proxy_static_get_prop),
         set_property: Some(proxy_static_set_prop),
     });
+    #[cfg(feature = "bellard")]
+    static PROXY_STATIC_EXOTIC: RefCell<q::JSClassExoticMethods> = RefCell::new(q::JSClassExoticMethods {
+        get_own_property: None,
+        get_own_property_names: None,
+        delete_property: None,
+        define_own_property: None,
+        has_property: Some(proxy_static_has_prop),
+        get_property: Some(proxy_static_get_prop),
+        set_property: Some(proxy_static_set_prop),
+        get_prototype: None,
+        is_extensible: None,
+        prevent_extensions: None,
+        set_prototype: None
+    });
 
+    #[cfg(feature = "quickjs-ng")]
     static PROXY_INSTANCE_EXOTIC: RefCell<q::JSClassExoticMethods> = RefCell::new(q::JSClassExoticMethods {
         get_own_property: None,
         get_own_property_names: None,
@@ -105,6 +121,21 @@ thread_local! {
         has_property: Some(proxy_instance_has_prop),
         get_property: Some(proxy_instance_get_prop),
         set_property: Some(proxy_instance_set_prop),
+    });
+
+    #[cfg(feature = "bellard")]
+    static PROXY_INSTANCE_EXOTIC: RefCell<q::JSClassExoticMethods> = RefCell::new(q::JSClassExoticMethods {
+        get_own_property: None,
+        get_own_property_names: None,
+        delete_property: None,
+        define_own_property: None,
+        has_property: Some(proxy_instance_has_prop),
+        get_property: Some(proxy_instance_get_prop),
+        set_property: Some(proxy_instance_set_prop),
+        get_prototype: None,
+        is_extensible: None,
+        prevent_extensions: None,
+        set_prototype: None
     });
 
     static PROXY_STATIC_CLASS_DEF: RefCell<q::JSClassDef> = {

@@ -111,7 +111,8 @@ impl std::fmt::Debug for QuickJsValueAdapter {
             TAG_STRING => write!(f, "String(?)"),
             TAG_OBJECT => write!(f, "Object(?)"),
             TAG_MODULE => write!(f, "Module(?)"),
-            _ => write!(f, "?"),
+            TAG_BIG_INT => write!(f, "BigInt(?)"),
+            _ => write!(f, "Unknown Tag(?)"),
         }
     }
 }
@@ -236,7 +237,7 @@ impl QuickJsValueAdapter {
 
     pub fn is_big_int(&self) -> bool {
         // unsafe { q::JS_IsBigInt(ctx, self.borrow_value()) }
-        self.borrow_value().tag == TAG_BIG_INT
+        self.borrow_value().tag == TAG_BIG_INT || self.borrow_value().tag == TAG_SHORT_BIG_INT
     }
 
     /// return true if the wrapped value represents a JS Exception value
@@ -255,22 +256,19 @@ impl QuickJsValueAdapter {
     }
 }
 
-#[cfg(feature = "bellard")]
-pub(crate) const TAG_BIG_INT: i64 = -10;
-#[cfg(feature = "quickjs-ng")]
-pub(crate) const TAG_BIG_INT: i64 = -9;
-//pub(crate) const TAG_BIG_FLOAT: i64 = -9;
-//pub(crate) const TAG_SYMBOL: i64 = -8;
-pub(crate) const TAG_STRING: i64 = -7;
-pub(crate) const TAG_MODULE: i64 = -3;
-pub(crate) const TAG_FUNCTION_BYTECODE: i64 = -2;
-pub(crate) const TAG_OBJECT: i64 = -1;
-pub(crate) const TAG_INT: i64 = 0;
-pub(crate) const TAG_BOOL: i64 = 1;
-pub(crate) const TAG_NULL: i64 = 2;
-pub(crate) const TAG_UNDEFINED: i64 = 3;
-pub(crate) const TAG_EXCEPTION: i64 = 6;
-pub(crate) const TAG_FLOAT64: i64 = 7;
+pub(crate) const TAG_BIG_INT: i64 = libquickjs_sys::JS_TAG_BIG_INT as i64;
+pub(crate) const TAG_SHORT_BIG_INT: i64 = libquickjs_sys::JS_TAG_SHORT_BIG_INT as i64;
+
+pub(crate) const TAG_STRING: i64 = libquickjs_sys::JS_TAG_STRING as i64;
+pub(crate) const TAG_MODULE: i64 = libquickjs_sys::JS_TAG_MODULE as i64;
+pub(crate) const TAG_FUNCTION_BYTECODE: i64 = libquickjs_sys::JS_TAG_FUNCTION_BYTECODE as i64;
+pub(crate) const TAG_OBJECT: i64 = libquickjs_sys::JS_TAG_OBJECT as i64;
+pub(crate) const TAG_INT: i64 = libquickjs_sys::JS_TAG_INT as i64;
+pub(crate) const TAG_BOOL: i64 = libquickjs_sys::JS_TAG_BOOL as i64;
+pub(crate) const TAG_NULL: i64 = libquickjs_sys::JS_TAG_NULL as i64;
+pub(crate) const TAG_UNDEFINED: i64 = libquickjs_sys::JS_TAG_UNDEFINED as i64;
+pub(crate) const TAG_EXCEPTION: i64 = libquickjs_sys::JS_TAG_EXCEPTION as i64;
+pub(crate) const TAG_FLOAT64: i64 = libquickjs_sys::JS_TAG_FLOAT64 as i64;
 
 impl QuickJsValueAdapter {
     pub fn is_function(&self) -> bool {
@@ -297,6 +295,7 @@ impl QuickJsValueAdapter {
             TAG_STRING => JsValueType::String,
             TAG_OBJECT => {
                 // todo get classProto.name and match
+                // if bellard, match on classid
                 if unsafe { functions::is_function(self.context, self) } {
                     JsValueType::Function
                 } else if unsafe { errors::is_error(self.context, self) } {
@@ -309,6 +308,7 @@ impl QuickJsValueAdapter {
                     JsValueType::Object
                 }
             }
+            TAG_BIG_INT | TAG_SHORT_BIG_INT => JsValueType::BigInt,
             TAG_MODULE => todo!(),
             _ => JsValueType::Undefined,
         }

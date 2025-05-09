@@ -3,17 +3,17 @@
 //!
 //!
 use crate::jsutils::JsError;
+use crate::quickjs_utils::class_ids::JS_CLASS_ARRAY_BUFFER;
 use crate::quickjs_utils::get_constructor;
 use crate::quickjs_utils::objects::{
-    construct_object, get_property, get_prototype_of, is_instance_of, is_instance_of_by_name,
-    set_property2,
+    construct_object, get_property, get_prototype_of, is_instance_of, set_property2,
 };
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use hirofa_utils::auto_id_map::AutoIdMap;
 use libquickjs_sys as q;
+use libquickjs_sys::JS_GetClassID;
 use std::cell::RefCell;
-
 // relevant quickjs bindings functions
 // pub type JSFreeArrayBufferDataFunc = ::std::option::Option<
 //     unsafe extern "C" fn(
@@ -111,15 +111,15 @@ pub unsafe fn new_array_buffer(
     Ok(obj_ref)
 }
 
-pub fn is_array_buffer_q(q_ctx: &QuickJsRealmAdapter, buf: &QuickJsValueAdapter) -> bool {
-    unsafe { is_array_buffer(q_ctx.context, buf) }
+pub fn is_array_buffer_q(buf: &QuickJsValueAdapter) -> bool {
+    unsafe { is_array_buffer(buf) }
 }
 
 /// check if a ref is an ArrayBuffer
 /// # Safety
 /// please ensure that the relevant QuickjsRealmAdapter is not dropped while using this function or a result of this function
-pub unsafe fn is_array_buffer(ctx: *mut q::JSContext, buf: &QuickJsValueAdapter) -> bool {
-    buf.is_object() && is_instance_of_by_name(ctx, buf, "ArrayBuffer").unwrap_or(false)
+pub unsafe fn is_array_buffer(buf: &QuickJsValueAdapter) -> bool {
+    JS_GetClassID(*buf.borrow_value()) == JS_CLASS_ARRAY_BUFFER
 }
 
 pub fn is_typed_array_q(q_ctx: &QuickJsRealmAdapter, arr: &QuickJsValueAdapter) -> bool {
@@ -193,7 +193,7 @@ pub unsafe fn detach_array_buffer_buffer(
 ) -> Result<Vec<u8>, JsError> {
     log::trace!("detach_array_buffer_buffer");
 
-    debug_assert!(is_array_buffer(ctx, array_buffer));
+    debug_assert!(is_array_buffer(array_buffer));
 
     // check if vec is one we buffered, if not we create a new one from the slice we got from quickjs
     // abuf->opaque seems impossible to get at, so we store the id ourselves as well
@@ -241,7 +241,7 @@ pub unsafe fn get_array_buffer_buffer_copy(
     ctx: *mut q::JSContext,
     array_buffer: &QuickJsValueAdapter,
 ) -> Result<Vec<u8>, JsError> {
-    debug_assert!(is_array_buffer(ctx, array_buffer));
+    debug_assert!(is_array_buffer(array_buffer));
 
     log::trace!("get_array_buffer_buffer_copy");
 
@@ -443,7 +443,7 @@ pub mod tests {
             match ab_res {
                 Ok(ab) => {
                     log::debug!("buffer created, dropping");
-                    assert!(is_array_buffer_q(realm, &ab));
+                    assert!(is_array_buffer_q(&ab));
                     drop(ab);
                     log::debug!("buffer created, dropped");
                 }

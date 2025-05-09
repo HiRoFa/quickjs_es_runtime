@@ -24,7 +24,10 @@ pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<JsError> {
         } else if exception_ref.is_object() {
             error_to_js_error(context, &exception_ref)
         } else {
-            JsError::new_str("no clue what happened")
+            JsError::new_string(format!(
+                "no clue what happened {}",
+                exception_ref.get_js_type()
+            ))
         };
         Some(err)
     }
@@ -130,7 +133,6 @@ pub unsafe fn is_error(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter
         #[cfg(feature = "quickjs-ng")]
         {
             q::JS_IsError(context, *obj_ref.borrow_value())
-
         }
     } else {
         false
