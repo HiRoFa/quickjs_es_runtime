@@ -109,6 +109,8 @@ impl std::fmt::Debug for QuickJsValueAdapter {
             TAG_INT => write!(f, "Int(?)"),
             TAG_FLOAT64 => write!(f, "Float(?)"),
             TAG_STRING => write!(f, "String(?)"),
+            #[cfg(feature = "bellard")]
+            TAG_STRING_ROPE => write!(f, "String(?)"),
             TAG_OBJECT => write!(f, "Object(?)"),
             TAG_MODULE => write!(f, "Module(?)"),
             TAG_BIG_INT => write!(f, "BigInt(?)"),
@@ -260,6 +262,10 @@ pub(crate) const TAG_BIG_INT: i64 = libquickjs_sys::JS_TAG_BIG_INT as i64;
 pub(crate) const TAG_SHORT_BIG_INT: i64 = libquickjs_sys::JS_TAG_SHORT_BIG_INT as i64;
 
 pub(crate) const TAG_STRING: i64 = libquickjs_sys::JS_TAG_STRING as i64;
+
+#[cfg(feature = "bellard")]
+pub(crate) const TAG_STRING_ROPE: i64 = libquickjs_sys::JS_TAG_STRING_ROPE as i64;
+
 pub(crate) const TAG_MODULE: i64 = libquickjs_sys::JS_TAG_MODULE as i64;
 pub(crate) const TAG_FUNCTION_BYTECODE: i64 = libquickjs_sys::JS_TAG_FUNCTION_BYTECODE as i64;
 pub(crate) const TAG_OBJECT: i64 = libquickjs_sys::JS_TAG_OBJECT as i64;
@@ -293,6 +299,8 @@ impl QuickJsValueAdapter {
             TAG_INT => JsValueType::I32,
             TAG_FLOAT64 => JsValueType::F64,
             TAG_STRING => JsValueType::String,
+            #[cfg(feature = "bellard")]
+            TAG_STRING_ROPE => JsValueType::String,
             TAG_OBJECT => {
                 // todo get classProto.name and match
                 // if bellard, match on classid
@@ -326,6 +334,8 @@ impl QuickJsValueAdapter {
         match self.get_tag() {
             TAG_BIG_INT => "bigint",
             TAG_STRING => "string",
+            #[cfg(feature = "bellard")]
+            TAG_STRING_ROPE => "string",
             TAG_MODULE => "module",
             TAG_FUNCTION_BYTECODE => "function",
             TAG_OBJECT => {

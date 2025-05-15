@@ -1,3 +1,7 @@
+# 0.15.1
+
+* support string rope in bellard version
+
 # 0.15.0
 
 * quickjs-ng 0.10.0
