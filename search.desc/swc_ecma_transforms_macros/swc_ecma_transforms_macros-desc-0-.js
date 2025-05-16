@@ -1,0 +1,1 @@
+searchState.loadedDescShard("swc_ecma_transforms_macros", 0, "This macro adds fast-path to the <code>swc_ecma_visit::Fold</code> and …\nInput")

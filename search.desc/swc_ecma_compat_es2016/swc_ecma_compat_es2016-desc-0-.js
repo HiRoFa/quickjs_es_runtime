@@ -1,0 +1,1 @@
+searchState.loadedDescShard("swc_ecma_compat_es2016", 0, "<code>@babel/plugin-transform-exponentiation-operator</code>")

@@ -1,0 +1,1 @@
+searchState.loadedDescShard("from_variant", 0, "Derives <code>From</code> for all variants. This only supports an enum …")

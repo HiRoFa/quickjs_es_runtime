@@ -1,0 +1,1 @@
+searchState.loadedDescShard("swc_ecma_compat_es2018", 0, "Returns the argument unchanged.\nCalls <code>U::from(self)</code>.\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.\n<code>@babel/plugin-proposal-object-rest-spread</code>")

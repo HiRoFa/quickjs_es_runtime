@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["merge_in_parallel"],"trait":["Merge"]};

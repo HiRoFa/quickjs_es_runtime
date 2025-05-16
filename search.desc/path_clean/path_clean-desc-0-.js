@@ -1,0 +1,1 @@
+searchState.loadedDescShard("path_clean", 0, "<code>path-clean</code> is a Rust port of the the <code>cleanname</code> procedure …\nThe Clean trait implements a <code>clean</code> method.\nThe core implementation. It performs the following, …")

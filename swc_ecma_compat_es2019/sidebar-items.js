@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["es2019","optional_catch_binding"]};

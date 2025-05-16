@@ -1,0 +1,1 @@
+searchState.loadedDescShard("unicode_id_start", 0, "github crates-io docs-rs\nCheck ascii and unicode for id_continue\nCheck and unicode only for id_continue\nCheck ascii and unicode for id_start\nCheck unicode only for id_start")
