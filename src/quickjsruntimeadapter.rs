@@ -225,7 +225,7 @@ unsafe extern "C" fn native_module_init(
                                     format!(
                                         "Failed to init native module: {module_name} caused by {e}"
                                     )
-                                        .as_str(),
+                                    .as_str(),
                                 );
                                 Some(1)
                             }
@@ -249,7 +249,7 @@ thread_local! {
 }
 
 pub type ContextInitHooks =
-Vec<Box<dyn Fn(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> Result<(), JsError>>>;
+    Vec<Box<dyn Fn(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> Result<(), JsError>>>;
 
 pub struct QuickJsRuntimeAdapter {
     pub(crate) runtime: *mut q::JSRuntime,
@@ -857,7 +857,7 @@ pub mod tests {
                 "console.log('euc: ' + encodeURIComponent('hello world'));",
             ),
         )
-            .expect("script failed to compile");
+        .expect("script failed to compile");
     }
 
     #[test]
@@ -898,7 +898,7 @@ pub mod tests {
                     }
                     Ok(())
                 })
-                    .expect("init hook addition failed");
+                .expect("init hook addition failed");
             })
         });
 

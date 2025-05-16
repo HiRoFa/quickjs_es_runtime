@@ -308,7 +308,6 @@ pub unsafe fn is_constructor(context: *mut q::JSContext, obj_ref: &QuickJsValueA
         }
         #[cfg(feature = "quickjs-ng")]
         q::JS_IsConstructor(context, *obj_ref.borrow_value())
-
     } else {
         false
     }

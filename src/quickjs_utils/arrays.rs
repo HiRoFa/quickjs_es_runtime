@@ -37,7 +37,6 @@ pub unsafe fn is_array(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter
     {
         q::JS_IsArray(*r)
     }
-
 }
 
 /// Get the length of an Array
