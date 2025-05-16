@@ -59,10 +59,10 @@ jobs:
       - name: Build (windows)
         run: |
           cargo clean
-          cargo build --verbose --no-default-features --features quickjs-ng
+          cargo build --verbose --no-default-features --features quickjs-ng console
       - name: Test (windows)
         run: |
-          cargo test --verbose --no-default-features --features quickjs-ng -- --test-threads 1 --nocapture
+          cargo test --verbose --no-default-features --features quickjs-ng console -- --test-threads 1 --nocapture
 
   build-test-win-msvc-ng:
     runs-on: windows-latest
@@ -84,11 +84,11 @@ jobs:
       - name: Build (windows)
         run: |
           cargo clean
-          cargo build --verbose --no-default-features --features quickjs-ng
+          cargo build --verbose --no-default-features --features quickjs-ng console
 
       - name: Test (windows)
         run: |
-          cargo test --verbose --no-default-features --features quickjs-ng -- --test-threads 1 --nocapture
+          cargo test --verbose --no-default-features --features quickjs-ng console -- --test-threads 1 --nocapture
 
   build-test-mac:
     runs-on: macOS-latest
@@ -104,9 +104,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Build
-        run: cargo build --verbose --no-default-features --features quickjs-ng
+        run: cargo build --verbose --no-default-features --features quickjs-ng console
       - name: Run tests
-        run: cargo test --verbose --no-default-features --features quickjs-ng -- --test-threads 1 --nocapture
+        run: cargo test --verbose --no-default-features --features quickjs-ng console -- --test-threads 1 --nocapture
 
   build-ubuntu-quickjs-ng:
     runs-on: ubuntu-latest
