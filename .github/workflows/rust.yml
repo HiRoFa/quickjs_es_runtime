@@ -31,11 +31,11 @@ jobs:
       - name: Build (windows)
         run: |
           cargo clean
-          cargo build
+          cargo build --verbose
 
       - name: Test (windows)
         run: |
-          cargo test
+          cargo test --verbose -- --test-threads 1
 
   build-test-win-ng:
     runs-on: windows-latest
@@ -59,10 +59,10 @@ jobs:
       - name: Build (windows)
         run: |
           cargo clean
-          cargo build --no-default-features --features quickjs-ng
+          cargo build --verbose --no-default-features --features quickjs-ng
       - name: Test (windows)
         run: |
-          cargo test --no-default-features --features quickjs-ng
+          cargo test --verbose --no-default-features --features quickjs-ng -- --test-threads 1
 
   build-test-win-msvc-ng:
     runs-on: windows-latest
@@ -84,11 +84,11 @@ jobs:
       - name: Build (windows)
         run: |
           cargo clean
-          cargo build --no-default-features --features quickjs-ng
+          cargo build --verbose --no-default-features --features quickjs-ng
 
       - name: Test (windows)
         run: |
-          cargo test --no-default-features --features quickjs-ng
+          cargo test --verbose --no-default-features --features quickjs-ng -- --test-threads 1
 
   build-test-mac:
     runs-on: macOS-latest
@@ -97,16 +97,16 @@ jobs:
       - name: Build
         run: cargo build
       - name: Run tests
-        run: cargo test
+        run: cargo test --verbose -- --test-threads 1
 
   build-test-mac-ng:
     runs-on: macOS-latest
     steps:
       - uses: actions/checkout@v3
       - name: Build
-        run: cargo build  --no-default-features --features quickjs-ng
+        run: cargo build --verbose --no-default-features --features quickjs-ng
       - name: Run tests
-        run: cargo test  --no-default-features --features quickjs-ng
+        run: cargo test --verbose --no-default-features --features quickjs-ng -- --test-threads 1
 
   build-ubuntu-quickjs-ng:
     runs-on: ubuntu-latest
@@ -117,7 +117,7 @@ jobs:
           sudo apt update
           sudo apt install llvm autoconf2.13 automake clang -y
       - name: Run tests
-        run: cargo test --no-default-features --features "quickjs-ng console setimmediate setinterval settimeout typescript"
+        run: cargo test --no-default-features --features "quickjs-ng console setimmediate setinterval settimeout typescript" -- --test-threads 1
 
   build:
     runs-on: ubuntu-latest
@@ -161,7 +161,7 @@ jobs:
         run: |
           curl -X POST https://api.github.com/repos/${{ github.repository }}/pages/builds -H "Accept: application/vnd.github.mister-fantastic-preview+json" -u ${{ github.actor }}:${{ secrets.GH_TOKEN }}
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --verbose -- --test-threads 1
       - name: Clippy check
         uses: actions-rs/clippy-check@v1
         with:
