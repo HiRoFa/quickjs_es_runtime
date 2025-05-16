@@ -10,30 +10,32 @@ env:
 
 jobs:
   build-test-win:
-    #if: ${{ false }}
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v1
+      - uses: actions/checkout@v1
 
-    - name: Install stable toolchain (windows)
-      uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: stable
-        target: x86_64-pc-windows-gnu
-        override: true
-    - name: Setup (windows)
-      run: |
-        $env:PATH = "C:\msys64\mingw64\bin;C:\msys64\usr\bin;$env:PATH"
-        echo "PATH=${env:PATH}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        echo "CARGO_BUILD_TARGET=x86_64-pc-windows-gnu" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-    - name: Build (windows)
-      run: |
-        cargo clean
-        cargo build
-    - name: Test (windows)
-      run: |
-        cargo test
+      - name: Install stable toolchain (windows)
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          target: x86_64-pc-windows-gnu
+          override: true
+
+      - name: Setup (windows)
+        run: |
+          $env:PATH = "C:\msys64\mingw64\bin;C:\msys64\usr\bin;$env:PATH"
+          echo "PATH=${env:PATH}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "CARGO_BUILD_TARGET=x86_64-pc-windows-gnu" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build (windows)
+        run: |
+          cargo clean
+          cargo build
+
+      - name: Test (windows)
+        run: |
+          cargo test
 
   build-test-msvc:
     if: ${{ false }}
@@ -48,25 +50,28 @@ jobs:
           toolchain: stable
           target: x86_64-pc-windows-msvc
           override: true
+
       - name: Setup (windows)
         run: |
           echo "CARGO_BUILD_TARGET=x86_64-pc-windows-msvc" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Build (windows)
         run: |
           cargo clean
           cargo build --no-default-features --features quickjs-ng
+
       - name: Test (windows)
         run: |
           cargo test --no-default-features --features quickjs-ng
 
   build-test-mac:
-    runs-on: macOs-latest
+    runs-on: macOS-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+      - uses: actions/checkout@v3
+      - name: Build
+        run: cargo build --verbose
+      - name: Run tests
+        run: cargo test --verbose
 
   build-ubuntu-quickjs-ng:
     runs-on: ubuntu-latest
@@ -82,68 +87,50 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Prepare
-      run: |
-        sudo apt update
-        sudo apt install ccache llvm autoconf2.13 automake clang valgrind -y
-    - name: Cache cargo registry
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
-    - name: Cache cargo index
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
-    - name: Ccache
-      uses: actions/cache@v2
-      with:
-        path: ~/.ccache
-        key: ${{ runner.OS }}-ccache-${{ hashFiles('**\Cargo.toml') }}
-    - name: Build
-      run: |
-        export SHELL=/bin/bash
-        export CC=/usr/bin/clang
-        export CXX=/usr/bin/clang++
-        ccache -z
-        CCACHE=$(which ccache) cargo build --verbose
-        ccache -s
-        cargo clean
-    - name: Format
-      run: |
-        cargo fmt
-    - name: Commit fmt files
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git commit -m "autofmt" -a || true
-        git push "https://${{ github.actor }}:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref }} || true
-    - name: Doc
-      run: |
-        cargo doc
-    - name: Commit docs
-      run: |
-        cp -r ./target/doc /tmp
-        cd /tmp/doc
-        git init
-        echo '<!DOCTYPE html><html><head><title>Redirect</title><meta http-equiv = "refresh" content = "0; url = https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/index.html" /></head><body><p>Redirecting</p></body></html>' >> index.html
-        git add .
-        git remote add origin https://github.com/${{ github.repository }}.git
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git commit -m "doc" -a || true
-        git push "https://${{ github.actor }}:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:gh-pages --force || true
-    - name: Deploy to gh-pages 
-      run: |
-        curl -X POST https://api.github.com/repos/${{ github.repository }}/pages/builds -H "Accept: application/vnd.github.mister-fantastic-preview+json" -u ${{ github.actor }}:${{ secrets.GH_TOKEN }}
-    - name: Run tests
-      run: cargo test --verbose
-    - name: Clippy check
-      uses: actions-rs/clippy-check@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v2
+      - name: Prepare
+        run: |
+          sudo apt update
+          sudo apt install llvm autoconf2.13 automake clang valgrind -y
+      - name: Build
+        run: |
+          export SHELL=/bin/bash
+          export CC=/usr/bin/clang
+          export CXX=/usr/bin/clang++
+          cargo build
+      - name: Format
+        run: |
+          cargo fmt
+      - name: Commit fmt files
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git commit -m "autofmt" -a || true
+          git push "https://${{ github.actor }}:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref }} || true
+      - name: Doc
+        run: |
+          cargo doc
+      - name: Commit docs
+        run: |
+          cp -r ./target/doc /tmp
+          cd /tmp/doc
+          git init
+          echo '<!DOCTYPE html><html><head><title>Redirect</title><meta http-equiv = "refresh" content = "0; url = https://hirofa.github.io/quickjs_es_runtime/quickjs_runtime/index.html" /></head><body><p>Redirecting</p></body></html>' >> index.html
+          git add .
+          git remote add origin https://github.com/${{ github.repository }}.git
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git commit -m "doc" -a || true
+          git push "https://${{ github.actor }}:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:gh-pages --force || true
+      - name: Deploy to gh-pages
+        run: |
+          curl -X POST https://api.github.com/repos/${{ github.repository }}/pages/builds -H "Accept: application/vnd.github.mister-fantastic-preview+json" -u ${{ github.actor }}:${{ secrets.GH_TOKEN }}
+      - name: Run tests
+        run: cargo test --verbose
+      - name: Clippy check
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   test-and-valgrind:
     if: ${{ false }}
@@ -153,32 +140,13 @@ jobs:
       - name: Prepare
         run: |
           sudo apt update
-          sudo apt install ccache llvm autoconf2.13 automake clang valgrind -y
-      - name: Cache cargo registry
-        uses: actions/cache@v2
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
-      - name: Cache cargo index
-        uses: actions/cache@v2
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
-      - name: Ccache
-        uses: actions/cache@v2
-        with:
-          path: ~/.ccache
-          key: ${{ runner.OS }}-ccache-${{ hashFiles('**\Cargo.toml') }}
+          sudo apt install llvm autoconf2.13 automake clang valgrind -y
       - name: Build
         run: |
           export SHELL=/bin/bash
           export CC=/usr/bin/clang
           export CXX=/usr/bin/clang++
-          ccache -z
-          CCACHE=$(which ccache) cargo build --verbose
-          ccache -s
-          cargo clean
-          cargo build
+          cargo build --verbose
       - name: Run tests
         run: cargo test --verbose
       - name: Valgrind
