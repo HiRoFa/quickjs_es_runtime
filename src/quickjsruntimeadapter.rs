@@ -225,7 +225,7 @@ unsafe extern "C" fn native_module_init(
                                     format!(
                                         "Failed to init native module: {module_name} caused by {e}"
                                     )
-                                    .as_str(),
+                                        .as_str(),
                                 );
                                 Some(1)
                             }
@@ -249,7 +249,7 @@ thread_local! {
 }
 
 pub type ContextInitHooks =
-    Vec<Box<dyn Fn(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> Result<(), JsError>>>;
+Vec<Box<dyn Fn(&QuickJsRuntimeAdapter, &QuickJsRealmAdapter) -> Result<(), JsError>>>;
 
 pub struct QuickJsRuntimeAdapter {
     pub(crate) runtime: *mut q::JSRuntime,
@@ -439,10 +439,7 @@ impl QuickJsRuntimeAdapter {
 
         Ok(())
     }
-    // todo, this needs to be static, create a context, then borrowmut and add it (do not borrow mut while instantiating context)
-    // so actually needs to be called in a plain job to inner.TaskManager and not by add_to_esEventquueue
-    // EsRuntime should have a util to do that
-    // EsRuntime should have extra methods like eval_sync_ctx(ctx: &str, script: &Script) etc
+
     pub fn create_context(id: &str) -> Result<(), JsError> {
         let ctx = Self::do_with(|q_js_rt| {
             assert!(!q_js_rt.has_context(id));
@@ -465,7 +462,7 @@ impl QuickJsRuntimeAdapter {
     pub fn list_contexts(&self) -> Vec<&str> {
         self.contexts.keys().map(|k| k.as_str()).collect()
     }
-    pub fn remove_context(id: &str) {
+    pub fn remove_context(id: &str) -> anyhow::Result<()> {
         log::debug!("QuickJsRuntime::drop_context: {}", id);
 
         QuickJsRuntimeAdapter::do_with(|rt| {
@@ -476,11 +473,18 @@ impl QuickJsRuntimeAdapter {
             rt.gc();
         });
 
-        let ctx = QuickJsRuntimeAdapter::do_with_mut(|m_rt| {
-            m_rt.contexts.remove(id).expect("no such context")
-        });
+        let ctx = QuickJsRuntimeAdapter::do_with_mut(|m_rt| m_rt.contexts.remove(id));
 
-        drop(ctx);
+        match ctx {
+            None => {
+                anyhow::bail!("no such context");
+            }
+            Some(ctx) => {
+                drop(ctx);
+            }
+        }
+
+        Ok(())
     }
     pub(crate) fn get_context_ids() -> Vec<String> {
         QuickJsRuntimeAdapter::do_with(|q_js_rt| {
@@ -759,35 +763,6 @@ impl QuickJsRuntimeAdapter {
         self.load_module_script_opt(ref_path, path)
     }
 
-    pub fn js_create_realm(&self, _id: &str) -> Result<&QuickJsRealmAdapter, JsError> {
-        todo!()
-        /*
-                if self.js_get_realm(id).is_some() {
-
-                    return Err(JsError::new_str("realm already exists"));
-                }
-
-                let ctx = QuickJsRealmAdapter::new(id.to_string(), self);
-
-                self.contexts.insert(id.to_string(), ctx);
-
-                let ctx = self.js_get_realm(id).expect("invalid state");
-                let hooks = &*self.context_init_hooks.borrow();
-                for hook in hooks {
-                    hook(self, ctx)?;
-                }
-
-                Ok(ctx)
-        */
-    }
-
-    pub fn remove_realm(&self, _id: &str) {
-        todo!();
-        //if !id.eq("__main__") {
-        //            let _ = self.contexts.remove(id);
-        //        }
-    }
-
     pub fn get_realm(&self, id: &str) -> Option<&QuickJsRealmAdapter> {
         if self.has_context(id) {
             Some(self.get_context(id))
@@ -882,7 +857,7 @@ pub mod tests {
                 "console.log('euc: ' + encodeURIComponent('hello world'));",
             ),
         )
-        .expect("script failed to compile");
+            .expect("script failed to compile");
     }
 
     #[test]
@@ -923,7 +898,7 @@ pub mod tests {
                     }
                     Ok(())
                 })
-                .expect("init hook addition failed");
+                    .expect("init hook addition failed");
             })
         });
 

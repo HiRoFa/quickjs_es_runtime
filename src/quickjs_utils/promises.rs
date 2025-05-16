@@ -528,7 +528,7 @@ pub mod tests {
         }
 
         rt.exe_task_in_event_loop(|| {
-            QuickJsRuntimeAdapter::remove_context("test");
+            let _ = QuickJsRuntimeAdapter::remove_context("test");
         })
     }
 

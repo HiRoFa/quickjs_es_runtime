@@ -11,10 +11,14 @@ use crate::quickjsruntimeadapter::{
 use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use crate::reflection;
 use crate::values::JsValueFacade;
+use either::{Either, Left, Right};
 use hirofa_utils::eventloop::EventLoop;
 use hirofa_utils::task_manager::TaskManager;
 use libquickjs_sys as q;
+use lru::LruCache;
+use std::cell::RefCell;
 use std::future::Future;
+use std::num::NonZeroUsize;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::{Arc, Weak};
@@ -76,7 +80,7 @@ impl QuickjsRuntimeFacadeInner {
     pub fn add_rt_task_to_event_loop<C, R: Send + 'static>(
         &self,
         consumer: C,
-    ) -> impl Future<Output = R>
+    ) -> impl Future<Output=R>
     where
         C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static,
     {
@@ -121,7 +125,7 @@ impl QuickjsRuntimeFacadeInner {
         })
     }
 
-    pub fn add_task_to_event_loop<C, R: Send + 'static>(&self, task: C) -> impl Future<Output = R>
+    pub fn add_task_to_event_loop<C, R: Send + 'static>(&self, task: C) -> impl Future<Output=R>
     where
         C: FnOnce() -> R + Send + 'static,
     {
@@ -291,7 +295,7 @@ impl QuickJsRuntimeFacade {
         self.exe_task_in_event_loop(|| {
             let context_ids = QuickJsRuntimeAdapter::get_context_ids();
             for id in context_ids {
-                QuickJsRuntimeAdapter::remove_context(id.as_str());
+                let _ = QuickJsRuntimeAdapter::remove_context(id.as_str());
             }
         });
     }
@@ -312,7 +316,7 @@ impl QuickJsRuntimeFacade {
         self.inner.exe_task_in_event_loop(task)
     }
 
-    pub fn add_task_to_event_loop<C, R: Send + 'static>(&self, task: C) -> impl Future<Output = R>
+    pub fn add_task_to_event_loop<C, R: Send + 'static>(&self, task: C) -> impl Future<Output=R>
     where
         C: FnOnce() -> R + Send + 'static,
     {
@@ -333,7 +337,7 @@ impl QuickJsRuntimeFacade {
     pub fn add_rt_task_to_event_loop<C, R: Send + 'static>(
         &self,
         task: C,
-    ) -> impl Future<Output = R>
+    ) -> impl Future<Output=R>
     where
         C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static,
     {
@@ -422,8 +426,8 @@ impl QuickJsRuntimeFacade {
     ) -> Result<(), JsError>
     where
         F: Fn(&QuickJsRealmAdapter, Vec<JsValueFacade>) -> Result<JsValueFacade, JsError>
-            + Send
-            + 'static,
+        + Send
+        + 'static,
     {
         let name = name.to_string();
 
@@ -479,9 +483,9 @@ impl QuickJsRuntimeFacade {
     }
 
     /// add an async task the the "helper" thread pool
-    pub fn add_helper_task_async<R: Send + 'static, T: Future<Output = R> + Send + 'static>(
+    pub fn add_helper_task_async<R: Send + 'static, T: Future<Output=R> + Send + 'static>(
         task: T,
-    ) -> impl Future<Output = Result<R, JoinError>> {
+    ) -> impl Future<Output=Result<R, JoinError>> {
         log::trace!("adding an async helper task");
         HELPER_TASKS.add_task_async(task)
     }
@@ -506,12 +510,18 @@ impl QuickJsRuntimeFacade {
     }
 
     /// drop a context which was created earlier with a call to [create_context()](struct.EsRuntime.html#method.create_context)
-    pub fn drop_context(&self, id: &str) {
+    pub fn drop_context(&self, id: &str) -> anyhow::Result<()> {
         let id = id.to_string();
         self.inner
             .event_loop
             .exe(move || QuickJsRuntimeAdapter::remove_context(id.as_str()))
     }
+}
+
+thread_local! {
+    // Each thread has its own LRU cache with capacity 128 to limit the number of auto-created contexts
+    // todo make this configurable via env..
+    static REALM_ID_LRU_CACHE: RefCell<LruCache<String, ()>> = RefCell::new(LruCache::new(NonZeroUsize::new(8).unwrap()));
 }
 
 fn loop_realm_func<
@@ -521,44 +531,75 @@ fn loop_realm_func<
     realm_name: Option<String>,
     consumer: C,
 ) -> R {
-    let res = QuickJsRuntimeAdapter::do_with(|q_js_rt| {
+    // housekeeping, lru map for realms
+    // the problem with doing those in drop in a realm is that finalizers cant find the realm anymore
+    // so we need to actively delete realms here instead of just making runtimeadapter::context a lru cache
+
+    if let Some(realm_str) = realm_name.as_ref() {
+        REALM_ID_LRU_CACHE.with(|cache_cell| {
+            let mut cache = cache_cell.borrow_mut();
+            // it's ok if this str does not yet exist
+            cache.promote(realm_str);
+        });
+    }
+
+    // run in existing realm
+
+    let res: Either<R, C> = QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         if let Some(realm_str) = realm_name.as_ref() {
             if let Some(realm) = q_js_rt.get_realm(realm_str) {
-                (Some(consumer(q_js_rt, realm)), None)
+                Left(consumer(q_js_rt, realm))
             } else {
-                (None, Some(consumer))
+                Right(consumer)
             }
         } else {
-            (Some(consumer(q_js_rt, q_js_rt.get_main_realm())), None)
+            Left(consumer(q_js_rt, q_js_rt.get_main_realm()))
         }
     });
 
-    if let Some(res) = res.0 {
-        res
-    } else {
-        // create realm first
-        let consumer = res.1.unwrap();
-        let realm_str = realm_name.expect("invalid state");
+    match res {
+        Left(r) => r,
+        Right(consumer) => {
+            // create realm first
+            // if more than max present, drop the least used realm
+            
+            let realm_str = realm_name.expect("invalid state");
 
-        QuickJsRuntimeAdapter::do_with_mut(|m_rt| {
-            let ctx = QuickJsRealmAdapter::new(realm_str.to_string(), m_rt);
-            m_rt.contexts.insert(realm_str.to_string(), ctx);
-        });
-
-        QuickJsRuntimeAdapter::do_with(|q_js_rt| {
-            let realm = q_js_rt
-                .get_realm(realm_str.as_str())
-                .expect("invalid state");
-            let hooks = &*q_js_rt.context_init_hooks.borrow();
-            for hook in hooks {
-                let res = hook(q_js_rt, realm);
-                if res.is_err() {
-                    panic!("realm init hook failed: {}", res.err().unwrap());
+            REALM_ID_LRU_CACHE.with(|cache_cell| {
+                let mut cache = cache_cell.borrow_mut();
+                // it's ok if this str does not yet exist
+                if cache.len() == cache.cap().get() {
+                    if let Some((evicted_key, _evicted_value)) = cache.pop_lru() {
+                        // cleanup evicted key
+                        QuickJsRuntimeAdapter::remove_context(evicted_key.as_str()).expect("could not destroy realm");
+                    }
                 }
-            }
+                cache.put(realm_str.to_string(), ());
+            });
 
-            consumer(q_js_rt, realm)
-        })
+            // create realm
+
+
+            QuickJsRuntimeAdapter::do_with_mut(|m_rt| {
+                let ctx = QuickJsRealmAdapter::new(realm_str.to_string(), m_rt);
+                m_rt.contexts.insert(realm_str.to_string(), ctx);
+            });
+
+            QuickJsRuntimeAdapter::do_with(|q_js_rt| {
+                let realm = q_js_rt
+                    .get_realm(realm_str.as_str())
+                    .expect("invalid state");
+                let hooks = &*q_js_rt.context_init_hooks.borrow();
+                for hook in hooks {
+                    let res = hook(q_js_rt, realm);
+                    if res.is_err() {
+                        panic!("realm init hook failed: {}", res.err().unwrap());
+                    }
+                }
+
+                consumer(q_js_rt, realm)
+            })
+        }
     }
 }
 
@@ -570,16 +611,9 @@ impl QuickJsRuntimeFacade {
             .exe(move || QuickJsRuntimeAdapter::create_context(name.as_str()))
     }
 
-    pub fn destroy_realm(&self, name: &str) -> Result<(), JsError> {
+    pub fn destroy_realm(&self, name: &str) -> anyhow::Result<()> {
         let name = name.to_string();
-        self.exe_task_in_event_loop(move || {
-            QuickJsRuntimeAdapter::do_with_mut(|rt| {
-                if rt.get_realm(name.as_str()).is_some() {
-                    rt.remove_realm(name.as_str());
-                }
-                Ok(())
-            })
-        })
+        self.exe_task_in_event_loop(move || QuickJsRuntimeAdapter::remove_context(name.as_str()))
     }
 
     pub fn has_realm(&self, name: &str) -> Result<bool, JsError> {
@@ -613,7 +647,7 @@ impl QuickJsRuntimeFacade {
     >(
         &self,
         consumer: C,
-    ) -> Pin<Box<dyn Future<Output = R> + Send>> {
+    ) -> Pin<Box<dyn Future<Output=R> + Send>> {
         Box::pin(self.add_rt_task_to_event_loop(consumer))
     }
 
@@ -644,7 +678,7 @@ impl QuickJsRuntimeFacade {
         &self,
         realm_name: Option<&str>,
         consumer: C,
-    ) -> Pin<Box<dyn Future<Output = R>>> {
+    ) -> Pin<Box<dyn Future<Output=R>>> {
         let realm_name = realm_name.map(|s| s.to_string());
         Box::pin(self.add_task_to_event_loop(|| loop_realm_func(realm_name, consumer)))
     }
@@ -679,7 +713,7 @@ impl QuickJsRuntimeFacade {
         &self,
         realm_name: Option<&str>,
         script: Script,
-    ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>>>> {
+    ) -> Pin<Box<dyn Future<Output=Result<JsValueFacade, JsError>>>> {
         self.loop_realm(realm_name, |_rt, realm| {
             let res = realm.eval(script);
             match res {
@@ -752,7 +786,7 @@ impl QuickJsRuntimeFacade {
         &self,
         realm_name: Option<&str>,
         script: Script,
-    ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>>>> {
+    ) -> Pin<Box<dyn Future<Output=Result<JsValueFacade, JsError>>>> {
         self.loop_realm(realm_name, |_rt, realm| {
             let res = realm.eval_module(script)?;
             realm.to_js_value_facade(&res)
@@ -868,7 +902,7 @@ impl QuickJsRuntimeFacade {
         namespace: &[&str],
         method_name: &str,
         args: Vec<JsValueFacade>,
-    ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>>>> {
+    ) -> Pin<Box<dyn Future<Output=Result<JsValueFacade, JsError>>>> {
         let movable_namespace: Vec<String> = namespace.iter().map(|s| s.to_string()).collect();
         let movable_method_name = method_name.to_string();
 
@@ -951,7 +985,6 @@ lazy_static! {
 
 #[cfg(test)]
 pub mod tests {
-
     use crate::facades::QuickJsRuntimeFacade;
     use crate::jsutils::modules::{NativeModuleLoader, ScriptModuleLoader};
     use crate::jsutils::JsError;
@@ -1319,7 +1352,7 @@ pub mod abstraction_tests {
                 .to_js_value_facade(&value_adapter)
                 .expect("conversion failed")
         })
-        .await
+            .await
     }
 
     #[test]
@@ -1393,8 +1426,8 @@ pub mod abstraction_tests {
                 "#,
             ),
         )
-        .await
-        .expect("script failed");
+            .await
+            .expect("script failed");
 
         // create a user obj
         let test_user_input = User {
@@ -1446,8 +1479,8 @@ pub mod abstraction_tests {
                 "#,
             ),
         )
-        .await
-        .expect("script failed");
+            .await
+            .expect("script failed");
 
         // create a user obj
         let test_user_input = User {
@@ -1476,5 +1509,34 @@ pub mod abstraction_tests {
         let user_output: User = serde_json::from_value(value_result).unwrap();
         assert_eq!(user_output.name.as_str(), "proc_Mister");
         assert_eq!(user_output.last_name.as_str(), "proc_Anderson");
+    }
+
+    #[tokio::test]
+    async fn test_realm_lifetime() -> anyhow::Result<()> {
+        let rt = QuickJsRuntimeBuilder::new().build();
+
+        rt.add_rt_task_to_event_loop(|rt| {
+            println!("ctx list: [{}]", rt.list_contexts().join(",").as_str());
+        }).await;
+
+        for x in 0..10240 {
+            let rid = format!("x_{x}");
+            let _ = rt.eval(Some(rid.as_str()), Script::new("x.js", "const a = 1;")).await;
+        }
+
+        rt.add_rt_task_to_event_loop(|rt| {
+            println!("ctx list: [{}]", rt.list_contexts().join(",").as_str());
+        }).await;
+
+        for x in 0..8 {
+            let rid = format!("x_{x}");
+            let _ = rt.eval(Some(rid.as_str()), Script::new("x.js", "const a = 1;")).await;
+        }
+
+        rt.add_rt_task_to_event_loop(|rt| {
+            println!("ctx list: [{}]", rt.list_contexts().join(",").as_str());
+        }).await;
+
+        Ok(())
     }
 }

@@ -1,3 +1,7 @@
+# 0.15.2
+
+* put a max on number of realms auto created by calling runtimefacade::eval() with a realm id
+
 # 0.15.1
 
 * support string rope in bellard version

@@ -1,6 +1,6 @@
 [package]
 name = "quickjs_runtime"
-version = "0.15.1"
+version = "0.15.2"
 authors = ["Andries Hiemstra <andries@hiemstra-software.nl>"]
 edition = "2021"
 description = "Wrapper API and utils for the QuickJS JavaScript engine with support for Promise, Modules, Async/await"
@@ -43,7 +43,9 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 string_cache = "0.8"
 flume = { version = "0.11", features = ["async"] }
-
+either = "1"
+lru = "0.14.0"
+anyhow = "1"
 #swc
 # like the good people at denoland said:
 # "swc's version bumping is very buggy and there will often be patch versions
@@ -102,7 +104,7 @@ tracing-log = "0.1"
 tracing-gelf = "0.7"
 simple-logging = "2.0.2"
 tokio = { version = "1", features = ["macros"] }
-anyhow = "1"
+
 
 [dev-dependencies.cargo-husky]
 version = "1.5.0"

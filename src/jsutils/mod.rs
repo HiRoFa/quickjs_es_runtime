@@ -96,6 +96,11 @@ impl std::error::Error for JsError {
     }
 }
 
+impl From<anyhow::Error> for JsError {
+    fn from(err: anyhow::Error) -> Self {
+        JsError::new_string(err.to_string())
+    }
+}
 impl std::fmt::Display for JsError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         let e = format!("{}: {}\n{}", self.name, self.message, self.stack);

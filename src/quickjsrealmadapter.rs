@@ -1331,7 +1331,7 @@ pub mod tests {
                 .expect("script failed");
             assert!(v4.is_i32());
         });
-        rt.drop_context("b");
+        let _ = rt.drop_context("b");
 
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             q_js_rt.gc();
@@ -1374,7 +1374,7 @@ pub mod tests {
             assert!(v.is_i32());
             q_js_rt.gc();
         });
-        rt.drop_context("c");
+        let _ = rt.drop_context("c");
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
             q_js_rt.gc();
             let ctx_a = q_js_rt.get_context("a");
