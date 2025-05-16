@@ -12,12 +12,18 @@ safely from several threads by adding tasks to the EventLoop.
 
 Quickjs_runtime supports both the original quickjs and the quickjs-ng project.
 
-You can try out quickjs-ng by adding the dep to quickjs_runtime like this (use at your own risk as I have not
-extensively tested it yet):
+You can use quickjs-ng by adding the dep to quickjs_runtime like this:
 
 ```toml
 quickjs_runtime = { version = "0.15", features = ["console", "setimmediate", "setinterval", "settimeout", "typescript", "quickjs-ng"], default-features = false }
 ```
+
+# OS support
+
+| features       | linux | mac | windows        |
+|----------------|-------|-----|----------------|
+| **bellard**    | yes   | yes | mingW only     |
+| **quickjs-ng** | yes   | yes | mingW and MSVC |
 
 # Usage and Features
 
