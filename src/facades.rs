@@ -80,7 +80,7 @@ impl QuickjsRuntimeFacadeInner {
     pub fn add_rt_task_to_event_loop<C, R: Send + 'static>(
         &self,
         consumer: C,
-    ) -> impl Future<Output=R>
+    ) -> impl Future<Output = R>
     where
         C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static,
     {
@@ -125,7 +125,7 @@ impl QuickjsRuntimeFacadeInner {
         })
     }
 
-    pub fn add_task_to_event_loop<C, R: Send + 'static>(&self, task: C) -> impl Future<Output=R>
+    pub fn add_task_to_event_loop<C, R: Send + 'static>(&self, task: C) -> impl Future<Output = R>
     where
         C: FnOnce() -> R + Send + 'static,
     {
@@ -316,7 +316,7 @@ impl QuickJsRuntimeFacade {
         self.inner.exe_task_in_event_loop(task)
     }
 
-    pub fn add_task_to_event_loop<C, R: Send + 'static>(&self, task: C) -> impl Future<Output=R>
+    pub fn add_task_to_event_loop<C, R: Send + 'static>(&self, task: C) -> impl Future<Output = R>
     where
         C: FnOnce() -> R + Send + 'static,
     {
@@ -337,7 +337,7 @@ impl QuickJsRuntimeFacade {
     pub fn add_rt_task_to_event_loop<C, R: Send + 'static>(
         &self,
         task: C,
-    ) -> impl Future<Output=R>
+    ) -> impl Future<Output = R>
     where
         C: FnOnce(&QuickJsRuntimeAdapter) -> R + Send + 'static,
     {
@@ -426,8 +426,8 @@ impl QuickJsRuntimeFacade {
     ) -> Result<(), JsError>
     where
         F: Fn(&QuickJsRealmAdapter, Vec<JsValueFacade>) -> Result<JsValueFacade, JsError>
-        + Send
-        + 'static,
+            + Send
+            + 'static,
     {
         let name = name.to_string();
 
@@ -483,9 +483,9 @@ impl QuickJsRuntimeFacade {
     }
 
     /// add an async task the the "helper" thread pool
-    pub fn add_helper_task_async<R: Send + 'static, T: Future<Output=R> + Send + 'static>(
+    pub fn add_helper_task_async<R: Send + 'static, T: Future<Output = R> + Send + 'static>(
         task: T,
-    ) -> impl Future<Output=Result<R, JoinError>> {
+    ) -> impl Future<Output = Result<R, JoinError>> {
         log::trace!("adding an async helper task");
         HELPER_TASKS.add_task_async(task)
     }
@@ -647,7 +647,7 @@ impl QuickJsRuntimeFacade {
     >(
         &self,
         consumer: C,
-    ) -> Pin<Box<dyn Future<Output=R> + Send>> {
+    ) -> Pin<Box<dyn Future<Output = R> + Send>> {
         Box::pin(self.add_rt_task_to_event_loop(consumer))
     }
 
@@ -678,7 +678,7 @@ impl QuickJsRuntimeFacade {
         &self,
         realm_name: Option<&str>,
         consumer: C,
-    ) -> Pin<Box<dyn Future<Output=R>>> {
+    ) -> Pin<Box<dyn Future<Output = R>>> {
         let realm_name = realm_name.map(|s| s.to_string());
         Box::pin(self.add_task_to_event_loop(|| loop_realm_func(realm_name, consumer)))
     }
@@ -713,7 +713,7 @@ impl QuickJsRuntimeFacade {
         &self,
         realm_name: Option<&str>,
         script: Script,
-    ) -> Pin<Box<dyn Future<Output=Result<JsValueFacade, JsError>>>> {
+    ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>>>> {
         self.loop_realm(realm_name, |_rt, realm| {
             let res = realm.eval(script);
             match res {
@@ -786,7 +786,7 @@ impl QuickJsRuntimeFacade {
         &self,
         realm_name: Option<&str>,
         script: Script,
-    ) -> Pin<Box<dyn Future<Output=Result<JsValueFacade, JsError>>>> {
+    ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>>>> {
         self.loop_realm(realm_name, |_rt, realm| {
             let res = realm.eval_module(script)?;
             realm.to_js_value_facade(&res)
@@ -902,7 +902,7 @@ impl QuickJsRuntimeFacade {
         namespace: &[&str],
         method_name: &str,
         args: Vec<JsValueFacade>,
-    ) -> Pin<Box<dyn Future<Output=Result<JsValueFacade, JsError>>>> {
+    ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>>>> {
         let movable_namespace: Vec<String> = namespace.iter().map(|s| s.to_string()).collect();
         let movable_method_name = method_name.to_string();
 
@@ -1352,7 +1352,7 @@ pub mod abstraction_tests {
                 .to_js_value_facade(&value_adapter)
                 .expect("conversion failed")
         })
-            .await
+        .await
     }
 
     #[test]
@@ -1426,8 +1426,8 @@ pub mod abstraction_tests {
                 "#,
             ),
         )
-            .await
-            .expect("script failed");
+        .await
+        .expect("script failed");
 
         // create a user obj
         let test_user_input = User {
@@ -1479,8 +1479,8 @@ pub mod abstraction_tests {
                 "#,
             ),
         )
-            .await
-            .expect("script failed");
+        .await
+        .expect("script failed");
 
         // create a user obj
         let test_user_input = User {
@@ -1518,7 +1518,7 @@ pub mod abstraction_tests {
         rt.add_rt_task_to_event_loop(|rt| {
             println!("ctx list: [{}]", rt.list_contexts().join(",").as_str());
         })
-            .await;
+        .await;
 
         for x in 0..10240 {
             let rid = format!("x_{x}");
@@ -1530,7 +1530,7 @@ pub mod abstraction_tests {
         rt.add_rt_task_to_event_loop(|rt| {
             println!("ctx list: [{}]", rt.list_contexts().join(",").as_str());
         })
-            .await;
+        .await;
 
         for x in 0..8 {
             let rid = format!("x_{x}");
@@ -1542,7 +1542,7 @@ pub mod abstraction_tests {
         rt.add_rt_task_to_event_loop(|rt| {
             println!("ctx list: [{}]", rt.list_contexts().join(",").as_str());
         })
-            .await;
+        .await;
 
         Ok(())
     }
