@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["spread"],"struct":["Config"]};

@@ -1,0 +1,1 @@
+searchState.loadedDescShard("thread_id", 0, "Thread-ID: get a unique ID for the current thread.\nReturns a number that is unique to the calling thread.")

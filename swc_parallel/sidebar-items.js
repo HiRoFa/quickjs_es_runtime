@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["join","join_maybe_scoped","join_scoped"],"mod":["items","merge"],"struct":["MaybeScope","Scope"]};

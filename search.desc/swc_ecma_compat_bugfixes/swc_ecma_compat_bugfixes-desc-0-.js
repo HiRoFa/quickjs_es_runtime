@@ -1,0 +1,1 @@
+searchState.loadedDescShard("swc_ecma_compat_bugfixes", 0, "A bugfix pass for Safari 10.3.\nA bugfix pass for Edge.")

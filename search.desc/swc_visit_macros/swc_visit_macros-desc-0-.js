@@ -1,0 +1,1 @@
+searchState.loadedDescShard("swc_visit_macros", 0, "This creates <code>Visit</code>. This is extensible visitor generator, …")

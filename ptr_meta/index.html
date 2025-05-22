@@ -1,0 +1,105 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A radioactive stabilization of the `ptr_meta` RFC."><title>ptr_meta - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-6c3ea77c.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="ptr_meta" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0 (05f9846f8 2025-03-31)" data-channel="1.86.0" data-search-js="search-581efc7a.js" data-settings-js="settings-6dad6058.js" ><script src="../static.files/storage-3a5871a4.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-4d63596a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../ptr_meta/index.html">ptr_<wbr>meta</a><span class="version">0.3.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#usage" title="Usage">Usage</a><ul><li><a href="#provided-impls" title="Provided impls">Provided impls</a></li><li><a href="#structs-with-trailing-dsts" title="Structs with trailing DSTs">Structs with trailing DSTs</a></li><li><a href="#trait-objects" title="Trait objects">Trait objects</a></li><li><a href="#features" title="Features">Features</a></li><li><a href="#example" title="Example">Example</a></li></ul></li></ul><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#attributes" title="Attribute Macros">Attribute Macros</a></li><li><a href="#derives" title="Derive Macros">Derive Macros</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>ptr_meta</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/ptr_meta/lib.rs.html#1-569">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A radioactive stabilization of the <a href="https://rust-lang.github.io/rfcs/2580-ptr-meta.html"><code>ptr_meta</code> RFC</a>.</p>
+<p>This crate provides the <a href="trait.Pointee.html" title="trait ptr_meta::Pointee"><code>Pointee</code></a> trait, <a href="fn.from_raw_parts.html" title="fn ptr_meta::from_raw_parts"><code>from_raw_parts</code></a> and
+<a href="fn.to_raw_parts.html" title="fn ptr_meta::to_raw_parts"><code>to_raw_parts</code></a> functions, and proc macros for deriving <code>Pointee</code> for
+structs and implementing <code>Pointee</code> for trait objects.</p>
+<h2 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h2>
+<p>Raw pointers can be decomposed into the data address and metadata components
+with <a href="fn.to_raw_parts.html" title="fn ptr_meta::to_raw_parts"><code>to_raw_parts</code></a> or <a href="fn.to_raw_parts_mut.html" title="fn ptr_meta::to_raw_parts_mut"><code>to_raw_parts_mut</code></a>.</p>
+<p>Alternatively, metadata alone can be extracted with the <a href="fn.metadata.html" title="fn ptr_meta::metadata"><code>metadata</code></a>
+function. Although <a href="fn.metadata.html" title="fn ptr_meta::metadata"><code>metadata</code></a> accepts pointers, references can be passed
+and will be implicitly coerced.</p>
+<p>A pointer can be created from its address and metadata with
+<a href="fn.from_raw_parts.html" title="fn ptr_meta::from_raw_parts"><code>from_raw_parts</code></a> or <a href="fn.from_raw_parts_mut.html" title="fn ptr_meta::from_raw_parts_mut"><code>from_raw_parts_mut</code></a>.</p>
+<h3 id="provided-impls"><a class="doc-anchor" href="#provided-impls">§</a>Provided impls</h3>
+<p><code>ptr_meta</code> provides inherent implementations for many builtin types:</p>
+<ul>
+<li>All <a href="https://doc.rust-lang.org/1.86.0/core/marker/trait.Sized.html" title="trait core::marker::Sized"><code>Sized</code></a> types implement <a href="trait.Pointee.html" title="trait ptr_meta::Pointee"><code>Pointee</code></a> via a blanket implementation.</li>
+<li><code>slice</code>, <code>str</code>, and <code>CStr</code></li>
+<li><code>OsStr</code> (requires <code>std</code>)</li>
+<li><code>dyn Any</code>, optionally with <code>+ Send</code> and/or <code>+ Sync</code></li>
+<li><code>dyn Error</code>, optionally with <code>+ Send</code> and/or <code>+ Sync</code></li>
+</ul>
+<h3 id="structs-with-trailing-dsts"><a class="doc-anchor" href="#structs-with-trailing-dsts">§</a>Structs with trailing DSTs</h3>
+<p>You can derive <a href="trait.Pointee.html" title="trait ptr_meta::Pointee"><code>Pointee</code></a> for structs with trailing DSTs:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>ptr_meta::Pointee;
+
+<span class="attr">#[derive(Pointee)]
+</span><span class="kw">struct </span>Block&lt;H, T&gt; {
+    header: H,
+    elements: [T],
+}</code></pre></div>
+<p>Note that the last field is required to be a DST. Structs with a generic
+type as the last field may have conflicting blanket implementations, as the
+generic type may be <code>Sized</code>. A collection of specific implementations may be
+required in these cases, with the generic parameter set (for example) a
+slice, <code>str</code>, or specific trait object.</p>
+<h3 id="trait-objects"><a class="doc-anchor" href="#trait-objects">§</a>Trait objects</h3>
+<p>You can generate <a href="trait.Pointee.html" title="trait ptr_meta::Pointee"><code>Pointee</code></a> implementations for trait objects:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>ptr_meta::pointee;
+
+<span class="comment">// Generates Pointee for dyn Stringy
+</span><span class="attr">#[ptr_meta::pointee]
+</span><span class="kw">trait </span>Stringy {
+    <span class="kw">fn </span>as_string(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String;
+}</code></pre></div>
+<p>Note that this will not produce implementations for <code>Trait + Send + Sync</code>.</p>
+<h3 id="features"><a class="doc-anchor" href="#features">§</a>Features</h3>
+<ul>
+<li><code>derive</code>: Re-exports the macros from <code>ptr_meta_derive</code>. Enabled by
+default.</li>
+<li><code>std</code>: Enables additional impls for <code>std</code> types. Enabled by default.</li>
+</ul>
+<h3 id="example"><a class="doc-anchor" href="#example">§</a>Example</h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// Get the associated metadata for pointers
+</span><span class="kw">let </span>str = <span class="string">"hello world"</span>;
+<span class="macro">assert_eq!</span>(ptr_meta::metadata(str), str.len());
+
+<span class="kw">let </span>slice = <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>] <span class="kw">as </span><span class="kw-2">&amp;</span>[i32];
+<span class="macro">assert_eq!</span>(ptr_meta::metadata(slice), slice.len());
+
+<span class="comment">// Make your own wide pointers from data pointers and metadata
+</span><span class="kw">let </span>bytes = [<span class="string">b'h'</span>, <span class="string">b'e'</span>, <span class="string">b'l'</span>, <span class="string">b'l'</span>, <span class="string">b'o'</span>];
+<span class="kw">let </span>ptr = ptr_meta::from_raw_parts::&lt;str&gt;(bytes.as_ptr().cast(), <span class="number">5</span>);
+<span class="macro">println!</span>(<span class="string">"{} world!"</span>, <span class="kw">unsafe </span>{ <span class="kw-2">&amp;*</span>ptr }); <span class="comment">// prints "hello world!"
+
+// Derive Pointee on your own types
+</span><span class="attr">#[derive(ptr_meta::Pointee)]
+#[repr(transparent)]
+</span><span class="kw">struct </span>CoolStr {
+    inner: str,
+}
+
+<span class="kw">impl </span>CoolStr {
+    <span class="kw">fn </span>print_cool(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="macro">println!</span>(<span class="string">"😎 {} 😎"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inner);
+    }
+}
+
+<span class="kw">let </span>ptr = ptr_meta::from_raw_parts::&lt;CoolStr&gt;(bytes.as_ptr().cast(), <span class="number">5</span>);
+<span class="kw">let </span>cool = <span class="kw">unsafe </span>{ <span class="kw-2">&amp;*</span>ptr };
+cool.print_cool(); <span class="comment">// prints "😎 hello 😎"
+
+// Implement Pointee for trait objects
+</span><span class="attr">#[ptr_meta::pointee]
+</span><span class="kw">trait </span>Printable {
+    <span class="kw">fn </span>print(<span class="kw-2">&amp;</span><span class="self">self</span>);
+}
+
+<span class="kw">impl </span>Printable <span class="kw">for </span>i32 {
+    <span class="kw">fn </span>print(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="macro">println!</span>(<span class="string">"i32: {self}"</span>);
+    }
+}
+
+<span class="kw">let </span>i32_vtable = ptr_meta::metadata(<span class="kw-2">&amp;</span><span class="number">0i32 </span><span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>Printable);
+<span class="kw">let </span>one_hundred = <span class="number">100i32</span>;
+<span class="kw">let </span>printable = ptr_meta::from_raw_parts::&lt;<span class="kw">dyn </span>Printable&gt;(
+    (<span class="kw-2">&amp;</span>one_hundred <span class="kw">as </span><span class="kw-2">*const </span>i32).cast(),
+    i32_vtable,
+);
+<span class="kw">unsafe </span>{
+    (<span class="kw-2">*</span>printable).print(); <span class="comment">// prints "i32: 100"
+</span>}</code></pre></div>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.DynMetadata.html" title="struct ptr_meta::DynMetadata">DynMetadata</a></dt><dd>The metadata for a trait object.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Pointee.html" title="trait ptr_meta::Pointee">Pointee</a></dt><dd>A trait which associates pointer metadata with a pointee type.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.from_raw_parts.html" title="fn ptr_meta::from_raw_parts">from_<wbr>raw_<wbr>parts</a></dt><dd>Returns a raw pointer with the given data address and metadata.</dd><dt><a class="fn" href="fn.from_raw_parts_mut.html" title="fn ptr_meta::from_raw_parts_mut">from_<wbr>raw_<wbr>parts_<wbr>mut</a></dt><dd>Returns a mutable raw pointer with the given data address and metadata.</dd><dt><a class="fn" href="fn.metadata.html" title="fn ptr_meta::metadata">metadata</a></dt><dd>Returns the metadata of the given pointer.</dd><dt><a class="fn" href="fn.to_raw_parts.html" title="fn ptr_meta::to_raw_parts">to_<wbr>raw_<wbr>parts</a></dt><dd>Returns the data address and metadata of the given pointer.</dd><dt><a class="fn" href="fn.to_raw_parts_mut.html" title="fn ptr_meta::to_raw_parts_mut">to_<wbr>raw_<wbr>parts_<wbr>mut</a></dt><dd>Returns the mutable data address and metadata of the given pointer.</dd></dl><h2 id="attributes" class="section-header">Attribute Macros<a href="#attributes" class="anchor">§</a></h2><dl class="item-table"><dt><a class="attr" href="attr.pointee.html" title="attr ptr_meta::pointee">pointee</a></dt><dd>Generates a <code>Pointee</code> implementation for trait object of the labeled trait.</dd></dl><h2 id="derives" class="section-header">Derive Macros<a href="#derives" class="anchor">§</a></h2><dl class="item-table"><dt><a class="derive" href="derive.Pointee.html" title="derive ptr_meta::Pointee">Pointee</a></dt><dd>Derives <code>Pointee</code> for the labeled struct which has a trailing DST.</dd></dl></section></div></main></body></html>
