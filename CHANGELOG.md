@@ -1,3 +1,7 @@
+# 0.15.3
+
+* disable auto realm cleaning for now, will crash if timeouts running after realm cleaned
+
 # 0.15.2
 
 * put a max on number of realms auto created by calling runtimefacade::eval() with a realm id
