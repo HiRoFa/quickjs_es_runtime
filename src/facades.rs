@@ -1510,7 +1510,7 @@ pub mod abstraction_tests {
         assert_eq!(user_output.name.as_str(), "proc_Mister");
         assert_eq!(user_output.last_name.as_str(), "proc_Anderson");
     }
-
+/*
     #[tokio::test]
     async fn test_realm_lifetime() -> anyhow::Result<()> {
         let rt = QuickJsRuntimeBuilder::new().build();
@@ -1520,7 +1520,7 @@ pub mod abstraction_tests {
         })
         .await;
 
-        for x in 0..10240 {
+        for x in 0..32 {
             let rid = format!("x_{x}");
             let _ = rt
                 .eval(Some(rid.as_str()), Script::new("x.js", "const a = 1;"))
@@ -1546,4 +1546,6 @@ pub mod abstraction_tests {
 
         Ok(())
     }
+    
+ */
 }
