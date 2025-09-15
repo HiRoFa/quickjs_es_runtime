@@ -66,6 +66,7 @@ impl TypeScriptTranspiler {
         is_module: bool,
     ) -> Result<(String, Option<String>), JsError> {
         let globals = swc_common::Globals::new();
+        let code = code.to_string();
         swc_common::GLOBALS.set(&globals, || {
             let handler = Handler::with_tty_emitter(
                 ColorConfig::Auto,
@@ -76,7 +77,7 @@ impl TypeScriptTranspiler {
 
             let fm = self
                 .source_map
-                .new_source_file(Arc::new(FileName::Custom(file_name.into())), code.into());
+                .new_source_file(Arc::new(FileName::Custom(file_name.into())), code);
 
             let mangle_config = if self.mangle {
                 r#"

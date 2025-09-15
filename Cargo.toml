@@ -18,7 +18,7 @@ console = []
 settimeout = []
 setinterval = []
 setimmediate = []
-typescript = ["swc", "swc_common", "swc_atoms", "swc_cached", "swc_macros_common", "swc_eq_ignore_macros", "swc_visit", "swc_visit_macros", "swc_config", "swc_config_macro", "swc_ecma_codegen", "swc_ecma_ast", "swc_ecma_codegen_macros", "swc_ecma_ext_transforms", "swc_ecma_utils", "swc_ecma_visit", "swc_ecma_lints", "swc_ecma_loader", "swc_ecma_minifier", "swc_ecma_parser", "swc_error_reporters", "swc_fast_graph", "swc_ecma_usage_analyzer", "swc_timer", "swc_ecma_preset_env", "swc_ecma_transforms", "swc_ecma_transforms_base", "swc_ecma_transforms_compat", "swc_ecma_transforms_classes", "swc_ecma_transforms_module", "swc_ecma_transforms_optimization", "swc_ecma_transforms_proposal", "swc_ecma_transforms_macros", "swc_ecma_transforms_react", "swc_ecma_transforms_typescript"]#, "swc_node_comments"]#, "swc_trace_macro"]
+typescript = ["swc", "swc_common", "swc_atoms", "swc_cached", "swc_macros_common", "swc_eq_ignore_macros", "swc_visit", "swc_visit_macros", "swc_config", "swc_config_macro", "swc_ecma_codegen", "swc_ecma_ast", "swc_ecma_codegen_macros", "swc_ecma_utils", "swc_ecma_visit", "swc_ecma_loader", "swc_ecma_transforms_base", "swc_ecma_transforms_compat", "swc_ecma_transforms_classes", "swc_ecma_transforms_optimization", "swc_ecma_transforms_proposal", "swc_ecma_transforms_macros", "swc_ecma_transforms_react", "swc_ecma_transforms_typescript", "swc_graph_analyzer", "swc_bundler", "swc_ecma_lexer", "swc_ecma_parser", "swc_sourcemap", "swc_trace_macro", "swc_node_comments"]
 bellard = ["libquickjs-sys/bellard"]
 quickjs-ng = ["libquickjs-sys/quickjs-ng"]
 
@@ -40,7 +40,7 @@ thread-id = "5"
 futures = "0.3"
 tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
 serde_json = "1.0"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "=1.0.219", features = ["derive"] }
 string_cache = "0.8"
 flume = { version = "0.11", features = ["async"] }
 either = "1"
@@ -52,52 +52,41 @@ anyhow = "1"
 # published that break our build, so we pin all swc versions to prevent
 # pulling in new versions of swc crates"
 # see https://github.com/denoland/deno_ast/blob/main/Cargo.toml
-swc = { version = "=16.1.1", optional = true }
-swc_atoms = { version = "=5.0.0", optional = true }
+swc = { version = "=35.0.0", optional = true }
+swc_config = { version = "=3.1.1", optional = true }
+swc_config_macro = { version = "=1.0.1", optional = true }
+swc_ecma_ast = { version = "=15.0.0", features = ["serde-impl"] , optional=true}
+swc_atoms = { version = "=7.0.0", optional = true }
 swc_cached = { version = "=2.0.0", optional = true }
-swc_common = { version = "=8.0.1", optional = true, features = ["tty-emitter"] }
-swc_macros_common = { version = "=1.0.0", optional = true }
-swc_eq_ignore_macros = { version = "=1.0.0", optional = true }
-swc_visit = { version = "=2.0.0", optional = true }
+swc_eq_ignore_macros = { version = "=1.0.1", optional = true }
 swc_visit_macros = { version = "=0.5.13", optional = true }
-swc_config = { version = "=2.0.0", optional = true }
-swc_config_macro = { version = "=1.0.0", optional = true }
-swc_ecma_codegen = { version = "=8.0.2", optional = true }
-swc_ecma_ast = { version = "=8.1.0", optional = true }
-swc_ecma_codegen_macros = { version = "=1.0.1", optional = true }
-swc_ecma_ext_transforms = { version = "=11.0.0", optional = true }
-swc_ecma_utils = { version = "=11.0.0", optional = true }
-swc_ecma_visit = { version = "=8.0.0", optional = true }
-swc_ecma_lints = { version = "=11.0.1", optional = true }
-swc_ecma_loader = { version = "=8.0.0", optional = true }
-swc_ecma_minifier = { version = "=12.4.0", optional = true }
-swc_ecma_parser = { version = "=10.0.2", optional = true }
-swc_error_reporters = { version = "=9.1.1", optional = true }
-swc_fast_graph = { version = "=9.0.0", optional = true }
-swc_ecma_usage_analyzer = { version = "=12.0.2", optional = true }
-swc_timer = { version = "=1.0.0", optional = true }
-swc_ecma_preset_env = { version = "=14.0.0", optional = true }
-swc_ecma_transforms = { version = "=14.0.0", optional = true }
-swc_ecma_transforms_base = { version = "=11.2.0", optional = true }
-swc_ecma_transforms_compat = { version = "=12.0.0", optional = true }
-swc_ecma_transforms_classes = { version = "=11.0.0", optional = true }
-swc_ecma_transforms_module = { version = "=12.1.0", optional = true }
-swc_ecma_transforms_optimization = { version = "=11.1.0", optional = true }
-swc_ecma_transforms_proposal = { version = "=11.0.2", optional = true }
-swc_ecma_transforms_macros = { version = "=1.0.0", optional = true }
-swc_ecma_transforms_react = { version = "=12.0.1", optional = true }
-swc_ecma_transforms_typescript = { version = "=12.0.1", optional = true }
+swc_common = { version = "=14.0.3", optional = true, features = ["tty-emitter"] }
+swc_ecma_codegen = { version = "=17.0.0", optional = true }
+swc_ecma_codegen_macros = { version = "=2.0.2", optional = true }
+swc_ecma_loader = { version = "=14.0.0", optional = true }
+swc_ecma_lexer = { version="=23.0.1" , optional=true}
+swc_ecma_parser = {version="=23.0.0", optional=true}
+swc_ecma_transforms_base = { version = "=25.0.0", features = ["inline-helpers"], optional = true }
+swc_ecma_transforms_classes = { version = "=25.0.0", optional = true }
+swc_ecma_transforms_compat = { version = "=27.0.0", optional = true }
+swc_ecma_transforms_macros = { version = "=1.0.1", optional = true }
+swc_ecma_transforms_optimization = { version = "=26.0.0", optional = true }
+swc_ecma_transforms_proposal = { version = "=25.0.0", optional = true }
+swc_ecma_transforms_react = { version = "=28.0.0", optional = true }
+swc_ecma_transforms_typescript = { version = "=28.0.0", optional = true }
+swc_ecma_utils = { version = "=21.0.0", optional = true }
+swc_ecma_visit = { version = "=15.0.0", optional = true }
+swc_bundler = { version = "=29.0.0", optional = true }
+swc_graph_analyzer = { version = "=14.0.1", optional = true }
+swc_macros_common = { version = "=1.0.1", optional = true }
+swc_sourcemap = { version = "9.3.4", optional = true }
+swc_trace_macro = { version = "=2.0.2", optional = true }
+swc_visit = { version = "=2.0.1", optional = true }
 swc_node_comments = { version = "=8.0.0", optional = true }
-#swc_trace_macro = {version="=2.0.0", optional=true}
 
-
-#swc_ecma_parser = {version = "0.136.4", optional = true}
-#swc_common = {version = "0.31.13", features = ["tty-emitter"], optional = true}
-#swc_ecma_minifier = {version = "0.183.17", optional = true}
 
 [dev-dependencies]
 #green_copper_runtime =  { git = 'https://github.com/HiRoFa/GreenCopperRuntime', branch="main", features = ["console"]}
-serde = "1"
 serde_json = "1"
 tracing = "0.1"
 tracing-log = "0.1"
