@@ -1510,42 +1510,42 @@ pub mod abstraction_tests {
         assert_eq!(user_output.name.as_str(), "proc_Mister");
         assert_eq!(user_output.last_name.as_str(), "proc_Anderson");
     }
-/*
-    #[tokio::test]
-    async fn test_realm_lifetime() -> anyhow::Result<()> {
-        let rt = QuickJsRuntimeBuilder::new().build();
+    /*
+       #[tokio::test]
+       async fn test_realm_lifetime() -> anyhow::Result<()> {
+           let rt = QuickJsRuntimeBuilder::new().build();
 
-        rt.add_rt_task_to_event_loop(|rt| {
-            println!("ctx list: [{}]", rt.list_contexts().join(",").as_str());
-        })
-        .await;
+           rt.add_rt_task_to_event_loop(|rt| {
+               println!("ctx list: [{}]", rt.list_contexts().join(",").as_str());
+           })
+           .await;
 
-        for x in 0..32 {
-            let rid = format!("x_{x}");
-            let _ = rt
-                .eval(Some(rid.as_str()), Script::new("x.js", "const a = 1;"))
-                .await;
-        }
+           for x in 0..32 {
+               let rid = format!("x_{x}");
+               let _ = rt
+                   .eval(Some(rid.as_str()), Script::new("x.js", "const a = 1;"))
+                   .await;
+           }
 
-        rt.add_rt_task_to_event_loop(|rt| {
-            println!("ctx list: [{}]", rt.list_contexts().join(",").as_str());
-        })
-        .await;
+           rt.add_rt_task_to_event_loop(|rt| {
+               println!("ctx list: [{}]", rt.list_contexts().join(",").as_str());
+           })
+           .await;
 
-        for x in 0..8 {
-            let rid = format!("x_{x}");
-            let _ = rt
-                .eval(Some(rid.as_str()), Script::new("x.js", "const a = 1;"))
-                .await;
-        }
+           for x in 0..8 {
+               let rid = format!("x_{x}");
+               let _ = rt
+                   .eval(Some(rid.as_str()), Script::new("x.js", "const a = 1;"))
+                   .await;
+           }
 
-        rt.add_rt_task_to_event_loop(|rt| {
-            println!("ctx list: [{}]", rt.list_contexts().join(",").as_str());
-        })
-        .await;
+           rt.add_rt_task_to_event_loop(|rt| {
+               println!("ctx list: [{}]", rt.list_contexts().join(",").as_str());
+           })
+           .await;
 
-        Ok(())
-    }
-    
- */
+           Ok(())
+       }
+
+    */
 }
