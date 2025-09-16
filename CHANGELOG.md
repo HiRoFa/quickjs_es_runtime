@@ -1,3 +1,7 @@
+# 0.15.4
+
+* update swc so it compiles with latest serde again (https://github.com/HiRoFa/quickjs_es_runtime/issues/89)
+
 # 0.15.3
 
 * disable auto realm cleaning for now, will crash if timeouts running after realm cleaned
