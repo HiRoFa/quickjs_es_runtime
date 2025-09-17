@@ -1,6 +1,6 @@
 [package]
 name = "quickjs_runtime"
-version = "0.15.5"
+version = "0.15.6"
 authors = ["Andries Hiemstra <andries@hiemstra-software.nl>"]
 edition = "2021"
 description = "Wrapper API and utils for the QuickJS JavaScript engine with support for Promise, Modules, Async/await"
