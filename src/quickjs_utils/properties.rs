@@ -46,7 +46,7 @@ impl JSPropertyEnumRef {
     pub fn get_name(&self, index: u32) -> Result<String, JsError> {
         let atom: *mut q::JSAtom = unsafe { self.get_atom_raw(index) };
         let atom = atom as q::JSAtom;
-        unsafe { Ok(atoms::to_str(self.context, &atom)?.to_string()) }
+        unsafe { atoms::to_string2(self.context, &atom) }
     }
     pub fn is_enumerable(&self, index: u32) -> bool {
         if index >= self.length {

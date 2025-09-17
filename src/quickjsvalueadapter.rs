@@ -398,14 +398,6 @@ impl QuickJsValueAdapter {
             _ => unsafe { functions::call_to_string(self.context, self) },
         }
     }
-
-    pub fn to_str(&self) -> Result<&str, JsError> {
-        if self.get_js_type() == JsValueType::String {
-            unsafe { primitives::to_str(self.context, self) }
-        } else {
-            Err(JsError::new_str("this value is not a string"))
-        }
-    }
 }
 
 #[cfg(test)]
@@ -424,7 +416,7 @@ pub mod tests {
                 Ok(res) => {
                     log::info!("script ran ok: {:?}", res);
                     assert!(res.get_js_type() == JsValueType::String);
-                    assert_eq!(res.to_str().expect("str conv failed"), "hello world");
+                    assert_eq!(res.to_string().expect("str conv failed"), "hello world");
                 }
                 Err(e) => {
                     log::error!("script failed: {}", e);

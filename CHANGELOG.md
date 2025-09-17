@@ -1,3 +1,9 @@
+# 0.16.0
+
+* update to bellard 2025-09-13
+* removed atom.to_str as it was badly implemented
+* removed string.to_str as it was badly implemented
+
 # 0.15.7
 
 * updated error handling / toString (include cause and such)

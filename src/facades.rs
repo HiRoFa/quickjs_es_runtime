@@ -1196,7 +1196,7 @@ pub mod tests {
             let q_ctx = q_js_rt.get_main_realm();
             let r = q_ctx.eval(Script::new(
                 "test_async.es",
-                "let f = async function(){let p = new Promise((resolve, reject) => {resolve(12345);}); const p2 = await p; return p2}; f();",
+                "let f = async function(){let p = new Promise((resolve, reject) => {resolve(12345);}); const p2 = await p; return p2}; f()",
             )).ok().unwrap();
             log::trace!("tag = {}", r.get_tag());
             //std::thread::sleep(Duration::from_secs(1));

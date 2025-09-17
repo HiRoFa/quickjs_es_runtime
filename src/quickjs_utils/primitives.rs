@@ -90,54 +90,15 @@ pub unsafe fn to_string(
         ));
     }
 
-    let cstr = std::ffi::CStr::from_ptr(ptr);
+    let bytes = std::slice::from_raw_parts(ptr as *const u8, len);
 
-    let s = cstr.to_string_lossy().into_owned();
+    // Convert to String (validate UTF-8).
+    let s = String::from_utf8_lossy(bytes).into_owned();
 
     // Free the c string.
     q::JS_FreeCString(context, ptr);
 
     Ok(s)
-}
-
-/// # Safety
-/// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
-pub unsafe fn to_str(
-    context: *mut q::JSContext,
-    value_ref: &QuickJsValueAdapter,
-) -> Result<&str, JsError> {
-    //log::trace!("primitives::to_str on {}", value_ref.borrow_value().tag);
-
-    assert!(value_ref.is_string());
-
-    let mut len = 0;
-
-    #[cfg(feature = "bellard")]
-    let ptr: *const c_char = q::JS_ToCStringLen2(context, &mut len, *value_ref.borrow_value(), 0);
-    #[cfg(feature = "quickjs-ng")]
-    let ptr: *const c_char =
-        q::JS_ToCStringLen2(context, &mut len, *value_ref.borrow_value(), false);
-    // Free the c string.
-    q::JS_FreeCString(context, ptr);
-    // ptr should still be valid as long as value_ref lives
-
-    if len == 0 {
-        return Ok("");
-    }
-
-    if ptr.is_null() {
-        return Err(JsError::new_str(
-            "Could not convert string: got a null pointer",
-        ));
-    }
-
-    let cstr = std::ffi::CStr::from_ptr(ptr);
-    cstr.to_str()
-        .map_err(|e| JsError::new_string(format!("utf8 error: {e}")))
-
-    //let s = cstr.to_string_lossy();
-
-    //Ok(s.as_ref())
 }
 
 pub fn from_string_q(q_ctx: &QuickJsRealmAdapter, s: &str) -> Result<QuickJsValueAdapter, JsError> {
@@ -160,7 +121,6 @@ pub unsafe fn from_string(
 
 #[cfg(test)]
 pub mod tests {
-
     use crate::facades::tests::init_test_rt;
     use crate::jsutils::Script;
 

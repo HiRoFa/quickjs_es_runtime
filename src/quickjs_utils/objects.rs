@@ -467,7 +467,7 @@ where
 
     for index in 0..enum_ref.len() {
         let atom = enum_ref.get_atom_raw(index) as q::JSAtom;
-        let prop_name = atoms::to_str(context, &atom)?;
+        let prop_name = atoms::to_string2(context, &atom)?;
 
         #[cfg(feature = "bellard")]
         let raw_value = q::JS_GetPropertyInternal(
@@ -491,7 +491,7 @@ where
             return Err(JsError::new_str("Could not get object property"));
         }
 
-        let r = visitor(prop_name, &prop_val_ref)?;
+        let r = visitor(prop_name.as_str(), &prop_val_ref)?;
 
         result.push(r);
     }
@@ -513,7 +513,7 @@ where
 
     for index in 0..enum_ref.len() {
         let atom = enum_ref.get_atom_raw(index) as q::JSAtom;
-        let prop_name = atoms::to_str(context, &atom)?;
+        let prop_name = atoms::to_string2(context, &atom)?;
 
         #[cfg(feature = "bellard")]
         let raw_value = q::JS_GetPropertyInternal(
@@ -537,7 +537,7 @@ where
             return Err(JsError::new_str("Could not get object property"));
         }
 
-        visitor(prop_name, &prop_val_ref)?;
+        visitor(prop_name.as_str(), &prop_val_ref)?;
     }
 
     Ok(())

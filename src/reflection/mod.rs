@@ -1059,47 +1059,50 @@ unsafe extern "C" fn proxy_static_get_prop(
             .unwrap();
         trace!("proxy_static_get_prop: {}", proxy_name);
 
-        let prop_name = atoms::to_str(context, &atom).expect("could not get name");
+        let prop_name = atoms::to_string2(context, &atom).expect("could not get name");
         trace!("proxy_static_get_prop: prop: {}", prop_name);
 
         let registry = &*q_ctx.proxy_registry.borrow();
         if let Some(proxy) = registry.get(proxy_name.as_str()) {
-            if proxy.static_methods.contains_key(prop_name) {
+            if proxy.static_methods.contains_key(prop_name.as_str()) {
                 trace!("found method for {}", prop_name);
 
-                let function_data_ref =
-                    from_string(context, prop_name).expect("could not create function_data_ref");
+                let function_data_ref = from_string(context, prop_name.as_str())
+                    .expect("could not create function_data_ref");
 
                 let func_ref = functions::new_native_function_data(
                     context,
                     Some(proxy_static_method),
-                    prop_name,
+                    prop_name.as_str(),
                     1,
                     function_data_ref,
                 )
                 .expect("could not create func");
 
-                objects::set_property(context, &receiver_ref, prop_name, &func_ref)
+                objects::set_property(context, &receiver_ref, prop_name.as_str(), &func_ref)
                     .expect("set_property 9656738 failed");
 
                 func_ref.clone_value_incr_rc()
-            } else if let Some(native_static_method) = proxy.static_native_methods.get(prop_name) {
+            } else if let Some(native_static_method) =
+                proxy.static_native_methods.get(prop_name.as_str())
+            {
                 trace!("found static native method for {}", prop_name);
 
                 let func_ref = functions::new_native_function(
                     context,
-                    prop_name,
+                    prop_name.as_str(),
                     *native_static_method,
                     1,
                     false,
                 )
                 .expect("could not create func");
 
-                objects::set_property(context, &receiver_ref, prop_name, &func_ref)
+                objects::set_property(context, &receiver_ref, prop_name.as_str(), &func_ref)
                     .expect("set_property 36099 failed");
 
                 func_ref.clone_value_incr_rc()
-            } else if let Some(getter_setter) = proxy.static_getters_setters.get(prop_name) {
+            } else if let Some(getter_setter) = proxy.static_getters_setters.get(prop_name.as_str())
+            {
                 // call the getter
                 let getter = &getter_setter.0;
                 let res: Result<QuickJsValueAdapter, JsError> = getter(q_js_rt, q_ctx);
@@ -1113,7 +1116,8 @@ unsafe extern "C" fn proxy_static_get_prop(
             } else if let Some(catch_all_getter_setter) = &proxy.static_catch_all {
                 // call the getter
                 let getter = &catch_all_getter_setter.0;
-                let res: Result<QuickJsValueAdapter, JsError> = getter(q_js_rt, q_ctx, prop_name);
+                let res: Result<QuickJsValueAdapter, JsError> =
+                    getter(q_js_rt, q_ctx, prop_name.as_str());
                 match res {
                     Ok(g_val) => g_val.clone_value_incr_rc(),
                     Err(e) => {
@@ -1157,7 +1161,7 @@ unsafe extern "C" fn proxy_instance_get_prop(
     QuickJsRuntimeAdapter::do_with(|q_js_rt| {
         let q_ctx = q_js_rt.get_quickjs_context(context);
 
-        let prop_name = atoms::to_str(context, &atom).expect("could not get name");
+        let prop_name = atoms::to_string2(context, &atom).expect("could not get name");
         trace!("proxy_instance_get_prop: {}", prop_name);
 
         let info = get_proxy_instance_info(&obj);
@@ -1168,37 +1172,42 @@ unsafe extern "C" fn proxy_instance_get_prop(
 
         let registry = &*q_ctx.proxy_registry.borrow();
         let proxy = registry.get(&info.class_name).unwrap();
-        if proxy.methods.contains_key(prop_name) {
+        if proxy.methods.contains_key(prop_name.as_str()) {
             trace!("found method for {}", prop_name);
 
-            let function_data_ref =
-                from_string(context, prop_name).expect("could not create function_data_ref");
+            let function_data_ref = from_string(context, prop_name.as_str())
+                .expect("could not create function_data_ref");
 
             let func_ref = functions::new_native_function_data(
                 context,
                 Some(proxy_instance_method),
-                prop_name,
+                prop_name.as_str(),
                 1,
                 function_data_ref,
             )
             .expect("could not create func");
 
-            objects::set_property(context, &receiver_ref, prop_name, &func_ref)
+            objects::set_property(context, &receiver_ref, prop_name.as_str(), &func_ref)
                 .expect("set_property 96385 failed"); // todo report ex
 
             func_ref.clone_value_incr_rc()
-        } else if let Some(native_method) = proxy.native_methods.get(prop_name) {
+        } else if let Some(native_method) = proxy.native_methods.get(prop_name.as_str()) {
             trace!("found native method for {}", prop_name);
 
-            let func_ref =
-                functions::new_native_function(context, prop_name, *native_method, 1, false)
-                    .expect("could not create func"); // tyodo report ex
+            let func_ref = functions::new_native_function(
+                context,
+                prop_name.as_str(),
+                *native_method,
+                1,
+                false,
+            )
+            .expect("could not create func"); // tyodo report ex
 
-            objects::set_property(context, &receiver_ref, prop_name, &func_ref)
+            objects::set_property(context, &receiver_ref, prop_name.as_str(), &func_ref)
                 .expect("set_property 49671 failed"); // todo report ex
 
             func_ref.clone_value_incr_rc()
-        } else if let Some(getter_setter) = proxy.getters_setters.get(prop_name) {
+        } else if let Some(getter_setter) = proxy.getters_setters.get(prop_name.as_str()) {
             // call the getter
             let getter = &getter_setter.0;
             let res: Result<QuickJsValueAdapter, JsError> = getter(q_js_rt, q_ctx, &info.id);
@@ -1221,7 +1230,7 @@ unsafe extern "C" fn proxy_instance_get_prop(
             // call the getter
             let getter = &catch_all_getter_setter.0;
             let res: Result<QuickJsValueAdapter, JsError> =
-                getter(q_js_rt, q_ctx, &info.id, prop_name);
+                getter(q_js_rt, q_ctx, &info.id, prop_name.as_str());
             match res {
                 Ok(g_val) => g_val.clone_value_incr_rc(),
                 Err(e) => {
@@ -1418,7 +1427,7 @@ unsafe extern "C" fn proxy_static_set_prop(
     QuickJsRuntimeAdapter::do_with(|rt| {
         let realm = rt.get_quickjs_context(context);
 
-        let prop_name = atoms::to_str(context, &atom).expect("could not get name");
+        let prop_name = atoms::to_string2(context, &atom).expect("could not get name");
         trace!("proxy_static_set_prop: {}", prop_name);
 
         // see if we have a matching gettersetter
@@ -1433,7 +1442,7 @@ unsafe extern "C" fn proxy_static_set_prop(
 
         let registry = &*realm.proxy_registry.borrow();
         if let Some(proxy) = registry.get(proxy_name.as_str()) {
-            if let Some(getter_setter) = proxy.static_getters_setters.get(prop_name) {
+            if let Some(getter_setter) = proxy.static_getters_setters.get(prop_name.as_str()) {
                 // call the setter
                 let setter = &getter_setter.1;
                 let res: Result<(), JsError> = setter(rt, realm, value_ref);
@@ -1450,7 +1459,7 @@ unsafe extern "C" fn proxy_static_set_prop(
             } else if let Some(catch_all_getter_setter) = &proxy.static_catch_all {
                 // call the setter
                 let setter = &catch_all_getter_setter.1;
-                let res: Result<(), JsError> = setter(rt, realm, prop_name, value_ref);
+                let res: Result<(), JsError> = setter(rt, realm, prop_name.as_str(), value_ref);
                 match res {
                     Ok(_) => 0,
                     Err(e) => {
@@ -1470,7 +1479,7 @@ unsafe extern "C" fn proxy_static_set_prop(
                     "reflection::proxy_static_set_prop receiver",
                 );
 
-                match realm.set_object_property(&receiver_ref, prop_name, &value_ref) {
+                match realm.set_object_property(&receiver_ref, prop_name.as_str(), &value_ref) {
                     Ok(()) => 0,
                     Err(e) => {
                         let err = format!("proxy_static_set_prop failed, {}", e);
@@ -1517,7 +1526,7 @@ unsafe extern "C" fn proxy_instance_set_prop(
     QuickJsRuntimeAdapter::do_with(|rt| {
         let realm = rt.get_quickjs_context(context);
 
-        let prop_name = atoms::to_str(context, &atom).expect("could not get name");
+        let prop_name = atoms::to_string2(context, &atom).expect("could not get name");
         trace!("proxy_instance_set_prop: {}", prop_name);
 
         let info = get_proxy_instance_info(&obj);
@@ -1529,7 +1538,7 @@ unsafe extern "C" fn proxy_instance_set_prop(
         let registry = &*realm.proxy_registry.borrow();
         let proxy = registry.get(&info.class_name).unwrap();
 
-        if let Some(getter_setter) = proxy.getters_setters.get(prop_name) {
+        if let Some(getter_setter) = proxy.getters_setters.get(prop_name.as_str()) {
             // call the setter
             let setter = &getter_setter.1;
             let res: Result<(), JsError> = setter(rt, realm, &info.id, value_ref);
@@ -1546,7 +1555,8 @@ unsafe extern "C" fn proxy_instance_set_prop(
         } else if let Some(catch_all_getter_setter) = &proxy.catch_all {
             // call the setter
             let setter = &catch_all_getter_setter.1;
-            let res: Result<(), JsError> = setter(rt, realm, &info.id, prop_name, value_ref);
+            let res: Result<(), JsError> =
+                setter(rt, realm, &info.id, prop_name.as_str(), value_ref);
             match res {
                 Ok(_) => 0,
                 Err(e) => {
@@ -1568,7 +1578,7 @@ unsafe extern "C" fn proxy_instance_set_prop(
                 "reflection::proxy_instance_set_prop receiver",
             );
 
-            match realm.set_object_property(&receiver_ref, prop_name, &value_ref) {
+            match realm.set_object_property(&receiver_ref, prop_name.as_str(), &value_ref) {
                 Ok(()) => 0,
                 Err(e) => {
                     let err = format!("proxy_instance_set_prop failed, {}", e);
@@ -1722,7 +1732,7 @@ pub mod tests {
                     "#,
             )) {
                 Ok(res) => {
-                    let s = res.to_str().expect("could not to_str");
+                    let s = res.to_string().expect("could not to_str");
                     assert_eq!(s, "bar_sbar");
                 }
                 Err(e) => {
