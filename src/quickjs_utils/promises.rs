@@ -274,6 +274,9 @@ unsafe extern "C" fn promise_rejection_tracker(
                 },
                 Err(_) => "".to_string(),
             };
+            #[cfg(feature = "typescript")]
+            let stack = crate::typescript::unmap_stack_trace(stack.as_str());
+
             match reason_str_res {
                 Ok(reason_str) => {
                     log::error!(

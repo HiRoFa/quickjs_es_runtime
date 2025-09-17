@@ -1,3 +1,7 @@
+# 0.15.5
+
+* unhandled promise rejection stacktrace fixed (typescript transpiled) 
+
 # 0.15.4
 
 * update swc so it compiles with latest serde again (https://github.com/HiRoFa/quickjs_es_runtime/issues/89)
