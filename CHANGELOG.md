@@ -1,6 +1,14 @@
+# 0.15.7
+
+* updated error handling / toString (include cause and such)
+
+# 0.15.6
+
+* minor textual update to unhandled promise rejection logging
+
 # 0.15.5
 
-* unhandled promise rejection stacktrace fixed (typescript transpiled) 
+* unhandled promise rejection stacktrace fixed (typescript transpiled)
 
 # 0.15.4
 

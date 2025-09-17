@@ -24,10 +24,12 @@ pub unsafe fn get_exception(context: *mut q::JSContext) -> Option<JsError> {
         } else if exception_ref.is_object() {
             error_to_js_error(context, &exception_ref)
         } else {
-            JsError::new_string(format!(
-                "no clue what happened {}",
-                exception_ref.get_js_type()
-            ))
+            match exception_ref.to_string() {
+                Ok(s) => JsError::new_string(s),
+                Err(ex) => {
+                    JsError::new_string(format!("Could not determine error due to error: {ex:?}"))
+                }
+            }
         };
         Some(err)
     }
@@ -74,7 +76,24 @@ pub unsafe fn error_to_js_error(
         stack_string.push_str(stack_str.as_str());
     }
 
-    JsError::new(name_string, message_string, stack_string)
+    let cause_ref = objects::get_property(context, exception_ref, "cause")
+        .ok()
+        .unwrap();
+    // add cause as cause but also extend the stack trace with the cause stack trace
+
+    if cause_ref.is_null_or_undefined() {
+        JsError::new(name_string, message_string, stack_string)
+    } else {
+        QuickJsRealmAdapter::with_context(context, |realm| {
+            let cause_str = cause_ref.to_string().ok().unwrap();
+            let cause_jsvf = realm.to_js_value_facade(&cause_ref).ok().unwrap();
+
+            stack_string.push_str("Caused by: ");
+            stack_string.push_str(cause_str.as_str());
+
+            JsError::new2(name_string, message_string, stack_string, cause_jsvf)
+        })
+    }
 }
 
 /// Create a new Error object
@@ -183,6 +202,44 @@ pub mod tests {
         assert_eq!(ex.get_message(), "'__c_v__' is not defined");
         #[cfg(feature = "quickjs-ng")]
         assert_eq!(ex.get_message(), "__c_v__ is not defined");
+    }
+
+    #[test]
+    fn test_ex_cause() {
+        // check if stacktrace is preserved when invoking native methods
+
+        let rt = init_test_rt();
+        let res = rt.eval_sync(
+            None,
+            Script::new(
+                "ex.ts",
+                r#"
+                let a = 2;
+                let b = 3;
+                type Foo = {
+                    a: number
+                }
+                function f1(a, b) {
+                    throw new Error('Could not f1', { cause: 'Sabotage here' });
+                }
+                function f2() {
+                    try {
+                        let r = f1(a, b);
+                    } catch(ex) {
+                        throw new Error('could not f2', { cause: ex});
+                    }
+                }
+                f2()
+                "#,
+            ),
+        );
+        let ex = res.expect_err("script should have failed;");
+
+        assert_eq!(ex.get_message(), "could not f2");
+
+        let complete_err = format!("{ex}");
+        assert!(complete_err.contains("Caused by: Error: Could not f1"));
+        assert!(complete_err.contains("Caused by: Sabotage here"));
     }
 
     #[test]

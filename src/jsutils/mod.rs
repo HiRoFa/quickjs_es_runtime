@@ -3,6 +3,7 @@
 //! The facade classes are for use outside the worker thread, they are Send
 //!
 
+use crate::values::JsValueFacade;
 use backtrace::Backtrace;
 use std::fmt::{Debug, Display, Error, Formatter};
 
@@ -58,6 +59,7 @@ pub struct JsError {
     name: String,
     message: String,
     stack: String,
+    cause: Option<Box<JsValueFacade>>,
 }
 
 impl JsError {
@@ -66,6 +68,15 @@ impl JsError {
             name,
             message,
             stack,
+            cause: None,
+        }
+    }
+    pub fn new2(name: String, message: String, stack: String, cause: JsValueFacade) -> Self {
+        Self {
+            name,
+            message,
+            stack,
+            cause: Some(Box::new(cause)),
         }
     }
     pub fn new_str(err: &str) -> Self {
@@ -77,6 +88,7 @@ impl JsError {
             name: "Error".to_string(),
             message: err,
             stack: format!("{bt:?}"),
+            cause: None,
         }
     }
     pub fn get_message(&self) -> &str {
@@ -88,6 +100,9 @@ impl JsError {
     pub fn get_name(&self) -> &str {
         self.name.as_str()
     }
+    pub fn get_cause(&self) -> &Option<Box<JsValueFacade>> {
+        &self.cause
+    }
 }
 
 impl std::error::Error for JsError {
@@ -98,7 +113,7 @@ impl std::error::Error for JsError {
 
 impl From<anyhow::Error> for JsError {
     fn from(err: anyhow::Error) -> Self {
-        JsError::new_string(err.to_string())
+        JsError::new_string(format!("{err:?}"))
     }
 }
 impl std::fmt::Display for JsError {
@@ -110,7 +125,7 @@ impl std::fmt::Display for JsError {
 
 impl From<Error> for JsError {
     fn from(e: Error) -> Self {
-        JsError::new_string(format!("{e}"))
+        JsError::new_string(format!("{e:?}"))
     }
 }
 
