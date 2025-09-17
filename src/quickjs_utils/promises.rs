@@ -280,7 +280,7 @@ unsafe extern "C" fn promise_rejection_tracker(
             match reason_str_res {
                 Ok(reason_str) => {
                     log::error!(
-                        "[{}] unhandled promise rejection, reason: {}{}",
+                        "[{}] unhandled promise rejection, reason: {}\nRejection stack:\n{}",
                         realm_id,
                         reason_str,
                         stack
@@ -288,7 +288,7 @@ unsafe extern "C" fn promise_rejection_tracker(
                 }
                 Err(e) => {
                     log::error!(
-                        "[{}] unhandled promise rejection, could not get reason: {}{}",
+                        "[{}] unhandled promise rejection, could not get reason: {}\nRejection stack:\n{}",
                         realm_id,
                         e,
                         stack
