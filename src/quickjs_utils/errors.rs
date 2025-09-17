@@ -216,9 +216,7 @@ pub mod tests {
                 r#"
                 let a = 2;
                 let b = 3;
-                type Foo = {
-                    a: number
-                }
+
                 function f1(a, b) {
                     throw new Error('Could not f1', { cause: 'Sabotage here' });
                 }
