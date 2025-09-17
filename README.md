@@ -15,7 +15,7 @@ Quickjs_runtime supports both the original quickjs and the quickjs-ng project.
 You can use quickjs-ng by adding the dep to quickjs_runtime like this:
 
 ```toml
-quickjs_runtime = { version = "0.15", features = ["console", "setimmediate", "setinterval", "settimeout", "typescript", "quickjs-ng"], default-features = false }
+quickjs_runtime = { version = "0.16", features = ["console", "setimmediate", "setinterval", "settimeout", "typescript", "quickjs-ng"], default-features = false }
 ```
 
 # OS support
@@ -124,7 +124,7 @@ Cargo.toml
 
 ```toml
 [dependencies]
-quickjs_runtime = "0.15"
+quickjs_runtime = "0.16"
 ```
 
 Here are some quickstarts:
