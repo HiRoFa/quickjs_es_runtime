@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["bugfixes","es2015","es2016","es2017","es2018","es2019","es2020","es2021","es2022","es3"],"mod":["class_fields_use_set","regexp","reserved_words"]};

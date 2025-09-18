@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Syntax"],"fn":["parse_file_as_commonjs","parse_file_as_expr","parse_file_as_module","parse_file_as_program","parse_file_as_script","with_file_parser"],"mod":["error","input","lexer","token"],"struct":["Context","EsSyntax","Parser","ParserCheckpoint","StringInput","TsSyntax"],"trait":["Input"],"type":["PResult"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["MapIter","SliceData"],"trait":["AccessSeq","AsData","MapStore","Searchable"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["global_atom_store_gc"],"macro":["atom"],"struct":["Atom","AtomStore"]};
