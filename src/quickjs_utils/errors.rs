@@ -270,7 +270,7 @@ pub mod tests {
             let func_jsvf = &args[0];
             match func_jsvf {
                 JsValueFacade::JsFunction { cached_function } => {
-                    let _ = cached_function.invoke_function_sync(vec![12.to_js_value_facade()]);
+                    let _ = cached_function.invoke_function_sync(vec![12.to_js_value_facade()])?;
                     Ok(0.to_js_value_facade())
                 }
                 _ => Err(JsError::new_str("poof")),
@@ -280,20 +280,26 @@ pub mod tests {
         let s_res = rt.eval_sync(
             None,
             Script::new(
-                "test_ex.es",
-                "let consumer = function() {\n
-        console.log('consuming');\n
-        throw Error('oh dear stuff failed at line 3 in consumer');\n
-        };\n
-        console.log('calling consume from line 5');test_consume(consumer);\n
-        console.log('should never reach line 7')",
+                "test_ex34245.js",
+                "let consumer = function() {
+        console.log('consuming');
+        throw new Error('oh dear stuff failed at line 3 in consumer');
+        };
+        console.log('calling consume from line 6');
+        let a = test_consume(consumer);
+        console.log('should never reach line 7 %s', a)",
             ),
         );
-        if s_res.is_err() {
-            let e = format!("script failed: {}", s_res.err().unwrap());
-            log::error!("{}", e);
-            //panic!("{}", e);
+        match s_res {
+            Ok(o) => {
+                log::info!("o = {}", o.stringify());
+            }
+            Err(e) => {
+                log::error!("script failed: {}", e);
+                log::error!("{}", e);
+            }
         }
+
         std::thread::sleep(Duration::from_secs(1));
     }
 
@@ -304,57 +310,19 @@ pub mod tests {
             None,
             Script::new(
                 "test_ex3.js",
-                r#"              
-async function asyncDebugStackPreserve(delegate, invokerName) {
-
-    const startStack = new Error().stack;
-    try {
-        return await delegate();
-    } catch (ex) {
-        const err = Error(ex.message);
-        
-        err.fileName = ex.fileName;
-        err.lineNumber = ex.lineNumber;
-        err.columnNumber = ex.columnNumber;
-        err.cause = ex.cause;
-        
-        err.stack = ex.stack + startStack;
-        throw err;
-    }
-
+                r#"
+async function a() {
+    await b();
 }
 
-async function sleep(ms) {
-    return new Promise((res) => {
-        setTimeout(res, ms);
-    });
+async function b() {
+    //await 1;
+    throw Error("poof");
 }
 
-async function a(){
-	
-	return new Promise(async (res, rej) => {
-		try {
-			let ret = await asyncDebugStackPreserve(async function aInner() {
-			    await sleep(100);
-			    let ret = await b();
-     		});
-			res(ret);
-		} catch(ex) {
-			rej(ex);
-			}
-		});
-	}
-	
-	async function b(){
-        throw Error("poof");
-	}
-	
-		a().catch((ex) => {
-			console.error(ex);
-			});
-	
-       
-       
+a().catch((ex) => {
+    console.error(ex);
+});
         "#,
             ),
         )
