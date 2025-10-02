@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BundleKind","ModuleType"],"struct":["Bundle","Bundler","Config","ModuleData","ModuleId","ModuleRecord"],"trait":["Hook","Load","Resolve"]};

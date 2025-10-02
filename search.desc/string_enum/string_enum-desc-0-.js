@@ -1,0 +1,1 @@
+searchState.loadedDescShard("string_enum", 0, "Creates <code>.as_str()</code> and then implements <code>Debug</code> and <code>Display</code> …")

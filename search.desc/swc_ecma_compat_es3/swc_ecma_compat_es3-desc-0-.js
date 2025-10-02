@@ -1,0 +1,1 @@
+searchState.loadedDescShard("swc_ecma_compat_es3", 0, "Make output es3-compatible.\nbabel: <code>transform-member-expression-literals</code>\nbabel: <code>transform-property-literals</code>\nbabel: <code>@babel/plugin-transform-reserved-words</code>")

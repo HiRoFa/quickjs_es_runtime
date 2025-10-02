@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ANDROID_EVERGREEN_FIRST","OP_MOB_BLINK_FIRST"],"fn":["get_browser_stat","get_browser_version_alias","iter_browser_stat","iter_global_usage","normalize_version","to_desktop_name"],"mod":["features","region"],"struct":["BrowserStat","VersionDetail"]};

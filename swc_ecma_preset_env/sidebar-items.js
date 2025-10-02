@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Feature","FeatureOrModule","Mode","Targets"],"fn":["transform_from_env","transform_from_es_version"],"struct":["BrowserData","Config","EnvConfig","FeatureConfig","Version"],"trait":["Caniuse"],"type":["Versions"]};

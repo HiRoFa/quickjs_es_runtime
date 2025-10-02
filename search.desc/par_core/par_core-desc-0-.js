@@ -1,0 +1,1 @@
+searchState.loadedDescShard("par_core", 0, "par-core")

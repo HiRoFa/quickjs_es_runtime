@@ -1,0 +1,1 @@
+searchState.loadedDescShard("swc_graph_analyzer", 0, "Utility to detect cycles in a dependency graph.\nReturns the argument unchanged.\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.\nCalls <code>U::from(self)</code>.")

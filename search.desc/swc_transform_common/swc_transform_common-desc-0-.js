@@ -1,0 +1,1 @@
+searchState.loadedDescShard("swc_transform_common", 0, "(Experimental) Output capturing.\n(Experimental) Captures output.\n(Experimental) Emits a value to the JS caller.")
