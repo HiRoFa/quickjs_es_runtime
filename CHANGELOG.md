@@ -1,3 +1,7 @@
+# 0.16.1
+
+* added explicit + Send to futures returned by loop_realm functions and such
+
 # 0.16.0
 
 * update to bellard 2025-09-13

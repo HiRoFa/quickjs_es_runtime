@@ -678,7 +678,7 @@ impl QuickJsRuntimeFacade {
         &self,
         realm_name: Option<&str>,
         consumer: C,
-    ) -> Pin<Box<dyn Future<Output = R>>> {
+    ) -> Pin<Box<dyn Future<Output = R> + Send>> {
         let realm_name = realm_name.map(|s| s.to_string());
         Box::pin(self.add_task_to_event_loop(|| loop_realm_func(realm_name, consumer)))
     }
@@ -713,7 +713,7 @@ impl QuickJsRuntimeFacade {
         &self,
         realm_name: Option<&str>,
         script: Script,
-    ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>>>> {
+    ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>> + Send>> {
         self.loop_realm(realm_name, |_rt, realm| {
             let res = realm.eval(script);
             match res {
@@ -786,7 +786,7 @@ impl QuickJsRuntimeFacade {
         &self,
         realm_name: Option<&str>,
         script: Script,
-    ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>>>> {
+    ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>> + Send>> {
         self.loop_realm(realm_name, |_rt, realm| {
             let res = realm.eval_module(script)?;
             realm.to_js_value_facade(&res)
@@ -902,7 +902,7 @@ impl QuickJsRuntimeFacade {
         namespace: &[&str],
         method_name: &str,
         args: Vec<JsValueFacade>,
-    ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>>>> {
+    ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>> + Send>> {
         let movable_namespace: Vec<String> = namespace.iter().map(|s| s.to_string()).collect();
         let movable_method_name = method_name.to_string();
 
