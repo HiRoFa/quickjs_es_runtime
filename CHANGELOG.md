@@ -1,3 +1,7 @@
+# 0.16.2
+
+* upgrade to quickjs-ng 0.11.0
+
 # 0.16.1
 
 * added explicit + Send to futures returned by loop_realm functions and such
