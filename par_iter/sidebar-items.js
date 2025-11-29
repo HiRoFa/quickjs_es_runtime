@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["array","collections","iter","option","prelude","range","range_inclusive","result","slice","str","string","vec"]};

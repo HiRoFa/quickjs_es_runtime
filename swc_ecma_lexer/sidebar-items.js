@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["lexer"],"macro":["byte_search","declare_keyword","ident_like","known_ident","known_ident_token","safe_byte_match_table","tok"],"mod":["common","error","input","lexer","token"],"struct":["Parser","StringInput"]};

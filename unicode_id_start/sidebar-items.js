@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["is_id_continue","is_id_continue_unicode","is_id_start","is_id_start_unicode"]};
