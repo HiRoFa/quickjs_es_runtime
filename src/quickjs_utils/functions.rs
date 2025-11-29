@@ -660,7 +660,7 @@ where
 
     let callback_class_id = CALLBACK_CLASS_ID.with(|rc| *rc.borrow());
 
-    let class_val: q::JSValue = q::JS_NewObjectClass(context, callback_class_id as i32);
+    let class_val: q::JSValue = q::JS_NewObjectClass(context, callback_class_id as _);
 
     let class_val_ref = QuickJsValueAdapter::new(
         context,

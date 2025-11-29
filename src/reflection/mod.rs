@@ -649,7 +649,7 @@ impl Proxy {
         log::trace!("reflection::Proxy::install_class_prop / 3");
 
         let class_val: q::JSValue =
-            unsafe { q::JS_NewObjectClass(q_ctx.context, static_class_id as i32) };
+            unsafe { q::JS_NewObjectClass(q_ctx.context, static_class_id as _) };
 
         log::trace!("reflection::Proxy::install_class_prop / 4");
 
@@ -834,7 +834,7 @@ pub(crate) fn new_instance3(
     let ctx = q_ctx.context;
     let class_id = PROXY_INSTANCE_CLASS_ID.with(|rc| *rc.borrow());
 
-    let class_val: q::JSValue = unsafe { q::JS_NewObjectClass(ctx, class_id as i32) };
+    let class_val: q::JSValue = unsafe { q::JS_NewObjectClass(ctx, class_id as _) };
 
     let class_name = proxy.get_class_name();
 

@@ -31,7 +31,7 @@ backtrace = "0.3"
 
 #libquickjs-sys = {package="hirofa-quickjs-sys", git='https://github.com/HiRoFa/quickjs-sys'}
 #libquickjs-sys = { package = "hirofa-quickjs-sys", path = '../quickjs-sys', default-features = false }
-libquickjs-sys = { package = "hirofa-quickjs-sys", version = "0.11", default-features = false }
+libquickjs-sys = { package = "hirofa-quickjs-sys", version = "0.12", default-features = false }
 lazy_static = "1.5.0"
 log = "0.4"
 num_cpus = "1"

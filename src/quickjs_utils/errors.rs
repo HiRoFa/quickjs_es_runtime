@@ -142,6 +142,7 @@ pub fn is_error_q(q_ctx: &QuickJsRealmAdapter, obj_ref: &QuickJsValueAdapter) ->
 /// See if a JSValueRef is an Error object
 /// # Safety
 /// When passing a context pointer please make sure the corresponding QuickJsContext is still valid
+#[allow(unused_variables)]
 pub unsafe fn is_error(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter) -> bool {
     if obj_ref.is_object() {
         #[cfg(feature = "bellard")]
@@ -151,7 +152,7 @@ pub unsafe fn is_error(context: *mut q::JSContext, obj_ref: &QuickJsValueAdapter
         }
         #[cfg(feature = "quickjs-ng")]
         {
-            q::JS_IsError(context, *obj_ref.borrow_value())
+            q::JS_IsError(*obj_ref.borrow_value())
         }
     } else {
         false

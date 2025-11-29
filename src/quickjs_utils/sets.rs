@@ -2,13 +2,17 @@
 //! see [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Sap) for more on Sets
 
 use crate::jsutils::JsError;
+#[cfg(feature = "bellard")]
 use crate::quickjs_utils::class_ids::JS_CLASS_SET;
 use crate::quickjs_utils::objects::construct_object;
 use crate::quickjs_utils::{functions, get_constructor, iterators, objects, primitives};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsvalueadapter::QuickJsValueAdapter;
 use libquickjs_sys as q;
+#[cfg(feature = "bellard")]
 use libquickjs_sys::JS_GetClassID;
+#[cfg(feature = "quickjs-ng")]
+use libquickjs_sys::JS_IsSet;
 
 /// create new instance of Set
 /// # Example
@@ -44,7 +48,11 @@ pub fn is_set_q(obj: &QuickJsValueAdapter) -> bool {
 /// # Safety
 /// please ensure the passed JSContext is still valid
 pub unsafe fn is_set(obj: &QuickJsValueAdapter) -> bool {
-    JS_GetClassID(*obj.borrow_value()) == JS_CLASS_SET
+    #[cfg(feature = "bellard")]
+    return JS_GetClassID(*obj.borrow_value()) == JS_CLASS_SET;
+
+    #[cfg(feature = "quickjs-ng")]
+    return JS_IsSet(*obj.borrow_value());
 }
 
 /// add a value to the Set
