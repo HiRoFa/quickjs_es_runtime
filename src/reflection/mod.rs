@@ -403,8 +403,8 @@ impl Proxy {
         } else {
             "__nameless_class__"
         };
-        if self.namespace.is_some() {
-            format!("{}.{}", self.namespace.as_ref().unwrap().join("."), cn)
+        if let Some(ns) = &self.namespace {
+            format!("{}.{}", ns.join("."), cn)
         } else {
             cn.to_string()
         }
