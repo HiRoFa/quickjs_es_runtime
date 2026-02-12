@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["escape"],"struct":["Error","Flags","Groups","Match","NamedGroups","Regex"],"type":["AsciiMatches","Matches","Range"]};

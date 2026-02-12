@@ -1,0 +1,9 @@
+(function() {
+    var type_impls = Object.fromEntries([["swc_ecma_ast",[["<details class=\"toggle implementors-toggle\" open><summary><section id=\"impl-Pass-for-(A,+B)\" class=\"impl\"><a class=\"src rightside\" href=\"src/swc_ecma_ast/lib.rs.html#226\">Source</a><a href=\"#impl-Pass-for-(A,+B)\" class=\"anchor\">§</a><h3 class=\"code-header\">impl&lt;A, B&gt; <a class=\"trait\" href=\"swc_ecma_ast/trait.Pass.html\" title=\"trait swc_ecma_ast::Pass\">Pass</a> for <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.0/std/primitive.tuple.html\">(A, B)</a><div class=\"where\">where\n    A: <a class=\"trait\" href=\"swc_ecma_ast/trait.Pass.html\" title=\"trait swc_ecma_ast::Pass\">Pass</a>,\n    B: <a class=\"trait\" href=\"swc_ecma_ast/trait.Pass.html\" title=\"trait swc_ecma_ast::Pass\">Pass</a>,</div></h3></section></summary><div class=\"impl-items\"><section id=\"method.process\" class=\"method trait-impl\"><a class=\"src rightside\" href=\"src/swc_ecma_ast/lib.rs.html#226\">Source</a><a href=\"#method.process\" class=\"anchor\">§</a><h4 class=\"code-header\">fn <a href=\"swc_ecma_ast/trait.Pass.html#tymethod.process\" class=\"fn\">process</a>(&amp;mut self, program: &amp;mut <a class=\"enum\" href=\"swc_ecma_ast/enum.Program.html\" title=\"enum swc_ecma_ast::Program\">Program</a>)</h4></section></div></details>","Pass","swc_ecma_ast::ident::UnsafeId","swc_ecma_ast::ident::Id"]]],["swc_ecma_usage_analyzer",[]]]);
+    if (window.register_type_impls) {
+        window.register_type_impls(type_impls);
+    } else {
+        window.pending_type_impls = type_impls;
+    }
+})()
+//{"start":55,"fragment_lengths":[1359,31]}

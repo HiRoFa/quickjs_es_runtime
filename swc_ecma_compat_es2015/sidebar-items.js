@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["arrow","block_scoped_functions","block_scoping","duplicate_keys","es2015","function_name","instance_of","object_super","shorthand","sticky_regex","typeof_symbol"],"mod":["classes","computed_props","destructuring","for_of","generator","new_target","parameters","regenerator","spread","template_literal"],"struct":["Config"]};

@@ -1,0 +1,78 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="EcmaScript/TypeScript parser for the rust programming language."><title>swc_ecma_parser - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="swc_ecma_parser" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate swc_ecma_parser</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../swc_ecma_parser/index.html">swc_<wbr>ecma_<wbr>parser</a><span class="version">23.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#features" title="Features">Features</a><ul><li><a href="#heavily-tested" title="Heavily tested">Heavily tested</a></li><li><a href="#error-reporting" title="Error reporting">Error reporting</a></li><li><a href="#error-recovery" title="Error recovery">Error recovery</a></li></ul></li><li><a href="#example-lexer" title="Example (lexer)">Example (lexer)</a></li><li><a href="#example-parser" title="Example (parser)">Example (parser)</a><ul><li><a href="#cargo-features" title="Cargo features">Cargo features</a></li><li><a href="#known-issues" title="Known issues">Known issues</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>swc_<wbr>ecma_<wbr>parser</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/swc_ecma_parser/lib.rs.html#1-230">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>EcmaScript/TypeScript parser for the rust programming language.</p>
+<h2 id="features"><a class="doc-anchor" href="#features">§</a>Features</h2><h3 id="heavily-tested"><a class="doc-anchor" href="#heavily-tested">§</a>Heavily tested</h3>
+<p>Passes almost all tests from <a href="https://github.com/tc39/test262">tc39/test262</a>.</p>
+<h3 id="error-reporting"><a class="doc-anchor" href="#error-reporting">§</a>Error reporting</h3><div class="example-wrap"><pre class="language-sh"><code>error: &#39;implements&#39;, &#39;interface&#39;, &#39;let&#39;, &#39;package&#39;, &#39;private&#39;, &#39;protected&#39;,  &#39;public&#39;, &#39;static&#39;, or &#39;yield&#39; cannot be used as an identifier in strict mode
+ --&gt; invalid.js:3:10
+  |
+3 | function yield() {
+  |          ^^^^^</code></pre></div><h3 id="error-recovery"><a class="doc-anchor" href="#error-recovery">§</a>Error recovery</h3>
+<p>The parser can recover from some parsing errors. For example, parser returns
+<code>Ok(Module)</code> for the code below, while emitting error to handler.</p>
+<div class="example-wrap"><pre class="language-ts"><code>const CONST = 9000 % 2;
+const enum D {
+    // Comma is required, but parser can recover because of the newline.
+    d = 10
+    g = CONST
+}</code></pre></div><h2 id="example-lexer"><a class="doc-anchor" href="#example-lexer">§</a>Example (lexer)</h2>
+<p>See <code>lexer.rs</code> in examples directory.</p>
+<h2 id="example-parser"><a class="doc-anchor" href="#example-parser">§</a>Example (parser)</h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[macro_use]
+</span><span class="kw">extern crate </span>swc_common;
+<span class="kw">extern crate </span>swc_ecma_parser;
+<span class="kw">use </span>swc_common::sync::Lrc;
+<span class="kw">use </span>swc_common::{
+    errors::{ColorConfig, Handler},
+    FileName, FilePathMapping, SourceMap,
+};
+<span class="kw">use </span>swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
+
+<span class="kw">fn </span>main() {
+    <span class="kw">let </span>cm: Lrc&lt;SourceMap&gt; = Default::default();
+    <span class="kw">let </span>handler =
+        Handler::with_tty_emitter(ColorConfig::Auto, <span class="bool-val">true</span>, <span class="bool-val">false</span>,
+        <span class="prelude-val">Some</span>(cm.clone()));
+
+    <span class="comment">// Real usage
+    // let fm = cm
+    //     .load_file(Path::new("test.js"))
+    //     .expect("failed to load test.js");
+    </span><span class="kw">let </span>fm = cm.new_source_file(
+        FileName::Custom(<span class="string">"test.js"</span>.into()).into(),
+        <span class="string">"function foo() {}"</span>,
+    );
+    <span class="kw">let </span>lexer = Lexer::new(
+        <span class="comment">// We want to parse ecmascript
+        </span>Syntax::Es(Default::default()),
+        <span class="comment">// EsVersion defaults to es5
+        </span>Default::default(),
+        StringInput::from(<span class="kw-2">&amp;*</span>fm),
+        <span class="prelude-val">None</span>,
+    );
+
+    <span class="kw">let </span><span class="kw-2">mut </span>parser = Parser::new_from(lexer);
+
+    <span class="kw">for </span>e <span class="kw">in </span>parser.take_errors() {
+        e.into_diagnostic(<span class="kw-2">&amp;</span>handler).emit();
+    }
+
+    <span class="kw">let </span>_module = parser
+        .parse_module()
+        .map_err(|<span class="kw-2">mut </span>e| {
+            <span class="comment">// Unrecoverable fatal error occurred
+            </span>e.into_diagnostic(<span class="kw-2">&amp;</span>handler).emit()
+        })
+        .expect(<span class="string">"failed to parser module"</span>);
+}</code></pre></div><h3 id="cargo-features"><a class="doc-anchor" href="#cargo-features">§</a>Cargo features</h3><h4 id="typescript"><a class="doc-anchor" href="#typescript">§</a><code>typescript</code></h4>
+<p>Enables typescript parser.</p>
+<h4 id="verify"><a class="doc-anchor" href="#verify">§</a><code>verify</code></h4>
+<p>Verify more errors, using <code>swc_ecma_visit</code>.</p>
+<h3 id="known-issues"><a class="doc-anchor" href="#known-issues">§</a>Known issues</h3><h4 id="null-character-after-"><a class="doc-anchor" href="#null-character-after-">§</a>Null character after <code>\</code></h4>
+<p>Because <a href="https://doc.rust-lang.org/1.93.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a> of rust should only contain valid utf-8 characters while
+javascript allows non-utf8 characters, the parser stores invalid utf8
+characters in escaped form.</p>
+<p>As a result, swc needs a way to distinguish invalid-utf8 code points and
+input specified by the user. The parser stores a null character right after
+<code>\\</code> for non-utf8 code points. Note that other parts of swc is aware of this
+fact.</p>
+<p>Note that this can be changed at anytime with a breaking change.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.Lexer"><code>pub use lexer::<a class="struct" href="lexer/struct.Lexer.html" title="struct swc_ecma_parser::lexer::Lexer">Lexer</a>;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="error/index.html" title="mod swc_ecma_parser::error">error</a></dt><dt><a class="mod" href="input/index.html" title="mod swc_ecma_parser::input">input</a></dt><dt><a class="mod" href="lexer/index.html" title="mod swc_ecma_parser::lexer">lexer</a></dt><dd>ECMAScript lexer.</dd><dt><a class="mod" href="token/index.html" title="mod swc_ecma_parser::token">token</a></dt><dd>Ported from <a href="https://github.com/babel/babel/blob/2d378d076eb0c5fe63234a8b509886005c01d7ee/packages/babylon/src/tokenizer/types.js">babel/babylon</a></dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Context.html" title="struct swc_ecma_parser::Context">Context</a></dt><dt><a class="struct" href="struct.EsSyntax.html" title="struct swc_ecma_parser::EsSyntax">EsSyntax</a></dt><dt><a class="struct" href="struct.Parser.html" title="struct swc_ecma_parser::Parser">Parser</a></dt><dd>EcmaScript parser.</dd><dt><a class="struct" href="struct.ParserCheckpoint.html" title="struct swc_ecma_parser::ParserCheckpoint">Parser<wbr>Checkpoint</a></dt><dt><a class="struct" href="struct.StringInput.html" title="struct swc_ecma_parser::StringInput">String<wbr>Input</a></dt><dd>Implementation of <a href="trait.Input.html" title="trait swc_ecma_parser::Input">Input</a>.</dd><dt><a class="struct" href="struct.TsSyntax.html" title="struct swc_ecma_parser::TsSyntax">TsSyntax</a></dt></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Syntax.html" title="enum swc_ecma_parser::Syntax">Syntax</a></dt></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Input.html" title="trait swc_ecma_parser::Input">Input</a></dt></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.parse_file_as_commonjs.html" title="fn swc_ecma_parser::parse_file_as_commonjs">parse_<wbr>file_<wbr>as_<wbr>commonjs</a></dt><dd>Note: This is recommended way to parse a file.</dd><dt><a class="fn" href="fn.parse_file_as_expr.html" title="fn swc_ecma_parser::parse_file_as_expr">parse_<wbr>file_<wbr>as_<wbr>expr</a></dt><dd>Note: This is recommended way to parse a file.</dd><dt><a class="fn" href="fn.parse_file_as_module.html" title="fn swc_ecma_parser::parse_file_as_module">parse_<wbr>file_<wbr>as_<wbr>module</a></dt><dd>Note: This is recommended way to parse a file.</dd><dt><a class="fn" href="fn.parse_file_as_program.html" title="fn swc_ecma_parser::parse_file_as_program">parse_<wbr>file_<wbr>as_<wbr>program</a></dt><dd>Note: This is recommended way to parse a file.</dd><dt><a class="fn" href="fn.parse_file_as_script.html" title="fn swc_ecma_parser::parse_file_as_script">parse_<wbr>file_<wbr>as_<wbr>script</a></dt><dd>Note: This is recommended way to parse a file.</dd><dt><a class="fn" href="fn.with_file_parser.html" title="fn swc_ecma_parser::with_file_parser">with_<wbr>file_<wbr>parser</a></dt></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.PResult.html" title="type swc_ecma_parser::PResult">PResult</a></dt></dl></section></div></main></body></html>

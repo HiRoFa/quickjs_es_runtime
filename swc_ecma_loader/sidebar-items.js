@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["NODE_BUILTINS"],"enum":["TargetEnv"],"mod":["resolve","resolvers"]};

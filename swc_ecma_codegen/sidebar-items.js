@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["to_code","to_code_default","to_code_with_comments"],"mod":["macros","text_writer","util"],"struct":["Config","Emitter"],"trait":["Node"],"type":["Result"]};

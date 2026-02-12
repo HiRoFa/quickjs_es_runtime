@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CompiledModuleLoaderAdapter","MemoryUsage","NativeModuleLoaderAdapter","QuickJsRuntimeAdapter","ScriptModuleLoaderAdapter"],"trait":["ModuleLoader"],"type":["ContextInitHooks"]};

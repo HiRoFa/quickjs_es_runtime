@@ -1,0 +1,59 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Visitor generator for the rust language."><title>swc_visit - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="swc_visit" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate swc_visit</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../swc_visit/index.html">swc_<wbr>visit</a><span class="version">2.0.1</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#comparisons" title="Comparisons">Comparisons</a><ul><li><a href="#fold-vs-visitmut" title="`Fold` vs `VisitMut`"><code>Fold</code> vs <code>VisitMut</code></a></li></ul></li><li><a href="#fold" title="`Fold`"><code>Fold</code></a></li><li><a href="#visitmut" title="`VisitMut`"><code>VisitMut</code></a></li><li><a href="#visit" title="`Visit`"><code>Visit</code></a></li><li><a href="#cargo-features" title="Cargo features">Cargo features</a></li><li><a href="#path-aware-visitor" title="Path-aware visitor">Path-aware visitor</a></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>swc_<wbr>visit</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/swc_visit/lib.rs.html#1-606">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Visitor generator for the rust language.</p>
+<p>There are three variants of visitor in swc. Those are <code>Fold</code>, <code>VisitMut</code>,
+<code>Visit</code>.</p>
+<h2 id="comparisons"><a class="doc-anchor" href="#comparisons">§</a>Comparisons</h2><h3 id="fold-vs-visitmut"><a class="doc-anchor" href="#fold-vs-visitmut">§</a><code>Fold</code> vs <code>VisitMut</code></h3>
+<p><code>Fold</code> and <code>VisitMut</code> do almost identical tasks, but <code>Fold</code> is easier to use
+while being slower and weak to stack overflow for very deep asts. <code>Fold</code> is
+fast enough for almost all cases so it would be better to start with <code>Fold</code>.</p>
+<p>By very deep asts, I meant code like thousands of <code>a + a + a + a + ...</code>.</p>
+<h2 id="fold"><a class="doc-anchor" href="#fold">§</a><code>Fold</code></h2>
+<blockquote>
+<p>WARNING: <code>Fold</code> is slow, and it’s recommended to use VisitMut if you are
+experienced.</p>
+</blockquote>
+<p><code>Fold</code> takes ownership of value, which means you have to return the new
+value. Returning new value means returning ownership of the value. But you
+don’t have to care about ownership or about managing memories while using
+such visitors. <code>rustc</code> handles them automatically and all allocations will
+be freed when it goes out of the scope.</p>
+<p>You can invoke your <code>Fold</code> implementation like <code>node.fold_with(&amp;mut  visitor)</code> where <code>visitor</code> is your visitor. Note that as it takes ownership
+of value, you have to call <code>node.fold_children_with(self)</code> in e.g. <code>fn  fold_module(&amp;mut self, m: Module) -&gt; Module</code> if you override the default
+behavior. Also you have to store return value from <code>fold_children_with</code>,
+like <code>let node = node.fold_children_with(self)</code>. Order of execution can be
+controlled using this. If there is some logic that should be applied to the
+parent first, you can call <code>fold_children_with</code> after such logic.</p>
+<h2 id="visitmut"><a class="doc-anchor" href="#visitmut">§</a><code>VisitMut</code></h2>
+<p><code>VisitMut</code> uses a mutable reference to AST nodes (e.g. <code>&amp;mut Expr</code>). You can
+use <code>Take</code> from <code>swc_common::util::take::Take</code> to get owned value from a
+mutable reference.</p>
+<p>You will typically use code like</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw-2">*</span>e = return_value.take();</code></pre></div>
+<p>where <code>e = &amp;mut Expr</code> and <code>return_value</code> is also <code>&amp;mut Expr</code>. <code>take()</code> is an
+extension method defined on <code>MapWithMut</code>.  It’s almost identical to <code>Fold</code>,
+so I’ll skip memory management.</p>
+<p>You can invoke your <code>VisitMut</code> implementation like <code>node.visit_mut_with(&amp;mut  visitor)</code> where <code>visitor</code> is your visitor. Again, you need to call
+<code>node.visit_mut_children_with(self)</code> in visitor implementation if you want
+to modify children nodes. You don’t need to store the return value in this
+case.</p>
+<h2 id="visit"><a class="doc-anchor" href="#visit">§</a><code>Visit</code></h2>
+<p><code>Visit</code> uses non-mutable references to AST nodes. It can be used to see if
+an AST node contains a specific node nested deeply in the AST. This is
+useful for checking if AST node contains <code>this</code>. This is useful for lots of
+cases - <code>this</code> in arrow expressions are special and we need to generate
+different code if a <code>this</code> expression is used.</p>
+<p>You can use your <code>Visit</code> implementation like  <code>node.visit_with(&amp;Invalid{  span: DUMMY_SP, }, &amp;mut visitor</code>. I think API is mis-designed, but it works
+and there are really lots of code using <code>Visit</code> already.</p>
+<h2 id="cargo-features"><a class="doc-anchor" href="#cargo-features">§</a>Cargo features</h2>
+<p>You should add</p>
+<div class="example-wrap"><pre class="language-toml"><code>[features]
+path = []</code></pre></div>
+<p>If you want to allow using path-aware visitor.</p>
+<h2 id="path-aware-visitor"><a class="doc-anchor" href="#path-aware-visitor">§</a>Path-aware visitor</h2>
+<p>Path-aware visitor is a visitor that can be used to visit AST nodes with
+current path from the entrypoint.</p>
+<p><code>VisitMutAstPath</code> and <code>FoldAstPath</code> can be used to transform AST nodes with
+the path to the node.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="util/index.html" title="mod swc_visit::util">util</a></dt><dd>Some utilities for generated visitors.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.All.html" title="struct swc_visit::All">All</a></dt><dd>Visit all children nodes. This converts <code>VisitAll</code> to <code>Visit</code>. The type
+parameter <code>V</code> should implement <code>VisitAll</code> and <code>All&lt;V&gt;</code> implements <code>Visit</code>.</dd><dt><a class="struct" href="struct.AstKindPath.html" title="struct swc_visit::AstKindPath">AstKind<wbr>Path</a></dt><dt><a class="struct" href="struct.AstKindPathGuard.html" title="struct swc_visit::AstKindPathGuard">AstKind<wbr>Path<wbr>Guard</a></dt><dt><a class="struct" href="struct.AstKindPathIndexGuard.html" title="struct swc_visit::AstKindPathIndexGuard">AstKind<wbr>Path<wbr>Index<wbr>Guard</a></dt><dt><a class="struct" href="struct.AstNodePath.html" title="struct swc_visit::AstNodePath">AstNode<wbr>Path</a></dt><dt><a class="struct" href="struct.AstNodePathGuard.html" title="struct swc_visit::AstNodePathGuard">AstNode<wbr>Path<wbr>Guard</a></dt><dt><a class="struct" href="struct.AstNodePathIndexGuard.html" title="struct swc_visit::AstNodePathIndexGuard">AstNode<wbr>Path<wbr>Index<wbr>Guard</a></dt><dt><a class="struct" href="struct.Optional.html" title="struct swc_visit::Optional">Optional</a></dt><dd>A visitor which visits node only if <code>enabled</code> is true.</dd><dt><a class="struct" href="struct.Repeat.html" title="struct swc_visit::Repeat">Repeat</a></dt><dd>A visitor which applies <code>V</code> again and again if <code>V</code> modifies the node.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Either.html" title="enum swc_visit::Either">Either</a></dt><dd>The enum <code>Either</code> with variants <code>Left</code> and <code>Right</code> is a general purpose
+sum type with two cases.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.NodeRef.html" title="trait swc_visit::NodeRef">NodeRef</a></dt><dt><a class="trait" href="trait.ParentKind.html" title="trait swc_visit::ParentKind">Parent<wbr>Kind</a></dt><dt><a class="trait" href="trait.Repeated.html" title="trait swc_visit::Repeated">Repeated</a></dt><dd>Trait for a pass which is designed to invoked multiple time to same input.</dd></dl></section></div></main></body></html>

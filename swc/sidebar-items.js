@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BoolOr"],"externcrate":["atoms"],"fn":["try_with_handler"],"mod":["config","resolver"],"struct":["BoolConfig","BoolOrDataConfig","Compiler","HandlerOpts","JsMinifyExtras","PrintArgs","SwcComments","TransformOutput"]};

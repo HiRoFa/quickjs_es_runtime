@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["template_literal"],"struct":["Config"]};

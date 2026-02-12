@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["can_end_conditionally","get_mut_object_define_property_name_arg","get_object_define_property_name_arg","is_global_var_with_pure_property_access"]};

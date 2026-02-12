@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["parse_binding_ident","parse_ident","parse_ident_name","parse_ident_ref","parse_label_ident","parse_maybe_private_name","parse_module_export_name","parse_opt_binding_ident","parse_private_name"]};

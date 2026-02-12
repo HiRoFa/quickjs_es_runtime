@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["strip_type"],"macro":["type_to_none"],"mod":["typescript"]};

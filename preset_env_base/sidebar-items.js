@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["query","version"],"struct":["BrowserData","BrowserDataMutIter","BrowserDataRefIter"],"type":["Versions"]};

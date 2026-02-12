@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SourceMapsConfig"],"fn":["minify_file_comments","parse_js","print"],"struct":["IdentCollector","PrintArgs","TransformOutput"]};

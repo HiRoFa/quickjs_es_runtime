@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["es2022"],"mod":["class_properties","optional_chaining_impl","private_in_object","static_blocks"],"struct":["Config"]};

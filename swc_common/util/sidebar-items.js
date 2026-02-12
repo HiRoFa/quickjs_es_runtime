@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["iter","map","move_map","take"]};

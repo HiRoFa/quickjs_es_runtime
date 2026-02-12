@@ -1,0 +1,47 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Creates `.as_str()` and then implements `Debug` and `Display` using it."><title>StringEnum in string_enum - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="string_enum" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc derive"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">StringEnum</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../string_enum/index.html">string_<wbr>enum</a><span class="version">1.0.2</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">String<wbr>Enum</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#input" title="Input">Input</a></li><li><a href="#output" title="Output">Output</a></li><li><a href="#example" title="Example">Example</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate string_<wbr>enum</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">string_enum</a></div><h1>Derive Macro <span class="derive">String<wbr>Enum</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/string_enum/lib.rs.html#65-83">Source</a> </span></div><pre class="rust item-decl"><code>#[derive(StringEnum)]
+{
+    <span class="comment">// Attributes available to this derive:</span>
+    #[string_enum]
+}
+</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Creates <code>.as_str()</code> and then implements <code>Debug</code> and <code>Display</code> using it.</p>
+<h2 id="input"><a class="doc-anchor" href="#input">§</a>Input</h2>
+<p>Enum with `str_value`-style <strong>doc</strong> comment for each variant.</p>
+<p>e.g.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="kw">pub enum </span>BinOp {
+     <span class="doccomment">/// `+`
+     </span>Add,
+     <span class="doccomment">/// `-`
+     </span>Minus,
+ }</code></pre></div>
+<p>Currently, `str_value` must be live in it’s own line.</p>
+<h2 id="output"><a class="doc-anchor" href="#output">§</a>Output</h2>
+<ul>
+<li><code>pub fn as_str(&amp;self) -&gt; &amp;'static str</code></li>
+<li><code>impl serde::Serialize</code> with <code>cfg(feature = "serde")</code></li>
+<li><code>impl serde::Deserialize</code> with <code>cfg(feature = "serde")</code></li>
+<li><code>impl FromStr</code></li>
+<li><code>impl Debug</code></li>
+<li><code>impl Display</code></li>
+</ul>
+<h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="attr">#[macro_use]
+ </span><span class="kw">extern crate </span>string_enum;
+ <span class="kw">extern crate </span>serde;
+
+ <span class="attr">#[derive(StringEnum)]
+ </span><span class="kw">pub enum </span>Tokens {
+     <span class="doccomment">/// `a`
+     </span>A,
+     <span class="doccomment">/// `bar`
+     </span>B,
+ }
+
+ <span class="macro">assert_eq!</span>(Tokens::A.as_str(), <span class="string">"a"</span>);
+ <span class="macro">assert_eq!</span>(Tokens::B.as_str(), <span class="string">"bar"</span>);
+
+ <span class="macro">assert_eq!</span>(Tokens::A.to_string(), <span class="string">"a"</span>);
+ <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, Tokens::A), <span class="macro">format!</span>(<span class="string">"{:?}"</span>, <span class="string">"a"</span>));
+</code></pre></div>
+<p>All formatting flags are handled correctly.</p>
+</div></details></section></div></main></body></html>

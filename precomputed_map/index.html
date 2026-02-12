@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Precomputed Map"><title>precomputed_map - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="precomputed_map" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate precomputed_map</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../precomputed_map/index.html">precomputed_<wbr>map</a><span class="version">0.2.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#precomputed-map" title="Precomputed Map">Precomputed Map</a><ul><li><a href="#what-and-why" title="What and Why">What and Why</a></li><li><a href="#usage" title="Usage">Usage</a></li></ul></li><li><a href="#license" title="License">License</a></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>precomputed_<wbr>map</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/precomputed_map/lib.rs.html#1-236">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="precomputed-map"><a class="doc-anchor" href="#precomputed-map">§</a>Precomputed Map</h2>
+<p>Precomputed a Map to embed in binary.</p>
+<h3 id="what-and-why"><a class="doc-anchor" href="#what-and-why">§</a>What and Why</h3>
+<p>The tool attempts to achieve the best in terms of
+runtime performance (include startup time and single query time), product size, and compilation speed.
+and avoid any heavyweight dependency libraries and unsafe code,
+make it possible to be used without supply chain burden.</p>
+<p>Under the hood, we use binary search or phf for different sizes of data.
+For small data, the runtime performance should be faster than a typical hashmap, and there is almost no size overhead.
+For large data, it only requires one additional memory access at runtime, and only 1 byte of size overhead for every 3 entries.</p>
+<p>At same time, in order to ensure the compilation speed,
+the tool supports packaging a large number of strings into a single blob.
+this will greatly improve the compilation performance and product size.</p>
+<p>When there are 200,000 entries, the demo has the following comparison data:</p>
+<div><table><thead><tr><th></th><th>startup</th><th>single query</th><th>compile</th><th>size (stripped)</th></tr></thead><tbody>
+<tr><td>naive (fold)</td><td>3.6ms</td><td>25ns / 104cycle</td><td>6.9s</td><td>14M</td></tr>
+<tr><td>precomputed (fold/position)</td><td>_</td><td>23ns / 86cycle</td><td>0.3s</td><td>6.3M</td></tr>
+</tbody></table>
+</div>
+<ul>
+<li>Data from my Arch Linux (intel ultra 7 258V)</li>
+</ul>
+<h3 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h3>
+<p>For small amounts of data, it is suitable to be executed in <code>build.rs</code>.
+For large amounts of data, it is better to have a separate xtask stage
+to generate code without affecting development performance.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>build(keys: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str], values: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]) {
+    <span class="comment">// compute map
+    </span><span class="kw">let </span>mapout = precomputed_map::builder::MapBuilder::&lt;<span class="kw-2">&amp;</span>str&gt;::new()
+        .set_seed(prev_seed)
+        .set_ord(<span class="kw-2">&amp;</span>|x, y| x.cmp(y))
+        .set_hash(<span class="kw-2">&amp;</span>|seed, <span class="kw-2">&amp;</span>k| {
+            <span class="kw">let </span><span class="kw-2">mut </span>hasher = MyHasher::with_key(seed);
+            k.hash(<span class="kw-2">&amp;mut </span>hasher);
+            k.finish()
+        })
+        .build(<span class="kw-2">&amp;</span>keys)
+        .unwrap();
+
+    <span class="kw">let </span>dir = PathBuf::from(<span class="string">"src/generated"</span>);
+
+    <span class="comment">// remove old file
+    </span><span class="kw">let _ </span>= fs::remove_file(dir.join(<span class="string">"mymap.u8"</span>));
+    <span class="kw">let _ </span>= fs::remove_file(dir.join(<span class="string">"mymap.u32"</span>));
+
+    <span class="kw">let </span><span class="kw-2">mut </span>u8seq = U32SeqWriter::new(<span class="string">"PrecomputedU8"</span>.into(), dir.join(<span class="string">"mymap.u8"</span>));
+    <span class="kw">let </span><span class="kw-2">mut </span>u32seq = U32SeqWriter::new(<span class="string">"PrecomputedU32"</span>.into(), dir.join(<span class="string">"mymap.u32"</span>));
+
+    <span class="comment">// generate code
+    </span><span class="kw">let </span><span class="kw-2">mut </span>builder = precomputed_map::builder::CodeBuilder::new(
+        <span class="string">"MyMap"</span>.into(),
+        <span class="string">"MyHasher"</span>.into(),
+        <span class="kw-2">&amp;mut </span>u8seq,
+        <span class="kw-2">&amp;mut </span>u32seq,
+    );
+
+    <span class="kw">let </span>kseq = mapout.reorder(keys).map(|s| s.as_bytes());
+    <span class="kw">let </span>vseq = mapout.reorder(values).map(|s| s.as_bytes());
+    <span class="kw">let </span>k = builder.create_bytes_keys(<span class="string">"MyKeys"</span>.into(), <span class="kw-2">&amp;</span>mapout, kseq).unwrap();
+    <span class="kw">let </span>v = builder.create_bytes_position_seq(<span class="string">"MyValues"</span>.into(), vseq).unwrap();
+    <span class="kw">let </span>pair = builder.create_pair(k, v);
+
+    mapout.create_map(<span class="string">"MYMAP"</span>.into(), pair, <span class="kw-2">&amp;mut </span>builder).unwrap();
+
+    <span class="kw">let </span><span class="kw-2">mut </span>codeout = fs::File::create(dir.join(<span class="string">"mymap.rs"</span>)).unwrap();
+    builder.codegen(<span class="kw-2">&amp;mut </span>codeout).unwrap();
+    u8seq.codegen(<span class="kw-2">&amp;mut </span>code_file).unwrap();
+    u32seq.codegen(<span class="kw-2">&amp;mut </span>code_file).unwrap();
+
+    <span class="comment">// ...
+</span>}</code></pre></div><h2 id="license"><a class="doc-anchor" href="#license">§</a>License</h2>
+<p>This project is licensed under the MIT license.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="aligned/index.html" title="mod precomputed_map::aligned">aligned</a></dt><dt><a class="mod" href="equivalent/index.html" title="mod precomputed_map::equivalent">equivalent</a></dt><dd>fork from <a href="https://github.com/indexmap-rs/equivalent/blob/v1.0.2/src/lib.rs">https://github.com/indexmap-rs/equivalent/blob/v1.0.2/src/lib.rs</a></dd><dt><a class="mod" href="phf/index.html" title="mod precomputed_map::phf">phf</a></dt><dt><a class="mod" href="seq/index.html" title="mod precomputed_map::seq">seq</a></dt><dt><a class="mod" href="store/index.html" title="mod precomputed_map::store">store</a></dt></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.define.html" title="macro precomputed_map::define">define</a></dt></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.MediumMap.html" title="struct precomputed_map::MediumMap">Medium<wbr>Map</a></dt><dd>Medium map</dd><dt><a class="struct" href="struct.SmallMap.html" title="struct precomputed_map::SmallMap">Small<wbr>Map</a></dt><dd>Small map</dd><dt><a class="struct" href="struct.TinyMap.html" title="struct precomputed_map::TinyMap">TinyMap</a></dt><dd>Tiny map</dd></dl></section></div></main></body></html>

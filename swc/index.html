@@ -1,0 +1,75 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The main crate of the swc project."><title>swc - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="swc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate swc</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../swc/index.html">swc</a><span class="version">35.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#customizing" title="Customizing">Customizing</a><ul><li><a href="#dependency-version-management" title="Dependency version management">Dependency version management</a></li><li><a href="#testing" title="Testing">Testing</a></li><li><a href="#custom-javascript-transforms" title="Custom javascript transforms">Custom javascript transforms</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>swc</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/swc/lib.rs.html#1-1167">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The main crate of the swc project.</p>
+<h2 id="customizing"><a class="doc-anchor" href="#customizing">§</a>Customizing</h2>
+<p>This is documentation for building custom build tools on top of swc.</p>
+<h3 id="dependency-version-management"><a class="doc-anchor" href="#dependency-version-management">§</a>Dependency version management</h3>
+<p><code>swc</code> has <a href="https://docs.rs/swc_css">swc_css</a>, which re-exports required modules.</p>
+<h3 id="testing"><a class="doc-anchor" href="#testing">§</a>Testing</h3>
+<p>See [testing] and <a href="https://docs.rs/swc_ecma_transforms_testing">swc_ecma_transforms_testing</a>.</p>
+<h3 id="custom-javascript-transforms"><a class="doc-anchor" href="#custom-javascript-transforms">§</a>Custom javascript transforms</h3><h4 id="what-is-atom"><a class="doc-anchor" href="#what-is-atom">§</a>What is <a href="../swc_atoms/struct.Atom.html" title="struct swc_atoms::Atom">Atom</a>?</h4>
+<p>It’s basically an interned string. See <a href="../swc_atoms/index.html" title="mod swc_atoms">swc_atoms</a>.</p>
+<h4 id="choosing-between-atom-vs-string"><a class="doc-anchor" href="#choosing-between-atom-vs-string">§</a>Choosing between <a href="../swc_atoms/struct.Atom.html" title="struct swc_atoms::Atom">Atom</a> vs String</h4>
+<p>You should  prefer <a href="../swc_atoms/struct.Atom.html" title="struct swc_atoms::Atom">Atom</a> over <a href="https://doc.rust-lang.org/1.93.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a> if it’s going
+to be stored in an AST node.</p>
+<p>See <a href="../swc_atoms/index.html" title="mod swc_atoms">swc_atoms</a> for detailed description.</p>
+<h4 id="fold-vs-visitmut-vs-visit"><a class="doc-anchor" href="#fold-vs-visitmut-vs-visit">§</a>Fold vs VisitMut vs Visit</h4>
+<p>See <a href="../swc_visit/index.html" title="mod swc_visit">swc_visit</a> for detailed description.</p>
+<ul>
+<li><a href="../swc_ecma_visit/generated/trait.Fold.html" title="trait swc_ecma_visit::generated::Fold">Fold</a></li>
+<li><a href="../swc_ecma_visit/generated/trait.VisitMut.html" title="trait swc_ecma_visit::generated::VisitMut">VisitMut</a></li>
+<li><a href="../swc_ecma_visit/generated/trait.Visit.html" title="trait swc_ecma_visit::generated::Visit">Visit</a></li>
+</ul>
+<h4 id="variable-management-scoping"><a class="doc-anchor" href="#variable-management-scoping">§</a>Variable management (Scoping)</h4>
+<p>See [swc_ecma_transforms_base::resolver::resolver_with_mark].</p>
+<h5 id="how-identifiers-work"><a class="doc-anchor" href="#how-identifiers-work">§</a>How identifiers work</h5>
+<p>See the doc on <a href="../swc_ecma_ast/ident/struct.Ident.html" title="struct swc_ecma_ast::ident::Ident">swc_ecma_ast::Ident</a> or on
+[swc_ecma_transforms_base::resolver::resolver_with_mark].</p>
+<h5 id="comparing-two-identifiers"><a class="doc-anchor" href="#comparing-two-identifiers">§</a>Comparing two identifiers</h5>
+<p>See [swc_ecma_utils::Id]. You can use [swc_ecma_utils::IdentLike::to_id] to
+extract important parts of an <a href="../swc_ecma_ast/ident/struct.Ident.html" title="struct swc_ecma_ast::ident::Ident">swc_ecma_ast::Ident</a>.</p>
+<h5 id="creating-a-unique-identifier"><a class="doc-anchor" href="#creating-a-unique-identifier">§</a>Creating a unique identifier</h5>
+<p>See <a href="../swc_ecma_utils/macro.private_ident.html" title="macro swc_ecma_utils::private_ident">swc_ecma_utils::private_ident</a>.</p>
+<h5 id="prepending-statements"><a class="doc-anchor" href="#prepending-statements">§</a>Prepending statements</h5>
+<p>If you want to prepend statements to the beginning of a file, you can use
+<a href="../swc_ecma_utils/fn.prepend_stmts.html" title="fn swc_ecma_utils::prepend_stmts">swc_ecma_utils::prepend_stmts</a> or [swc_ecma_utils::prepend] if <code>len == 1</code>.</p>
+<p>These methods are aware of the fact that <code>"use strict"</code> directive should be
+first in a file, and insert statements after directives.</p>
+<h4 id="improving-readability"><a class="doc-anchor" href="#improving-readability">§</a>Improving readability</h4>
+<p>Each stuffs are documented at itself.</p>
+<ul>
+<li>
+<p>If you are creating or binding an <a href="../swc_ecma_ast/expr/enum.Expr.html" title="enum swc_ecma_ast::expr::Expr">swc_ecma_ast::Expr</a> with operator, you
+can use <a href="../swc_ecma_ast/macro.op.html" title="macro swc_ecma_ast::op">swc_ecma_ast::op</a>.</p>
+</li>
+<li>
+<p>If you want to create <a href="../swc_ecma_ast/expr/struct.CallExpr.html" title="struct swc_ecma_ast::expr::CallExpr">swc_ecma_ast::CallExpr</a>, you can use
+<a href="../swc_ecma_utils/factory/trait.ExprFactory.html#method.as_callee" title="method swc_ecma_utils::factory::ExprFactory::as_callee">swc_ecma_utils::ExprFactory::as_callee</a> to create <code>callee</code>.</p>
+</li>
+<li>
+<p>If you want to create <a href="../swc_ecma_ast/expr/struct.CallExpr.html" title="struct swc_ecma_ast::expr::CallExpr">swc_ecma_ast::CallExpr</a> or
+<a href="../swc_ecma_ast/expr/struct.NewExpr.html" title="struct swc_ecma_ast::expr::NewExpr">swc_ecma_ast::NewExpr</a>, you can use
+<a href="../swc_ecma_utils/factory/trait.ExprFactory.html#method.as_arg" title="method swc_ecma_utils::factory::ExprFactory::as_arg">swc_ecma_utils::ExprFactory::as_arg</a> to create arguments.</p>
+</li>
+<li>
+<p>If you want to create <a href="../swc_ecma_ast/expr/struct.MemberExpr.html" title="struct swc_ecma_ast::expr::MemberExpr">swc_ecma_ast::MemberExpr</a> where all identifiers
+are static (e.g. <code>Object.prototype.hasOwnProperty</code>), you can use
+<a href="../swc_ecma_utils/macro.member_expr.html" title="macro swc_ecma_utils::member_expr">swc_ecma_utils::member_expr</a>.</p>
+</li>
+<li>
+<p>If you want to create <a href="../swc_ecma_ast/expr/struct.MemberExpr.html" title="struct swc_ecma_ast::expr::MemberExpr">swc_ecma_ast::MemberExpr</a>, you can use
+[swc_ecma_utils::ExprFactory::as_obj] to create object field.</p>
+</li>
+</ul>
+<h4 id="reducing-binary-size"><a class="doc-anchor" href="#reducing-binary-size">§</a>Reducing binary size</h4>
+<p>The visitor expands to a lot of code. You can reduce it by using macros like</p>
+<ul>
+<li><a href="../swc_ecma_visit/macro.noop_fold_type.html" title="macro swc_ecma_visit::noop_fold_type">noop_fold_type</a></li>
+<li><a href="../swc_ecma_visit/macro.noop_visit_mut_type.html" title="macro swc_ecma_visit::noop_visit_mut_type">noop_visit_mut_type</a></li>
+<li><a href="../swc_ecma_visit/macro.noop_visit_type.html" title="macro swc_ecma_visit::noop_visit_type">noop_visit_type</a></li>
+</ul>
+<p>Note that this will make typescript-related nodes not processed, but it’s
+typically fine as <code>typescript::strip</code> is invoked at the start and it removes
+typescript-specific nodes.</p>
+<h4 id="porting-exprevaluate-of-babel"><a class="doc-anchor" href="#porting-exprevaluate-of-babel">§</a>Porting <code>expr.evaluate()</code> of babel</h4>
+<p>See <a href="../swc_ecma_minifier/eval/struct.Evaluator.html" title="struct swc_ecma_minifier::eval::Evaluator">swc_ecma_minifier::eval::Evaluator</a>.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt><code>pub extern crate <a class="mod" href="../swc_atoms/index.html" title="mod swc_atoms">swc_atoms</a> as atoms;</dl><h2 id="reexports-1" class="section-header">Re-exports<a href="#reexports-1" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.sourcemap"><code>pub use <a class="mod" href="../swc_sourcemap/index.html" title="mod swc_sourcemap">swc_sourcemap</a> as sourcemap;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="config/index.html" title="mod swc::config">config</a></dt><dt><a class="mod" href="resolver/index.html" title="mod swc::resolver">resolver</a></dt></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.BoolConfig.html" title="struct swc::BoolConfig">Bool<wbr>Config</a></dt><dd>You can create this type like <code>true.into()</code> or <code>false.into()</code>.</dd><dt><a class="struct" href="struct.BoolOrDataConfig.html" title="struct swc::BoolOrDataConfig">Bool<wbr>OrData<wbr>Config</a></dt><dt><a class="struct" href="struct.Compiler.html" title="struct swc::Compiler">Compiler</a></dt><dd>All methods accept <a href="../swc_common/errors/struct.Handler.html" title="struct swc_common::errors::Handler">Handler</a>, which is a storage for errors.</dd><dt><a class="struct" href="struct.HandlerOpts.html" title="struct swc::HandlerOpts">Handler<wbr>Opts</a></dt><dt><a class="struct" href="struct.JsMinifyExtras.html" title="struct swc::JsMinifyExtras">JsMinify<wbr>Extras</a></dt><dt><a class="struct" href="struct.PrintArgs.html" title="struct swc::PrintArgs">Print<wbr>Args</a></dt><dt><a class="struct" href="struct.SwcComments.html" title="struct swc::SwcComments">SwcComments</a></dt><dd>Multi-threaded implementation of <a href="../swc_common/comments/trait.Comments.html" title="trait swc_common::comments::Comments">Comments</a></dd><dt><a class="struct" href="struct.TransformOutput.html" title="struct swc::TransformOutput">Transform<wbr>Output</a></dt></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.BoolOr.html" title="enum swc::BoolOr">BoolOr</a></dt></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.try_with_handler.html" title="fn swc::try_with_handler">try_<wbr>with_<wbr>handler</a></dt><dd>Try operation with a <a href="../swc_common/errors/struct.Handler.html" title="struct swc_common::errors::Handler">Handler</a> and prints the errors as a <a href="https://doc.rust-lang.org/1.93.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a> wrapped
+by <a href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html#variant.Err" title="variant core::result::Result::Err">Err</a>.</dd></dl></section></div></main></body></html>

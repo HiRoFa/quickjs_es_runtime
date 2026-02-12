@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["class_fields_use_set"]};

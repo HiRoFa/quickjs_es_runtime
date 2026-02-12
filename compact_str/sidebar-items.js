@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["format_compact"],"struct":["CompactString","Drain","Utf16Error"],"trait":["CompactStringExt","ToCompactString"]};

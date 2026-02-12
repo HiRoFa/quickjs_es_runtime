@@ -1,0 +1,50 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="What does this module do?"><title>class_fields_use_set in swc_ecma_transforms_compat::class_fields_use_set - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="swc_ecma_transforms_compat" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">class_fields_use_set</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../swc_ecma_transforms_compat/index.html">swc_<wbr>ecma_<wbr>transforms_<wbr>compat</a><span class="version">27.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">class_<wbr>fields_<wbr>use_<wbr>set</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#what-does-this-module-do" title="What does this module do?">What does this module do?</a></li><li><a href="#why-is-it-needed" title="Why is it needed?">Why is it needed?</a><ul><li><a href="#example" title="Example">Example</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In swc_<wbr>ecma_<wbr>transforms_<wbr>compat::<wbr>class_<wbr>fields_<wbr>use_<wbr>set</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">swc_ecma_transforms_compat</a>::<wbr><a href="index.html">class_fields_use_set</a></div><h1>Function <span class="fn">class_<wbr>fields_<wbr>use_<wbr>set</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/swc_ecma_transforms_compat/class_fields_use_set.rs.html#87-89">Source</a> </span></div><pre class="rust item-decl"><code>pub fn class_fields_use_set(pure_getters: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a>) -&gt; impl <a class="trait" href="../../swc_ecma_ast/trait.Pass.html" title="trait swc_ecma_ast::Pass">Pass</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="what-does-this-module-do"><a class="doc-anchor" href="#what-does-this-module-do">§</a>What does this module do?</h2>
+<p>This module will transpile the class semantics
+from <code>[[Define]]</code> to <code>[[Set]]</code>.</p>
+<p>Note: class’s native field is <code>[[Define]]</code> semantics.</p>
+<h2 id="why-is-it-needed"><a class="doc-anchor" href="#why-is-it-needed">§</a>Why is it needed?</h2>
+<p>The getter/setter from the super class won’t be triggered in <code>[[Define]]</code>
+semantics.</p>
+<p>Some decorators depend on super class getter/setter.
+Therefore, scenarios like this will require <code>[[Set]]</code> semantics.</p>
+<h3 id="example"><a class="doc-anchor" href="#example">§</a>Example</h3><div class="example-wrap"><pre class="language-JavaScript"><code>class Foo {
+    a = 1;
+    #b = 2;
+    static c = 3;
+    static #d = 4;
+}</code></pre></div>
+<p>result:</p>
+<div class="example-wrap"><pre class="language-JavaScript"><code>class Foo {
+    #b;
+    static {
+        this.c = 3;
+    }
+    static #d = 4;
+    constructor() {
+        this.a = 1;
+        this.#b = 2;
+    }
+}</code></pre></div>
+<p>The variable <code>a</code> will be relocated to the constructor. Although the variable
+<code>#b</code> is not influenced by <code>[[Define]]</code> or <code>[[Set]]</code> semantics, its execution
+order is associated with variable <code>a</code>, thus its initialization is moved into
+the constructor.</p>
+<p>The static variable <code>c</code> is moved to the static block for <code>[[Set]]</code> semantic
+conversion. Whereas, variable <code>#d</code> remains completely unaffected and
+conserved in its original location.</p>
+<p>Furthermore, for class props that have side effects, an extraction and
+conversion will be performed.</p>
+<p>For example,</p>
+<div class="example-wrap"><pre class="language-JavaScript"><code>class Foo {
+    [foo()] = 1;
+}</code></pre></div>
+<p>result:</p>
+<div class="example-wrap"><pre class="language-JavaScript"><code>let prop;
+class Foo{
+    static {
+        prop = foo();
+    }
+    constructor() {
+        this[prop] = 1;
+    }
+}</code></pre></div></div></details></section></div></main></body></html>

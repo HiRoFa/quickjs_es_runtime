@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["_set_event_bubble_target","add_event_listener","add_static_event_listener","dispatch_event","dispatch_static_event","remove_event_listener","remove_static_event_listener"]};

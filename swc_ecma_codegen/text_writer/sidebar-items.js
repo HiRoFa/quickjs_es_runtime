@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["omit_trailing_semi"],"struct":["JsWriter"],"trait":["WriteJs"],"type":["Symbol"]};

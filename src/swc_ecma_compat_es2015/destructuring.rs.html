@@ -1,0 +1,1347 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/swc_ecma_compat_es2015-26.0.0/src/destructuring.rs`."><title>destructuring.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="swc_ecma_compat_es2015" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">swc_ecma_compat_es2015/</div>destructuring.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::{iter, mem};
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span>serde::Deserialize;
+<a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>swc_common::{util::take::Take, Span, Spanned, SyntaxContext, DUMMY_SP};
+<a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span>swc_ecma_ast::<span class="kw-2">*</span>;
+<a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>swc_ecma_compat_common::impl_visit_mut_fn;
+<a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span>swc_ecma_transforms_base::{helper, helper_expr, perf::Check};
+<a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span>swc_ecma_transforms_macros::fast_path;
+<a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span>swc_ecma_utils::{
+<a href=#10 id=10 data-nosnippet>10</a>    alias_ident_for, alias_if_required, has_rest_pat, is_literal, member_expr, private_ident,
+<a href=#11 id=11 data-nosnippet>11</a>    prop_name_to_expr, quote_ident, ExprFactory, StmtLike,
+<a href=#12 id=12 data-nosnippet>12</a>};
+<a href=#13 id=13 data-nosnippet>13</a><span class="kw">use </span>swc_ecma_visit::{
+<a href=#14 id=14 data-nosnippet>14</a>    noop_visit_mut_type, noop_visit_type, visit_mut_pass, Visit, VisitMut, VisitMutWith, VisitWith,
+<a href=#15 id=15 data-nosnippet>15</a>};
+<a href=#16 id=16 data-nosnippet>16</a><span class="kw">use </span>swc_trace_macro::swc_trace;
+<a href=#17 id=17 data-nosnippet>17</a>
+<a href=#18 id=18 data-nosnippet>18</a><span class="doccomment">/// `@babel/plugin-transform-destructuring`
+<a href=#19 id=19 data-nosnippet>19</a>///
+<a href=#20 id=20 data-nosnippet>20</a>/// # Example
+<a href=#21 id=21 data-nosnippet>21</a>/// ## In
+<a href=#22 id=22 data-nosnippet>22</a>/// ```js
+<a href=#23 id=23 data-nosnippet>23</a>/// let {x, y} = obj;
+<a href=#24 id=24 data-nosnippet>24</a>///
+<a href=#25 id=25 data-nosnippet>25</a>/// let [a, b, ...rest] = arr;
+<a href=#26 id=26 data-nosnippet>26</a>/// ```
+<a href=#27 id=27 data-nosnippet>27</a>/// ## Out
+<a href=#28 id=28 data-nosnippet>28</a>/// ```js
+<a href=#29 id=29 data-nosnippet>29</a>/// let _obj = obj,
+<a href=#30 id=30 data-nosnippet>30</a>///     x = _obj.x,
+<a href=#31 id=31 data-nosnippet>31</a>///     y = _obj.y;
+<a href=#32 id=32 data-nosnippet>32</a>///
+<a href=#33 id=33 data-nosnippet>33</a>/// let _arr = arr,
+<a href=#34 id=34 data-nosnippet>34</a>///     _arr2 = _to_array(_arr),
+<a href=#35 id=35 data-nosnippet>35</a>///     a = _arr2[0],
+<a href=#36 id=36 data-nosnippet>36</a>///     b = _arr2[1],
+<a href=#37 id=37 data-nosnippet>37</a>///     rest = _arr2.slice(2);
+<a href=#38 id=38 data-nosnippet>38</a>/// ```
+<a href=#39 id=39 data-nosnippet>39</a></span><span class="kw">pub fn </span>destructuring(c: Config) -&gt; <span class="kw">impl </span>Pass {
+<a href=#40 id=40 data-nosnippet>40</a>    visit_mut_pass(Destructuring { c })
+<a href=#41 id=41 data-nosnippet>41</a>}
+<a href=#42 id=42 data-nosnippet>42</a>
+<a href=#43 id=43 data-nosnippet>43</a><span class="kw">struct </span>Destructuring {
+<a href=#44 id=44 data-nosnippet>44</a>    c: Config,
+<a href=#45 id=45 data-nosnippet>45</a>}
+<a href=#46 id=46 data-nosnippet>46</a>
+<a href=#47 id=47 data-nosnippet>47</a><span class="attr">#[derive(Debug, Default, Clone, Copy, Deserialize)]
+<a href=#48 id=48 data-nosnippet>48</a></span><span class="kw">pub struct </span>Config {
+<a href=#49 id=49 data-nosnippet>49</a>    <span class="attr">#[serde(default)]
+<a href=#50 id=50 data-nosnippet>50</a>    </span><span class="kw">pub </span>loose: bool,
+<a href=#51 id=51 data-nosnippet>51</a>}
+<a href=#52 id=52 data-nosnippet>52</a>
+<a href=#53 id=53 data-nosnippet>53</a><span class="macro">macro_rules!</span> impl_for_for_stmt {
+<a href=#54 id=54 data-nosnippet>54</a>    (<span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$T</span>:tt) =&gt; {
+<a href=#55 id=55 data-nosnippet>55</a>        <span class="kw">fn </span><span class="macro-nonterminal">$name</span>(<span class="kw-2">&amp;mut </span><span class="self">self</span>, for_stmt: <span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$T</span>) {
+<a href=#56 id=56 data-nosnippet>56</a>            for_stmt.visit_mut_children_with(<span class="self">self</span>);
+<a href=#57 id=57 data-nosnippet>57</a>
+<a href=#58 id=58 data-nosnippet>58</a>            <span class="kw">let </span>(left, stmt) = <span class="kw">match </span><span class="kw-2">&amp;mut </span>for_stmt.left {
+<a href=#59 id=59 data-nosnippet>59</a>                ForHead::VarDecl(var_decl) =&gt; {
+<a href=#60 id=60 data-nosnippet>60</a>                    <span class="kw">let </span>has_complex = var_decl.decls.iter().any(|d| <span class="kw">match </span>d.name {
+<a href=#61 id=61 data-nosnippet>61</a>                        Pat::Ident(<span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
+<a href=#62 id=62 data-nosnippet>62</a>                        <span class="kw">_ </span>=&gt; <span class="bool-val">true</span>,
+<a href=#63 id=63 data-nosnippet>63</a>                    });
+<a href=#64 id=64 data-nosnippet>64</a>
+<a href=#65 id=65 data-nosnippet>65</a>                    <span class="kw">if </span>!has_complex {
+<a href=#66 id=66 data-nosnippet>66</a>                        <span class="kw">return</span>;
+<a href=#67 id=67 data-nosnippet>67</a>                    }
+<a href=#68 id=68 data-nosnippet>68</a>                    <span class="kw">let </span>ref_ident = make_ref_ident_for_for_stmt();
+<a href=#69 id=69 data-nosnippet>69</a>                    <span class="kw">let </span>left = VarDecl {
+<a href=#70 id=70 data-nosnippet>70</a>                        decls: <span class="macro">vec!</span>[VarDeclarator {
+<a href=#71 id=71 data-nosnippet>71</a>                            span: DUMMY_SP,
+<a href=#72 id=72 data-nosnippet>72</a>                            name: ref_ident.clone().into(),
+<a href=#73 id=73 data-nosnippet>73</a>                            init: <span class="prelude-val">None</span>,
+<a href=#74 id=74 data-nosnippet>74</a>                            definite: <span class="bool-val">false</span>,
+<a href=#75 id=75 data-nosnippet>75</a>                        }],
+<a href=#76 id=76 data-nosnippet>76</a>                        span: var_decl.span,
+<a href=#77 id=77 data-nosnippet>77</a>                        kind: var_decl.kind,
+<a href=#78 id=78 data-nosnippet>78</a>                        declare: var_decl.declare,
+<a href=#79 id=79 data-nosnippet>79</a>                        ..Default::default()
+<a href=#80 id=80 data-nosnippet>80</a>                    }
+<a href=#81 id=81 data-nosnippet>81</a>                    .into();
+<a href=#82 id=82 data-nosnippet>82</a>
+<a href=#83 id=83 data-nosnippet>83</a>                    <span class="comment">// I(kdy1) guess var_decl.len() == 1
+<a href=#84 id=84 data-nosnippet>84</a>                    </span><span class="kw">let </span><span class="kw-2">mut </span>decls = var_decl
+<a href=#85 id=85 data-nosnippet>85</a>                        .decls
+<a href=#86 id=86 data-nosnippet>86</a>                        .take()
+<a href=#87 id=87 data-nosnippet>87</a>                        .into_iter()
+<a href=#88 id=88 data-nosnippet>88</a>                        .map(|decl| VarDeclarator {
+<a href=#89 id=89 data-nosnippet>89</a>                            init: <span class="prelude-val">Some</span>(Box::new(Expr::Ident(ref_ident.clone()))),
+<a href=#90 id=90 data-nosnippet>90</a>                            ..decl
+<a href=#91 id=91 data-nosnippet>91</a>                        })
+<a href=#92 id=92 data-nosnippet>92</a>                        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+<a href=#93 id=93 data-nosnippet>93</a>                    decls.visit_mut_children_with(<span class="self">self</span>);
+<a href=#94 id=94 data-nosnippet>94</a>
+<a href=#95 id=95 data-nosnippet>95</a>                    <span class="comment">// Unpack variables
+<a href=#96 id=96 data-nosnippet>96</a>                    </span><span class="kw">let </span>stmt: Stmt = VarDecl {
+<a href=#97 id=97 data-nosnippet>97</a>                        span: var_decl.span(),
+<a href=#98 id=98 data-nosnippet>98</a>                        kind: VarDeclKind::Let,
+<a href=#99 id=99 data-nosnippet>99</a>                        decls,
+<a href=#100 id=100 data-nosnippet>100</a>                        ..Default::default()
+<a href=#101 id=101 data-nosnippet>101</a>                    }
+<a href=#102 id=102 data-nosnippet>102</a>                    .into();
+<a href=#103 id=103 data-nosnippet>103</a>                    (left, stmt)
+<a href=#104 id=104 data-nosnippet>104</a>                }
+<a href=#105 id=105 data-nosnippet>105</a>                ForHead::Pat(pat) =&gt; <span class="kw">match </span><span class="kw-2">**</span>pat {
+<a href=#106 id=106 data-nosnippet>106</a>                    Pat::Ident(..) =&gt; {
+<a href=#107 id=107 data-nosnippet>107</a>                        <span class="kw">return</span>;
+<a href=#108 id=108 data-nosnippet>108</a>                    }
+<a href=#109 id=109 data-nosnippet>109</a>                    <span class="kw">_ </span>=&gt; {
+<a href=#110 id=110 data-nosnippet>110</a>                        <span class="kw">let </span>left_ident = make_ref_ident_for_for_stmt();
+<a href=#111 id=111 data-nosnippet>111</a>                        <span class="kw">let </span>left = ForHead::Pat(left_ident.clone().into());
+<a href=#112 id=112 data-nosnippet>112</a>                        <span class="comment">// Unpack variables
+<a href=#113 id=113 data-nosnippet>113</a>                        </span><span class="kw">let </span>stmt = AssignExpr {
+<a href=#114 id=114 data-nosnippet>114</a>                            span: DUMMY_SP,
+<a href=#115 id=115 data-nosnippet>115</a>                            left: pat.take().try_into().unwrap(),
+<a href=#116 id=116 data-nosnippet>116</a>                            op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#117 id=117 data-nosnippet>117</a>                            right: Box::new(left_ident.into()),
+<a href=#118 id=118 data-nosnippet>118</a>                        }
+<a href=#119 id=119 data-nosnippet>119</a>                        .into_stmt();
+<a href=#120 id=120 data-nosnippet>120</a>                        (left, stmt)
+<a href=#121 id=121 data-nosnippet>121</a>                    }
+<a href=#122 id=122 data-nosnippet>122</a>                },
+<a href=#123 id=123 data-nosnippet>123</a>
+<a href=#124 id=124 data-nosnippet>124</a>                ForHead::UsingDecl(..) =&gt; {
+<a href=#125 id=125 data-nosnippet>125</a>                    <span class="macro">unreachable!</span>(<span class="string">"using declaration must be removed by previous pass"</span>)
+<a href=#126 id=126 data-nosnippet>126</a>                }
+<a href=#127 id=127 data-nosnippet>127</a>            };
+<a href=#128 id=128 data-nosnippet>128</a>
+<a href=#129 id=129 data-nosnippet>129</a>            for_stmt.left = left;
+<a href=#130 id=130 data-nosnippet>130</a>
+<a href=#131 id=131 data-nosnippet>131</a>            for_stmt.body = Box::new(Stmt::Block(<span class="kw">match </span><span class="kw-2">&amp;mut *</span>for_stmt.body {
+<a href=#132 id=132 data-nosnippet>132</a>                Stmt::Block(BlockStmt { span, stmts, ctxt }) =&gt; BlockStmt {
+<a href=#133 id=133 data-nosnippet>133</a>                    span: <span class="kw-2">*</span>span,
+<a href=#134 id=134 data-nosnippet>134</a>                    stmts: iter::once(stmt).chain(stmts.take()).collect(),
+<a href=#135 id=135 data-nosnippet>135</a>                    ctxt: <span class="kw-2">*</span>ctxt,
+<a href=#136 id=136 data-nosnippet>136</a>                },
+<a href=#137 id=137 data-nosnippet>137</a>                body =&gt; BlockStmt {
+<a href=#138 id=138 data-nosnippet>138</a>                    stmts: <span class="macro">vec!</span>[stmt, body.take()],
+<a href=#139 id=139 data-nosnippet>139</a>                    ..Default::default()
+<a href=#140 id=140 data-nosnippet>140</a>                },
+<a href=#141 id=141 data-nosnippet>141</a>            }));
+<a href=#142 id=142 data-nosnippet>142</a>        }
+<a href=#143 id=143 data-nosnippet>143</a>    };
+<a href=#144 id=144 data-nosnippet>144</a>}
+<a href=#145 id=145 data-nosnippet>145</a>
+<a href=#146 id=146 data-nosnippet>146</a><span class="kw">fn </span>make_ref_ident_for_for_stmt() -&gt; Ident {
+<a href=#147 id=147 data-nosnippet>147</a>    <span class="macro">private_ident!</span>(<span class="string">"ref"</span>)
+<a href=#148 id=148 data-nosnippet>148</a>}
+<a href=#149 id=149 data-nosnippet>149</a>
+<a href=#150 id=150 data-nosnippet>150</a><span class="attr">#[swc_trace]
+<a href=#151 id=151 data-nosnippet>151</a></span><span class="kw">impl </span>AssignFolder {
+<a href=#152 id=152 data-nosnippet>152</a>    <span class="kw">fn </span>visit_mut_var_decl(<span class="kw-2">&amp;mut </span><span class="self">self</span>, decls: <span class="kw-2">&amp;mut </span>Vec&lt;VarDeclarator&gt;, decl: VarDeclarator) {
+<a href=#153 id=153 data-nosnippet>153</a>        <span class="kw">match </span>decl.name {
+<a href=#154 id=154 data-nosnippet>154</a>            Pat::Ident(..) =&gt; decls.push(decl),
+<a href=#155 id=155 data-nosnippet>155</a>            Pat::Rest(..) =&gt; <span class="macro">unreachable!</span>(
+<a href=#156 id=156 data-nosnippet>156</a>                <span class="string">"rest pattern should handled by array pattern handler: {:?}"</span>,
+<a href=#157 id=157 data-nosnippet>157</a>                decl.name
+<a href=#158 id=158 data-nosnippet>158</a>            ),
+<a href=#159 id=159 data-nosnippet>159</a>            Pat::Array(ArrayPat { elems, .. }) =&gt; {
+<a href=#160 id=160 data-nosnippet>160</a>                <span class="macro">assert!</span>(
+<a href=#161 id=161 data-nosnippet>161</a>                    decl.init.is_some(),
+<a href=#162 id=162 data-nosnippet>162</a>                    <span class="string">"destructuring pattern binding requires initializer"
+<a href=#163 id=163 data-nosnippet>163</a>                </span>);
+<a href=#164 id=164 data-nosnippet>164</a>
+<a href=#165 id=165 data-nosnippet>165</a>                <span class="kw">let </span>init = decl.init.unwrap();
+<a href=#166 id=166 data-nosnippet>166</a>
+<a href=#167 id=167 data-nosnippet>167</a>                <span class="kw">if </span>is_literal(<span class="kw-2">&amp;</span>init) {
+<a href=#168 id=168 data-nosnippet>168</a>                    <span class="kw">match </span><span class="kw-2">*</span>init {
+<a href=#169 id=169 data-nosnippet>169</a>                        Expr::Array(arr)
+<a href=#170 id=170 data-nosnippet>170</a>                            <span class="kw">if </span>!elems.is_empty()
+<a href=#171 id=171 data-nosnippet>171</a>                                &amp;&amp; (elems.len() == arr.elems.len()
+<a href=#172 id=172 data-nosnippet>172</a>                                    || (elems.len() &lt; arr.elems.len() &amp;&amp; has_rest_pat(<span class="kw-2">&amp;</span>elems))) =&gt;
+<a href=#173 id=173 data-nosnippet>173</a>                        {
+<a href=#174 id=174 data-nosnippet>174</a>                            <span class="kw">let </span><span class="kw-2">mut </span>arr_elems = <span class="prelude-val">Some</span>(arr.elems.into_iter());
+<a href=#175 id=175 data-nosnippet>175</a>                            elems.into_iter().for_each(|p| <span class="kw">match </span>p {
+<a href=#176 id=176 data-nosnippet>176</a>                                <span class="prelude-val">Some</span>(Pat::Rest(p)) =&gt; {
+<a href=#177 id=177 data-nosnippet>177</a>                                    <span class="self">self</span>.visit_mut_var_decl(
+<a href=#178 id=178 data-nosnippet>178</a>                                        decls,
+<a href=#179 id=179 data-nosnippet>179</a>                                        VarDeclarator {
+<a href=#180 id=180 data-nosnippet>180</a>                                            span: p.span(),
+<a href=#181 id=181 data-nosnippet>181</a>                                            name: <span class="kw-2">*</span>p.arg,
+<a href=#182 id=182 data-nosnippet>182</a>                                            init: <span class="prelude-val">Some</span>(
+<a href=#183 id=183 data-nosnippet>183</a>                                                ArrayLit {
+<a href=#184 id=184 data-nosnippet>184</a>                                                    span: DUMMY_SP,
+<a href=#185 id=185 data-nosnippet>185</a>                                                    elems: arr_elems
+<a href=#186 id=186 data-nosnippet>186</a>                                                        .take()
+<a href=#187 id=187 data-nosnippet>187</a>                                                        .expect(<span class="string">"two rest element?"</span>)
+<a href=#188 id=188 data-nosnippet>188</a>                                                        .collect(),
+<a href=#189 id=189 data-nosnippet>189</a>                                                }
+<a href=#190 id=190 data-nosnippet>190</a>                                                .into(),
+<a href=#191 id=191 data-nosnippet>191</a>                                            ),
+<a href=#192 id=192 data-nosnippet>192</a>                                            definite: <span class="bool-val">false</span>,
+<a href=#193 id=193 data-nosnippet>193</a>                                        },
+<a href=#194 id=194 data-nosnippet>194</a>                                    );
+<a href=#195 id=195 data-nosnippet>195</a>                                }
+<a href=#196 id=196 data-nosnippet>196</a>                                <span class="prelude-val">Some</span>(p) =&gt; {
+<a href=#197 id=197 data-nosnippet>197</a>                                    <span class="kw">let </span>e = arr_elems
+<a href=#198 id=198 data-nosnippet>198</a>                                        .as_mut()
+<a href=#199 id=199 data-nosnippet>199</a>                                        .expect(<span class="string">"pattern after rest element?"</span>)
+<a href=#200 id=200 data-nosnippet>200</a>                                        .next()
+<a href=#201 id=201 data-nosnippet>201</a>                                        .unwrap();
+<a href=#202 id=202 data-nosnippet>202</a>                                    <span class="self">self</span>.visit_mut_var_decl(
+<a href=#203 id=203 data-nosnippet>203</a>                                        decls,
+<a href=#204 id=204 data-nosnippet>204</a>                                        VarDeclarator {
+<a href=#205 id=205 data-nosnippet>205</a>                                            span: p.span(),
+<a href=#206 id=206 data-nosnippet>206</a>                                            init: e.map(|e| {
+<a href=#207 id=207 data-nosnippet>207</a>                                                <span class="macro">debug_assert_eq!</span>(e.spread, <span class="prelude-val">None</span>);
+<a href=#208 id=208 data-nosnippet>208</a>                                                e.expr
+<a href=#209 id=209 data-nosnippet>209</a>                                            }),
+<a href=#210 id=210 data-nosnippet>210</a>                                            name: p,
+<a href=#211 id=211 data-nosnippet>211</a>                                            definite: <span class="bool-val">false</span>,
+<a href=#212 id=212 data-nosnippet>212</a>                                        },
+<a href=#213 id=213 data-nosnippet>213</a>                                    )
+<a href=#214 id=214 data-nosnippet>214</a>                                }
+<a href=#215 id=215 data-nosnippet>215</a>
+<a href=#216 id=216 data-nosnippet>216</a>                                <span class="prelude-val">None </span>=&gt; {
+<a href=#217 id=217 data-nosnippet>217</a>                                    arr_elems
+<a href=#218 id=218 data-nosnippet>218</a>                                        .as_mut()
+<a href=#219 id=219 data-nosnippet>219</a>                                        .expect(<span class="string">"pattern after rest element?"</span>)
+<a href=#220 id=220 data-nosnippet>220</a>                                        .next();
+<a href=#221 id=221 data-nosnippet>221</a>                                }
+<a href=#222 id=222 data-nosnippet>222</a>                            });
+<a href=#223 id=223 data-nosnippet>223</a>                            <span class="kw">return</span>;
+<a href=#224 id=224 data-nosnippet>224</a>                        }
+<a href=#225 id=225 data-nosnippet>225</a>                        <span class="kw">_ </span>=&gt; {}
+<a href=#226 id=226 data-nosnippet>226</a>                    }
+<a href=#227 id=227 data-nosnippet>227</a>                }
+<a href=#228 id=228 data-nosnippet>228</a>                <span class="comment">// Make ref var if required
+<a href=#229 id=229 data-nosnippet>229</a>                </span><span class="kw">let </span>ref_ident = make_ref_ident_for_array(
+<a href=#230 id=230 data-nosnippet>230</a>                    <span class="self">self</span>.c,
+<a href=#231 id=231 data-nosnippet>231</a>                    <span class="kw">if </span><span class="self">self</span>.exporting {
+<a href=#232 id=232 data-nosnippet>232</a>                        <span class="kw-2">&amp;mut </span><span class="self">self</span>.vars
+<a href=#233 id=233 data-nosnippet>233</a>                    } <span class="kw">else </span>{
+<a href=#234 id=234 data-nosnippet>234</a>                        decls
+<a href=#235 id=235 data-nosnippet>235</a>                    },
+<a href=#236 id=236 data-nosnippet>236</a>                    <span class="prelude-val">Some</span>(init),
+<a href=#237 id=237 data-nosnippet>237</a>                    <span class="prelude-val">Some</span>(<span class="kw">if </span>has_rest_pat(<span class="kw-2">&amp;</span>elems) {
+<a href=#238 id=238 data-nosnippet>238</a>                        usize::MAX
+<a href=#239 id=239 data-nosnippet>239</a>                    } <span class="kw">else </span>{
+<a href=#240 id=240 data-nosnippet>240</a>                        elems.len()
+<a href=#241 id=241 data-nosnippet>241</a>                    }),
+<a href=#242 id=242 data-nosnippet>242</a>                );
+<a href=#243 id=243 data-nosnippet>243</a>
+<a href=#244 id=244 data-nosnippet>244</a>                <span class="kw">for </span>(i, elem) <span class="kw">in </span>elems.into_iter().enumerate() {
+<a href=#245 id=245 data-nosnippet>245</a>                    <span class="kw">let </span>elem: Pat = <span class="kw">match </span>elem {
+<a href=#246 id=246 data-nosnippet>246</a>                        <span class="prelude-val">Some</span>(elem) =&gt; elem,
+<a href=#247 id=247 data-nosnippet>247</a>                        <span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
+<a href=#248 id=248 data-nosnippet>248</a>                    };
+<a href=#249 id=249 data-nosnippet>249</a>
+<a href=#250 id=250 data-nosnippet>250</a>                    <span class="kw">let </span>var_decl = <span class="kw">match </span>elem {
+<a href=#251 id=251 data-nosnippet>251</a>                        Pat::Rest(RestPat {
+<a href=#252 id=252 data-nosnippet>252</a>                            dot3_token, arg, ..
+<a href=#253 id=253 data-nosnippet>253</a>                        }) =&gt; VarDeclarator {
+<a href=#254 id=254 data-nosnippet>254</a>                            span: dot3_token,
+<a href=#255 id=255 data-nosnippet>255</a>                            name: <span class="kw-2">*</span>arg,
+<a href=#256 id=256 data-nosnippet>256</a>                            init: <span class="prelude-val">Some</span>(
+<a href=#257 id=257 data-nosnippet>257</a>                                CallExpr {
+<a href=#258 id=258 data-nosnippet>258</a>                                    span: DUMMY_SP,
+<a href=#259 id=259 data-nosnippet>259</a>                                    callee: ref_ident
+<a href=#260 id=260 data-nosnippet>260</a>                                        .clone()
+<a href=#261 id=261 data-nosnippet>261</a>                                        .make_member(<span class="macro">quote_ident!</span>(<span class="string">"slice"</span>))
+<a href=#262 id=262 data-nosnippet>262</a>                                        .as_callee(),
+<a href=#263 id=263 data-nosnippet>263</a>                                    args: <span class="macro">vec!</span>[Number {
+<a href=#264 id=264 data-nosnippet>264</a>                                        value: i <span class="kw">as </span>f64,
+<a href=#265 id=265 data-nosnippet>265</a>                                        span: dot3_token,
+<a href=#266 id=266 data-nosnippet>266</a>                                        raw: <span class="prelude-val">None</span>,
+<a href=#267 id=267 data-nosnippet>267</a>                                    }
+<a href=#268 id=268 data-nosnippet>268</a>                                    .as_arg()],
+<a href=#269 id=269 data-nosnippet>269</a>                                    ..Default::default()
+<a href=#270 id=270 data-nosnippet>270</a>                                }
+<a href=#271 id=271 data-nosnippet>271</a>                                .into(),
+<a href=#272 id=272 data-nosnippet>272</a>                            ),
+<a href=#273 id=273 data-nosnippet>273</a>                            definite: <span class="bool-val">false</span>,
+<a href=#274 id=274 data-nosnippet>274</a>                        },
+<a href=#275 id=275 data-nosnippet>275</a>                        <span class="kw">_ </span>=&gt; VarDeclarator {
+<a href=#276 id=276 data-nosnippet>276</a>                            span: elem.span(),
+<a href=#277 id=277 data-nosnippet>277</a>                            <span class="comment">// This might be pattern.
+<a href=#278 id=278 data-nosnippet>278</a>                            // So we fold it again.
+<a href=#279 id=279 data-nosnippet>279</a>                            </span>name: elem,
+<a href=#280 id=280 data-nosnippet>280</a>                            init: <span class="prelude-val">Some</span>(make_ref_idx_expr(<span class="kw-2">&amp;</span>ref_ident, i).into()),
+<a href=#281 id=281 data-nosnippet>281</a>                            definite: <span class="bool-val">false</span>,
+<a href=#282 id=282 data-nosnippet>282</a>                        },
+<a href=#283 id=283 data-nosnippet>283</a>                    };
+<a href=#284 id=284 data-nosnippet>284</a>
+<a href=#285 id=285 data-nosnippet>285</a>                    <span class="kw">let </span><span class="kw-2">mut </span>var_decls = <span class="macro">vec!</span>[var_decl];
+<a href=#286 id=286 data-nosnippet>286</a>                    var_decls.visit_mut_with(<span class="self">self</span>);
+<a href=#287 id=287 data-nosnippet>287</a>                    decls.extend(var_decls);
+<a href=#288 id=288 data-nosnippet>288</a>                }
+<a href=#289 id=289 data-nosnippet>289</a>            }
+<a href=#290 id=290 data-nosnippet>290</a>            Pat::Object(ObjectPat { span, props, .. }) <span class="kw">if </span>props.is_empty() =&gt; {
+<a href=#291 id=291 data-nosnippet>291</a>                <span class="comment">// We should convert
+<a href=#292 id=292 data-nosnippet>292</a>                //
+<a href=#293 id=293 data-nosnippet>293</a>                //      var {} = null;
+<a href=#294 id=294 data-nosnippet>294</a>                //
+<a href=#295 id=295 data-nosnippet>295</a>                // to
+<a href=#296 id=296 data-nosnippet>296</a>                //
+<a href=#297 id=297 data-nosnippet>297</a>                //      var _ref = null;
+<a href=#298 id=298 data-nosnippet>298</a>                //      _object_destructuring_empty(_ref);
+<a href=#299 id=299 data-nosnippet>299</a>                //
+<a href=#300 id=300 data-nosnippet>300</a>
+<a href=#301 id=301 data-nosnippet>301</a>                </span><span class="kw">let </span>expr = <span class="macro">helper_expr!</span>(object_destructuring_empty).as_call(
+<a href=#302 id=302 data-nosnippet>302</a>                    DUMMY_SP,
+<a href=#303 id=303 data-nosnippet>303</a>                    <span class="macro">vec!</span>[decl
+<a href=#304 id=304 data-nosnippet>304</a>                        .init
+<a href=#305 id=305 data-nosnippet>305</a>                        .expect(<span class="string">"destructuring must be initialized"</span>)
+<a href=#306 id=306 data-nosnippet>306</a>                        .as_arg()],
+<a href=#307 id=307 data-nosnippet>307</a>                );
+<a href=#308 id=308 data-nosnippet>308</a>
+<a href=#309 id=309 data-nosnippet>309</a>                <span class="kw">let </span>var_decl = VarDeclarator {
+<a href=#310 id=310 data-nosnippet>310</a>                    span: DUMMY_SP,
+<a href=#311 id=311 data-nosnippet>311</a>                    name: <span class="macro">private_ident!</span>(span, <span class="string">"ref"</span>).into(),
+<a href=#312 id=312 data-nosnippet>312</a>                    init: <span class="prelude-val">Some</span>(Box::new(expr)),
+<a href=#313 id=313 data-nosnippet>313</a>                    definite: <span class="bool-val">false</span>,
+<a href=#314 id=314 data-nosnippet>314</a>                };
+<a href=#315 id=315 data-nosnippet>315</a>
+<a href=#316 id=316 data-nosnippet>316</a>                decls.push(var_decl);
+<a href=#317 id=317 data-nosnippet>317</a>            }
+<a href=#318 id=318 data-nosnippet>318</a>
+<a href=#319 id=319 data-nosnippet>319</a>            Pat::Object(ObjectPat { props, .. }) =&gt; {
+<a href=#320 id=320 data-nosnippet>320</a>                <span class="macro">assert!</span>(
+<a href=#321 id=321 data-nosnippet>321</a>                    decl.init.is_some(),
+<a href=#322 id=322 data-nosnippet>322</a>                    <span class="string">"destructuring pattern binding requires initializer"
+<a href=#323 id=323 data-nosnippet>323</a>                </span>);
+<a href=#324 id=324 data-nosnippet>324</a>
+<a href=#325 id=325 data-nosnippet>325</a>                <span class="kw">if </span>props.len() == <span class="number">1 </span>{
+<a href=#326 id=326 data-nosnippet>326</a>                    <span class="kw">if let </span>ObjectPatProp::Assign(p @ AssignPatProp { value: <span class="prelude-val">None</span>, .. }) = <span class="kw-2">&amp;</span>props[<span class="number">0</span>]
+<a href=#327 id=327 data-nosnippet>327</a>                    {
+<a href=#328 id=328 data-nosnippet>328</a>                        decls.push(VarDeclarator {
+<a href=#329 id=329 data-nosnippet>329</a>                            span: decl.span,
+<a href=#330 id=330 data-nosnippet>330</a>                            name: p.key.clone().into(),
+<a href=#331 id=331 data-nosnippet>331</a>                            init: <span class="prelude-val">Some</span>(decl.init.unwrap().make_member(p.key.clone().into()).into()),
+<a href=#332 id=332 data-nosnippet>332</a>                            definite: <span class="bool-val">false</span>,
+<a href=#333 id=333 data-nosnippet>333</a>                        });
+<a href=#334 id=334 data-nosnippet>334</a>                        <span class="kw">return</span>;
+<a href=#335 id=335 data-nosnippet>335</a>                    }
+<a href=#336 id=336 data-nosnippet>336</a>                }
+<a href=#337 id=337 data-nosnippet>337</a>
+<a href=#338 id=338 data-nosnippet>338</a>                <span class="kw">let </span>can_be_null = can_be_null(decl.init.as_ref().unwrap());
+<a href=#339 id=339 data-nosnippet>339</a>
+<a href=#340 id=340 data-nosnippet>340</a>                <span class="kw">let </span>ref_decls = <span class="kw">if </span><span class="self">self</span>.exporting {
+<a href=#341 id=341 data-nosnippet>341</a>                    <span class="kw-2">&amp;mut </span><span class="self">self</span>.vars
+<a href=#342 id=342 data-nosnippet>342</a>                } <span class="kw">else </span>{
+<a href=#343 id=343 data-nosnippet>343</a>                    <span class="kw-2">&amp;mut *</span>decls
+<a href=#344 id=344 data-nosnippet>344</a>                };
+<a href=#345 id=345 data-nosnippet>345</a>
+<a href=#346 id=346 data-nosnippet>346</a>                <span class="kw">let </span>ref_ident = make_ref_ident(<span class="self">self</span>.c, ref_decls, decl.init);
+<a href=#347 id=347 data-nosnippet>347</a>
+<a href=#348 id=348 data-nosnippet>348</a>                <span class="kw">let </span>ref_ident = <span class="kw">if </span>can_be_null {
+<a href=#349 id=349 data-nosnippet>349</a>                    <span class="kw">let </span>init = ref_ident.into();
+<a href=#350 id=350 data-nosnippet>350</a>                    make_ref_ident(<span class="self">self</span>.c, ref_decls, <span class="prelude-val">Some</span>(init))
+<a href=#351 id=351 data-nosnippet>351</a>                } <span class="kw">else </span>{
+<a href=#352 id=352 data-nosnippet>352</a>                    ref_ident
+<a href=#353 id=353 data-nosnippet>353</a>                };
+<a href=#354 id=354 data-nosnippet>354</a>
+<a href=#355 id=355 data-nosnippet>355</a>                <span class="kw">for </span>prop <span class="kw">in </span>props {
+<a href=#356 id=356 data-nosnippet>356</a>                    <span class="kw">let </span>prop_span = prop.span();
+<a href=#357 id=357 data-nosnippet>357</a>
+<a href=#358 id=358 data-nosnippet>358</a>                    <span class="kw">match </span>prop {
+<a href=#359 id=359 data-nosnippet>359</a>                        ObjectPatProp::KeyValue(KeyValuePatProp { key, value }) =&gt; {
+<a href=#360 id=360 data-nosnippet>360</a>                            <span class="kw">let </span>computed = <span class="macro">matches!</span>(key, PropName::Computed(..));
+<a href=#361 id=361 data-nosnippet>361</a>
+<a href=#362 id=362 data-nosnippet>362</a>                            <span class="kw">let </span>var_decl = VarDeclarator {
+<a href=#363 id=363 data-nosnippet>363</a>                                span: prop_span,
+<a href=#364 id=364 data-nosnippet>364</a>                                name: <span class="kw-2">*</span>value,
+<a href=#365 id=365 data-nosnippet>365</a>                                init: <span class="prelude-val">Some</span>(Box::new(make_ref_prop_expr(
+<a href=#366 id=366 data-nosnippet>366</a>                                    <span class="kw-2">&amp;</span>ref_ident,
+<a href=#367 id=367 data-nosnippet>367</a>                                    Box::new(prop_name_to_expr(key)),
+<a href=#368 id=368 data-nosnippet>368</a>                                    computed,
+<a href=#369 id=369 data-nosnippet>369</a>                                ))),
+<a href=#370 id=370 data-nosnippet>370</a>                                definite: <span class="bool-val">false</span>,
+<a href=#371 id=371 data-nosnippet>371</a>                            };
+<a href=#372 id=372 data-nosnippet>372</a>
+<a href=#373 id=373 data-nosnippet>373</a>                            <span class="kw">let </span><span class="kw-2">mut </span>var_decls = <span class="macro">vec!</span>[var_decl];
+<a href=#374 id=374 data-nosnippet>374</a>                            var_decls.visit_mut_with(<span class="self">self</span>);
+<a href=#375 id=375 data-nosnippet>375</a>                            decls.extend(var_decls);
+<a href=#376 id=376 data-nosnippet>376</a>                        }
+<a href=#377 id=377 data-nosnippet>377</a>                        ObjectPatProp::Assign(AssignPatProp { key, value, .. }) =&gt; {
+<a href=#378 id=378 data-nosnippet>378</a>                            <span class="kw">let </span>computed = <span class="bool-val">false</span>;
+<a href=#379 id=379 data-nosnippet>379</a>
+<a href=#380 id=380 data-nosnippet>380</a>                            <span class="kw">match </span>value {
+<a href=#381 id=381 data-nosnippet>381</a>                                <span class="prelude-val">Some</span>(value) =&gt; {
+<a href=#382 id=382 data-nosnippet>382</a>                                    <span class="kw">let </span>ref_ident = make_ref_ident(
+<a href=#383 id=383 data-nosnippet>383</a>                                        <span class="self">self</span>.c,
+<a href=#384 id=384 data-nosnippet>384</a>                                        decls,
+<a href=#385 id=385 data-nosnippet>385</a>                                        <span class="prelude-val">Some</span>(Box::new(make_ref_prop_expr(
+<a href=#386 id=386 data-nosnippet>386</a>                                            <span class="kw-2">&amp;</span>ref_ident,
+<a href=#387 id=387 data-nosnippet>387</a>                                            key.clone().into(),
+<a href=#388 id=388 data-nosnippet>388</a>                                            computed,
+<a href=#389 id=389 data-nosnippet>389</a>                                        ))),
+<a href=#390 id=390 data-nosnippet>390</a>                                    );
+<a href=#391 id=391 data-nosnippet>391</a>
+<a href=#392 id=392 data-nosnippet>392</a>                                    <span class="kw">let </span>var_decl = VarDeclarator {
+<a href=#393 id=393 data-nosnippet>393</a>                                        span: prop_span,
+<a href=#394 id=394 data-nosnippet>394</a>                                        name: key.clone().into(),
+<a href=#395 id=395 data-nosnippet>395</a>                                        init: <span class="prelude-val">Some</span>(Box::new(make_cond_expr(ref_ident, value))),
+<a href=#396 id=396 data-nosnippet>396</a>                                        definite: <span class="bool-val">false</span>,
+<a href=#397 id=397 data-nosnippet>397</a>                                    };
+<a href=#398 id=398 data-nosnippet>398</a>                                    <span class="kw">let </span><span class="kw-2">mut </span>var_decls = <span class="macro">vec!</span>[var_decl];
+<a href=#399 id=399 data-nosnippet>399</a>                                    var_decls.visit_mut_with(<span class="self">self</span>);
+<a href=#400 id=400 data-nosnippet>400</a>                                    decls.extend(var_decls);
+<a href=#401 id=401 data-nosnippet>401</a>                                }
+<a href=#402 id=402 data-nosnippet>402</a>                                <span class="prelude-val">None </span>=&gt; {
+<a href=#403 id=403 data-nosnippet>403</a>                                    <span class="kw">let </span>var_decl = VarDeclarator {
+<a href=#404 id=404 data-nosnippet>404</a>                                        span: prop_span,
+<a href=#405 id=405 data-nosnippet>405</a>                                        name: key.clone().into(),
+<a href=#406 id=406 data-nosnippet>406</a>                                        init: <span class="prelude-val">Some</span>(Box::new(make_ref_prop_expr(
+<a href=#407 id=407 data-nosnippet>407</a>                                            <span class="kw-2">&amp;</span>ref_ident,
+<a href=#408 id=408 data-nosnippet>408</a>                                            key.clone().into(),
+<a href=#409 id=409 data-nosnippet>409</a>                                            computed,
+<a href=#410 id=410 data-nosnippet>410</a>                                        ))),
+<a href=#411 id=411 data-nosnippet>411</a>                                        definite: <span class="bool-val">false</span>,
+<a href=#412 id=412 data-nosnippet>412</a>                                    };
+<a href=#413 id=413 data-nosnippet>413</a>                                    <span class="kw">let </span><span class="kw-2">mut </span>var_decls = <span class="macro">vec!</span>[var_decl];
+<a href=#414 id=414 data-nosnippet>414</a>                                    var_decls.visit_mut_with(<span class="self">self</span>);
+<a href=#415 id=415 data-nosnippet>415</a>                                    decls.extend(var_decls);
+<a href=#416 id=416 data-nosnippet>416</a>                                }
+<a href=#417 id=417 data-nosnippet>417</a>                            }
+<a href=#418 id=418 data-nosnippet>418</a>                        }
+<a href=#419 id=419 data-nosnippet>419</a>                        ObjectPatProp::Rest(..) =&gt; <span class="macro">unreachable!</span>(
+<a href=#420 id=420 data-nosnippet>420</a>                            <span class="string">"Object rest pattern should be removed by es2018::object_rest_spread \
+<a href=#421 id=421 data-nosnippet>421</a>                             pass"
+<a href=#422 id=422 data-nosnippet>422</a>                        </span>),
+<a href=#423 id=423 data-nosnippet>423</a>                    }
+<a href=#424 id=424 data-nosnippet>424</a>                }
+<a href=#425 id=425 data-nosnippet>425</a>            }
+<a href=#426 id=426 data-nosnippet>426</a>            Pat::Assign(AssignPat {
+<a href=#427 id=427 data-nosnippet>427</a>                span,
+<a href=#428 id=428 data-nosnippet>428</a>                left,
+<a href=#429 id=429 data-nosnippet>429</a>                right: def_value,
+<a href=#430 id=430 data-nosnippet>430</a>                ..
+<a href=#431 id=431 data-nosnippet>431</a>            }) =&gt; {
+<a href=#432 id=432 data-nosnippet>432</a>                <span class="kw">let </span>init = <span class="kw">if let </span><span class="prelude-val">Some</span>(init) = decl.init {
+<a href=#433 id=433 data-nosnippet>433</a>                    <span class="kw">let </span>tmp_ident = <span class="kw">match </span><span class="kw-2">&amp;*</span>init {
+<a href=#434 id=434 data-nosnippet>434</a>                        Expr::Ident(<span class="kw-2">ref </span>i) <span class="kw">if </span>i.<span class="macro">ctxt !</span>= SyntaxContext::empty() =&gt; i.clone(),
+<a href=#435 id=435 data-nosnippet>435</a>
+<a href=#436 id=436 data-nosnippet>436</a>                        <span class="kw">_ </span>=&gt; {
+<a href=#437 id=437 data-nosnippet>437</a>                            <span class="kw">let </span>tmp_ident = <span class="macro">private_ident!</span>(span, <span class="string">"tmp"</span>);
+<a href=#438 id=438 data-nosnippet>438</a>                            decls.push(VarDeclarator {
+<a href=#439 id=439 data-nosnippet>439</a>                                span: DUMMY_SP,
+<a href=#440 id=440 data-nosnippet>440</a>                                name: tmp_ident.clone().into(),
+<a href=#441 id=441 data-nosnippet>441</a>                                init: <span class="prelude-val">Some</span>(init),
+<a href=#442 id=442 data-nosnippet>442</a>                                definite: <span class="bool-val">false</span>,
+<a href=#443 id=443 data-nosnippet>443</a>                            });
+<a href=#444 id=444 data-nosnippet>444</a>
+<a href=#445 id=445 data-nosnippet>445</a>                            tmp_ident
+<a href=#446 id=446 data-nosnippet>446</a>                        }
+<a href=#447 id=447 data-nosnippet>447</a>                    };
+<a href=#448 id=448 data-nosnippet>448</a>
+<a href=#449 id=449 data-nosnippet>449</a>                    <span class="comment">// tmp === void 0 ? def_value : tmp
+<a href=#450 id=450 data-nosnippet>450</a>                    </span><span class="prelude-val">Some</span>(Box::new(make_cond_expr(tmp_ident, def_value)))
+<a href=#451 id=451 data-nosnippet>451</a>                } <span class="kw">else </span>{
+<a href=#452 id=452 data-nosnippet>452</a>                    <span class="prelude-val">Some</span>(def_value)
+<a href=#453 id=453 data-nosnippet>453</a>                };
+<a href=#454 id=454 data-nosnippet>454</a>
+<a href=#455 id=455 data-nosnippet>455</a>                <span class="kw">let </span>var_decl = VarDeclarator {
+<a href=#456 id=456 data-nosnippet>456</a>                    span,
+<a href=#457 id=457 data-nosnippet>457</a>                    name: <span class="kw-2">*</span>left,
+<a href=#458 id=458 data-nosnippet>458</a>                    init,
+<a href=#459 id=459 data-nosnippet>459</a>                    definite: <span class="bool-val">false</span>,
+<a href=#460 id=460 data-nosnippet>460</a>                };
+<a href=#461 id=461 data-nosnippet>461</a>
+<a href=#462 id=462 data-nosnippet>462</a>                <span class="kw">let </span><span class="kw-2">mut </span>var_decls = <span class="macro">vec!</span>[var_decl];
+<a href=#463 id=463 data-nosnippet>463</a>                var_decls.visit_mut_with(<span class="self">self</span>);
+<a href=#464 id=464 data-nosnippet>464</a>                decls.extend(var_decls);
+<a href=#465 id=465 data-nosnippet>465</a>            }
+<a href=#466 id=466 data-nosnippet>466</a>
+<a href=#467 id=467 data-nosnippet>467</a>            <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">"Pattern {:?}"</span>, decl),
+<a href=#468 id=468 data-nosnippet>468</a>        }
+<a href=#469 id=469 data-nosnippet>469</a>    }
+<a href=#470 id=470 data-nosnippet>470</a>}
+<a href=#471 id=471 data-nosnippet>471</a>
+<a href=#472 id=472 data-nosnippet>472</a><span class="attr">#[swc_trace]
+<a href=#473 id=473 data-nosnippet>473</a>#[fast_path(DestructuringVisitor)]
+<a href=#474 id=474 data-nosnippet>474</a></span><span class="kw">impl </span>VisitMut <span class="kw">for </span>Destructuring {
+<a href=#475 id=475 data-nosnippet>475</a>    <span class="macro">noop_visit_mut_type!</span>(fail);
+<a href=#476 id=476 data-nosnippet>476</a>
+<a href=#477 id=477 data-nosnippet>477</a>    <span class="macro">impl_for_for_stmt!</span>(visit_mut_for_in_stmt, ForInStmt);
+<a href=#478 id=478 data-nosnippet>478</a>
+<a href=#479 id=479 data-nosnippet>479</a>    <span class="macro">impl_for_for_stmt!</span>(visit_mut_for_of_stmt, ForOfStmt);
+<a href=#480 id=480 data-nosnippet>480</a>
+<a href=#481 id=481 data-nosnippet>481</a>    <span class="macro">impl_visit_mut_fn!</span>();
+<a href=#482 id=482 data-nosnippet>482</a>
+<a href=#483 id=483 data-nosnippet>483</a>    <span class="kw">fn </span>visit_mut_module_items(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: <span class="kw-2">&amp;mut </span>Vec&lt;ModuleItem&gt;) {
+<a href=#484 id=484 data-nosnippet>484</a>        <span class="self">self</span>.visit_mut_stmt_like(n);
+<a href=#485 id=485 data-nosnippet>485</a>    }
+<a href=#486 id=486 data-nosnippet>486</a>
+<a href=#487 id=487 data-nosnippet>487</a>    <span class="kw">fn </span>visit_mut_stmts(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: <span class="kw-2">&amp;mut </span>Vec&lt;Stmt&gt;) {
+<a href=#488 id=488 data-nosnippet>488</a>        <span class="self">self</span>.visit_mut_stmt_like(n);
+<a href=#489 id=489 data-nosnippet>489</a>    }
+<a href=#490 id=490 data-nosnippet>490</a>}
+<a href=#491 id=491 data-nosnippet>491</a>
+<a href=#492 id=492 data-nosnippet>492</a><span class="attr">#[swc_trace]
+<a href=#493 id=493 data-nosnippet>493</a></span><span class="kw">impl </span>Destructuring {
+<a href=#494 id=494 data-nosnippet>494</a>    <span class="kw">fn </span>visit_mut_fn_like(
+<a href=#495 id=495 data-nosnippet>495</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#496 id=496 data-nosnippet>496</a>        ps: <span class="kw-2">&amp;mut </span>Vec&lt;Param&gt;,
+<a href=#497 id=497 data-nosnippet>497</a>        body: <span class="kw-2">&amp;mut </span>BlockStmt,
+<a href=#498 id=498 data-nosnippet>498</a>    ) -&gt; (Vec&lt;Param&gt;, BlockStmt) {
+<a href=#499 id=499 data-nosnippet>499</a>        <span class="kw">let </span><span class="kw-2">mut </span>params = Vec::new();
+<a href=#500 id=500 data-nosnippet>500</a>        <span class="kw">let </span><span class="kw-2">mut </span>decls = Vec::new();
+<a href=#501 id=501 data-nosnippet>501</a>
+<a href=#502 id=502 data-nosnippet>502</a>        <span class="kw">for </span>param <span class="kw">in </span>ps.drain(..) {
+<a href=#503 id=503 data-nosnippet>503</a>            <span class="kw">let </span>span = param.span();
+<a href=#504 id=504 data-nosnippet>504</a>            <span class="kw">match </span>param.pat {
+<a href=#505 id=505 data-nosnippet>505</a>                Pat::Ident(..) =&gt; params.push(param),
+<a href=#506 id=506 data-nosnippet>506</a>                Pat::Array(..) | Pat::Object(..) | Pat::Assign(..) =&gt; {
+<a href=#507 id=507 data-nosnippet>507</a>                    <span class="kw">let </span>ref_ident = <span class="macro">private_ident!</span>(span, <span class="string">"ref"</span>);
+<a href=#508 id=508 data-nosnippet>508</a>
+<a href=#509 id=509 data-nosnippet>509</a>                    params.push(Param {
+<a href=#510 id=510 data-nosnippet>510</a>                        span: DUMMY_SP,
+<a href=#511 id=511 data-nosnippet>511</a>                        decorators: Default::default(),
+<a href=#512 id=512 data-nosnippet>512</a>                        pat: ref_ident.clone().into(),
+<a href=#513 id=513 data-nosnippet>513</a>                    });
+<a href=#514 id=514 data-nosnippet>514</a>                    decls.push(VarDeclarator {
+<a href=#515 id=515 data-nosnippet>515</a>                        span,
+<a href=#516 id=516 data-nosnippet>516</a>                        name: param.pat,
+<a href=#517 id=517 data-nosnippet>517</a>                        init: <span class="prelude-val">Some</span>(ref_ident.into()),
+<a href=#518 id=518 data-nosnippet>518</a>                        definite: <span class="bool-val">false</span>,
+<a href=#519 id=519 data-nosnippet>519</a>                    })
+<a href=#520 id=520 data-nosnippet>520</a>                }
+<a href=#521 id=521 data-nosnippet>521</a>                Pat::Rest(..) | Pat::Expr(..) =&gt; params.push(param),
+<a href=#522 id=522 data-nosnippet>522</a>                Pat::Invalid(..) =&gt; {}
+<a href=#523 id=523 data-nosnippet>523</a>            }
+<a href=#524 id=524 data-nosnippet>524</a>        }
+<a href=#525 id=525 data-nosnippet>525</a>
+<a href=#526 id=526 data-nosnippet>526</a>        <span class="kw">let </span>stmts = <span class="kw">if </span>decls.is_empty() {
+<a href=#527 id=527 data-nosnippet>527</a>            body.stmts.take()
+<a href=#528 id=528 data-nosnippet>528</a>        } <span class="kw">else </span>{
+<a href=#529 id=529 data-nosnippet>529</a>            <span class="kw">let </span><span class="kw-2">mut </span>stmt: Stmt = VarDecl {
+<a href=#530 id=530 data-nosnippet>530</a>                span: DUMMY_SP,
+<a href=#531 id=531 data-nosnippet>531</a>                kind: VarDeclKind::Let,
+<a href=#532 id=532 data-nosnippet>532</a>                decls,
+<a href=#533 id=533 data-nosnippet>533</a>                declare: <span class="bool-val">false</span>,
+<a href=#534 id=534 data-nosnippet>534</a>                ..Default::default()
+<a href=#535 id=535 data-nosnippet>535</a>            }
+<a href=#536 id=536 data-nosnippet>536</a>            .into();
+<a href=#537 id=537 data-nosnippet>537</a>
+<a href=#538 id=538 data-nosnippet>538</a>            stmt.visit_mut_children_with(<span class="self">self</span>);
+<a href=#539 id=539 data-nosnippet>539</a>
+<a href=#540 id=540 data-nosnippet>540</a>            iter::once(stmt).chain(body.stmts.take()).collect()
+<a href=#541 id=541 data-nosnippet>541</a>        };
+<a href=#542 id=542 data-nosnippet>542</a>
+<a href=#543 id=543 data-nosnippet>543</a>        (
+<a href=#544 id=544 data-nosnippet>544</a>            params,
+<a href=#545 id=545 data-nosnippet>545</a>            BlockStmt {
+<a href=#546 id=546 data-nosnippet>546</a>                stmts,
+<a href=#547 id=547 data-nosnippet>547</a>                ..body.take()
+<a href=#548 id=548 data-nosnippet>548</a>            },
+<a href=#549 id=549 data-nosnippet>549</a>        )
+<a href=#550 id=550 data-nosnippet>550</a>    }
+<a href=#551 id=551 data-nosnippet>551</a>}
+<a href=#552 id=552 data-nosnippet>552</a>
+<a href=#553 id=553 data-nosnippet>553</a><span class="kw">struct </span>AssignFolder {
+<a href=#554 id=554 data-nosnippet>554</a>    c: Config,
+<a href=#555 id=555 data-nosnippet>555</a>    exporting: bool,
+<a href=#556 id=556 data-nosnippet>556</a>    vars: Vec&lt;VarDeclarator&gt;,
+<a href=#557 id=557 data-nosnippet>557</a>    <span class="doccomment">/// Used like `.take().is_some()`.
+<a href=#558 id=558 data-nosnippet>558</a>    </span>ignore_return_value: <span class="prelude-ty">Option</span>&lt;()&gt;,
+<a href=#559 id=559 data-nosnippet>559</a>}
+<a href=#560 id=560 data-nosnippet>560</a>
+<a href=#561 id=561 data-nosnippet>561</a><span class="kw">impl </span>AssignFolder {
+<a href=#562 id=562 data-nosnippet>562</a>    <span class="kw">pub fn </span>handle_assign_pat(
+<a href=#563 id=563 data-nosnippet>563</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#564 id=564 data-nosnippet>564</a>        span: Span,
+<a href=#565 id=565 data-nosnippet>565</a>        <span class="kw-2">mut </span>pat: AssignPat,
+<a href=#566 id=566 data-nosnippet>566</a>        right: <span class="kw-2">&amp;mut </span>Box&lt;Expr&gt;,
+<a href=#567 id=567 data-nosnippet>567</a>    ) -&gt; Expr {
+<a href=#568 id=568 data-nosnippet>568</a>        <span class="kw">let </span>ref_ident = make_ref_ident(<span class="self">self</span>.c, <span class="kw-2">&amp;mut </span><span class="self">self</span>.vars, <span class="prelude-val">None</span>);
+<a href=#569 id=569 data-nosnippet>569</a>
+<a href=#570 id=570 data-nosnippet>570</a>        <span class="kw">let </span><span class="kw-2">mut </span>exprs = <span class="macro">vec!</span>[Box::new(
+<a href=#571 id=571 data-nosnippet>571</a>            AssignExpr {
+<a href=#572 id=572 data-nosnippet>572</a>                span,
+<a href=#573 id=573 data-nosnippet>573</a>                left: ref_ident.clone().into(),
+<a href=#574 id=574 data-nosnippet>574</a>                op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#575 id=575 data-nosnippet>575</a>                right: right.take(),
+<a href=#576 id=576 data-nosnippet>576</a>            }
+<a href=#577 id=577 data-nosnippet>577</a>            .into(),
+<a href=#578 id=578 data-nosnippet>578</a>        )];
+<a href=#579 id=579 data-nosnippet>579</a>
+<a href=#580 id=580 data-nosnippet>580</a>        <span class="kw">let </span><span class="kw-2">mut </span>assign_cond_expr: Expr = AssignExpr {
+<a href=#581 id=581 data-nosnippet>581</a>            span,
+<a href=#582 id=582 data-nosnippet>582</a>            left: pat.left.take().try_into().unwrap(),
+<a href=#583 id=583 data-nosnippet>583</a>            op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#584 id=584 data-nosnippet>584</a>            right: Box::new(make_cond_expr(ref_ident, pat.right.take())),
+<a href=#585 id=585 data-nosnippet>585</a>        }
+<a href=#586 id=586 data-nosnippet>586</a>        .into();
+<a href=#587 id=587 data-nosnippet>587</a>
+<a href=#588 id=588 data-nosnippet>588</a>        assign_cond_expr.visit_mut_with(<span class="self">self</span>);
+<a href=#589 id=589 data-nosnippet>589</a>        exprs.push(Box::new(assign_cond_expr));
+<a href=#590 id=590 data-nosnippet>590</a>
+<a href=#591 id=591 data-nosnippet>591</a>        SeqExpr {
+<a href=#592 id=592 data-nosnippet>592</a>            span: DUMMY_SP,
+<a href=#593 id=593 data-nosnippet>593</a>            exprs,
+<a href=#594 id=594 data-nosnippet>594</a>        }
+<a href=#595 id=595 data-nosnippet>595</a>        .into()
+<a href=#596 id=596 data-nosnippet>596</a>    }
+<a href=#597 id=597 data-nosnippet>597</a>}
+<a href=#598 id=598 data-nosnippet>598</a>
+<a href=#599 id=599 data-nosnippet>599</a><span class="attr">#[swc_trace]
+<a href=#600 id=600 data-nosnippet>600</a>#[fast_path(DestructuringVisitor)]
+<a href=#601 id=601 data-nosnippet>601</a></span><span class="kw">impl </span>VisitMut <span class="kw">for </span>AssignFolder {
+<a href=#602 id=602 data-nosnippet>602</a>    <span class="macro">noop_visit_mut_type!</span>(fail);
+<a href=#603 id=603 data-nosnippet>603</a>
+<a href=#604 id=604 data-nosnippet>604</a>    <span class="kw">fn </span>visit_mut_export_decl(<span class="kw-2">&amp;mut </span><span class="self">self</span>, decl: <span class="kw-2">&amp;mut </span>ExportDecl) {
+<a href=#605 id=605 data-nosnippet>605</a>        <span class="kw">let </span>old = <span class="self">self</span>.exporting;
+<a href=#606 id=606 data-nosnippet>606</a>        <span class="self">self</span>.exporting = <span class="bool-val">true</span>;
+<a href=#607 id=607 data-nosnippet>607</a>        decl.visit_mut_children_with(<span class="self">self</span>);
+<a href=#608 id=608 data-nosnippet>608</a>        <span class="self">self</span>.exporting = old;
+<a href=#609 id=609 data-nosnippet>609</a>    }
+<a href=#610 id=610 data-nosnippet>610</a>
+<a href=#611 id=611 data-nosnippet>611</a>    <span class="kw">fn </span>visit_mut_function(<span class="kw-2">&amp;mut </span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Function) {
+<a href=#612 id=612 data-nosnippet>612</a>        <span class="kw">let </span>exporting = mem::replace(<span class="kw-2">&amp;mut </span><span class="self">self</span>.exporting, <span class="bool-val">false</span>);
+<a href=#613 id=613 data-nosnippet>613</a>        f.visit_mut_children_with(<span class="self">self</span>);
+<a href=#614 id=614 data-nosnippet>614</a>        <span class="self">self</span>.exporting = exporting;
+<a href=#615 id=615 data-nosnippet>615</a>    }
+<a href=#616 id=616 data-nosnippet>616</a>
+<a href=#617 id=617 data-nosnippet>617</a>    <span class="kw">fn </span>visit_mut_class(<span class="kw-2">&amp;mut </span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Class) {
+<a href=#618 id=618 data-nosnippet>618</a>        <span class="kw">let </span>exporting = mem::replace(<span class="kw-2">&amp;mut </span><span class="self">self</span>.exporting, <span class="bool-val">false</span>);
+<a href=#619 id=619 data-nosnippet>619</a>        f.visit_mut_children_with(<span class="self">self</span>);
+<a href=#620 id=620 data-nosnippet>620</a>        <span class="self">self</span>.exporting = exporting;
+<a href=#621 id=621 data-nosnippet>621</a>    }
+<a href=#622 id=622 data-nosnippet>622</a>
+<a href=#623 id=623 data-nosnippet>623</a>    <span class="kw">fn </span>visit_mut_object_lit(<span class="kw-2">&amp;mut </span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>ObjectLit) {
+<a href=#624 id=624 data-nosnippet>624</a>        <span class="kw">let </span>exporting = mem::replace(<span class="kw-2">&amp;mut </span><span class="self">self</span>.exporting, <span class="bool-val">false</span>);
+<a href=#625 id=625 data-nosnippet>625</a>        f.visit_mut_children_with(<span class="self">self</span>);
+<a href=#626 id=626 data-nosnippet>626</a>        <span class="self">self</span>.exporting = exporting;
+<a href=#627 id=627 data-nosnippet>627</a>    }
+<a href=#628 id=628 data-nosnippet>628</a>
+<a href=#629 id=629 data-nosnippet>629</a>    <span class="kw">fn </span>visit_mut_arrow_expr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>ArrowExpr) {
+<a href=#630 id=630 data-nosnippet>630</a>        <span class="kw">let </span>exporting = mem::replace(<span class="kw-2">&amp;mut </span><span class="self">self</span>.exporting, <span class="bool-val">false</span>);
+<a href=#631 id=631 data-nosnippet>631</a>        f.visit_mut_children_with(<span class="self">self</span>);
+<a href=#632 id=632 data-nosnippet>632</a>        <span class="self">self</span>.exporting = exporting;
+<a href=#633 id=633 data-nosnippet>633</a>    }
+<a href=#634 id=634 data-nosnippet>634</a>
+<a href=#635 id=635 data-nosnippet>635</a>    <span class="kw">fn </span>visit_mut_expr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, expr: <span class="kw-2">&amp;mut </span>Expr) {
+<a href=#636 id=636 data-nosnippet>636</a>        <span class="kw">let </span>ignore_return_value = <span class="self">self</span>.ignore_return_value.take().is_some();
+<a href=#637 id=637 data-nosnippet>637</a>
+<a href=#638 id=638 data-nosnippet>638</a>        <span class="kw">match </span>expr {
+<a href=#639 id=639 data-nosnippet>639</a>            <span class="comment">// Handle iife
+<a href=#640 id=640 data-nosnippet>640</a>            </span>Expr::Fn(..) | Expr::Object(..) =&gt; {
+<a href=#641 id=641 data-nosnippet>641</a>                expr.visit_mut_with(<span class="kw-2">&amp;mut </span>Destructuring { c: <span class="self">self</span>.c })
+<a href=#642 id=642 data-nosnippet>642</a>            }
+<a href=#643 id=643 data-nosnippet>643</a>            <span class="kw">_ </span>=&gt; expr.visit_mut_children_with(<span class="self">self</span>),
+<a href=#644 id=644 data-nosnippet>644</a>        };
+<a href=#645 id=645 data-nosnippet>645</a>
+<a href=#646 id=646 data-nosnippet>646</a>        <span class="kw">if let </span>Expr::Assign(AssignExpr {
+<a href=#647 id=647 data-nosnippet>647</a>            span,
+<a href=#648 id=648 data-nosnippet>648</a>            left: AssignTarget::Pat(pat),
+<a href=#649 id=649 data-nosnippet>649</a>            op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#650 id=650 data-nosnippet>650</a>            right,
+<a href=#651 id=651 data-nosnippet>651</a>        }) = expr
+<a href=#652 id=652 data-nosnippet>652</a>        {
+<a href=#653 id=653 data-nosnippet>653</a>            <span class="kw">match </span>pat {
+<a href=#654 id=654 data-nosnippet>654</a>                <span class="comment">// Pat::Expr(pat_expr) =&gt; {
+<a href=#655 id=655 data-nosnippet>655</a>                //     *expr = Expr::Assign(AssignExpr {
+<a href=#656 id=656 data-nosnippet>656</a>                //         span: *span,
+<a href=#657 id=657 data-nosnippet>657</a>                //         left: pat_expr.take().try_into().unwrap(),
+<a href=#658 id=658 data-nosnippet>658</a>                //         op: op!("="),
+<a href=#659 id=659 data-nosnippet>659</a>                //         right: right.take(),
+<a href=#660 id=660 data-nosnippet>660</a>                //     });
+<a href=#661 id=661 data-nosnippet>661</a>                // }
+<a href=#662 id=662 data-nosnippet>662</a>                </span>AssignTargetPat::Array(ArrayPat { elems, .. }) =&gt; {
+<a href=#663 id=663 data-nosnippet>663</a>                    <span class="kw">let </span><span class="kw-2">mut </span>exprs = Vec::with_capacity(elems.len() + <span class="number">1</span>);
+<a href=#664 id=664 data-nosnippet>664</a>
+<a href=#665 id=665 data-nosnippet>665</a>                    <span class="kw">if </span>is_literal(right) &amp;&amp; ignore_return_value {
+<a href=#666 id=666 data-nosnippet>666</a>                        <span class="kw">match </span><span class="kw-2">&amp;mut **</span>right {
+<a href=#667 id=667 data-nosnippet>667</a>                            Expr::Array(arr)
+<a href=#668 id=668 data-nosnippet>668</a>                                <span class="kw">if </span>elems.len() == arr.elems.len()
+<a href=#669 id=669 data-nosnippet>669</a>                                    || (elems.len() &lt; arr.elems.len() &amp;&amp; has_rest_pat(elems)) =&gt;
+<a href=#670 id=670 data-nosnippet>670</a>                            {
+<a href=#671 id=671 data-nosnippet>671</a>                                <span class="kw">let </span><span class="kw-2">mut </span>arr_elems = <span class="prelude-val">Some</span>(arr.elems.take().into_iter());
+<a href=#672 id=672 data-nosnippet>672</a>                                elems.iter_mut().for_each(|p| <span class="kw">match </span>p {
+<a href=#673 id=673 data-nosnippet>673</a>                                    <span class="prelude-val">Some</span>(Pat::Rest(p)) =&gt; {
+<a href=#674 id=674 data-nosnippet>674</a>                                        exprs.push(
+<a href=#675 id=675 data-nosnippet>675</a>                                            AssignExpr {
+<a href=#676 id=676 data-nosnippet>676</a>                                                span: p.span(),
+<a href=#677 id=677 data-nosnippet>677</a>                                                left: p.arg.take().try_into().unwrap(),
+<a href=#678 id=678 data-nosnippet>678</a>                                                op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#679 id=679 data-nosnippet>679</a>                                                right: Box::new(
+<a href=#680 id=680 data-nosnippet>680</a>                                                    ArrayLit {
+<a href=#681 id=681 data-nosnippet>681</a>                                                        span: DUMMY_SP,
+<a href=#682 id=682 data-nosnippet>682</a>                                                        elems: arr_elems
+<a href=#683 id=683 data-nosnippet>683</a>                                                            .take()
+<a href=#684 id=684 data-nosnippet>684</a>                                                            .expect(<span class="string">"two rest element?"</span>)
+<a href=#685 id=685 data-nosnippet>685</a>                                                            .collect(),
+<a href=#686 id=686 data-nosnippet>686</a>                                                    }
+<a href=#687 id=687 data-nosnippet>687</a>                                                    .into(),
+<a href=#688 id=688 data-nosnippet>688</a>                                                ),
+<a href=#689 id=689 data-nosnippet>689</a>                                            }
+<a href=#690 id=690 data-nosnippet>690</a>                                            .into(),
+<a href=#691 id=691 data-nosnippet>691</a>                                        );
+<a href=#692 id=692 data-nosnippet>692</a>                                    }
+<a href=#693 id=693 data-nosnippet>693</a>                                    <span class="prelude-val">Some</span>(p) =&gt; {
+<a href=#694 id=694 data-nosnippet>694</a>                                        <span class="kw">let </span>e = arr_elems
+<a href=#695 id=695 data-nosnippet>695</a>                                            .as_mut()
+<a href=#696 id=696 data-nosnippet>696</a>                                            .expect(<span class="string">"pattern after rest element?"</span>)
+<a href=#697 id=697 data-nosnippet>697</a>                                            .next()
+<a href=#698 id=698 data-nosnippet>698</a>                                            .and_then(|v| v);
+<a href=#699 id=699 data-nosnippet>699</a>                                        <span class="kw">let </span><span class="kw-2">mut </span>right = e
+<a href=#700 id=700 data-nosnippet>700</a>                                            .map(|e| {
+<a href=#701 id=701 data-nosnippet>701</a>                                                <span class="macro">debug_assert_eq!</span>(e.spread, <span class="prelude-val">None</span>);
+<a href=#702 id=702 data-nosnippet>702</a>                                                e.expr
+<a href=#703 id=703 data-nosnippet>703</a>                                            })
+<a href=#704 id=704 data-nosnippet>704</a>                                            .unwrap_or_else(|| Expr::undefined(p.span()));
+<a href=#705 id=705 data-nosnippet>705</a>
+<a href=#706 id=706 data-nosnippet>706</a>                                        <span class="kw">let </span>p = p.take();
+<a href=#707 id=707 data-nosnippet>707</a>                                        <span class="kw">let </span><span class="kw-2">mut </span>expr = <span class="kw">if let </span>Pat::Assign(pat) = p {
+<a href=#708 id=708 data-nosnippet>708</a>                                            <span class="self">self</span>.handle_assign_pat(<span class="kw-2">*</span>span, pat, <span class="kw-2">&amp;mut </span>right)
+<a href=#709 id=709 data-nosnippet>709</a>                                        } <span class="kw">else </span>{
+<a href=#710 id=710 data-nosnippet>710</a>                                            AssignExpr {
+<a href=#711 id=711 data-nosnippet>711</a>                                                span: p.span(),
+<a href=#712 id=712 data-nosnippet>712</a>                                                left: p.try_into().unwrap(),
+<a href=#713 id=713 data-nosnippet>713</a>                                                op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#714 id=714 data-nosnippet>714</a>                                                right,
+<a href=#715 id=715 data-nosnippet>715</a>                                            }
+<a href=#716 id=716 data-nosnippet>716</a>                                            .into()
+<a href=#717 id=717 data-nosnippet>717</a>                                        };
+<a href=#718 id=718 data-nosnippet>718</a>
+<a href=#719 id=719 data-nosnippet>719</a>                                        <span class="self">self</span>.visit_mut_expr(<span class="kw-2">&amp;mut </span>expr);
+<a href=#720 id=720 data-nosnippet>720</a>
+<a href=#721 id=721 data-nosnippet>721</a>                                        exprs.push(Box::new(expr));
+<a href=#722 id=722 data-nosnippet>722</a>                                    }
+<a href=#723 id=723 data-nosnippet>723</a>
+<a href=#724 id=724 data-nosnippet>724</a>                                    <span class="prelude-val">None </span>=&gt; {
+<a href=#725 id=725 data-nosnippet>725</a>                                        arr_elems
+<a href=#726 id=726 data-nosnippet>726</a>                                            .as_mut()
+<a href=#727 id=727 data-nosnippet>727</a>                                            .expect(<span class="string">"pattern after rest element?"</span>)
+<a href=#728 id=728 data-nosnippet>728</a>                                            .next();
+<a href=#729 id=729 data-nosnippet>729</a>                                    }
+<a href=#730 id=730 data-nosnippet>730</a>                                });
+<a href=#731 id=731 data-nosnippet>731</a>                                <span class="kw-2">*</span>expr = SeqExpr { span: <span class="kw-2">*</span>span, exprs }.into();
+<a href=#732 id=732 data-nosnippet>732</a>                                <span class="kw">return</span>;
+<a href=#733 id=733 data-nosnippet>733</a>                            }
+<a href=#734 id=734 data-nosnippet>734</a>                            <span class="kw">_ </span>=&gt; {}
+<a href=#735 id=735 data-nosnippet>735</a>                        }
+<a href=#736 id=736 data-nosnippet>736</a>                    }
+<a href=#737 id=737 data-nosnippet>737</a>
+<a href=#738 id=738 data-nosnippet>738</a>                    <span class="comment">// initialized by first element of sequence expression
+<a href=#739 id=739 data-nosnippet>739</a>                    </span><span class="kw">let </span>ref_ident = make_ref_ident_for_array(
+<a href=#740 id=740 data-nosnippet>740</a>                        <span class="self">self</span>.c,
+<a href=#741 id=741 data-nosnippet>741</a>                        <span class="kw-2">&amp;mut </span><span class="self">self</span>.vars,
+<a href=#742 id=742 data-nosnippet>742</a>                        <span class="prelude-val">None</span>,
+<a href=#743 id=743 data-nosnippet>743</a>                        <span class="prelude-val">Some</span>(<span class="kw">if </span>has_rest_pat(elems) {
+<a href=#744 id=744 data-nosnippet>744</a>                            usize::MAX
+<a href=#745 id=745 data-nosnippet>745</a>                        } <span class="kw">else </span>{
+<a href=#746 id=746 data-nosnippet>746</a>                            elems.len()
+<a href=#747 id=747 data-nosnippet>747</a>                        }),
+<a href=#748 id=748 data-nosnippet>748</a>                    );
+<a href=#749 id=749 data-nosnippet>749</a>                    exprs.push(
+<a href=#750 id=750 data-nosnippet>750</a>                        AssignExpr {
+<a href=#751 id=751 data-nosnippet>751</a>                            span: DUMMY_SP,
+<a href=#752 id=752 data-nosnippet>752</a>                            op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#753 id=753 data-nosnippet>753</a>                            left: ref_ident.clone().into(),
+<a href=#754 id=754 data-nosnippet>754</a>                            right: <span class="kw">if </span><span class="self">self</span>.c.loose {
+<a href=#755 id=755 data-nosnippet>755</a>                                right.take()
+<a href=#756 id=756 data-nosnippet>756</a>                            } <span class="kw">else </span>{
+<a href=#757 id=757 data-nosnippet>757</a>                                <span class="kw">match </span><span class="kw-2">&amp;mut **</span>right {
+<a href=#758 id=758 data-nosnippet>758</a>                                    Expr::Ident(Ident { sym, .. }) <span class="kw">if </span><span class="kw-2">&amp;**</span>sym == <span class="string">"arguments" </span>=&gt; {
+<a href=#759 id=759 data-nosnippet>759</a>                                        Box::new(
+<a href=#760 id=760 data-nosnippet>760</a>                                            CallExpr {
+<a href=#761 id=761 data-nosnippet>761</a>                                                span: DUMMY_SP,
+<a href=#762 id=762 data-nosnippet>762</a>                                                callee: <span class="macro">member_expr!</span>(
+<a href=#763 id=763 data-nosnippet>763</a>                                                    Default::default(),
+<a href=#764 id=764 data-nosnippet>764</a>                                                    Default::default(),
+<a href=#765 id=765 data-nosnippet>765</a>                                                    Array.prototype.slice.call
+<a href=#766 id=766 data-nosnippet>766</a>                                                )
+<a href=#767 id=767 data-nosnippet>767</a>                                                .as_callee(),
+<a href=#768 id=768 data-nosnippet>768</a>                                                args: <span class="macro">vec!</span>[right.take().as_arg()],
+<a href=#769 id=769 data-nosnippet>769</a>                                                ..Default::default()
+<a href=#770 id=770 data-nosnippet>770</a>                                            }
+<a href=#771 id=771 data-nosnippet>771</a>                                            .into(),
+<a href=#772 id=772 data-nosnippet>772</a>                                        )
+<a href=#773 id=773 data-nosnippet>773</a>                                    }
+<a href=#774 id=774 data-nosnippet>774</a>                                    Expr::Array(..) =&gt; right.take(),
+<a href=#775 id=775 data-nosnippet>775</a>                                    <span class="kw">_ </span>=&gt; {
+<a href=#776 id=776 data-nosnippet>776</a>                                        <span class="comment">// if left has rest then need `_to_array`
+<a href=#777 id=777 data-nosnippet>777</a>                                        // else `_sliced_to_array`
+<a href=#778 id=778 data-nosnippet>778</a>                                        </span><span class="kw">if </span>elems
+<a href=#779 id=779 data-nosnippet>779</a>                                            .iter()
+<a href=#780 id=780 data-nosnippet>780</a>                                            .any(|elem| <span class="macro">matches!</span>(elem, <span class="prelude-val">Some</span>(Pat::Rest(..))))
+<a href=#781 id=781 data-nosnippet>781</a>                                        {
+<a href=#782 id=782 data-nosnippet>782</a>                                            Box::new(
+<a href=#783 id=783 data-nosnippet>783</a>                                                CallExpr {
+<a href=#784 id=784 data-nosnippet>784</a>                                                    span: DUMMY_SP,
+<a href=#785 id=785 data-nosnippet>785</a>                                                    callee: <span class="macro">helper!</span>(to_array),
+<a href=#786 id=786 data-nosnippet>786</a>                                                    args: <span class="macro">vec!</span>[right.take().as_arg()],
+<a href=#787 id=787 data-nosnippet>787</a>                                                    ..Default::default()
+<a href=#788 id=788 data-nosnippet>788</a>                                                }
+<a href=#789 id=789 data-nosnippet>789</a>                                                .into(),
+<a href=#790 id=790 data-nosnippet>790</a>                                            )
+<a href=#791 id=791 data-nosnippet>791</a>                                        } <span class="kw">else </span>{
+<a href=#792 id=792 data-nosnippet>792</a>                                            Box::new(
+<a href=#793 id=793 data-nosnippet>793</a>                                                CallExpr {
+<a href=#794 id=794 data-nosnippet>794</a>                                                    span: DUMMY_SP,
+<a href=#795 id=795 data-nosnippet>795</a>                                                    callee: <span class="macro">helper!</span>(sliced_to_array),
+<a href=#796 id=796 data-nosnippet>796</a>                                                    args: <span class="macro">vec!</span>[
+<a href=#797 id=797 data-nosnippet>797</a>                                                        right.take().as_arg(),
+<a href=#798 id=798 data-nosnippet>798</a>                                                        elems.len().as_arg(),
+<a href=#799 id=799 data-nosnippet>799</a>                                                    ],
+<a href=#800 id=800 data-nosnippet>800</a>                                                    ..Default::default()
+<a href=#801 id=801 data-nosnippet>801</a>                                                }
+<a href=#802 id=802 data-nosnippet>802</a>                                                .into(),
+<a href=#803 id=803 data-nosnippet>803</a>                                            )
+<a href=#804 id=804 data-nosnippet>804</a>                                        }
+<a href=#805 id=805 data-nosnippet>805</a>                                    }
+<a href=#806 id=806 data-nosnippet>806</a>                                }
+<a href=#807 id=807 data-nosnippet>807</a>                            },
+<a href=#808 id=808 data-nosnippet>808</a>                        }
+<a href=#809 id=809 data-nosnippet>809</a>                        .into(),
+<a href=#810 id=810 data-nosnippet>810</a>                    );
+<a href=#811 id=811 data-nosnippet>811</a>
+<a href=#812 id=812 data-nosnippet>812</a>                    <span class="kw">for </span>(i, elem) <span class="kw">in </span>elems.iter_mut().enumerate() {
+<a href=#813 id=813 data-nosnippet>813</a>                        <span class="kw">let </span>elem = <span class="kw">match </span>elem {
+<a href=#814 id=814 data-nosnippet>814</a>                            <span class="prelude-val">Some</span>(elem) =&gt; elem,
+<a href=#815 id=815 data-nosnippet>815</a>                            <span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
+<a href=#816 id=816 data-nosnippet>816</a>                        };
+<a href=#817 id=817 data-nosnippet>817</a>                        <span class="kw">let </span>elem_span = elem.span();
+<a href=#818 id=818 data-nosnippet>818</a>
+<a href=#819 id=819 data-nosnippet>819</a>                        <span class="kw">match </span>elem {
+<a href=#820 id=820 data-nosnippet>820</a>                            Pat::Assign(AssignPat {
+<a href=#821 id=821 data-nosnippet>821</a>                                span, left, right, ..
+<a href=#822 id=822 data-nosnippet>822</a>                            }) =&gt; {
+<a href=#823 id=823 data-nosnippet>823</a>                                <span class="comment">// initialized by sequence expression.
+<a href=#824 id=824 data-nosnippet>824</a>                                </span><span class="kw">let </span>assign_ref_ident = make_ref_ident(<span class="self">self</span>.c, <span class="kw-2">&amp;mut </span><span class="self">self</span>.vars, <span class="prelude-val">None</span>);
+<a href=#825 id=825 data-nosnippet>825</a>                                exprs.push(
+<a href=#826 id=826 data-nosnippet>826</a>                                    AssignExpr {
+<a href=#827 id=827 data-nosnippet>827</a>                                        span: DUMMY_SP,
+<a href=#828 id=828 data-nosnippet>828</a>                                        left: assign_ref_ident.clone().into(),
+<a href=#829 id=829 data-nosnippet>829</a>                                        op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#830 id=830 data-nosnippet>830</a>                                        right: ref_ident.clone().computed_member(i <span class="kw">as </span>f64).into(),
+<a href=#831 id=831 data-nosnippet>831</a>                                    }
+<a href=#832 id=832 data-nosnippet>832</a>                                    .into(),
+<a href=#833 id=833 data-nosnippet>833</a>                                );
+<a href=#834 id=834 data-nosnippet>834</a>
+<a href=#835 id=835 data-nosnippet>835</a>                                <span class="kw">let </span><span class="kw-2">mut </span>assign_expr: Expr = AssignExpr {
+<a href=#836 id=836 data-nosnippet>836</a>                                    span: <span class="kw-2">*</span>span,
+<a href=#837 id=837 data-nosnippet>837</a>                                    left: left.take().try_into().unwrap(),
+<a href=#838 id=838 data-nosnippet>838</a>                                    op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#839 id=839 data-nosnippet>839</a>                                    right: Box::new(make_cond_expr(assign_ref_ident, right.take())),
+<a href=#840 id=840 data-nosnippet>840</a>                                }
+<a href=#841 id=841 data-nosnippet>841</a>                                .into();
+<a href=#842 id=842 data-nosnippet>842</a>                                assign_expr.visit_mut_with(<span class="self">self</span>);
+<a href=#843 id=843 data-nosnippet>843</a>
+<a href=#844 id=844 data-nosnippet>844</a>                                exprs.push(Box::new(assign_expr));
+<a href=#845 id=845 data-nosnippet>845</a>                            }
+<a href=#846 id=846 data-nosnippet>846</a>                            Pat::Rest(RestPat { arg, .. }) =&gt; {
+<a href=#847 id=847 data-nosnippet>847</a>                                <span class="kw">let </span><span class="kw-2">mut </span>assign_expr: Expr = AssignExpr {
+<a href=#848 id=848 data-nosnippet>848</a>                                    span: elem_span,
+<a href=#849 id=849 data-nosnippet>849</a>                                    op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#850 id=850 data-nosnippet>850</a>                                    left: arg.take().try_into().unwrap(),
+<a href=#851 id=851 data-nosnippet>851</a>                                    right: CallExpr {
+<a href=#852 id=852 data-nosnippet>852</a>                                        span: DUMMY_SP,
+<a href=#853 id=853 data-nosnippet>853</a>                                        callee: ref_ident
+<a href=#854 id=854 data-nosnippet>854</a>                                            .clone()
+<a href=#855 id=855 data-nosnippet>855</a>                                            .make_member(<span class="macro">quote_ident!</span>(<span class="string">"slice"</span>))
+<a href=#856 id=856 data-nosnippet>856</a>                                            .as_callee(),
+<a href=#857 id=857 data-nosnippet>857</a>                                        args: <span class="macro">vec!</span>[(i <span class="kw">as </span>f64).as_arg()],
+<a href=#858 id=858 data-nosnippet>858</a>                                        ..Default::default()
+<a href=#859 id=859 data-nosnippet>859</a>                                    }
+<a href=#860 id=860 data-nosnippet>860</a>                                    .into(),
+<a href=#861 id=861 data-nosnippet>861</a>                                }
+<a href=#862 id=862 data-nosnippet>862</a>                                .into();
+<a href=#863 id=863 data-nosnippet>863</a>
+<a href=#864 id=864 data-nosnippet>864</a>                                assign_expr.visit_mut_with(<span class="self">self</span>);
+<a href=#865 id=865 data-nosnippet>865</a>                                exprs.push(Box::new(assign_expr));
+<a href=#866 id=866 data-nosnippet>866</a>                            }
+<a href=#867 id=867 data-nosnippet>867</a>                            <span class="kw">_ </span>=&gt; {
+<a href=#868 id=868 data-nosnippet>868</a>                                <span class="kw">let </span><span class="kw-2">mut </span>assign_expr: Expr = AssignExpr {
+<a href=#869 id=869 data-nosnippet>869</a>                                    span: elem_span,
+<a href=#870 id=870 data-nosnippet>870</a>                                    op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#871 id=871 data-nosnippet>871</a>                                    left: elem.take().try_into().unwrap(),
+<a href=#872 id=872 data-nosnippet>872</a>                                    right: make_ref_idx_expr(<span class="kw-2">&amp;</span>ref_ident, i).into(),
+<a href=#873 id=873 data-nosnippet>873</a>                                }
+<a href=#874 id=874 data-nosnippet>874</a>                                .into();
+<a href=#875 id=875 data-nosnippet>875</a>
+<a href=#876 id=876 data-nosnippet>876</a>                                assign_expr.visit_mut_with(<span class="self">self</span>);
+<a href=#877 id=877 data-nosnippet>877</a>                                exprs.push(Box::new(assign_expr))
+<a href=#878 id=878 data-nosnippet>878</a>                            }
+<a href=#879 id=879 data-nosnippet>879</a>                        }
+<a href=#880 id=880 data-nosnippet>880</a>                    }
+<a href=#881 id=881 data-nosnippet>881</a>
+<a href=#882 id=882 data-nosnippet>882</a>                    <span class="comment">// last one should be `ref`
+<a href=#883 id=883 data-nosnippet>883</a>                    </span>exprs.push(ref_ident.into());
+<a href=#884 id=884 data-nosnippet>884</a>
+<a href=#885 id=885 data-nosnippet>885</a>                    <span class="kw-2">*</span>expr = SeqExpr {
+<a href=#886 id=886 data-nosnippet>886</a>                        span: DUMMY_SP,
+<a href=#887 id=887 data-nosnippet>887</a>                        exprs,
+<a href=#888 id=888 data-nosnippet>888</a>                    }
+<a href=#889 id=889 data-nosnippet>889</a>                    .into()
+<a href=#890 id=890 data-nosnippet>890</a>                }
+<a href=#891 id=891 data-nosnippet>891</a>                AssignTargetPat::Object(ObjectPat { props, .. }) <span class="kw">if </span>props.is_empty() =&gt; {
+<a href=#892 id=892 data-nosnippet>892</a>                    <span class="kw">let </span><span class="kw-2">mut </span>right = right.take();
+<a href=#893 id=893 data-nosnippet>893</a>                    right.visit_mut_with(<span class="self">self</span>);
+<a href=#894 id=894 data-nosnippet>894</a>
+<a href=#895 id=895 data-nosnippet>895</a>                    <span class="kw-2">*</span>expr = <span class="macro">helper_expr!</span>(object_destructuring_empty)
+<a href=#896 id=896 data-nosnippet>896</a>                        .as_call(DUMMY_SP, <span class="macro">vec!</span>[right.as_arg()]);
+<a href=#897 id=897 data-nosnippet>897</a>                }
+<a href=#898 id=898 data-nosnippet>898</a>                AssignTargetPat::Object(ObjectPat { span, props, .. }) =&gt; {
+<a href=#899 id=899 data-nosnippet>899</a>                    <span class="kw">if </span>props.len() == <span class="number">1 </span>{
+<a href=#900 id=900 data-nosnippet>900</a>                        <span class="kw">if let </span>ObjectPatProp::Assign(p @ AssignPatProp { value: <span class="prelude-val">None</span>, .. }) =
+<a href=#901 id=901 data-nosnippet>901</a>                            <span class="kw-2">&amp;</span>props[<span class="number">0</span>]
+<a href=#902 id=902 data-nosnippet>902</a>                        {
+<a href=#903 id=903 data-nosnippet>903</a>                            <span class="kw-2">*</span>expr = AssignExpr {
+<a href=#904 id=904 data-nosnippet>904</a>                                span: <span class="kw-2">*</span>span,
+<a href=#905 id=905 data-nosnippet>905</a>                                op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#906 id=906 data-nosnippet>906</a>                                left: p.key.clone().into(),
+<a href=#907 id=907 data-nosnippet>907</a>                                right: right.take().make_member(p.key.clone().into()).into(),
+<a href=#908 id=908 data-nosnippet>908</a>                            }
+<a href=#909 id=909 data-nosnippet>909</a>                            .into();
+<a href=#910 id=910 data-nosnippet>910</a>                            <span class="kw">return</span>;
+<a href=#911 id=911 data-nosnippet>911</a>                        }
+<a href=#912 id=912 data-nosnippet>912</a>                    }
+<a href=#913 id=913 data-nosnippet>913</a>
+<a href=#914 id=914 data-nosnippet>914</a>                    <span class="kw">let </span>ref_ident = make_ref_ident(<span class="self">self</span>.c, <span class="kw-2">&amp;mut </span><span class="self">self</span>.vars, <span class="prelude-val">None</span>);
+<a href=#915 id=915 data-nosnippet>915</a>
+<a href=#916 id=916 data-nosnippet>916</a>                    <span class="kw">let </span><span class="kw-2">mut </span>exprs = <span class="macro">vec!</span>[Box::new(Expr::Assign(AssignExpr {
+<a href=#917 id=917 data-nosnippet>917</a>                        span: <span class="kw-2">*</span>span,
+<a href=#918 id=918 data-nosnippet>918</a>                        left: ref_ident.clone().into(),
+<a href=#919 id=919 data-nosnippet>919</a>                        op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#920 id=920 data-nosnippet>920</a>                        right: right.take(),
+<a href=#921 id=921 data-nosnippet>921</a>                    }))];
+<a href=#922 id=922 data-nosnippet>922</a>
+<a href=#923 id=923 data-nosnippet>923</a>                    <span class="kw">for </span>prop <span class="kw">in </span>props {
+<a href=#924 id=924 data-nosnippet>924</a>                        <span class="kw">let </span>span = prop.span();
+<a href=#925 id=925 data-nosnippet>925</a>                        <span class="kw">match </span>prop {
+<a href=#926 id=926 data-nosnippet>926</a>                            ObjectPatProp::KeyValue(KeyValuePatProp { key, value }) =&gt; {
+<a href=#927 id=927 data-nosnippet>927</a>                                <span class="kw">let </span>computed = <span class="macro">matches!</span>(key, PropName::Computed(..));
+<a href=#928 id=928 data-nosnippet>928</a>
+<a href=#929 id=929 data-nosnippet>929</a>                                <span class="kw">let </span><span class="kw-2">mut </span>right = Box::new(make_ref_prop_expr(
+<a href=#930 id=930 data-nosnippet>930</a>                                    <span class="kw-2">&amp;</span>ref_ident,
+<a href=#931 id=931 data-nosnippet>931</a>                                    Box::new(prop_name_to_expr(key.take())),
+<a href=#932 id=932 data-nosnippet>932</a>                                    computed,
+<a href=#933 id=933 data-nosnippet>933</a>                                ));
+<a href=#934 id=934 data-nosnippet>934</a>                                <span class="kw">let </span>value = value.take();
+<a href=#935 id=935 data-nosnippet>935</a>
+<a href=#936 id=936 data-nosnippet>936</a>                                <span class="kw">let </span><span class="kw-2">mut </span>expr = <span class="kw">if let </span>Pat::Assign(pat) = <span class="kw-2">*</span>value {
+<a href=#937 id=937 data-nosnippet>937</a>                                    <span class="self">self</span>.handle_assign_pat(span, pat, <span class="kw-2">&amp;mut </span>right)
+<a href=#938 id=938 data-nosnippet>938</a>                                } <span class="kw">else </span>{
+<a href=#939 id=939 data-nosnippet>939</a>                                    AssignExpr {
+<a href=#940 id=940 data-nosnippet>940</a>                                        span,
+<a href=#941 id=941 data-nosnippet>941</a>                                        left: value.try_into().unwrap(),
+<a href=#942 id=942 data-nosnippet>942</a>                                        op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#943 id=943 data-nosnippet>943</a>                                        right,
+<a href=#944 id=944 data-nosnippet>944</a>                                    }
+<a href=#945 id=945 data-nosnippet>945</a>                                    .into()
+<a href=#946 id=946 data-nosnippet>946</a>                                };
+<a href=#947 id=947 data-nosnippet>947</a>
+<a href=#948 id=948 data-nosnippet>948</a>                                expr.visit_mut_with(<span class="self">self</span>);
+<a href=#949 id=949 data-nosnippet>949</a>                                exprs.push(Box::new(expr));
+<a href=#950 id=950 data-nosnippet>950</a>                            }
+<a href=#951 id=951 data-nosnippet>951</a>                            ObjectPatProp::Assign(AssignPatProp { key, value, .. }) =&gt; {
+<a href=#952 id=952 data-nosnippet>952</a>                                <span class="kw">let </span>computed = <span class="bool-val">false</span>;
+<a href=#953 id=953 data-nosnippet>953</a>
+<a href=#954 id=954 data-nosnippet>954</a>                                <span class="kw">match </span>value {
+<a href=#955 id=955 data-nosnippet>955</a>                                    <span class="prelude-val">Some</span>(value) =&gt; {
+<a href=#956 id=956 data-nosnippet>956</a>                                        <span class="kw">let </span>prop_ident =
+<a href=#957 id=957 data-nosnippet>957</a>                                            make_ref_ident(<span class="self">self</span>.c, <span class="kw-2">&amp;mut </span><span class="self">self</span>.vars, <span class="prelude-val">None</span>);
+<a href=#958 id=958 data-nosnippet>958</a>
+<a href=#959 id=959 data-nosnippet>959</a>                                        exprs.push(
+<a href=#960 id=960 data-nosnippet>960</a>                                            AssignExpr {
+<a href=#961 id=961 data-nosnippet>961</a>                                                span,
+<a href=#962 id=962 data-nosnippet>962</a>                                                left: prop_ident.clone().into(),
+<a href=#963 id=963 data-nosnippet>963</a>                                                op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#964 id=964 data-nosnippet>964</a>                                                right: Box::new(make_ref_prop_expr(
+<a href=#965 id=965 data-nosnippet>965</a>                                                    <span class="kw-2">&amp;</span>ref_ident,
+<a href=#966 id=966 data-nosnippet>966</a>                                                    key.clone().into(),
+<a href=#967 id=967 data-nosnippet>967</a>                                                    computed,
+<a href=#968 id=968 data-nosnippet>968</a>                                                )),
+<a href=#969 id=969 data-nosnippet>969</a>                                            }
+<a href=#970 id=970 data-nosnippet>970</a>                                            .into(),
+<a href=#971 id=971 data-nosnippet>971</a>                                        );
+<a href=#972 id=972 data-nosnippet>972</a>
+<a href=#973 id=973 data-nosnippet>973</a>                                        exprs.push(
+<a href=#974 id=974 data-nosnippet>974</a>                                            AssignExpr {
+<a href=#975 id=975 data-nosnippet>975</a>                                                span,
+<a href=#976 id=976 data-nosnippet>976</a>                                                left: key.clone().into(),
+<a href=#977 id=977 data-nosnippet>977</a>                                                op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#978 id=978 data-nosnippet>978</a>                                                right: Box::new(make_cond_expr(
+<a href=#979 id=979 data-nosnippet>979</a>                                                    prop_ident,
+<a href=#980 id=980 data-nosnippet>980</a>                                                    value.take(),
+<a href=#981 id=981 data-nosnippet>981</a>                                                )),
+<a href=#982 id=982 data-nosnippet>982</a>                                            }
+<a href=#983 id=983 data-nosnippet>983</a>                                            .into(),
+<a href=#984 id=984 data-nosnippet>984</a>                                        );
+<a href=#985 id=985 data-nosnippet>985</a>                                    }
+<a href=#986 id=986 data-nosnippet>986</a>                                    <span class="prelude-val">None </span>=&gt; {
+<a href=#987 id=987 data-nosnippet>987</a>                                        exprs.push(
+<a href=#988 id=988 data-nosnippet>988</a>                                            AssignExpr {
+<a href=#989 id=989 data-nosnippet>989</a>                                                span,
+<a href=#990 id=990 data-nosnippet>990</a>                                                left: key.clone().into(),
+<a href=#991 id=991 data-nosnippet>991</a>                                                op: <span class="macro">op!</span>(<span class="string">"="</span>),
+<a href=#992 id=992 data-nosnippet>992</a>                                                right: Box::new(make_ref_prop_expr(
+<a href=#993 id=993 data-nosnippet>993</a>                                                    <span class="kw-2">&amp;</span>ref_ident,
+<a href=#994 id=994 data-nosnippet>994</a>                                                    key.clone().into(),
+<a href=#995 id=995 data-nosnippet>995</a>                                                    computed,
+<a href=#996 id=996 data-nosnippet>996</a>                                                )),
+<a href=#997 id=997 data-nosnippet>997</a>                                            }
+<a href=#998 id=998 data-nosnippet>998</a>                                            .into(),
+<a href=#999 id=999 data-nosnippet>999</a>                                        );
+<a href=#1000 id=1000 data-nosnippet>1000</a>                                    }
+<a href=#1001 id=1001 data-nosnippet>1001</a>                                }
+<a href=#1002 id=1002 data-nosnippet>1002</a>                            }
+<a href=#1003 id=1003 data-nosnippet>1003</a>                            ObjectPatProp::Rest(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(
+<a href=#1004 id=1004 data-nosnippet>1004</a>                                <span class="string">"object rest pattern should be removed by \
+<a href=#1005 id=1005 data-nosnippet>1005</a>                                 es2018::object_rest_spread pass"
+<a href=#1006 id=1006 data-nosnippet>1006</a>                            </span>),
+<a href=#1007 id=1007 data-nosnippet>1007</a>                        }
+<a href=#1008 id=1008 data-nosnippet>1008</a>                    }
+<a href=#1009 id=1009 data-nosnippet>1009</a>
+<a href=#1010 id=1010 data-nosnippet>1010</a>                    <span class="comment">// Last one should be object itself.
+<a href=#1011 id=1011 data-nosnippet>1011</a>                    </span>exprs.push(ref_ident.into());
+<a href=#1012 id=1012 data-nosnippet>1012</a>
+<a href=#1013 id=1013 data-nosnippet>1013</a>                    <span class="kw-2">*</span>expr = SeqExpr {
+<a href=#1014 id=1014 data-nosnippet>1014</a>                        span: DUMMY_SP,
+<a href=#1015 id=1015 data-nosnippet>1015</a>                        exprs,
+<a href=#1016 id=1016 data-nosnippet>1016</a>                    }
+<a href=#1017 id=1017 data-nosnippet>1017</a>                    .into();
+<a href=#1018 id=1018 data-nosnippet>1018</a>                }
+<a href=#1019 id=1019 data-nosnippet>1019</a>
+<a href=#1020 id=1020 data-nosnippet>1020</a>                AssignTargetPat::Invalid(..) =&gt; <span class="macro">unreachable!</span>(),
+<a href=#1021 id=1021 data-nosnippet>1021</a>            }
+<a href=#1022 id=1022 data-nosnippet>1022</a>        };
+<a href=#1023 id=1023 data-nosnippet>1023</a>    }
+<a href=#1024 id=1024 data-nosnippet>1024</a>
+<a href=#1025 id=1025 data-nosnippet>1025</a>    <span class="kw">fn </span>visit_mut_stmt(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;mut </span>Stmt) {
+<a href=#1026 id=1026 data-nosnippet>1026</a>        <span class="kw">match </span>s {
+<a href=#1027 id=1027 data-nosnippet>1027</a>            Stmt::Expr(e) =&gt; {
+<a href=#1028 id=1028 data-nosnippet>1028</a>                <span class="self">self</span>.ignore_return_value = <span class="prelude-val">Some</span>(());
+<a href=#1029 id=1029 data-nosnippet>1029</a>                e.visit_mut_with(<span class="self">self</span>);
+<a href=#1030 id=1030 data-nosnippet>1030</a>                <span class="macro">assert_eq!</span>(<span class="self">self</span>.ignore_return_value, <span class="prelude-val">None</span>);
+<a href=#1031 id=1031 data-nosnippet>1031</a>            }
+<a href=#1032 id=1032 data-nosnippet>1032</a>            <span class="kw">_ </span>=&gt; s.visit_mut_children_with(<span class="self">self</span>),
+<a href=#1033 id=1033 data-nosnippet>1033</a>        };
+<a href=#1034 id=1034 data-nosnippet>1034</a>    }
+<a href=#1035 id=1035 data-nosnippet>1035</a>
+<a href=#1036 id=1036 data-nosnippet>1036</a>    <span class="kw">fn </span>visit_mut_var_declarators(<span class="kw-2">&amp;mut </span><span class="self">self</span>, declarators: <span class="kw-2">&amp;mut </span>Vec&lt;VarDeclarator&gt;) {
+<a href=#1037 id=1037 data-nosnippet>1037</a>        declarators.visit_mut_children_with(<span class="self">self</span>);
+<a href=#1038 id=1038 data-nosnippet>1038</a>
+<a href=#1039 id=1039 data-nosnippet>1039</a>        <span class="kw">let </span>is_complex = declarators
+<a href=#1040 id=1040 data-nosnippet>1040</a>            .iter()
+<a href=#1041 id=1041 data-nosnippet>1041</a>            .any(|d| !<span class="macro">matches!</span>(d.name, Pat::Ident(..)));
+<a href=#1042 id=1042 data-nosnippet>1042</a>        <span class="kw">if </span>!is_complex {
+<a href=#1043 id=1043 data-nosnippet>1043</a>            <span class="kw">return</span>;
+<a href=#1044 id=1044 data-nosnippet>1044</a>        }
+<a href=#1045 id=1045 data-nosnippet>1045</a>
+<a href=#1046 id=1046 data-nosnippet>1046</a>        <span class="kw">let </span><span class="kw-2">mut </span>decls = Vec::with_capacity(declarators.len());
+<a href=#1047 id=1047 data-nosnippet>1047</a>        <span class="kw">for </span>decl <span class="kw">in </span>declarators.drain(..) {
+<a href=#1048 id=1048 data-nosnippet>1048</a>            <span class="self">self</span>.visit_mut_var_decl(<span class="kw-2">&amp;mut </span>decls, decl);
+<a href=#1049 id=1049 data-nosnippet>1049</a>        }
+<a href=#1050 id=1050 data-nosnippet>1050</a>
+<a href=#1051 id=1051 data-nosnippet>1051</a>        <span class="kw-2">*</span>declarators = decls;
+<a href=#1052 id=1052 data-nosnippet>1052</a>    }
+<a href=#1053 id=1053 data-nosnippet>1053</a>
+<a href=#1054 id=1054 data-nosnippet>1054</a>    <span class="kw">fn </span>visit_mut_var_decl(<span class="kw-2">&amp;mut </span><span class="self">self</span>, var_decl: <span class="kw-2">&amp;mut </span>VarDecl) {
+<a href=#1055 id=1055 data-nosnippet>1055</a>        var_decl.decls.visit_mut_with(<span class="self">self</span>);
+<a href=#1056 id=1056 data-nosnippet>1056</a>
+<a href=#1057 id=1057 data-nosnippet>1057</a>        <span class="kw">if </span>var_decl.kind == VarDeclKind::Const {
+<a href=#1058 id=1058 data-nosnippet>1058</a>            var_decl.decls.iter_mut().for_each(|v| {
+<a href=#1059 id=1059 data-nosnippet>1059</a>                <span class="kw">if </span>v.init.is_none() {
+<a href=#1060 id=1060 data-nosnippet>1060</a>                    v.init = <span class="prelude-val">Some</span>(Expr::undefined(DUMMY_SP));
+<a href=#1061 id=1061 data-nosnippet>1061</a>                }
+<a href=#1062 id=1062 data-nosnippet>1062</a>            })
+<a href=#1063 id=1063 data-nosnippet>1063</a>        }
+<a href=#1064 id=1064 data-nosnippet>1064</a>    }
+<a href=#1065 id=1065 data-nosnippet>1065</a>}
+<a href=#1066 id=1066 data-nosnippet>1066</a>
+<a href=#1067 id=1067 data-nosnippet>1067</a><span class="attr">#[swc_trace]
+<a href=#1068 id=1068 data-nosnippet>1068</a></span><span class="kw">impl </span>Destructuring {
+<a href=#1069 id=1069 data-nosnippet>1069</a>    <span class="kw">fn </span>visit_mut_stmt_like&lt;T&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stmts: <span class="kw-2">&amp;mut </span>Vec&lt;T&gt;)
+<a href=#1070 id=1070 data-nosnippet>1070</a>    <span class="kw">where
+<a href=#1071 id=1071 data-nosnippet>1071</a>        </span>Vec&lt;T&gt;: VisitMutWith&lt;<span class="self">Self</span>&gt;,
+<a href=#1072 id=1072 data-nosnippet>1072</a>        T: StmtLike + VisitMutWith&lt;AssignFolder&gt;,
+<a href=#1073 id=1073 data-nosnippet>1073</a>    {
+<a href=#1074 id=1074 data-nosnippet>1074</a>        stmts.visit_mut_children_with(<span class="self">self</span>);
+<a href=#1075 id=1075 data-nosnippet>1075</a>
+<a href=#1076 id=1076 data-nosnippet>1076</a>        <span class="kw">let </span><span class="kw-2">mut </span>stmts_updated = Vec::with_capacity(stmts.len());
+<a href=#1077 id=1077 data-nosnippet>1077</a>
+<a href=#1078 id=1078 data-nosnippet>1078</a>        <span class="kw">for </span>stmt <span class="kw">in </span>stmts.drain(..) {
+<a href=#1079 id=1079 data-nosnippet>1079</a>            <span class="kw">let </span><span class="kw-2">mut </span>folder = AssignFolder {
+<a href=#1080 id=1080 data-nosnippet>1080</a>                c: <span class="self">self</span>.c,
+<a href=#1081 id=1081 data-nosnippet>1081</a>                exporting: <span class="bool-val">false</span>,
+<a href=#1082 id=1082 data-nosnippet>1082</a>                vars: Vec::new(),
+<a href=#1083 id=1083 data-nosnippet>1083</a>                ignore_return_value: <span class="prelude-val">None</span>,
+<a href=#1084 id=1084 data-nosnippet>1084</a>            };
+<a href=#1085 id=1085 data-nosnippet>1085</a>
+<a href=#1086 id=1086 data-nosnippet>1086</a>            <span class="kw">match </span>stmt.try_into_stmt() {
+<a href=#1087 id=1087 data-nosnippet>1087</a>                <span class="prelude-val">Err</span>(<span class="kw-2">mut </span>item) =&gt; {
+<a href=#1088 id=1088 data-nosnippet>1088</a>                    item.visit_mut_with(<span class="kw-2">&amp;mut </span>folder);
+<a href=#1089 id=1089 data-nosnippet>1089</a>
+<a href=#1090 id=1090 data-nosnippet>1090</a>                    <span class="comment">// Add variable declaration
+<a href=#1091 id=1091 data-nosnippet>1091</a>                    // e.g. var ref
+<a href=#1092 id=1092 data-nosnippet>1092</a>                    </span><span class="kw">if </span>!folder.vars.is_empty() {
+<a href=#1093 id=1093 data-nosnippet>1093</a>                        stmts_updated.push(T::from(
+<a href=#1094 id=1094 data-nosnippet>1094</a>                            VarDecl {
+<a href=#1095 id=1095 data-nosnippet>1095</a>                                span: DUMMY_SP,
+<a href=#1096 id=1096 data-nosnippet>1096</a>                                kind: VarDeclKind::Var,
+<a href=#1097 id=1097 data-nosnippet>1097</a>                                decls: folder.vars,
+<a href=#1098 id=1098 data-nosnippet>1098</a>                                ..Default::default()
+<a href=#1099 id=1099 data-nosnippet>1099</a>                            }
+<a href=#1100 id=1100 data-nosnippet>1100</a>                            .into(),
+<a href=#1101 id=1101 data-nosnippet>1101</a>                        ));
+<a href=#1102 id=1102 data-nosnippet>1102</a>                    }
+<a href=#1103 id=1103 data-nosnippet>1103</a>
+<a href=#1104 id=1104 data-nosnippet>1104</a>                    stmts_updated.push(item);
+<a href=#1105 id=1105 data-nosnippet>1105</a>                }
+<a href=#1106 id=1106 data-nosnippet>1106</a>                <span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>stmt) =&gt; {
+<a href=#1107 id=1107 data-nosnippet>1107</a>                    stmt.visit_mut_with(<span class="kw-2">&amp;mut </span>folder);
+<a href=#1108 id=1108 data-nosnippet>1108</a>
+<a href=#1109 id=1109 data-nosnippet>1109</a>                    <span class="comment">// Add variable declaration
+<a href=#1110 id=1110 data-nosnippet>1110</a>                    // e.g. var ref
+<a href=#1111 id=1111 data-nosnippet>1111</a>                    </span><span class="kw">if </span>!folder.vars.is_empty() {
+<a href=#1112 id=1112 data-nosnippet>1112</a>                        stmts_updated.push(T::from(
+<a href=#1113 id=1113 data-nosnippet>1113</a>                            VarDecl {
+<a href=#1114 id=1114 data-nosnippet>1114</a>                                span: DUMMY_SP,
+<a href=#1115 id=1115 data-nosnippet>1115</a>                                kind: VarDeclKind::Var,
+<a href=#1116 id=1116 data-nosnippet>1116</a>                                decls: folder.vars,
+<a href=#1117 id=1117 data-nosnippet>1117</a>                                ..Default::default()
+<a href=#1118 id=1118 data-nosnippet>1118</a>                            }
+<a href=#1119 id=1119 data-nosnippet>1119</a>                            .into(),
+<a href=#1120 id=1120 data-nosnippet>1120</a>                        ));
+<a href=#1121 id=1121 data-nosnippet>1121</a>                    }
+<a href=#1122 id=1122 data-nosnippet>1122</a>
+<a href=#1123 id=1123 data-nosnippet>1123</a>                    stmts_updated.push(T::from(stmt));
+<a href=#1124 id=1124 data-nosnippet>1124</a>                }
+<a href=#1125 id=1125 data-nosnippet>1125</a>            }
+<a href=#1126 id=1126 data-nosnippet>1126</a>        }
+<a href=#1127 id=1127 data-nosnippet>1127</a>
+<a href=#1128 id=1128 data-nosnippet>1128</a>        <span class="kw-2">*</span>stmts = stmts_updated;
+<a href=#1129 id=1129 data-nosnippet>1129</a>    }
+<a href=#1130 id=1130 data-nosnippet>1130</a>}
+<a href=#1131 id=1131 data-nosnippet>1131</a>
+<a href=#1132 id=1132 data-nosnippet>1132</a><span class="kw">fn </span>make_ref_idx_expr(ref_ident: <span class="kw-2">&amp;</span>Ident, i: usize) -&gt; MemberExpr {
+<a href=#1133 id=1133 data-nosnippet>1133</a>    ref_ident.clone().computed_member(i <span class="kw">as </span>f64)
+<a href=#1134 id=1134 data-nosnippet>1134</a>}
+<a href=#1135 id=1135 data-nosnippet>1135</a>
+<a href=#1136 id=1136 data-nosnippet>1136</a><span class="kw">fn </span>make_ref_ident(c: Config, decls: <span class="kw-2">&amp;mut </span>Vec&lt;VarDeclarator&gt;, init: <span class="prelude-ty">Option</span>&lt;Box&lt;Expr&gt;&gt;) -&gt; Ident {
+<a href=#1137 id=1137 data-nosnippet>1137</a>    make_ref_ident_for_array(c, decls, init, <span class="prelude-val">None</span>)
+<a href=#1138 id=1138 data-nosnippet>1138</a>}
+<a href=#1139 id=1139 data-nosnippet>1139</a>
+<a href=#1140 id=1140 data-nosnippet>1140</a><span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
+<a href=#1141 id=1141 data-nosnippet>1141</a></span><span class="kw">fn </span>make_ref_ident_for_array(
+<a href=#1142 id=1142 data-nosnippet>1142</a>    c: Config,
+<a href=#1143 id=1143 data-nosnippet>1143</a>    decls: <span class="kw-2">&amp;mut </span>Vec&lt;VarDeclarator&gt;,
+<a href=#1144 id=1144 data-nosnippet>1144</a>    <span class="kw-2">mut </span>init: <span class="prelude-ty">Option</span>&lt;Box&lt;Expr&gt;&gt;,
+<a href=#1145 id=1145 data-nosnippet>1145</a>    elem_cnt: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+<a href=#1146 id=1146 data-nosnippet>1146</a>) -&gt; Ident {
+<a href=#1147 id=1147 data-nosnippet>1147</a>    <span class="kw">if </span>elem_cnt.is_none() {
+<a href=#1148 id=1148 data-nosnippet>1148</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = init {
+<a href=#1149 id=1149 data-nosnippet>1149</a>            <span class="kw">match </span><span class="kw-2">*</span>e {
+<a href=#1150 id=1150 data-nosnippet>1150</a>                Expr::Ident(i) =&gt; <span class="kw">return </span>i,
+<a href=#1151 id=1151 data-nosnippet>1151</a>                <span class="kw">_ </span>=&gt; init = <span class="prelude-val">Some</span>(e),
+<a href=#1152 id=1152 data-nosnippet>1152</a>            }
+<a href=#1153 id=1153 data-nosnippet>1153</a>        }
+<a href=#1154 id=1154 data-nosnippet>1154</a>    }
+<a href=#1155 id=1155 data-nosnippet>1155</a>
+<a href=#1156 id=1156 data-nosnippet>1156</a>    <span class="kw">let </span>span = init.span();
+<a href=#1157 id=1157 data-nosnippet>1157</a>
+<a href=#1158 id=1158 data-nosnippet>1158</a>    <span class="kw">let </span>(ref_ident, aliased) = <span class="kw">if </span>c.loose {
+<a href=#1159 id=1159 data-nosnippet>1159</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>init) = init {
+<a href=#1160 id=1160 data-nosnippet>1160</a>            alias_if_required(init, <span class="string">"ref"</span>)
+<a href=#1161 id=1161 data-nosnippet>1161</a>        } <span class="kw">else </span>{
+<a href=#1162 id=1162 data-nosnippet>1162</a>            (<span class="macro">private_ident!</span>(span, <span class="string">"ref"</span>), <span class="bool-val">true</span>)
+<a href=#1163 id=1163 data-nosnippet>1163</a>        }
+<a href=#1164 id=1164 data-nosnippet>1164</a>    } <span class="kw">else if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>init) = init {
+<a href=#1165 id=1165 data-nosnippet>1165</a>        (alias_ident_for(init, <span class="string">"ref"</span>), <span class="bool-val">true</span>)
+<a href=#1166 id=1166 data-nosnippet>1166</a>    } <span class="kw">else </span>{
+<a href=#1167 id=1167 data-nosnippet>1167</a>        (<span class="macro">private_ident!</span>(span, <span class="string">"ref"</span>), <span class="bool-val">true</span>)
+<a href=#1168 id=1168 data-nosnippet>1168</a>    };
+<a href=#1169 id=1169 data-nosnippet>1169</a>
+<a href=#1170 id=1170 data-nosnippet>1170</a>    <span class="kw">if </span>aliased {
+<a href=#1171 id=1171 data-nosnippet>1171</a>        decls.push(VarDeclarator {
+<a href=#1172 id=1172 data-nosnippet>1172</a>            span,
+<a href=#1173 id=1173 data-nosnippet>1173</a>            name: ref_ident.clone().into(),
+<a href=#1174 id=1174 data-nosnippet>1174</a>            init: init.map(|v| {
+<a href=#1175 id=1175 data-nosnippet>1175</a>                <span class="kw">if </span>c.loose || <span class="macro">matches!</span>(<span class="kw-2">*</span>v, Expr::Array(..)) {
+<a href=#1176 id=1176 data-nosnippet>1176</a>                    v
+<a href=#1177 id=1177 data-nosnippet>1177</a>                } <span class="kw">else </span>{
+<a href=#1178 id=1178 data-nosnippet>1178</a>                    <span class="kw">match </span>elem_cnt {
+<a href=#1179 id=1179 data-nosnippet>1179</a>                        <span class="prelude-val">None </span>=&gt; v,
+<a href=#1180 id=1180 data-nosnippet>1180</a>                        <span class="prelude-val">Some</span>(std::usize::MAX) =&gt; Box::new(
+<a href=#1181 id=1181 data-nosnippet>1181</a>                            CallExpr {
+<a href=#1182 id=1182 data-nosnippet>1182</a>                                span: DUMMY_SP,
+<a href=#1183 id=1183 data-nosnippet>1183</a>                                callee: <span class="macro">helper!</span>(to_array),
+<a href=#1184 id=1184 data-nosnippet>1184</a>                                args: <span class="macro">vec!</span>[v.as_arg()],
+<a href=#1185 id=1185 data-nosnippet>1185</a>                                ..Default::default()
+<a href=#1186 id=1186 data-nosnippet>1186</a>                            }
+<a href=#1187 id=1187 data-nosnippet>1187</a>                            .into(),
+<a href=#1188 id=1188 data-nosnippet>1188</a>                        ),
+<a href=#1189 id=1189 data-nosnippet>1189</a>                        <span class="prelude-val">Some</span>(value) =&gt; Box::new(
+<a href=#1190 id=1190 data-nosnippet>1190</a>                            CallExpr {
+<a href=#1191 id=1191 data-nosnippet>1191</a>                                span: DUMMY_SP,
+<a href=#1192 id=1192 data-nosnippet>1192</a>                                callee: <span class="macro">helper!</span>(sliced_to_array),
+<a href=#1193 id=1193 data-nosnippet>1193</a>                                args: <span class="macro">vec!</span>[v.as_arg(), value.as_arg()],
+<a href=#1194 id=1194 data-nosnippet>1194</a>                                ..Default::default()
+<a href=#1195 id=1195 data-nosnippet>1195</a>                            }
+<a href=#1196 id=1196 data-nosnippet>1196</a>                            .into(),
+<a href=#1197 id=1197 data-nosnippet>1197</a>                        ),
+<a href=#1198 id=1198 data-nosnippet>1198</a>                    }
+<a href=#1199 id=1199 data-nosnippet>1199</a>                }
+<a href=#1200 id=1200 data-nosnippet>1200</a>            }),
+<a href=#1201 id=1201 data-nosnippet>1201</a>            definite: <span class="bool-val">false</span>,
+<a href=#1202 id=1202 data-nosnippet>1202</a>        });
+<a href=#1203 id=1203 data-nosnippet>1203</a>    }
+<a href=#1204 id=1204 data-nosnippet>1204</a>
+<a href=#1205 id=1205 data-nosnippet>1205</a>    ref_ident
+<a href=#1206 id=1206 data-nosnippet>1206</a>}
+<a href=#1207 id=1207 data-nosnippet>1207</a>
+<a href=#1208 id=1208 data-nosnippet>1208</a><span class="kw">fn </span>make_ref_prop_expr(ref_ident: <span class="kw-2">&amp;</span>Ident, prop: Box&lt;Expr&gt;, <span class="kw-2">mut </span>computed: bool) -&gt; Expr {
+<a href=#1209 id=1209 data-nosnippet>1209</a>    computed |= !<span class="macro">matches!</span>(<span class="kw-2">*</span>prop, Expr::Ident(..));
+<a href=#1210 id=1210 data-nosnippet>1210</a>
+<a href=#1211 id=1211 data-nosnippet>1211</a>    MemberExpr {
+<a href=#1212 id=1212 data-nosnippet>1212</a>        span: DUMMY_SP,
+<a href=#1213 id=1213 data-nosnippet>1213</a>        obj: Box::new(ref_ident.clone().into()),
+<a href=#1214 id=1214 data-nosnippet>1214</a>        prop: <span class="kw">if </span>computed {
+<a href=#1215 id=1215 data-nosnippet>1215</a>            MemberProp::Computed(ComputedPropName {
+<a href=#1216 id=1216 data-nosnippet>1216</a>                span: DUMMY_SP,
+<a href=#1217 id=1217 data-nosnippet>1217</a>                expr: prop,
+<a href=#1218 id=1218 data-nosnippet>1218</a>            })
+<a href=#1219 id=1219 data-nosnippet>1219</a>        } <span class="kw">else </span>{
+<a href=#1220 id=1220 data-nosnippet>1220</a>            MemberProp::Ident(prop.ident().unwrap().into())
+<a href=#1221 id=1221 data-nosnippet>1221</a>        },
+<a href=#1222 id=1222 data-nosnippet>1222</a>    }
+<a href=#1223 id=1223 data-nosnippet>1223</a>    .into()
+<a href=#1224 id=1224 data-nosnippet>1224</a>}
+<a href=#1225 id=1225 data-nosnippet>1225</a>
+<a href=#1226 id=1226 data-nosnippet>1226</a><span class="doccomment">/// Creates `tmp === void 0 ? def_value : tmp`
+<a href=#1227 id=1227 data-nosnippet>1227</a></span><span class="kw">fn </span>make_cond_expr(tmp: Ident, def_value: Box&lt;Expr&gt;) -&gt; Expr {
+<a href=#1228 id=1228 data-nosnippet>1228</a>    CondExpr {
+<a href=#1229 id=1229 data-nosnippet>1229</a>        span: DUMMY_SP,
+<a href=#1230 id=1230 data-nosnippet>1230</a>        test: BinExpr {
+<a href=#1231 id=1231 data-nosnippet>1231</a>            span: DUMMY_SP,
+<a href=#1232 id=1232 data-nosnippet>1232</a>            left: Box::new(Expr::Ident(tmp.clone())),
+<a href=#1233 id=1233 data-nosnippet>1233</a>            op: <span class="macro">op!</span>(<span class="string">"==="</span>),
+<a href=#1234 id=1234 data-nosnippet>1234</a>            right: Box::new(Expr::Unary(UnaryExpr {
+<a href=#1235 id=1235 data-nosnippet>1235</a>                span: DUMMY_SP,
+<a href=#1236 id=1236 data-nosnippet>1236</a>                op: <span class="macro">op!</span>(<span class="string">"void"</span>),
+<a href=#1237 id=1237 data-nosnippet>1237</a>                arg: <span class="number">0.0</span>.into(),
+<a href=#1238 id=1238 data-nosnippet>1238</a>            })),
+<a href=#1239 id=1239 data-nosnippet>1239</a>        }
+<a href=#1240 id=1240 data-nosnippet>1240</a>        .into(),
+<a href=#1241 id=1241 data-nosnippet>1241</a>        cons: def_value,
+<a href=#1242 id=1242 data-nosnippet>1242</a>        alt: tmp.into(),
+<a href=#1243 id=1243 data-nosnippet>1243</a>    }
+<a href=#1244 id=1244 data-nosnippet>1244</a>    .into()
+<a href=#1245 id=1245 data-nosnippet>1245</a>}
+<a href=#1246 id=1246 data-nosnippet>1246</a>
+<a href=#1247 id=1247 data-nosnippet>1247</a><span class="kw">fn </span>can_be_null(e: <span class="kw-2">&amp;</span>Expr) -&gt; bool {
+<a href=#1248 id=1248 data-nosnippet>1248</a>    <span class="kw">match </span><span class="kw-2">*</span>e {
+<a href=#1249 id=1249 data-nosnippet>1249</a>        Expr::Lit(Lit::Null(..))
+<a href=#1250 id=1250 data-nosnippet>1250</a>        | Expr::This(..)
+<a href=#1251 id=1251 data-nosnippet>1251</a>        | Expr::Ident(..)
+<a href=#1252 id=1252 data-nosnippet>1252</a>        | Expr::PrivateName(..)
+<a href=#1253 id=1253 data-nosnippet>1253</a>        | Expr::Member(..)
+<a href=#1254 id=1254 data-nosnippet>1254</a>        | Expr::SuperProp(..)
+<a href=#1255 id=1255 data-nosnippet>1255</a>        | Expr::Call(..)
+<a href=#1256 id=1256 data-nosnippet>1256</a>        | Expr::OptChain(..)
+<a href=#1257 id=1257 data-nosnippet>1257</a>        | Expr::New(..)
+<a href=#1258 id=1258 data-nosnippet>1258</a>        | Expr::Yield(..)
+<a href=#1259 id=1259 data-nosnippet>1259</a>        | Expr::Await(..)
+<a href=#1260 id=1260 data-nosnippet>1260</a>        | Expr::MetaProp(..) =&gt; <span class="bool-val">true</span>,
+<a href=#1261 id=1261 data-nosnippet>1261</a>
+<a href=#1262 id=1262 data-nosnippet>1262</a>        Expr::Lit(..) =&gt; <span class="bool-val">false</span>,
+<a href=#1263 id=1263 data-nosnippet>1263</a>
+<a href=#1264 id=1264 data-nosnippet>1264</a>        Expr::Array(..)
+<a href=#1265 id=1265 data-nosnippet>1265</a>        | Expr::Arrow(..)
+<a href=#1266 id=1266 data-nosnippet>1266</a>        | Expr::Object(..)
+<a href=#1267 id=1267 data-nosnippet>1267</a>        | Expr::Fn(..)
+<a href=#1268 id=1268 data-nosnippet>1268</a>        | Expr::Class(..)
+<a href=#1269 id=1269 data-nosnippet>1269</a>        | Expr::Tpl(..) =&gt; <span class="bool-val">false</span>,
+<a href=#1270 id=1270 data-nosnippet>1270</a>
+<a href=#1271 id=1271 data-nosnippet>1271</a>        Expr::TaggedTpl(..) =&gt; <span class="bool-val">true</span>,
+<a href=#1272 id=1272 data-nosnippet>1272</a>
+<a href=#1273 id=1273 data-nosnippet>1273</a>        Expr::Paren(ParenExpr { <span class="kw-2">ref </span>expr, .. }) =&gt; can_be_null(expr),
+<a href=#1274 id=1274 data-nosnippet>1274</a>        Expr::Seq(SeqExpr { <span class="kw-2">ref </span>exprs, .. }) =&gt; {
+<a href=#1275 id=1275 data-nosnippet>1275</a>            exprs.last().map(|e| can_be_null(e)).unwrap_or(<span class="bool-val">true</span>)
+<a href=#1276 id=1276 data-nosnippet>1276</a>        }
+<a href=#1277 id=1277 data-nosnippet>1277</a>        Expr::Assign(AssignExpr { <span class="kw-2">ref </span>right, .. }) =&gt; can_be_null(right),
+<a href=#1278 id=1278 data-nosnippet>1278</a>        Expr::Cond(CondExpr {
+<a href=#1279 id=1279 data-nosnippet>1279</a>            <span class="kw-2">ref </span>cons, <span class="kw-2">ref </span>alt, ..
+<a href=#1280 id=1280 data-nosnippet>1280</a>        }) =&gt; can_be_null(cons) || can_be_null(alt),
+<a href=#1281 id=1281 data-nosnippet>1281</a>
+<a href=#1282 id=1282 data-nosnippet>1282</a>        Expr::Unary(..) | Expr::Update(..) | Expr::Bin(..) =&gt; <span class="bool-val">true</span>,
+<a href=#1283 id=1283 data-nosnippet>1283</a>
+<a href=#1284 id=1284 data-nosnippet>1284</a>        Expr::JSXMember(..)
+<a href=#1285 id=1285 data-nosnippet>1285</a>        | Expr::JSXNamespacedName(..)
+<a href=#1286 id=1286 data-nosnippet>1286</a>        | Expr::JSXEmpty(..)
+<a href=#1287 id=1287 data-nosnippet>1287</a>        | Expr::JSXElement(..)
+<a href=#1288 id=1288 data-nosnippet>1288</a>        | Expr::JSXFragment(..) =&gt; <span class="macro">unreachable!</span>(<span class="string">"destructuring jsx"</span>),
+<a href=#1289 id=1289 data-nosnippet>1289</a>
+<a href=#1290 id=1290 data-nosnippet>1290</a>        Expr::TsNonNull(..) =&gt; <span class="bool-val">false</span>,
+<a href=#1291 id=1291 data-nosnippet>1291</a>        Expr::TsAs(TsAsExpr { <span class="kw-2">ref </span>expr, .. })
+<a href=#1292 id=1292 data-nosnippet>1292</a>        | Expr::TsTypeAssertion(TsTypeAssertion { <span class="kw-2">ref </span>expr, .. })
+<a href=#1293 id=1293 data-nosnippet>1293</a>        | Expr::TsConstAssertion(TsConstAssertion { <span class="kw-2">ref </span>expr, .. })
+<a href=#1294 id=1294 data-nosnippet>1294</a>        | Expr::TsInstantiation(TsInstantiation { <span class="kw-2">ref </span>expr, .. })
+<a href=#1295 id=1295 data-nosnippet>1295</a>        | Expr::TsSatisfies(TsSatisfiesExpr { <span class="kw-2">ref </span>expr, .. }) =&gt; can_be_null(expr),
+<a href=#1296 id=1296 data-nosnippet>1296</a>
+<a href=#1297 id=1297 data-nosnippet>1297</a>        Expr::Invalid(..) =&gt; <span class="macro">unreachable!</span>(),
+<a href=#1298 id=1298 data-nosnippet>1298</a>    }
+<a href=#1299 id=1299 data-nosnippet>1299</a>}
+<a href=#1300 id=1300 data-nosnippet>1300</a>
+<a href=#1301 id=1301 data-nosnippet>1301</a><span class="attr">#[derive(Default)]
+<a href=#1302 id=1302 data-nosnippet>1302</a></span><span class="kw">struct </span>DestructuringVisitor {
+<a href=#1303 id=1303 data-nosnippet>1303</a>    found: bool,
+<a href=#1304 id=1304 data-nosnippet>1304</a>}
+<a href=#1305 id=1305 data-nosnippet>1305</a>
+<a href=#1306 id=1306 data-nosnippet>1306</a><span class="kw">impl </span>Visit <span class="kw">for </span>DestructuringVisitor {
+<a href=#1307 id=1307 data-nosnippet>1307</a>    <span class="macro">noop_visit_type!</span>(fail);
+<a href=#1308 id=1308 data-nosnippet>1308</a>
+<a href=#1309 id=1309 data-nosnippet>1309</a>    <span class="kw">fn </span>visit_assign_target_pat(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>AssignTargetPat) {
+<a href=#1310 id=1310 data-nosnippet>1310</a>        <span class="self">self</span>.found = <span class="bool-val">true</span>;
+<a href=#1311 id=1311 data-nosnippet>1311</a>    }
+<a href=#1312 id=1312 data-nosnippet>1312</a>
+<a href=#1313 id=1313 data-nosnippet>1313</a>    <span class="kw">fn </span>visit_pat(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: <span class="kw-2">&amp;</span>Pat) {
+<a href=#1314 id=1314 data-nosnippet>1314</a>        node.visit_children_with(<span class="self">self</span>);
+<a href=#1315 id=1315 data-nosnippet>1315</a>        <span class="kw">match </span><span class="kw-2">*</span>node {
+<a href=#1316 id=1316 data-nosnippet>1316</a>            Pat::Ident(..) =&gt; {}
+<a href=#1317 id=1317 data-nosnippet>1317</a>            <span class="kw">_ </span>=&gt; <span class="self">self</span>.found = <span class="bool-val">true</span>,
+<a href=#1318 id=1318 data-nosnippet>1318</a>        }
+<a href=#1319 id=1319 data-nosnippet>1319</a>    }
+<a href=#1320 id=1320 data-nosnippet>1320</a>}
+<a href=#1321 id=1321 data-nosnippet>1321</a>
+<a href=#1322 id=1322 data-nosnippet>1322</a><span class="kw">impl </span>Check <span class="kw">for </span>DestructuringVisitor {
+<a href=#1323 id=1323 data-nosnippet>1323</a>    <span class="kw">fn </span>should_handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#1324 id=1324 data-nosnippet>1324</a>        <span class="self">self</span>.found
+<a href=#1325 id=1325 data-nosnippet>1325</a>    }
+<a href=#1326 id=1326 data-nosnippet>1326</a>}
+<a href=#1327 id=1327 data-nosnippet>1327</a>
+<a href=#1328 id=1328 data-nosnippet>1328</a><span class="attr">#[cfg(test)]
+<a href=#1329 id=1329 data-nosnippet>1329</a></span><span class="kw">mod </span>tests {
+<a href=#1330 id=1330 data-nosnippet>1330</a>    <span class="kw">use </span>swc_ecma_transforms_testing::test;
+<a href=#1331 id=1331 data-nosnippet>1331</a>
+<a href=#1332 id=1332 data-nosnippet>1332</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#1333 id=1333 data-nosnippet>1333</a>
+<a href=#1334 id=1334 data-nosnippet>1334</a>    <span class="macro">test!</span>(
+<a href=#1335 id=1335 data-nosnippet>1335</a>        ::swc_ecma_parser::Syntax::default(),
+<a href=#1336 id=1336 data-nosnippet>1336</a>        |<span class="kw">_</span>| destructuring(Default::default()),
+<a href=#1337 id=1337 data-nosnippet>1337</a>        nested_for_of,
+<a href=#1338 id=1338 data-nosnippet>1338</a>        <span class="string">r#"
+<a href=#1339 id=1339 data-nosnippet>1339</a>            for (const [k1, v1] of Object.entries(o)){
+<a href=#1340 id=1340 data-nosnippet>1340</a>                for (const [k2, v2] of Object.entries(o)){
+<a href=#1341 id=1341 data-nosnippet>1341</a>                    console.log(k1, v1, k2, v2);
+<a href=#1342 id=1342 data-nosnippet>1342</a>                }
+<a href=#1343 id=1343 data-nosnippet>1343</a>            }        
+<a href=#1344 id=1344 data-nosnippet>1344</a>        "#
+<a href=#1345 id=1345 data-nosnippet>1345</a>    </span>);
+<a href=#1346 id=1346 data-nosnippet>1346</a>}
+</code></pre></div></section></main></body></html>

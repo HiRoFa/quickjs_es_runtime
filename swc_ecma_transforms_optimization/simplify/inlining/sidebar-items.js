@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["inlining"],"struct":["Config"]};
