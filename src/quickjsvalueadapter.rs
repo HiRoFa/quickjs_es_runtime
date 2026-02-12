@@ -263,7 +263,6 @@ pub(crate) const TAG_SHORT_BIG_INT: i64 = libquickjs_sys::JS_TAG_SHORT_BIG_INT a
 
 pub(crate) const TAG_STRING: i64 = libquickjs_sys::JS_TAG_STRING as i64;
 
-#[cfg(feature = "bellard")]
 pub(crate) const TAG_STRING_ROPE: i64 = libquickjs_sys::JS_TAG_STRING_ROPE as i64;
 
 pub(crate) const TAG_MODULE: i64 = libquickjs_sys::JS_TAG_MODULE as i64;
@@ -299,7 +298,6 @@ impl QuickJsValueAdapter {
             TAG_INT => JsValueType::I32,
             TAG_FLOAT64 => JsValueType::F64,
             TAG_STRING => JsValueType::String,
-            #[cfg(feature = "bellard")]
             TAG_STRING_ROPE => JsValueType::String,
             TAG_OBJECT => {
                 // todo get classProto.name and match

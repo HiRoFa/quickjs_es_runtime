@@ -312,16 +312,29 @@ pub mod tests {
             Script::new(
                 "test_ex3.js",
                 r#"
+
+async function sleep(ms) {
+    return await new Promise((res) => {
+        setTimeout(res, ms);
+    });
+}
+
 async function a() {
     await b();
 }
 
 async function b() {
-    //await 1;
+    await sleep(50);
     throw Error("poof");
 }
 
-a().catch((ex) => {
+async function c() {
+    await sleep(10);
+}
+
+const ap = a();
+c();
+ap.catch((ex) => {
     console.error(ex);
 });
         "#,
