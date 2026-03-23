@@ -332,7 +332,6 @@ impl QuickJsValueAdapter {
         match self.get_tag() {
             TAG_BIG_INT => "bigint",
             TAG_STRING => "string",
-            #[cfg(feature = "bellard")]
             TAG_STRING_ROPE => "string",
             TAG_MODULE => "module",
             TAG_FUNCTION_BYTECODE => "function",
