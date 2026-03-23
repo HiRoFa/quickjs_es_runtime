@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["async_arrows_in_class","bugfixes","edge_default_param","safari_id_destructuring_collision_in_function_expression","template_literal_caching"]};

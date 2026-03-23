@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_HIGHLIGHT_LINES","MAX_SUGGESTIONS"],"enum":["ColorConfig","Destination","WritableDst"],"struct":["EmitterWriter"],"trait":["Emitter"]};

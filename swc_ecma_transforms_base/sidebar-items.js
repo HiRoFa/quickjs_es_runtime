@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["resolver"],"macro":["enable_helper"],"mod":["assumptions","fixer","helpers","hygiene","perf","quote","rename","scope"]};

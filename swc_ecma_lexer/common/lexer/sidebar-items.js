@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["fixed_len_span","pos_span"],"mod":["char","comments_buffer","number","state","token","whitespace"],"trait":["Lexer"],"type":["LexResult"]};

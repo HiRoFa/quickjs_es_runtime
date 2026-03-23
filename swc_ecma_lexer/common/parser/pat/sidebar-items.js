@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["parse_array_binding_pat","parse_binding_pat_or_ident","parse_constructor_params","parse_formal_params","parse_unique_formal_params"]};

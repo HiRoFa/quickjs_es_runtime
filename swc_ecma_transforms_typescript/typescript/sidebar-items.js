@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ImportsNotUsedAsValues","TsImportExportAssignConfig"],"fn":["strip","tsx","typescript"],"struct":["Config","TsxConfig"]};

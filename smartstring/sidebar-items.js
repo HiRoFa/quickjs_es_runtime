@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_INLINE"],"mod":["alias"],"struct":["Compact","Drain","LazyCompact","SmartString"],"trait":["SmartStringMode"]};

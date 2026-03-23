@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["file_pattern","glob","is_module","merge","regex","regex_js","source_map","types"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"attr":["ast_node","ast_serde"],"derive":["DeserializeEnum","Spanned"]};

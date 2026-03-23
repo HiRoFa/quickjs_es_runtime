@@ -1,0 +1,9 @@
+(function() {
+    const implementors = Object.fromEntries([["swc_ecma_ast",[["impl <a class=\"trait\" href=\"bitflags/traits/trait.Flags.html\" title=\"trait bitflags::traits::Flags\">Flags</a> for <a class=\"struct\" href=\"swc_ecma_ast/struct.ListFormat.html\" title=\"struct swc_ecma_ast::ListFormat\">ListFormat</a>",0]]],["swc_ecma_compiler",[["impl <a class=\"trait\" href=\"bitflags/traits/trait.Flags.html\" title=\"trait bitflags::traits::Flags\">Flags</a> for <a class=\"struct\" href=\"swc_ecma_compiler/struct.Features.html\" title=\"struct swc_ecma_compiler::Features\">Features</a>",0]]],["swc_ecma_lexer",[["impl <a class=\"trait\" href=\"bitflags/traits/trait.Flags.html\" title=\"trait bitflags::traits::Flags\">Flags</a> for <a class=\"struct\" href=\"swc_ecma_lexer/common/context/struct.Context.html\" title=\"struct swc_ecma_lexer::common::context::Context\">Context</a>",0],["impl <a class=\"trait\" href=\"bitflags/traits/trait.Flags.html\" title=\"trait bitflags::traits::Flags\">Flags</a> for <a class=\"struct\" href=\"swc_ecma_lexer/common/syntax/struct.SyntaxFlags.html\" title=\"struct swc_ecma_lexer::common::syntax::SyntaxFlags\">SyntaxFlags</a>",0],["impl <a class=\"trait\" href=\"bitflags/traits/trait.Flags.html\" title=\"trait bitflags::traits::Flags\">Flags</a> for <a class=\"struct\" href=\"swc_ecma_lexer/lexer/struct.TokenFlags.html\" title=\"struct swc_ecma_lexer::lexer::TokenFlags\">TokenFlags</a>",0]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":59,"fragment_lengths":[266,276,846]}

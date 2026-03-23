@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["add_module_export","compile_module","detect_module","get_module_def","get_module_name","new_module","set_module_export","set_module_loader"]};

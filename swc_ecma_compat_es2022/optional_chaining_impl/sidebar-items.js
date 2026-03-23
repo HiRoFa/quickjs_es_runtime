@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["optional_chaining_impl"],"struct":["Config","OptionalChaining"]};

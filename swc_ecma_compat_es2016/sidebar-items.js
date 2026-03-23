@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["es2016","exponentiation"]};
