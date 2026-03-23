@@ -1,3 +1,7 @@
+# 0.17.2
+
+* upgrade to quickjs-ng 0.13.0
+
 # 0.17.1
 
 * upgrade to quickjs-ng 0.12.0
