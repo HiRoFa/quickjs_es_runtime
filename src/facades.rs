@@ -1,7 +1,7 @@
 //! contains the QuickJsRuntimeFacade
 
 use crate::builder::QuickJsRuntimeBuilder;
-use crate::jsutils::{JsError, Script};
+use crate::jsutils::{helper_tasks, JsError, Script};
 use crate::quickjs_utils::{functions, objects};
 use crate::quickjsrealmadapter::QuickJsRealmAdapter;
 use crate::quickjsruntimeadapter::{
@@ -13,7 +13,6 @@ use crate::reflection;
 use crate::values::JsValueFacade;
 use either::{Either, Left, Right};
 use hirofa_utils::eventloop::EventLoop;
-use hirofa_utils::task_manager::TaskManager;
 use libquickjs_sys as q;
 use lru::LruCache;
 use std::cell::RefCell;
@@ -23,11 +22,6 @@ use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::{Arc, Weak};
 use tokio::task::JoinError;
-
-lazy_static! {
-    /// a static Multithreaded task manager used to run rust ops async and multithreaded ( in at least 2 threads)
-    static ref HELPER_TASKS: TaskManager = TaskManager::new(std::cmp::max(2, num_cpus::get()));
-}
 
 impl Drop for QuickJsRuntimeFacade {
     fn drop(&mut self) {
@@ -478,16 +472,14 @@ impl QuickJsRuntimeFacade {
     where
         T: FnOnce() + Send + 'static,
     {
-        log::trace!("adding a helper task");
-        HELPER_TASKS.add_task(task);
+        helper_tasks::add_helper_task(task);
     }
 
     /// add an async task the the "helper" thread pool
     pub fn add_helper_task_async<R: Send + 'static, T: Future<Output = R> + Send + 'static>(
         task: T,
     ) -> impl Future<Output = Result<R, JoinError>> {
-        log::trace!("adding an async helper task");
-        HELPER_TASKS.add_task_async(task)
+        helper_tasks::add_helper_task_async(task)
     }
 
     /// create a new context besides the always existing main_context
@@ -997,7 +989,7 @@ pub mod tests {
     use futures::executor::block_on;
     use log::debug;
     use std::panic;
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
 
     struct TestNativeModuleLoader {}
     struct TestScriptModuleLoader {}
@@ -1126,6 +1118,40 @@ pub mod tests {
             .script_module_loader(TestScriptModuleLoader {})
             .native_module_loader(TestNativeModuleLoader {})
             .build()
+    }
+
+    #[tokio::test]
+    async fn test_long() {
+        let rt = init_test_rt();
+        let mut start_of_batch = Instant::now();
+        for i in 1..1000000000 {
+            let res = rt
+                .eval(
+                    None,
+                    Script::new(
+                        "test.js",
+                        r#"
+            (async () => {
+                 return await 1;
+            })()
+
+            "#,
+                    ),
+                )
+                .await
+                .unwrap();
+
+            if let JsValueFacade::JsPromise { cached_promise } = res {
+                let res = cached_promise.get_promise_result().await;
+            }
+
+            if i % 1000 == 0 {
+                let now = Instant::now();
+                let ttpb = now.duration_since(start_of_batch).as_millis();
+                println!("i: {} time taken per batch = {}ms", i, ttpb);
+                start_of_batch = now;
+            }
+        }
     }
 
     #[test]

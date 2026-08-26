@@ -315,7 +315,8 @@ pub mod tests {
 
 async function sleep(ms) {
     return await new Promise((res) => {
-        setTimeout(res, ms);
+        //setTimeout(res, ms);
+        res();
     });
 }
 
@@ -325,17 +326,26 @@ async function a() {
 
 async function b() {
     await sleep(50);
-    throw Error("poof");
+    return new Promise((res) => {
+        res(c());
+    });
 }
 
 async function c() {
     await sleep(10);
+    await sleep(10);
+    await sleep(10);
+    await sleep(10);
+    await d();
+}
+
+async function d() {
+    throw Error("poof");
 }
 
 const ap = a();
-c();
 ap.catch((ex) => {
-    console.error(ex);
+    console.error("The error = %s, stack:%s", ex.message, ex.stack);
 });
         "#,
             ),

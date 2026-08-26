@@ -166,6 +166,7 @@ pub fn gc(q_js_rt: &QuickJsRuntimeAdapter) {
     log::trace!("GC called");
     unsafe { q::JS_RunGC(q_js_rt.runtime) }
     log::trace!("GC done");
+    //q_js_rt.print_stats();
 }
 
 pub fn new_undefined_ref() -> QuickJsValueAdapter {
