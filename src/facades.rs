@@ -971,7 +971,7 @@ impl QuickJsRuntimeFacade {
 }
 
 #[cfg(test)]
-lazy_static! {
+lazy_static::lazy_static! {
     static ref INITTED: std::sync::Mutex<bool> = std::sync::Mutex::new(false);
 }
 
@@ -1142,7 +1142,7 @@ pub mod tests {
                 .unwrap();
 
             if let JsValueFacade::JsPromise { cached_promise } = res {
-                let res = cached_promise.get_promise_result().await;
+                let _res = cached_promise.get_promise_result().await;
             }
 
             if i % 1000 == 0 {
