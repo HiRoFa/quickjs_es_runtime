@@ -201,7 +201,8 @@ unsafe extern "C" fn js_module_normalize(
         if let Some(res) = q_js_rt.with_all_module_loaders(|loader| {
             if let Some(normalized_path) = loader.normalize_path(q_ctx, base_str, name_str) {
                 let c_absolute_path = CString::new(normalized_path.as_str()).expect("fail");
-                Some(c_absolute_path.into_raw())
+                //Some(c_absolute_path.into_raw())
+                Some(q::js_strdup(ctx, c_absolute_path.as_ptr()))
             } else {
                 None
             }

@@ -351,6 +351,9 @@ impl QuickJsRealmAdapter {
         let c_err = CString::new(err);
         q::JS_ThrowInternalError(context, c_err.as_ref().ok().unwrap().as_ptr());
         q::JSValue {
+            #[cfg(feature = "bellard")]
+            u: q::JSValueUnion { uint64: 0 },
+            #[cfg(feature = "quickjs-ng")]
             u: q::JSValueUnion { int32: 0 },
             tag: TAG_EXCEPTION,
         }

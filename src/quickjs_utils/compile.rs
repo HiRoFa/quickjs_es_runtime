@@ -194,6 +194,7 @@ pub mod tests {
     use crate::values::JsValueFacade;
     //use backtrace::Backtrace;
     use futures::executor::block_on;
+    use lazy_static::lazy_static;
     use std::panic;
     use std::sync::Arc;
 

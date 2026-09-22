@@ -20,6 +20,9 @@ pub enum TargetVersion {
     Es2020,
     Es2021,
     Es2022,
+    Es2023,
+    Es2024,
+    Es2025,
 }
 
 impl TargetVersion {
@@ -31,6 +34,9 @@ impl TargetVersion {
             TargetVersion::Es2020 => "es2020",
             TargetVersion::Es2021 => "es2021",
             TargetVersion::Es2022 => "es2022",
+            TargetVersion::Es2023 => "es2023",
+            TargetVersion::Es2024 => "es2024",
+            TargetVersion::Es2025 => "esnext",
         }
     }
 }
@@ -215,14 +221,14 @@ impl TypeScriptTranspiler {
 
 impl Default for TypeScriptTranspiler {
     fn default() -> Self {
-        Self::new(TargetVersion::Es2020, false, false, false)
+        Self::new(TargetVersion::Es2025, false, false, false)
     }
 }
 
 thread_local! {
     // we store this in a thread local inb the worker thread so they are dropped when the runtimefacade is dropped
     static SOURCE_MAPS: RefCell<HashMap<String, String>> = RefCell::new(HashMap::new());
-    static TRANSPILER: RefCell<TypeScriptTranspiler> = RefCell::new(TypeScriptTranspiler::new(TargetVersion::Es2020, false, false, false));
+    static TRANSPILER: RefCell<TypeScriptTranspiler> = RefCell::new(TypeScriptTranspiler::new(TargetVersion::Es2025, false, false, false));
 }
 
 // fix stacktrace method

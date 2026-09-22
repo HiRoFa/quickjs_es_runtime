@@ -69,11 +69,9 @@
 //! assert_eq!(res.get_str(), "hello_js! > hello rust!");
 //! ```
 //!
-//! For more details and examples please explore the packages below
-
-#[macro_use]
-extern crate lazy_static;
+//! For more details and examples, please explore the packages below
 extern crate core;
+extern crate lazy_static;
 
 pub mod builder;
 pub mod facades;

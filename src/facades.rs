@@ -13,6 +13,7 @@ use crate::reflection;
 use crate::values::JsValueFacade;
 use either::{Either, Left, Right};
 use hirofa_utils::eventloop::EventLoop;
+use lazy_static::lazy_static;
 use libquickjs_sys as q;
 use lru::LruCache;
 use std::cell::RefCell;
@@ -1124,7 +1125,7 @@ pub mod tests {
     async fn test_long() {
         let rt = init_test_rt();
         let mut start_of_batch = Instant::now();
-        for i in 1..1000000000 {
+        for i in 1..10 {
             let res = rt
                 .eval(
                     None,

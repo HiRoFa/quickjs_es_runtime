@@ -20,7 +20,14 @@ impl Hash for QuickJsValueAdapter {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let self_u = self.value.u;
         if self.is_i32() || self.is_bool() {
-            unsafe { self_u.int32.hash(state) };
+            #[cfg(feature = "bellard")]
+            unsafe {
+                self_u.uint64.hash(state)
+            };
+            #[cfg(feature = "quickjs-ng")]
+            unsafe {
+                self_u.int32.hash(state)
+            };
         } else if self.is_f64() {
             unsafe { (self_u.float64 as i32).hash(state) };
         } else {
@@ -37,9 +44,14 @@ impl PartialEq for QuickJsValueAdapter {
             let self_u = self.value.u;
             let other_u = other.value.u;
             unsafe {
-                self_u.int32 == other_u.int32
+                #[cfg(feature = "bellard")]
+                return self_u.uint64 == other_u.uint64
                     && self_u.float64 == other_u.float64
-                    && self_u.ptr == other_u.ptr
+                    && self_u.ptr == other_u.ptr;
+                #[cfg(feature = "quickjs-ng")]
+                return self_u.int32 == other_u.int32
+                    && self_u.float64 == other_u.float64
+                    && self_u.ptr == other_u.ptr;
             }
         }
     }
@@ -172,11 +184,7 @@ impl QuickJsValueAdapter {
     #[cfg(feature = "bellard")]
     pub fn get_ref_count(&self) -> i32 {
         if self.get_tag() < 0 {
-            // This transmute is OK since if tag < 0, the union will be a refcount
-            // pointer.
-            let ptr = unsafe { self.value.u.ptr as *mut q::JSRefCountHeader };
-            let pref: &mut q::JSRefCountHeader = &mut unsafe { *ptr };
-            pref.ref_count
+            unsafe { q::JS_ValueGetRefCount(*self.borrow_value()) }
         } else {
             -1
         }

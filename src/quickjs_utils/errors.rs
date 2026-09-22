@@ -171,6 +171,9 @@ pub unsafe fn throw(context: *mut q::JSContext, error: QuickJsValueAdapter) -> q
     assert!(is_error(context, &error));
     q::JS_Throw(context, error.clone_value_incr_rc());
     q::JSValue {
+        #[cfg(feature = "bellard")]
+        u: q::JSValueUnion { uint64: 0 },
+        #[cfg(feature = "quickjs-ng")]
         u: q::JSValueUnion { int32: 0 },
         tag: TAG_EXCEPTION,
     }

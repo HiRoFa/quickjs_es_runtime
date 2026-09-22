@@ -1,3 +1,8 @@
+# 0.18.0
+
+* upgrade to quickjs 2026-06-04
+* updated swc
+
 # 0.17.2
 
 * upgrade to quickjs-ng 0.13.0

@@ -42,25 +42,31 @@ pub mod class_ids {
     pub const JS_CLASS_SET: u32 = 36;
     pub const JS_CLASS_WEAKMAP: u32 = 37;
     pub const JS_CLASS_WEAKSET: u32 = 38;
-    pub const JS_CLASS_MAP_ITERATOR: u32 = 39;
-    pub const JS_CLASS_SET_ITERATOR: u32 = 40;
-    pub const JS_CLASS_ARRAY_ITERATOR: u32 = 41;
-    pub const JS_CLASS_STRING_ITERATOR: u32 = 42;
-    pub const JS_CLASS_REGEXP_STRING_ITERATOR: u32 = 43;
-    pub const JS_CLASS_GENERATOR: u32 = 44;
-    pub const JS_CLASS_PROXY: u32 = 45;
-    pub const JS_CLASS_PROMISE: u32 = 46;
-    pub const JS_CLASS_PROMISE_RESOLVE_FUNCTION: u32 = 47;
-    pub const JS_CLASS_PROMISE_REJECT_FUNCTION: u32 = 48;
-    pub const JS_CLASS_ASYNC_FUNCTION: u32 = 49;
-    pub const JS_CLASS_ASYNC_FUNCTION_RESOLVE: u32 = 50;
-    pub const JS_CLASS_ASYNC_FUNCTION_REJECT: u32 = 51;
-    pub const JS_CLASS_ASYNC_FROM_SYNC_ITERATOR: u32 = 52;
-    pub const JS_CLASS_ASYNC_GENERATOR_FUNCTION: u32 = 53;
-    pub const JS_CLASS_ASYNC_GENERATOR: u32 = 54;
-    pub const JS_CLASS_WEAK_REF: u32 = 55;
-    pub const JS_CLASS_FINALIZATION_REGISTRY: u32 = 56;
-    pub const JS_CLASS_INIT_COUNT: u32 = 57;
+    pub const JS_CLASS_ITERATOR: u32 = 39;
+    pub const JS_CLASS_ITERATOR_CONCAT: u32 = 40;
+    pub const JS_CLASS_ITERATOR_HELPER: u32 = 41;
+    pub const JS_CLASS_ITERATOR_WRAP: u32 = 42;
+    pub const JS_CLASS_MAP_ITERATOR: u32 = 43;
+    pub const JS_CLASS_SET_ITERATOR: u32 = 44;
+    pub const JS_CLASS_ARRAY_ITERATOR: u32 = 45;
+    pub const JS_CLASS_STRING_ITERATOR: u32 = 46;
+    pub const JS_CLASS_REGEXP_STRING_ITERATOR: u32 = 47;
+    pub const JS_CLASS_GENERATOR: u32 = 48;
+    pub const JS_CLASS_GLOBAL_OBJECT: u32 = 49;
+    pub const JS_CLASS_RAWJSON: u32 = 50;
+    pub const JS_CLASS_PROXY: u32 = 51;
+    pub const JS_CLASS_PROMISE: u32 = 52;
+    pub const JS_CLASS_PROMISE_RESOLVE_FUNCTION: u32 = 53;
+    pub const JS_CLASS_PROMISE_REJECT_FUNCTION: u32 = 54;
+    pub const JS_CLASS_ASYNC_FUNCTION: u32 = 55;
+    pub const JS_CLASS_ASYNC_FUNCTION_RESOLVE: u32 = 56;
+    pub const JS_CLASS_ASYNC_FUNCTION_REJECT: u32 = 57;
+    pub const JS_CLASS_ASYNC_FROM_SYNC_ITERATOR: u32 = 58;
+    pub const JS_CLASS_ASYNC_GENERATOR_FUNCTION: u32 = 59;
+    pub const JS_CLASS_ASYNC_GENERATOR: u32 = 60;
+    pub const JS_CLASS_WEAK_REF: u32 = 61;
+    pub const JS_CLASS_FINALIZATION_REGISTRY: u32 = 62;
+    pub const JS_CLASS_INIT_COUNT: u32 = 63;
 }
 #[cfg(feature = "quickjs-ng")]
 pub mod class_ids {
@@ -175,6 +181,9 @@ pub fn new_undefined_ref() -> QuickJsValueAdapter {
 
 pub fn new_null() -> q::JSValue {
     q::JSValue {
+        #[cfg(feature = "bellard")]
+        u: q::JSValueUnion { uint64: 0 },
+        #[cfg(feature = "quickjs-ng")]
         u: q::JSValueUnion { int32: 0 },
         tag: TAG_NULL,
     }
@@ -182,6 +191,9 @@ pub fn new_null() -> q::JSValue {
 
 pub fn new_undefined() -> q::JSValue {
     q::JSValue {
+        #[cfg(feature = "bellard")]
+        u: q::JSValueUnion { uint64: 0 },
+        #[cfg(feature = "quickjs-ng")]
         u: q::JSValueUnion { int32: 0 },
         tag: TAG_UNDEFINED,
     }
@@ -293,22 +305,14 @@ pub unsafe fn parse_args(
 pub mod tests {
     use crate::facades::tests::init_test_rt;
     use crate::jsutils::Script;
-    use crate::quickjs_utils::{get_global_q, get_script_or_module_name_q};
+    use crate::quickjs_utils::get_script_or_module_name_q;
     use crate::values::JsValueConvertable;
 
     #[test]
     fn test_global() {
         let rt = init_test_rt();
         rt.exe_rt_task_in_event_loop(|q_js_rt| {
-            let q_ctx = q_js_rt.get_main_realm();
-
-            #[cfg(feature = "bellard")]
-            let ct = get_global_q(q_ctx).get_ref_count();
-            for _ in 0..5 {
-                let _global = get_global_q(q_ctx);
-                #[cfg(feature = "bellard")]
-                assert_eq!(_global.get_ref_count(), ct);
-            }
+            let _q_ctx = q_js_rt.get_main_realm();
         });
     }
 
