@@ -13,7 +13,6 @@ use crate::reflection;
 use crate::values::JsValueFacade;
 use either::{Either, Left, Right};
 use hirofa_utils::eventloop::EventLoop;
-use lazy_static::lazy_static;
 use libquickjs_sys as q;
 use lru::LruCache;
 use std::cell::RefCell;

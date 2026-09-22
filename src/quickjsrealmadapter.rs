@@ -1219,7 +1219,7 @@ impl QuickJsRealmAdapter {
             Value::String(s) => self.create_string(s.as_str()),
             Value::Array(a) => {
                 let arr = self.create_array()?;
-                for (x, aval) in (0_u32..).zip(a.into_iter()) {
+                for (x, aval) in (0_u32..).zip(a) {
                     let entry = self.serde_value_to_value_adapter(aval)?;
                     self.set_array_element(&arr, x, &entry)?;
                 }
