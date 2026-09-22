@@ -46,14 +46,14 @@ pub fn from_f64(f: f64) -> QuickJsValueAdapter {
 
 pub fn to_i32(value_ref: &QuickJsValueAdapter) -> Result<i32, JsError> {
     if value_ref.is_i32() {
-        let _r = value_ref.borrow_value();
-        let _val: i32 = 0;
+        let r = value_ref.borrow_value();
+
         #[cfg(feature = "bellard")]
-        let val = unsafe { q::JS_ValueGetInt(*value_ref.borrow_value()) };
+        let val: i32 = unsafe { q::JS_ValueGetInt(*r) };
+
         #[cfg(feature = "quickjs-ng")]
-        {
-            val = unsafe { r.u.int32 };
-        }
+        let val: i32 = unsafe { r.u.int32 };
+
         Ok(val)
     } else {
         Err(JsError::new_str("val is not an int"))
