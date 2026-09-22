@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["initialize"],"macro":[["lazy_static",1]],"trait":["LazyStatic"]};

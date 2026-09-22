@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["TempForHead"],"fn":["parse_block","parse_for_head","parse_return_stmt","parse_stmt","parse_stmt_block_body","parse_stmt_like","parse_stmt_list_item","parse_using_decl","parse_var_stmt"]};

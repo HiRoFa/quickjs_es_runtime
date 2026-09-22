@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ErrorCode","Mode"],"fn":["operate"],"struct":["Options","TransformConfig","TransformOutput","TsError"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Runtime"],"fn":["default_import_source","default_pragma","default_pragma_frag","hook","jsx","parse_expr_for_jsx"],"struct":["JsxDirectives","Options"]};

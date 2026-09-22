@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["contains_eval","rename","rename_with_config","renamer","renamer_keep_contexts"],"trait":["RenamedVariable","Renamer"],"type":["RenameMap"]};

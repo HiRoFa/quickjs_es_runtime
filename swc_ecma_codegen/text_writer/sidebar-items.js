@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BindingStorage","ScopeKind"],"fn":["omit_trailing_semi"],"struct":["JsWriter","ScopeBindingRecord","ScopeRecord"],"trait":["WriteJs"],"type":["Symbol"]};

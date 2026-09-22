@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["class_properties"],"struct":["Config"]};

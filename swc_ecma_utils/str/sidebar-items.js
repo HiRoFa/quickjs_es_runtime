@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CR","EOF","FF","LF","LS","NBSP","PS","SP","TAB","VT","ZWJ","ZWNBSP","ZWNJ"],"fn":["is_irregular_line_terminator","is_irregular_whitespace","is_line_terminator","is_regular_line_terminator","is_white_space_single_line"]};

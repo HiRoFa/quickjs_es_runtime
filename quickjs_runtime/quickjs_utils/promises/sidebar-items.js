@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["add_promise_reactions","add_promise_reactions_q","is_promise","is_promise_q","new_promise","new_promise_q"],"struct":["QuickJsPromiseAdapter"]};

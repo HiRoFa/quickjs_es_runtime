@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["TerserEcmaVersion","TerserInlineOption","TerserPureGetterOption","TerserSequenceOptions","TerserTopLevelOptions","TerserTopRetainOption"],"struct":["TerserCompressorOptions","TerserExperimentalOptions"]};

@@ -1,0 +1,49 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Transforms TypeScript syntax into standard JavaScript."><title>swc_ecma_transforms_typescript - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1ed95124.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="swc_ecma_transforms_typescript" data-themes="" data-resource-suffix="" data-rustdoc-version="1.98.1 (48a229cea 2026-09-01)" data-channel="1.98.1" data-search-js="search-9944d736.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate swc_ecma_transforms_typescript</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../swc_ecma_transforms_typescript/index.html">swc_<wbr>ecma_<wbr>transforms_<wbr>typescript</a><span class="version">55.0.4</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1>Crate <span>swc_<wbr>ecma_<wbr>transforms_<wbr>typescript</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/swc_ecma_transforms_typescript/lib.rs.html#1-67">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Transforms TypeScript syntax into standard JavaScript.</p>
+<p>Use <a href="typescript/fn.strip.html" title="fn swc_ecma_transforms_typescript::typescript::strip"><code>strip</code></a> when the input was parsed as TypeScript.
+If the input was parsed with <code>swc_ecma_parser::Syntax::Flow</code>, call
+[<code>typescript</code>] with <a href="typescript/struct.Config.html" title="struct swc_ecma_transforms_typescript::typescript::Config"><code>Config</code></a> and set <a href="typescript/struct.Config.html#structfield.flow_syntax" title="field swc_ecma_transforms_typescript::typescript::Config::flow_syntax"><code>Config::flow_syntax</code></a> to <code>true</code> so
+Flow-specific cleanup runs after stripping type-only syntax.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>swc_common::{sync::Lrc, FileName, Globals, Mark, SourceMap, GLOBALS};
+<span class="kw">use </span>swc_ecma_ast::EsVersion;
+<span class="kw">use </span>swc_ecma_codegen::to_code_default;
+<span class="kw">use </span>swc_ecma_parser::{parse_file_as_program, FlowSyntax, Syntax};
+<span class="kw">use </span>swc_ecma_transforms_base::{fixer::fixer, resolver};
+<span class="kw">use </span>swc_ecma_transforms_typescript::typescript;
+
+<span class="kw">let </span>cm: Lrc&lt;SourceMap&gt; = Default::default();
+<span class="kw">let </span>fm = cm.new_source_file(
+    FileName::Custom(<span class="string">"input.js"</span>.into()).into(),
+    <span class="string">"const value: number = 1;"</span>,
+);
+<span class="kw">let </span><span class="kw-2">mut </span>recovered_errors = Vec::new();
+
+<span class="kw">let </span>program = parse_file_as_program(
+    <span class="kw-2">&amp;</span>fm,
+    Syntax::Flow(FlowSyntax::default()),
+    EsVersion::latest(),
+    <span class="prelude-val">None</span>,
+    <span class="kw-2">&amp;mut </span>recovered_errors,
+)
+.expect(<span class="string">"flow should parse"</span>);
+<span class="macro">assert!</span>(recovered_errors.is_empty());
+
+GLOBALS.set(<span class="kw-2">&amp;</span>Globals::default(), || {
+    <span class="kw">let </span>unresolved_mark = Mark::new();
+    <span class="kw">let </span>top_level_mark = Mark::new();
+
+    <span class="kw">let </span>program = program
+        .apply(resolver(unresolved_mark, top_level_mark, <span class="bool-val">false</span>))
+        .apply(typescript(
+            typescript::Config {
+                flow_syntax: <span class="bool-val">true</span>,
+                ..Default::default()
+            },
+            unresolved_mark,
+            top_level_mark,
+        ))
+        .apply(fixer(<span class="prelude-val">None</span>));
+
+    <span class="kw">let </span>output = to_code_default(cm, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>program);
+    <span class="macro">assert_eq!</span>(output, <span class="string">"const value = 1;\n"</span>);
+});</code></pre></div></div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt><code>pub use self::<a class="mod" href="typescript/index.html" title="mod swc_ecma_transforms_typescript::typescript">typescript</a>::*;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="typescript/index.html" title="mod swc_ecma_transforms_typescript::typescript">typescript</a></dt></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.type_to_none.html" title="macro swc_ecma_transforms_typescript::type_to_none">type_<wbr>to_<wbr>none</a></dt></dl></section></div></main></body></html>

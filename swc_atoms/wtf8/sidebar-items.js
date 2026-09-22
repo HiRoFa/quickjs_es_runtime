@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CodePoint","IllFormedUtf16CodeUnits","Wtf8","Wtf8Buf","Wtf8CodePoints"]};

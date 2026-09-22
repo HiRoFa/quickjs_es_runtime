@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":[["scoped_thread_local",1]],"struct":["ScopedKey"]};

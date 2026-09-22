@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["decorator_2023_11"]};

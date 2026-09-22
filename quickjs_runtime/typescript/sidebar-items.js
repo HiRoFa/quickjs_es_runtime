@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["TargetVersion"],"fn":["fix_stack_trace"],"struct":["TypeScriptTranspiler"]};

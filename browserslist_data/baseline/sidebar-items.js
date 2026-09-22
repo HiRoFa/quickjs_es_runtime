@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["browsers","is_core_browser","min_versions_on"]};
