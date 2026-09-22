@@ -225,6 +225,7 @@ impl QuickJsRuntimeFacade {
             });
         }
 
+        #[allow(clippy::drain_collect)]
         let init_hooks: Vec<_> = builder.runtime_init_hooks.drain(..).collect();
 
         ret.exe_task_in_event_loop(move || {
