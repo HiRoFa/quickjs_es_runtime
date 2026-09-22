@@ -489,11 +489,11 @@ pub unsafe fn new_native_function_data(
 static CNAME: &str = "CallbackClass\0";
 
 type Callback = dyn Fn(
-    *mut q::JSContext,
-    &QuickJsValueAdapter,
-    &[QuickJsValueAdapter],
-) -> Result<QuickJsValueAdapter, JsError>
-+ 'static;
+        *mut q::JSContext,
+        &QuickJsValueAdapter,
+        &[QuickJsValueAdapter],
+    ) -> Result<QuickJsValueAdapter, JsError>
+    + 'static;
 
 thread_local! {
     static INSTANCE_ID_MAPPINGS: RefCell<HashMap<usize, Box<(usize, String)>>> = RefCell::new(HashMap::new());
@@ -602,11 +602,11 @@ pub fn new_function_q<F>(
 ) -> Result<QuickJsValueAdapter, JsError>
 where
     F: Fn(
-        &QuickJsRealmAdapter,
-        &QuickJsValueAdapter,
-        &[QuickJsValueAdapter],
-    ) -> Result<QuickJsValueAdapter, JsError>
-    + 'static,
+            &QuickJsRealmAdapter,
+            &QuickJsValueAdapter,
+            &[QuickJsValueAdapter],
+        ) -> Result<QuickJsValueAdapter, JsError>
+        + 'static,
 {
     let func_raw =
         move |ctx: *mut q::JSContext, this: &QuickJsValueAdapter, args: &[QuickJsValueAdapter]| {
@@ -631,11 +631,11 @@ pub unsafe fn new_function<F>(
 ) -> Result<QuickJsValueAdapter, JsError>
 where
     F: Fn(
-        *mut q::JSContext,
-        &QuickJsValueAdapter,
-        &[QuickJsValueAdapter],
-    ) -> Result<QuickJsValueAdapter, JsError>
-    + 'static,
+            *mut q::JSContext,
+            &QuickJsValueAdapter,
+            &[QuickJsValueAdapter],
+        ) -> Result<QuickJsValueAdapter, JsError>
+        + 'static,
 {
     // put func in map, retrieve on call.. delete on destroy
     // create a new class_def for callbacks, with a finalize
@@ -725,7 +725,7 @@ pub mod tests {
                 "func",
                 &[primitives::from_i32(12), primitives::from_i32(14)],
             )
-                .expect("func failed");
+            .expect("func failed");
 
             q_js_rt.gc();
             log::info!("invoke_res = {}", res.get_tag());
@@ -1058,8 +1058,8 @@ pub mod tests2 {
                 |_q_ctx, _this_arg, _args| Ok(new_null_ref()),
                 0,
             )
-                .ok()
-                .unwrap();
+            .ok()
+            .unwrap();
             let ct1 = CALLBACK_REGISTRY.with(|rc| rc.borrow().len());
             let ct2 = CALLBACK_IDS.with(|rc| rc.borrow().len());
             assert_eq!(1, ct1);
