@@ -210,7 +210,7 @@ impl QuickJsRuntimeFacade {
             std::thread::spawn(move || loop {
                 std::thread::sleep(interval);
                 if let Some(el) = rti_ref.upgrade() {
-                    log::debug!("running gc from gc interval thread");
+                    log::trace!("running gc from gc interval thread");
                     el.event_loop.add_void(|| {
                         QJS_RT
                             .try_with(|rc| {
