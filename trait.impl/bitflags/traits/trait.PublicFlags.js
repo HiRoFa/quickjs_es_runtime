@@ -1,0 +1,9 @@
+(function() {
+    const implementors = Object.fromEntries([["swc_ecma_ast",[["impl PublicFlags for <a class=\"struct\" href=\"swc_ecma_ast/struct.ListFormat.html\" title=\"struct swc_ecma_ast::ListFormat\">ListFormat</a>",0]]],["swc_ecma_lexer",[["impl PublicFlags for <a class=\"struct\" href=\"swc_ecma_lexer/common/context/struct.Context.html\" title=\"struct swc_ecma_lexer::common::context::Context\">Context</a>",0],["impl PublicFlags for <a class=\"struct\" href=\"swc_ecma_lexer/lexer/struct.TokenFlags.html\" title=\"struct swc_ecma_lexer::lexer::TokenFlags\">TokenFlags</a>",0]]],["swc_ecma_parser",[["impl PublicFlags for <a class=\"struct\" href=\"swc_ecma_parser/struct.Context.html\" title=\"struct swc_ecma_parser::Context\">Context</a>",0],["impl PublicFlags for <a class=\"struct\" href=\"swc_ecma_parser/struct.SyntaxFlags.html\" title=\"struct swc_ecma_parser::SyntaxFlags\">SyntaxFlags</a>",0]]],["swc_ecma_regexp_ast",[["impl PublicFlags for <a class=\"struct\" href=\"swc_ecma_regexp_ast/struct.Modifier.html\" title=\"struct swc_ecma_regexp_ast::Modifier\">Modifier</a>",0]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":59,"fragment_lengths":[167,363,326,183]}

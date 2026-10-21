@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Range"],"trait":["Ranged"]};

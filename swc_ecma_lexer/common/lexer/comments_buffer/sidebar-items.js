@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BufferedCommentKind"],"struct":["BufferedComment"],"trait":["CommentsBufferTrait"]};

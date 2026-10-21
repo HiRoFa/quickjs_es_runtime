@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DecoratorVersion"],"fn":["export_default_from","import_attributes"],"mod":["decorator_2022_03","decorator_2023_11","decorators","explicit_resource_management"]};

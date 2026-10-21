@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["rewrite_super_in_moved_static_member"],"struct":["SuperFieldAccessFolder"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Either"],"mod":["util"],"struct":["All","AstKindPath","AstKindPathGuard","AstKindPathIndexGuard","AstNodePath","AstNodePathGuard","AstNodePathIndexGuard","Optional","Repeat"],"trait":["NodeRef","ParentKind","Repeated"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"externcrate":["hashbrown"],"mod":["arena","global","scoped"]};

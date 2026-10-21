@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["noop_hook"],"struct":["CompositeHook","CompositeVisitHook","NoopHook","VisitMutWithHook","VisitWithHook"],"trait":["VisitHook","VisitMutHook"]};

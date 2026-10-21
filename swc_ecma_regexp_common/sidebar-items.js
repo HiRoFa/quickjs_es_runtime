@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["combine_surrogate_pair","is_lead_surrogate","is_trail_surrogate"]};

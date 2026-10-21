@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["NodeRef"],"struct":["All"],"trait":["Fold","FoldWith","Visit","VisitMut","VisitMutWith","VisitWith"]};

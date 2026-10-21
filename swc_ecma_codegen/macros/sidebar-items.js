@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["punct_requires_semi_commit"]};

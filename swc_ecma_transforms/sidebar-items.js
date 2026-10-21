@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["const_modules","fixer","hygiene","resolver"],"mod":["fixer","helpers","hygiene","perf"],"struct":["Assumptions"]};

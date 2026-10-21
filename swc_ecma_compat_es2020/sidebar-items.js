@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["es2020","export_namespace_from"],"mod":["nullish_coalescing","optional_chaining"],"struct":["Config"]};

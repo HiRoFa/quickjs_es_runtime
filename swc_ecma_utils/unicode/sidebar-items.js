@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["code_point_to_pair","is_high_surrogate","is_low_surrogate","pair_to_code_point"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["es2018"],"mod":["object_rest_spread"],"struct":["Config"]};
